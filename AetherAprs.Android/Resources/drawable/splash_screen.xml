@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <item>
+    <color android:color="@color/splash_background"/>
+  </item>
+
+  <item android:drawable="@drawable/icon_400px"
+    android:width="120dp"
+    android:height="120dp"
+    android:gravity="center" />
+
+</layer-list>

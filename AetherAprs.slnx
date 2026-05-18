@@ -1,0 +1,13 @@
+﻿<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<Solution>
+  <Project Path="AetherAprs.Android/AetherAprs.Android.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="AetherAprs.Desktop/AetherAprs.Desktop.csproj" />
+  <Project Path="AetherAprs/AetherAprs.csproj" />
+</Solution>
+
