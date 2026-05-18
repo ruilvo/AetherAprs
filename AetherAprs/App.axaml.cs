@@ -33,22 +33,17 @@ public partial class App : Application
 
         // Window Shell Registrations
         services.AddTransient<MainWindow>();
-        services.AddTransient<MainView>();
+        // services.AddTransient<MainView>(); // This view is created manually
 
-        // FUTURE FEATUES: Register your page/popup Views and ViewModels here
+        // FUTURE FEATURES: Register your page/popup Views and ViewModels here
         // e.g., services.AddTransient<DashboardViewModel>();
     }
 
-    private void SetupMobileBackHooks()
+    private void SetupMobileBackHooks(TopLevel? topLevel)
     {
-        var nav = CurrentServices.GetRequiredService<INavigationService>();
+        if (topLevel == null) return;
 
-        // Use the current application lifetime to resolve the active TopLevel control context
-        TopLevel? topLevel = null;
-        if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
-        {
-            topLevel = TopLevel.GetTopLevel(singleView.MainView);
-        }
+        var nav = CurrentServices.GetRequiredService<INavigationService>();
 
         topLevel?.BackRequested += (s, e) =>
             {
@@ -79,13 +74,15 @@ public partial class App : Application
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            singleViewFactoryApplicationLifetime.MainViewFactory = () => CurrentServices.GetRequiredService<MainView>();
-            SetupMobileBackHooks();
+            var view = CurrentServices.GetRequiredService<MainView>();
+            singleViewFactoryApplicationLifetime.MainViewFactory = () => view;
+            SetupMobileBackHooks(TopLevel.GetTopLevel(view));
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = CurrentServices.GetRequiredService<MainView>();
-            SetupMobileBackHooks();
+            var view = CurrentServices.GetRequiredService<MainView>();
+            singleViewPlatform.MainView = view;
+            SetupMobileBackHooks(TopLevel.GetTopLevel(view));
         }
 
         base.OnFrameworkInitializationCompleted();
