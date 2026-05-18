@@ -11,7 +11,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         xmlns:views="using:AetherAprs.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="AetherAprs.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
         Icon="/Assets/logo.ico"
         Title="AetherAprs">
-        <views:MainView />
+        <ContentControl Content="{Binding}" />
 </Window>

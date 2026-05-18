@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using AetherAprs.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs;
 
@@ -27,7 +28,8 @@ public class ViewLocator : IDataTemplate
 
         if (type != null)
         {
-            return (Control)Activator.CreateInstance(type)!;
+            // Resolve the View layout out of the central DI Container
+            return (Control)App.CurrentServices.GetRequiredService(type);
         }
 
         return new TextBlock { Text = "Not Found: " + name };
@@ -35,6 +37,7 @@ public class ViewLocator : IDataTemplate
 
     public bool Match(object? data)
     {
+        // return data is ObservableObject;
         return data is ViewModelBase;
     }
 }
