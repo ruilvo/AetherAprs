@@ -74,13 +74,13 @@ public partial class App : Application
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            var view = new MainView();
+            var view = new MainView { DataContext = CurrentServices.GetRequiredService<MainViewModel>() };
             singleViewFactoryApplicationLifetime.MainViewFactory = () => view;
             SetupMobileBackHooks(TopLevel.GetTopLevel(view));
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            var view = new MainView();
+            var view = new MainView { DataContext = CurrentServices.GetRequiredService<MainViewModel>() };
             singleViewPlatform.MainView = view;
             SetupMobileBackHooks(TopLevel.GetTopLevel(view));
         }

@@ -28,8 +28,15 @@ public class ViewLocator : IDataTemplate
 
         if (type != null)
         {
-            // Resolve the View layout out of the central DI Container
-            return (Control)App.CurrentServices.GetRequiredService(type);
+            // 1. Try to get it from the DI container first (for views with dependency constructors)
+            var service = App.CurrentServices.GetService(type);
+            if (service != null)
+            {
+                return (Control)service;
+            }
+
+            // 2. Fallback to direct instantiation if it's not registered in DI (like MainView)
+            return (Control)Activator.CreateInstance(type)!;
         }
 
         return new TextBlock { Text = "Not Found: " + name };
