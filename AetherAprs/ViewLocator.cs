@@ -18,6 +18,8 @@ namespace AetherAprs;
     Url = "https://docs.avaloniaui.net/docs/concepts/view-locator")]
 public class ViewLocator : IDataTemplate
 {
+    public IServiceProvider? Services { get; set; }
+
     public Control? Build(object? param)
     {
         if (param is null)
@@ -28,15 +30,16 @@ public class ViewLocator : IDataTemplate
 
         if (type != null)
         {
-            // 1. Try to get it from the DI container first (for views with dependency constructors)
-            var service = App.CurrentServices.GetService(type);
+            var service = Services?.GetService(type);
             if (service != null)
             {
                 return (Control)service;
             }
 
-            // 2. Fallback to direct instantiation if it's not registered in DI (like MainView)
-            return (Control)Activator.CreateInstance(type)!;
+            if (type.GetConstructor(Type.EmptyTypes) != null)
+            {
+                return (Control)Activator.CreateInstance(type)!;
+            }
         }
 
         return new TextBlock { Text = "Not Found: " + name };
@@ -44,7 +47,6 @@ public class ViewLocator : IDataTemplate
 
     public bool Match(object? data)
     {
-        // return data is ObservableObject;
         return data is ViewModelBase;
     }
 }

@@ -18,7 +18,7 @@ namespace AetherAprs;
 
 public partial class App : Application
 {
-    public static IServiceProvider CurrentServices { get; private set; } = null!;
+    private IServiceProvider _services = null!;
 
     public override void Initialize()
     {
@@ -28,6 +28,7 @@ public partial class App : Application
     private static void ConfigureServices(IServiceCollection services)
     {
         // Infrastructure Singletons
+        services.AddSingleton<INavigationFactory, NavigationFactory>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<MainViewModel>();
 
@@ -40,11 +41,19 @@ public partial class App : Application
         services.AddTransient<HomeViewModel>();
     }
 
+    private void ConfigureViewLocators()
+    {
+        foreach (var viewLocator in DataTemplates.OfType<ViewLocator>())
+        {
+            viewLocator.Services = _services;
+        }
+    }
+
     private void SetupMobileBackHooks(TopLevel? topLevel)
     {
         if (topLevel == null) return;
 
-        var nav = CurrentServices.GetRequiredService<INavigationService>();
+        var nav = _services.GetRequiredService<INavigationService>();
 
         topLevel.BackRequested += (s, e) =>
         {
@@ -67,21 +76,22 @@ public partial class App : Application
         // Initialise DI
         var services = new ServiceCollection();
         ConfigureServices(services);
-        CurrentServices = services.BuildServiceProvider();
+        _services = services.BuildServiceProvider();
+        ConfigureViewLocators();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = CurrentServices.GetRequiredService<MainWindow>();
+            desktop.MainWindow = _services.GetRequiredService<MainWindow>();
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            var view = new MainView { DataContext = CurrentServices.GetRequiredService<MainViewModel>() };
+            var view = new MainView { DataContext = _services.GetRequiredService<MainViewModel>() };
             singleViewFactoryApplicationLifetime.MainViewFactory = () => view;
             SetupMobileBackHooks(TopLevel.GetTopLevel(view));
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            var view = new MainView { DataContext = CurrentServices.GetRequiredService<MainViewModel>() };
+            var view = new MainView { DataContext = _services.GetRequiredService<MainViewModel>() };
             singleViewPlatform.MainView = view;
             SetupMobileBackHooks(TopLevel.GetTopLevel(view));
         }

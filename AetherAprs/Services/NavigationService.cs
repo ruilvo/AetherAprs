@@ -2,14 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs.Services;
 
-public partial class NavigationService(IServiceProvider services) : ObservableObject, INavigationService
+public partial class NavigationService(INavigationFactory factory) : ObservableObject, INavigationService
 {
     private readonly Stack<ObservableObject> _history = new();
 
@@ -31,7 +29,7 @@ public partial class NavigationService(IServiceProvider services) : ObservableOb
             OnPropertyChanged(nameof(CanGoBack));
         }
 
-        CurrentView = services.GetRequiredService<T>();
+        CurrentView = factory.Create<T>();
     }
 
     public void GoBack()
@@ -45,7 +43,7 @@ public partial class NavigationService(IServiceProvider services) : ObservableOb
 
     public void ShowPopup<T>() where T : ObservableObject
     {
-        CurrentPopup = services.GetRequiredService<T>();
+        CurrentPopup = factory.Create<T>();
     }
 
     public void ClosePopup()
