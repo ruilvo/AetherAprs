@@ -8,8 +8,14 @@ namespace AetherAprs.Services;
 
 public interface INavigationService
 {
+    // Screen Navigation Boundaries
     ObservableObject? CurrentView { get; }
     bool CanGoBack { get; }
     void NavigateTo<T>() where T : ObservableObject;
     void GoBack();
+
+    // Global Modal Overlay Boundaries
+    ObservableObject? CurrentPopup { get; }
+    void ShowPopup<T>() where T : ObservableObject;
+    void ClosePopup();
 }

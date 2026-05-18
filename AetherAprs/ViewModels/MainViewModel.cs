@@ -6,7 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AetherAprs.ViewModels;
 
-public partial class MainViewModel : ViewModelWithPopupBase
+public partial class MainViewModel : ViewModelBase
 {
     public INavigationService NavService { get; }
     
@@ -14,8 +14,7 @@ public partial class MainViewModel : ViewModelWithPopupBase
     {
         NavService = navService;
 
-        // FUTURE STARTUP ROUTE: 
-        // NavService.NavigateTo<YourInitialViewModel>();
+        NavService.NavigateTo<HomeViewModel>();
     }
 }
 

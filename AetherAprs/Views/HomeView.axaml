@@ -1,0 +1,37 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="AetherAprs.Views.HomeView"
+             x:DataType="vm:HomeViewModel">
+  
+  <StackPanel VerticalAlignment="Center" 
+              HorizontalAlignment="Center" 
+              Spacing="20" 
+              Width="300">
+    
+    <!-- Screen Title -->
+    <TextBlock Text="{Binding Title}" 
+               FontSize="22" 
+               FontWeight="Bold" 
+               HorizontalAlignment="Center"/>
+    
+    <!-- User Input Field (TwoWay binding sends text back to ViewModel) -->
+    <TextBox Text="{Binding InputText, Mode=TwoWay}" 
+             PlaceholderText="Type something here..." />
+    
+    <!-- Real-time Echo Display (OneWay binding updates instantly) -->
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6">
+      <TextBlock Text="You typed:" Foreground="Gray"/>
+      <TextBlock Text="{Binding InputText}" FontWeight="SemiBold"/>
+    </StackPanel>
+    
+  </StackPanel>
+</UserControl>

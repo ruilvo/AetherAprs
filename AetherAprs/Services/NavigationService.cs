@@ -13,8 +13,13 @@ public partial class NavigationService(IServiceProvider services) : ObservableOb
 {
     private readonly Stack<ObservableObject> _history = new();
 
+    // Main Page Screen Content
     [ObservableProperty]
     public partial ObservableObject? CurrentView { get; set; }
+
+    // Active Global Modal Layer
+    [ObservableProperty]
+    public partial ObservableObject? CurrentPopup { get; set; }
 
     public bool CanGoBack => _history.Count > 0;
 
@@ -36,5 +41,15 @@ public partial class NavigationService(IServiceProvider services) : ObservableOb
             CurrentView = previous;
             OnPropertyChanged(nameof(CanGoBack));
         }
+    }
+
+    public void ShowPopup<T>() where T : ObservableObject
+    {
+        CurrentPopup = services.GetRequiredService<T>();
+    }
+
+    public void ClosePopup()
+    {
+        CurrentPopup = null;
     }
 }

@@ -37,6 +37,7 @@ public partial class App : Application
 
         // FUTURE FEATURES: Register your page/popup Views and ViewModels here
         // e.g., services.AddTransient<DashboardViewModel>();
+        services.AddTransient<HomeViewModel>();
     }
 
     private void SetupMobileBackHooks(TopLevel? topLevel)
@@ -45,20 +46,20 @@ public partial class App : Application
 
         var nav = CurrentServices.GetRequiredService<INavigationService>();
 
-        topLevel?.BackRequested += (s, e) =>
+        topLevel.BackRequested += (s, e) =>
+        {
+            // Intercept hardware back button press if a global modal layer is visible
+            if (nav.CurrentPopup != null)
             {
-                // Intercept hardware back clicks if an overlay popup is currently visible
-                if (nav.CurrentView is ViewModelWithPopupBase { ActivePopup: not null } overlay)
-                {
-                    overlay.ClosePopup();
-                    e.Handled = true;
-                }
-                else if (nav.CanGoBack)
-                {
-                    nav.GoBack();
-                    e.Handled = true;
-                }
-            };
+                nav.ClosePopup();
+                e.Handled = true;
+            }
+            else if (nav.CanGoBack)
+            {
+                nav.GoBack();
+                e.Handled = true;
+            }
+        };
     }
 
     public override void OnFrameworkInitializationCompleted()
