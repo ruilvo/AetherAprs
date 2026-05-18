@@ -12,7 +12,6 @@ using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Linq;
 
 namespace AetherAprs;
 
@@ -39,14 +38,6 @@ public partial class App : Application
         // FUTURE FEATURES: Register your page/popup Views and ViewModels here
         // e.g., services.AddTransient<DashboardViewModel>();
         services.AddTransient<HomeViewModel>();
-    }
-
-    private void ConfigureViewLocators()
-    {
-        foreach (var viewLocator in DataTemplates.OfType<ViewLocator>())
-        {
-            viewLocator.Services = _services;
-        }
     }
 
     private void SetupMobileBackHooks(TopLevel? topLevel)
@@ -77,7 +68,6 @@ public partial class App : Application
         var services = new ServiceCollection();
         ConfigureServices(services);
         _services = services.BuildServiceProvider();
-        ConfigureViewLocators();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
