@@ -7,20 +7,31 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <!-- https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Avalonia12Version>12.0.3</Avalonia12Version>
+    <!-- Maps UI suggests 3.119.4-preview.1.1, let's see if this works -->
+    <Avalonia12SkiaSharpVersion>4.147.0-preview.2.1</Avalonia12SkiaSharpVersion>
+    <!-- Maps UI suggests 8.3.1.3, let's see if this works -->
+    <Avalonia12HarfBuzzSharpVersion>8.3.1.6-preview.2.1</Avalonia12HarfBuzzSharpVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- Avalonia packages -->
     <!-- Important: keep version in sync! -->
-    <PackageVersion Include="Avalonia" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.0.3" />
+    <PackageVersion Include="Avalonia" Version="$(Avalonia12Version)" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="$(Avalonia12Version)" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="$(Avalonia12Version)" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.1" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.iOS" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.Browser" Version="12.0.3" />
-    <PackageVersion Include="Avalonia.Android" Version="12.0.3" />
+    <PackageVersion Include="Avalonia.Desktop" Version="$(Avalonia12Version)" />
+    <PackageVersion Include="Avalonia.iOS" Version="$(Avalonia12Version)" />
+    <PackageVersion Include="Avalonia.Browser" Version="$(Avalonia12Version)" />
+    <PackageVersion Include="Avalonia.Android" Version="$(Avalonia12Version)" />
+    <PackageVersion Include="Avalonia.Skia" Version="$(Avalonia12Version)" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.2.0.2" />
+    <PackageVersion Include="SkiaSharp" Version="$(Avalonia12SkiaSharpVersion)" />
+    <PackageVersion Include="HarfBuzzSharp" Version="$(Avalonia12HarfBuzzSharpVersion)" />
   </ItemGroup>
 </Project>
