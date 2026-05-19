@@ -4,6 +4,7 @@
 using AetherAprs.Services;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Logging;
+using AetherAprs.Services.Navigation;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
 using Avalonia;

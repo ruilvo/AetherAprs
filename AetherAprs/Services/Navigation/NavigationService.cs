@@ -5,7 +5,7 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace AetherAprs.Services;
+namespace AetherAprs.Services.Navigation;
 
 public partial class NavigationService(INavigationFactory factory) : ObservableObject, INavigationService
 {

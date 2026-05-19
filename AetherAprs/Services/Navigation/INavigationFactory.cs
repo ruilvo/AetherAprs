@@ -4,7 +4,7 @@
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace AetherAprs.Services;
+namespace AetherAprs.Services.Navigation;
 
 public interface INavigationFactory
 {

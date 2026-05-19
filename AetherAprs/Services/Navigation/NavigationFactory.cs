@@ -6,7 +6,7 @@ using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AetherAprs.Services;
+namespace AetherAprs.Services.Navigation;
 
 public sealed class NavigationFactory(IServiceProvider services) : INavigationFactory
 {
