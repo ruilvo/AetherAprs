@@ -8,7 +8,13 @@ namespace AetherAprs.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     public INavigationService NavService { get; }
-    
+
+    // Required for the Avalonia Designer
+    public MainViewModel()
+    {
+        NavService = null!;
+    }
+
     public MainViewModel(INavigationService navService)
     {
         NavService = navService;
