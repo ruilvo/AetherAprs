@@ -1,8 +1,13 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Services.Configuration;
 using System;
 using System.Diagnostics;
 using System.IO;
 
-namespace AetherAprs.Services;
+namespace AetherAprs.Services.Logging;
 
 public class LoggingService : ILoggingService
 {
