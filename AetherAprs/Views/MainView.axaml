@@ -8,23 +8,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel">
-  <Design.DataContext>
-    <!-- This only sets the DataContext for the previewer in an IDE,
-         to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-    <vm:MainViewModel />
-  </Design.DataContext>
+    <Design.DataContext>
+        <!-- This only sets the DataContext for the previewer in an IDE,
+        to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
+        <vm:MainViewModel />
+    </Design.DataContext>
 
-<Grid>
-        <!-- 1. Screen Page Content Layout -->
-        <ContentControl Content="{Binding NavService.CurrentView}" />
+    <controls:NavigationDrawer LeftDrawerOpened="{Binding ElementName=NavDrawerSwitch, Path=IsChecked, Mode=TwoWay}">
+        <controls:NavigationDrawer.LeftDrawerContent>
+            <TextBlock Text="Nav. here."/>
+        </controls:NavigationDrawer.LeftDrawerContent>
+        <Grid RowDefinitions="Auto, *">
+            <StackPanel Grid.Row="0" Spacing="4" Orientation="Horizontal">
+                <ToggleButton Name="NavDrawerSwitch"
+                              WindowDecorationProperties.ElementRole="DecorationsElement"
+                              Theme="{StaticResource MaterialFlatButton}"
+                              Width="32" Height="32" Padding="4">
+                    <icons:MaterialIcon Kind="Menu" Width="24" Height="24" />
+                </ToggleButton>
+                <TextBlock VerticalAlignment="Center" Text="Aether APRS"/>
+            </StackPanel>
 
-        <!-- 2. Screen Loading Bar Indicator Layer -->
-        <ProgressBar IsIndeterminate="True" Height="4"
-                     VerticalAlignment="Top"
-                     IsVisible="{Binding IsBusy}" />
-    </Grid>
+            <!-- Screen Page Content Layout -->
+            <ContentControl Grid.Row="1" Content="{Binding NavService.CurrentView}" />
+        </Grid>
+    </controls:NavigationDrawer>
+
+
 </UserControl>
 
