@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using Avalonia.Controls;
+using Mapsui.Tiling;
 
 namespace AetherAprs.Views;
 
@@ -11,5 +12,7 @@ public partial class HomeView : UserControl
     public HomeView()
     {
         InitializeComponent();
+
+        MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer());
     }
 }

@@ -8,30 +8,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AetherAprs.Views.HomeView"
              x:DataType="vm:HomeViewModel">
-  
-  <StackPanel VerticalAlignment="Center" 
-              HorizontalAlignment="Center" 
-              Spacing="20" 
-              Width="300">
-    
-    <!-- Screen Title -->
-    <TextBlock Text="{Binding Title}" 
-               FontSize="22" 
-               FontWeight="Bold" 
-               HorizontalAlignment="Center"/>
-    
-    <!-- User Input Field (TwoWay binding sends text back to ViewModel) -->
-    <TextBox Text="{Binding InputText, Mode=TwoWay}" 
-             PlaceholderText="Type something here..." />
-    
-    <!-- Real-time Echo Display (OneWay binding updates instantly) -->
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6">
-      <TextBlock Text="You typed:" Foreground="Gray"/>
-      <TextBlock Text="{Binding InputText}" FontWeight="SemiBold"/>
-    </StackPanel>
-    
-  </StackPanel>
+
+    <Grid>
+        <mapsui:MapControl x:Name="MapControl"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" />
+    </Grid>
 </UserControl>

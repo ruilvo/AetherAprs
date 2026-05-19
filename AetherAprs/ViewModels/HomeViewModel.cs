@@ -8,13 +8,8 @@ namespace AetherAprs.ViewModels;
 
 public partial class HomeViewModel : ViewModelBase
 {
-    // This generates the public property 'InputText'
-    [ObservableProperty]
-    public partial string? InputText { get; set; }
-
     public HomeViewModel()
     {
-        Title = "Home Station";
-        InputText = "Hello APRS!"; // Default initial text
+        Title = "Aether APRS";
     }
 }

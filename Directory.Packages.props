@@ -26,5 +26,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.8" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.2.0.2" />
+    <PackageVersion Include="Mapsui.Avalonia12" Version="5.1.0-beta.7" />
   </ItemGroup>
 </Project>
