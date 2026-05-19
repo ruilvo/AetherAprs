@@ -22,13 +22,11 @@ public partial class HomeViewModel : ViewModelBase
 
     public HomeViewModel()
     {
-        Title = "Aether APRS";
         StartAprsIsConnectionCommand = new RelayCommand(StartAprsIsConnection, CanStartAprsIsConnection);
     }
 
     private void StartAprsIsConnection()
     {
-        Title = $"Connecting APRS-IS as {Callsign}";
     }
 
     private bool CanStartAprsIsConnection()
