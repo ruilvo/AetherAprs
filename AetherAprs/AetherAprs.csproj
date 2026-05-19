@@ -26,7 +26,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Mapsui.Avalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="SkiaSharp" />
-    <PackageReference Include="HarfBuzzSharp" />
   </ItemGroup>
 </Project>
