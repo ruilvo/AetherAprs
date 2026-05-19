@@ -54,13 +54,7 @@ public partial class App : Application
 
         topLevel.BackRequested += (s, e) =>
         {
-            // Intercept hardware back button press if a global modal layer is visible
-            if (nav.CurrentPopup != null)
-            {
-                nav.ClosePopup();
-                e.Handled = true;
-            }
-            else if (nav.CanGoBack)
+            if (nav.CanGoBack)
             {
                 nav.GoBack();
                 e.Handled = true;

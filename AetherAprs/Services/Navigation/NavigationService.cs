@@ -15,10 +15,6 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
     [ObservableProperty]
     public partial ObservableObject? CurrentView { get; set; }
 
-    // Active Global Modal Layer
-    [ObservableProperty]
-    public partial ObservableObject? CurrentPopup { get; set; }
-
     public bool CanGoBack => _history.Count > 0;
 
     public void NavigateTo<T>() where T : ObservableObject
@@ -39,15 +35,5 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
             CurrentView = previous;
             OnPropertyChanged(nameof(CanGoBack));
         }
-    }
-
-    public void ShowPopup<T>() where T : ObservableObject
-    {
-        CurrentPopup = factory.Create<T>();
-    }
-
-    public void ClosePopup()
-    {
-        CurrentPopup = null;
     }
 }

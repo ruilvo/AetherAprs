@@ -21,19 +21,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- 1. Screen Page Content Layout -->
         <ContentControl Content="{Binding NavService.CurrentView}" />
 
-        <!-- 2. Screen Global Generic Popup Overlay Layer -->
-        <!-- Now data-bound cleanly straight to the shared NavService state context! -->
-        <Border Background="#A0000000"
-                IsVisible="{Binding NavService.CurrentPopup, Converter={x:Static ObjectConverters.IsNotNull}}">
-            <Border Background="#2D2D2D" BorderBrush="#3D3D3D" BorderThickness="1" 
-                    CornerRadius="8" Padding="24"
-                    VerticalAlignment="Center" HorizontalAlignment="Center">
-                
-                <ContentControl Content="{Binding NavService.CurrentPopup}" />
-            </Border>
-        </Border>
-
-        <!-- 3. Screen Loading Bar Indicator Layer -->
+        <!-- 2. Screen Loading Bar Indicator Layer -->
         <ProgressBar IsIndeterminate="True" Height="4"
                      VerticalAlignment="Top"
                      IsVisible="{Binding IsBusy}" />
