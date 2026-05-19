@@ -25,24 +25,26 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        // Infrastructure Singletons
+        // Services
         services.AddSingleton<ILoggingService, LoggingService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<INavigationFactory, NavigationFactory>();
         services.AddSingleton<INavigationService, NavigationService>();
-        services.AddSingleton<MainViewModel>();
 
-        // Window Shell Registrations
+        // Main view
         services.AddTransient<MainWindow>();
-        // services.AddTransient<MainView>(); // This view is created manually
 
-        // FUTURE FEATURES: Register your page/popup Views and ViewModels here
-        // e.g., services.AddTransient<DashboardViewModel>();
+        // Main view model
+        services.AddSingleton<MainViewModel>(); 
+
+        // Page view models
         services.AddTransient<HomeViewModel>();
     }
 
     private static MainView CreateMainView(IServiceProvider services)
     {
+        // With single view frameworks we have to go around the DI and 
+        // instance the view first and give it the ViewModel manually.
         return new MainView
         {
             DataContext = services.GetRequiredService<MainViewModel>()
