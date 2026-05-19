@@ -23,6 +23,7 @@ public partial class App : Application
     private static void ConfigureServices(IServiceCollection services)
     {
         // Infrastructure Singletons
+        services.AddSingleton<ILoggingService, LoggingService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<INavigationFactory, NavigationFactory>();
         services.AddSingleton<INavigationService, NavigationService>();
