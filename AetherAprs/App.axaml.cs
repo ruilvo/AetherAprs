@@ -37,23 +37,21 @@ public partial class App : Application
 
         // Page view models - transient so each navigation creates a fresh instance
         services.AddTransient<HomeViewModel>();
-
-        // Views - transient, created on demand
-        services.AddTransient<MainWindow>();
     }
 
-    private static MainView CreateMainView(IServiceProvider services)
+    private MainView CreateMainView()
     {
         // Single-view platforms require manual view creation with ViewModel assignment.
         return new MainView
         {
-            DataContext = services.GetRequiredService<MainViewModel>()
+            DataContext = _serviceProvider!.GetRequiredService<MainViewModel>()
         };
     }
 
-    private static void SetupMobileBackHooks(TopLevel? topLevel, INavigationService nav)
+    private void SetupMobileBackHooks(TopLevel? topLevel)
     {
         if (topLevel is null) return;
+        var nav = _serviceProvider!.GetRequiredService<INavigationService>();
 
         topLevel.BackRequested += (s, e) =>
         {
@@ -65,15 +63,13 @@ public partial class App : Application
         };
     }
 
-    private static void InitializeViewBasedPlatform(
-        IServiceProvider provider,
+    private void InitializeViewBasedPlatform(
         Action<MainView> assignMainView)
     {
-        var view = CreateMainView(provider);
-        var nav = provider.GetRequiredService<INavigationService>();
+        var view = CreateMainView();
 
         assignMainView(view);
-        SetupMobileBackHooks(TopLevel.GetTopLevel(view), nav);
+        SetupMobileBackHooks(TopLevel.GetTopLevel(view));
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -84,19 +80,17 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+            desktop.MainWindow = new MainWindow { DataContext = _serviceProvider.GetRequiredService<MainViewModel>() };
             desktop.ShutdownRequested += OnShutdownRequested;
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime activityLifetime)
         {
             InitializeViewBasedPlatform(
-                _serviceProvider,
                 view => activityLifetime.MainViewFactory = () => view);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
             InitializeViewBasedPlatform(
-                _serviceProvider,
                 view => singleViewPlatform.MainView = view);
         }
 
@@ -106,6 +100,5 @@ public partial class App : Application
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         _serviceProvider?.Dispose();
-        _serviceProvider = null;
     }
 }
