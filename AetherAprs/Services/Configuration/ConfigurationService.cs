@@ -10,6 +10,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace AetherAprs.Services.Configuration;
 
+// TODO: This doesn't work for Android/iOS because for those we need the AppData folder,
+// but for now we can just use the appsettings.json file in the app directory and
+// not worry about saving settings on mobile platforms.
 public class ConfigurationService : IConfigurationService
 {
     private readonly IConfiguration _configuration;
