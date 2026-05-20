@@ -6,11 +6,19 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AetherAprs.ViewModels;
 
+/// <summary>
+/// Root view model that owns the navigation service and acts as the shell for the application.
+/// </summary>
 public partial class MainViewModel : ViewModelBase
 {
+    /// <summary>
+    /// Gets the navigation service used to switch between pages.
+    /// </summary>
     public INavigationService NavService { get; }
 
-    // Required for the Avalonia Designer
+    /// <summary>
+    /// Parameterless constructor required for the Avalonia Designer.
+    /// </summary>
     public MainViewModel(): this(null!) { }
 
     public MainViewModel(INavigationService navService)

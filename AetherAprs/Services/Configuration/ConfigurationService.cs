@@ -10,47 +10,125 @@ using Microsoft.Extensions.Configuration;
 
 namespace AetherAprs.Services.Configuration;
 
-// TODO: This doesn't work for Android/iOS because for those we need the AppData folder,
-// but for now we can just use the appsettings.json file in the app directory and
-// not worry about saving settings on mobile platforms.
+/// <summary>
+/// Loads and persists application settings from JSON configuration files.
+/// On mobile platforms, settings are stored in the app's local data folder.
+/// On desktop, settings are stored alongside the application binary.
+/// </summary>
 public class ConfigurationService : IConfigurationService
 {
-    private readonly IConfiguration _configuration;
+    private const string EnvironmentVariableName = "DOTNET_ENVIRONMENT";
+    private const string DefaultEnvironment = "Production";
+    private const string AppSettingsSection = "AppSettings";
+    private const string DefaultFileName = "appsettings.json";
+
     private readonly string _settingsFilePath;
+
+    /// <inheritdoc/>
     public AppSettings Settings { get; private set; }
 
     public ConfigurationService()
     {
-        var environment = Environment.GetEnvironmentVariable("NETCORE_ENVIRONMENT") ?? "Production";
+        var environment = Environment.GetEnvironmentVariable(EnvironmentVariableName) ?? DefaultEnvironment;
 
-        var basePath = AppContext.BaseDirectory;
-
+        var basePath = GetSettingsBasePath();
         var envFileName = $"appsettings.{environment}.json";
-        var envFilePath = Path.Combine(basePath, envFileName);
-        var defaultFileName = "appsettings.json";
-        var defaultFilePath = Path.Combine(basePath, defaultFileName);
 
-        _settingsFilePath = File.Exists(envFilePath) ? envFilePath : defaultFilePath;
+        _settingsFilePath = ResolveSettingsFilePath(basePath, envFileName);
 
         var builder = new ConfigurationBuilder()
             .SetBasePath(basePath)
-            .AddJsonFile(defaultFileName, optional: false, reloadOnChange: false)
+            .AddJsonFile(DefaultFileName, optional: true, reloadOnChange: false)
             .AddJsonFile(envFileName, optional: true, reloadOnChange: false);
 
-        _configuration = builder.Build();
-        Settings = _configuration.GetSection("AppSettings").Get<AppSettings>() ?? new AppSettings();
+        var configuration = builder.Build();
+        Settings = configuration.GetSection(AppSettingsSection).Get<AppSettings>() ?? new AppSettings();
+
+        try
+        {
+            Settings.Validate();
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // Fall back to defaults if stored settings are invalid
+            Settings = new AppSettings();
+        }
     }
 
-    public void SaveSettings(AppSettings newSettings)
+    /// <inheritdoc/>
+    public bool SaveSettings(AppSettings newSettings)
     {
-        Settings = newSettings;
+        ArgumentNullException.ThrowIfNull(newSettings);
 
-        var jsonText = File.Exists(_settingsFilePath) ? File.ReadAllText(_settingsFilePath) : "{}";
-        var root = JsonNode.Parse(jsonText) as JsonObject ?? new JsonObject();
+        try
+        {
+            newSettings.Validate();
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
 
-        root["AppSettings"] = JsonSerializer.SerializeToNode(Settings);
+        try
+        {
+            var directory = Path.GetDirectoryName(_settingsFilePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
 
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        File.WriteAllText(_settingsFilePath, root.ToJsonString(options));
+            var jsonText = File.Exists(_settingsFilePath) ? File.ReadAllText(_settingsFilePath) : "{}";
+            var root = JsonNode.Parse(jsonText) as JsonObject ?? new JsonObject();
+
+            root[AppSettingsSection] = JsonSerializer.SerializeToNode(newSettings);
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            File.WriteAllText(_settingsFilePath, root.ToJsonString(options));
+
+            Settings = newSettings;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to save settings: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Returns the base path for settings files, accounting for mobile platforms
+    /// where the app directory is read-only.
+    /// </summary>
+    private static string GetSettingsBasePath()
+    {
+        if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var settingsDir = Path.Combine(appData, "AetherAprs");
+
+            if (!Directory.Exists(settingsDir))
+            {
+                Directory.CreateDirectory(settingsDir);
+            }
+
+            // Seed default settings file if it doesn't exist on mobile
+            var mobileSettingsPath = Path.Combine(settingsDir, DefaultFileName);
+            if (!File.Exists(mobileSettingsPath))
+            {
+                File.WriteAllText(mobileSettingsPath, "{}");
+            }
+
+            return settingsDir;
+        }
+
+        return AppContext.BaseDirectory;
+    }
+
+    private static string ResolveSettingsFilePath(string basePath, string envFileName)
+    {
+        var envFilePath = Path.Combine(basePath, envFileName);
+        var defaultFilePath = Path.Combine(basePath, DefaultFileName);
+
+        return File.Exists(envFilePath) ? envFilePath : defaultFilePath;
     }
 }

@@ -1,7 +1,6 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using AetherAprs.Services;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Logging;
 using AetherAprs.Services.Navigation;
@@ -18,6 +17,8 @@ namespace AetherAprs;
 
 public partial class App : Application
 {
+    private ServiceProvider? _serviceProvider;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -25,26 +26,25 @@ public partial class App : Application
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        // Services
-        services.AddSingleton<ILoggingService, LoggingService>();
+        // Services - singletons for shared state
         services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<ILoggingService, LoggingService>();
         services.AddSingleton<INavigationFactory, NavigationFactory>();
         services.AddSingleton<INavigationService, NavigationService>();
 
-        // Main view
-        services.AddTransient<MainWindow>();
+        // Main view model - singleton because it owns the navigation state
+        services.AddSingleton<MainViewModel>();
 
-        // Main view model
-        services.AddSingleton<MainViewModel>(); 
-
-        // Page view models
+        // Page view models - transient so each navigation creates a fresh instance
         services.AddTransient<HomeViewModel>();
+
+        // Views - transient, created on demand
+        services.AddTransient<MainWindow>();
     }
 
     private static MainView CreateMainView(IServiceProvider services)
     {
-        // With single view frameworks we have to go around the DI and 
-        // instance the view first and give it the ViewModel manually.
+        // Single-view platforms require manual view creation with ViewModel assignment.
         return new MainView
         {
             DataContext = services.GetRequiredService<MainViewModel>()
@@ -78,28 +78,34 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // Initialise DI
         var services = new ServiceCollection();
         ConfigureServices(services);
-        var provider = services.BuildServiceProvider();
+        _serviceProvider = services.BuildServiceProvider();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = provider.GetRequiredService<MainWindow>();
+            desktop.MainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+            desktop.ShutdownRequested += OnShutdownRequested;
         }
-        else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
+        else if (ApplicationLifetime is IActivityApplicationLifetime activityLifetime)
         {
             InitializeViewBasedPlatform(
-                provider,
-                view => singleViewFactoryApplicationLifetime.MainViewFactory = () => view);
+                _serviceProvider,
+                view => activityLifetime.MainViewFactory = () => view);
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
             InitializeViewBasedPlatform(
-                provider,
+                _serviceProvider,
                 view => singleViewPlatform.MainView = view);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
+    {
+        _serviceProvider?.Dispose();
+        _serviceProvider = null;
     }
 }

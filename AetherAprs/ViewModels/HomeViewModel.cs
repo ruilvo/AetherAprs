@@ -7,6 +7,9 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AetherAprs.ViewModels;
 
+/// <summary>
+/// View model for the home page, displaying the APRS map view.
+/// </summary>
 public partial class HomeViewModel : ViewModelBase
 {
 }

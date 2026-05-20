@@ -5,6 +5,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AetherAprs.ViewModels;
 
+/// <summary>
+/// Base class for all view models in the application.
+/// Provides property change notification via <see cref="ObservableObject"/>.
+/// </summary>
 public abstract partial class ViewModelBase : ObservableObject
 {
 }

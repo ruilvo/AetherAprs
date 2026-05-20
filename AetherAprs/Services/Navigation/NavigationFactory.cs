@@ -8,7 +8,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs.Services.Navigation;
 
+/// <summary>
+/// Resolves view model instances from the application's DI container.
+/// </summary>
 public sealed class NavigationFactory(IServiceProvider services) : INavigationFactory
 {
+    /// <inheritdoc/>
     public T Create<T>() where T : ObservableObject => services.GetRequiredService<T>();
 }
