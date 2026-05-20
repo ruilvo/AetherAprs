@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services.Navigation;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AetherAprs.ViewModels;
 
@@ -22,5 +23,17 @@ public partial class MainViewModel : ViewModelBase
         NavService = navService;
 
         NavService.NavigateTo<HomeViewModel>();
+    }
+
+    [RelayCommand]
+    private void NavigateHome()
+    {
+        NavService.NavigateTo<HomeViewModel>();
+    }
+
+    [RelayCommand]
+    private void NavigateSettings()
+    {
+        NavService.NavigateTo<SettingsViewModel>();
     }
 }

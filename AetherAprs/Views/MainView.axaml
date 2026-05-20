@@ -15,7 +15,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:DataType="vm:MainViewModel">
     <controls:NavigationDrawer LeftDrawerOpened="{Binding ElementName=NavDrawerSwitch, Path=IsChecked, Mode=TwoWay}">
         <controls:NavigationDrawer.LeftDrawerContent>
-            <TextBlock Text="Nav. here."/>
+            <StackPanel Spacing="4" Margin="0,8">
+                <Button Theme="{StaticResource MaterialFlatButton}"
+                        Command="{Binding NavigateHomeCommand}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <icons:MaterialIcon Kind="Home" Width="24" Height="24" />
+                        <TextBlock Text="Home" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Theme="{StaticResource MaterialFlatButton}"
+                        Command="{Binding NavigateSettingsCommand}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <icons:MaterialIcon Kind="Settings" Width="24" Height="24" />
+                        <TextBlock Text="Settings" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </controls:NavigationDrawer.LeftDrawerContent>
         <Grid RowDefinitions="Auto, *">
             <StackPanel Grid.Row="0" Spacing="4" Orientation="Horizontal">
