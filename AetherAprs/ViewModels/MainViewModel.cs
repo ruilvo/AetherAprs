@@ -19,7 +19,11 @@ public partial class MainViewModel : ViewModelBase
     /// <summary>
     /// Parameterless constructor required for the Avalonia Designer.
     /// </summary>
-    public MainViewModel(): this(null!) { }
+    public MainViewModel()
+    {
+
+        NavService = null!;
+    }
 
     public MainViewModel(INavigationService navService)
     {
