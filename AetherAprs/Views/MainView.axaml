@@ -10,47 +10,65 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:icons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:assist="clr-namespace:Material.Styles.Assist;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel">
     <controls:NavigationDrawer LeftDrawerOpened="{Binding ElementName=NavDrawerSwitch, Path=IsChecked, Mode=TwoWay}">
         <controls:NavigationDrawer.LeftDrawerContent>
-            <StackPanel Spacing="4" Margin="0,8">
-                <Button Theme="{StaticResource MaterialFlatButton}"
-                        Command="{Binding NavigateHomeCommand}"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <icons:MaterialIcon Kind="Home" Width="24" Height="24" />
-                        <TextBlock Text="Home" VerticalAlignment="Center" />
+            <Border Classes="Surface" Padding="16" MinWidth="280">
+                <StackPanel Spacing="8">
+                    <!-- App Header in Drawer -->
+                    <StackPanel Spacing="4" Margin="0,0,0,16">
+                        <TextBlock Text="Aether APRS"
+                                   Theme="{StaticResource HeadlineMediumTextBlock}"
+                                   Classes="Primary" />
+                        <TextBlock Text="Amateur Radio Tracking"
+                                   Theme="{StaticResource BodyMediumTextBlock}"
+                                   Opacity="0.7" />
                     </StackPanel>
-                </Button>
-                <Button Theme="{StaticResource MaterialFlatButton}"
-                        Command="{Binding NavigateSettingsCommand}"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left">
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <icons:MaterialIcon Kind="Settings" Width="24" Height="24" />
-                        <TextBlock Text="Settings" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
+
+                    <Separator Margin="0,0,0,8" />
+
+                    <Button Classes="NavItem"
+                            Command="{Binding NavigateHomeCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch">
+                        <Grid ColumnDefinitions="Auto,Auto">
+                            <icons:MaterialIcon Kind="Home" Width="24" Height="24" Margin="0,0,16,0" />
+                            <TextBlock Grid.Column="1" Text="Home" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+
+                    <Button Classes="NavItem"
+                            Command="{Binding NavigateSettingsCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch">
+                        <Grid ColumnDefinitions="Auto,Auto">
+                            <icons:MaterialIcon Kind="Cog" Width="24" Height="24" Margin="0,0,16,0" />
+                            <TextBlock Grid.Column="1" Text="Settings" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Border>
         </controls:NavigationDrawer.LeftDrawerContent>
-        <Grid RowDefinitions="Auto, *">
-            <StackPanel Grid.Row="0" Spacing="4" Orientation="Horizontal">
-                <ToggleButton Name="NavDrawerSwitch"
-                              WindowDecorationProperties.ElementRole="DecorationsElement"
-                              Theme="{StaticResource MaterialFlatButton}"
-                              Width="32" Height="32" Padding="4">
-                    <icons:MaterialIcon Kind="Menu" Width="24" Height="24" />
-                </ToggleButton>
-                <TextBlock VerticalAlignment="Center" Text="Aether APRS"/>
-            </StackPanel>
+
+        <Grid RowDefinitions="Auto,*">
+            <Border Classes="Surface" Padding="8" BoxShadow="0 2 8 0 #20000000">
+                <StackPanel Spacing="4" Orientation="Horizontal">
+                    <ToggleButton Name="NavDrawerSwitch"
+                                  Theme="{StaticResource MaterialFlatButton}"
+                                  Width="40" Height="40" Padding="8">
+                        <icons:MaterialIcon Kind="Menu" Width="24" Height="24" />
+                    </ToggleButton>
+                    <TextBlock VerticalAlignment="Center" Text="Aether APRS"
+                               Theme="{StaticResource TitleLargeTextBlock}"
+                               Margin="8,0,0,0" />
+                </StackPanel>
+            </Border>
 
             <!-- Screen Page Content Layout -->
             <ContentControl Grid.Row="1" Content="{Binding NavService.CurrentView}" />
         </Grid>
     </controls:NavigationDrawer>
-
-
 </UserControl>

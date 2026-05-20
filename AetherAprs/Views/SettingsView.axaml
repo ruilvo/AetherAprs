@@ -8,39 +8,56 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:assist="clr-namespace:Material.Styles.Assist;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
              x:Class="AetherAprs.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
 
     <ScrollViewer Padding="24">
-        <StackPanel Spacing="16" MaxWidth="500">
+        <StackPanel Spacing="24" MaxWidth="500">
             <TextBlock Text="Settings"
-                       Theme="{StaticResource HeadlineMediumTextBlock}" />
+                       Theme="{StaticResource HeadlineMediumTextBlock}"
+                       Margin="0,0,0,8" />
 
             <!-- Log Level -->
-            <StackPanel Spacing="4">
-                <TextBlock Text="Log Level" />
-                <ComboBox ItemsSource="{Binding LogLevels}"
-                          SelectedItem="{Binding SelectedLogLevel}"
-                          HorizontalAlignment="Stretch" />
-            </StackPanel>
-
-            <!-- Write to File -->
-            <CheckBox Content="Write logs to file"
-                      IsChecked="{Binding WriteToFile}" />
+            <controls:Card Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Logging"
+                               Theme="{StaticResource TitleMediumTextBlock}"
+                               Classes="Primary" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Log Level"
+                                   Theme="{StaticResource LabelMediumTextBlock}" />
+                        <ComboBox ItemsSource="{Binding LogLevels}"
+                                  SelectedItem="{Binding SelectedLogLevel}"
+                                  HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <CheckBox Content="Write logs to file"
+                              IsChecked="{Binding WriteToFile}" />
+                </StackPanel>
+            </controls:Card>
 
             <!-- Action Buttons -->
-            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
-                <Button Content="Save"
-                        Command="{Binding SaveCommand}" />
-                <Button Content="Reset"
-                        Command="{Binding ResetCommand}" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Theme="{StaticResource MaterialRaisedButton}"
+                        Content="Save"
+                        Command="{Binding SaveCommand}"
+                        Padding="24,8" />
+                <Button Theme="{StaticResource MaterialOutlinedButton}"
+                        Content="Reset"
+                        Command="{Binding ResetCommand}"
+                        Padding="24,8" />
             </StackPanel>
 
             <!-- Status Message -->
-            <TextBlock Text="{Binding StatusMessage}"
-                       IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                       Margin="0,8,0,0" />
+            <Border Classes="Surface" Padding="12"
+                    IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    CornerRadius="8">
+                <TextBlock Text="{Binding StatusMessage}"
+                           Theme="{StaticResource BodyMediumTextBlock}"
+                           TextWrapping="Wrap" />
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
