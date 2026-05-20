@@ -9,26 +9,4 @@ namespace AetherAprs.ViewModels;
 
 public partial class HomeViewModel : ViewModelBase
 {
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StartAprsIsConnectionCommand))]
-    public partial string Callsign { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(StartAprsIsConnectionCommand))]
-    public partial string AprsIsPasscode { get; set; } = string.Empty;
-
-    public IRelayCommand StartAprsIsConnectionCommand { get; }
-
-    public HomeViewModel()
-    {
-        StartAprsIsConnectionCommand = new RelayCommand(StartAprsIsConnection, CanStartAprsIsConnection);
-    }
-
-    private void StartAprsIsConnection()
-    {
-    }
-
-    private bool CanStartAprsIsConnection()
-        => !string.IsNullOrWhiteSpace(Callsign) && !string.IsNullOrWhiteSpace(AprsIsPasscode);
 }

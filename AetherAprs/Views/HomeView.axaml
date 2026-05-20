@@ -13,32 +13,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:Class="AetherAprs.Views.HomeView"
              x:DataType="vm:HomeViewModel">
 
-    <Grid RowDefinitions="Auto,*">
-        <Border BorderBrush="#333333"
-                BorderThickness="0,0,0,1"
-                Padding="12">
-            <Grid ColumnDefinitions="2*,2*,Auto"
-                  ColumnSpacing="12"
-                  VerticalAlignment="Center">
-                <StackPanel Grid.Column="0" Spacing="4">
-                    <TextBlock Text="Callsign" />
-                    <TextBox PlaceholderText="Enter callsign"
-                             Text="{Binding Callsign, Mode=TwoWay}" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="1" Spacing="4">
-                    <TextBlock Text="APRS-IS passcode" />
-                    <TextBox PlaceholderText="Enter APRS-IS passcode"
-                             Text="{Binding AprsIsPasscode, Mode=TwoWay}" />
-                </StackPanel>
-
-                <Button Grid.Column="2"
-                        VerticalAlignment="Bottom"
-                        Content="Start APRS-IS connection"
-                        Command="{Binding StartAprsIsConnectionCommand}" />
-            </Grid>
-        </Border>
-
+    <Grid RowDefinitions="*">
         <mapsui:MapControl Grid.Row="1"
                            x:Name="MapControl"
                            HorizontalAlignment="Stretch"
