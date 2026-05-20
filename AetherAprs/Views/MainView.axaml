@@ -13,12 +13,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel">
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-        to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainViewModel />
-    </Design.DataContext>
-
     <controls:NavigationDrawer LeftDrawerOpened="{Binding ElementName=NavDrawerSwitch, Path=IsChecked, Mode=TwoWay}">
         <controls:NavigationDrawer.LeftDrawerContent>
             <TextBlock Text="Nav. here."/>
@@ -41,4 +35,3 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 
 </UserControl>
-

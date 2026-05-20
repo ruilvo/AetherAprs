@@ -16,14 +16,6 @@ public partial class MainViewModel : ViewModelBase
     /// </summary>
     public INavigationService NavService { get; }
 
-    /// <summary>
-    /// Parameterless constructor required for the Avalonia Designer.
-    /// </summary>
-    public MainViewModel()
-    {
-
-        NavService = null!;
-    }
 
     public MainViewModel(INavigationService navService)
     {
@@ -32,4 +24,3 @@ public partial class MainViewModel : ViewModelBase
         NavService.NavigateTo<HomeViewModel>();
     }
 }
-
