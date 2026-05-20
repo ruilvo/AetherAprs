@@ -24,7 +24,7 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
-    private static void ConfigureServices(IServiceCollection services)
+    internal static void ConfigureServices(IServiceCollection services)
     {
         // Services - singletons for shared state
         services.AddSingleton<IConfigurationService, ConfigurationService>();
