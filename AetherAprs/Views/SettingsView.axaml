@@ -1,0 +1,46 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="450"
+             x:Class="AetherAprs.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <ScrollViewer Padding="24">
+        <StackPanel Spacing="16" MaxWidth="500">
+            <TextBlock Text="Settings"
+                       Theme="{StaticResource HeadlineMediumTextBlock}" />
+
+            <!-- Log Level -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="Log Level" />
+                <ComboBox ItemsSource="{Binding LogLevels}"
+                          SelectedItem="{Binding SelectedLogLevel}"
+                          HorizontalAlignment="Stretch" />
+            </StackPanel>
+
+            <!-- Write to File -->
+            <CheckBox Content="Write logs to file"
+                      IsChecked="{Binding WriteToFile}" />
+
+            <!-- Action Buttons -->
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                <Button Content="Save"
+                        Command="{Binding SaveCommand}" />
+                <Button Content="Reset"
+                        Command="{Binding ResetCommand}" />
+            </StackPanel>
+
+            <!-- Status Message -->
+            <TextBlock Text="{Binding StatusMessage}"
+                       IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Margin="0,8,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

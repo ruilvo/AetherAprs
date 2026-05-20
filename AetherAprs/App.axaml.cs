@@ -37,6 +37,7 @@ public partial class App : Application
 
         // Page view models - transient so each navigation creates a fresh instance
         services.AddTransient<HomeViewModel>();
+        services.AddTransient<SettingsViewModel>();
     }
 
     private MainView CreateMainView()

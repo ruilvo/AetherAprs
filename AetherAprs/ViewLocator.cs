@@ -20,6 +20,7 @@ public class ViewLocator : IDataTemplate
         {
             MainViewModel => new MainView(),
             HomeViewModel => new HomeView(),
+            SettingsViewModel => new SettingsView(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = "Not Found: " + param.GetType().Name }
