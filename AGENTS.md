@@ -41,6 +41,15 @@ If a command fails due to SDK or workload, check local .NET 10 SDK and Android w
 - View locator: AetherAprs/ViewLocator.cs
 - App settings models/services: AetherAprs/Services/Configuration
 - Navigation services: AetherAprs/Services/Navigation
+- Dependency Injection configuration: AetherAprs/App.axaml.cs (`ConfigureServices`)
+
+## Architecture and Patterns
+- **MVVM Implementation**: Built strictly on `CommunityToolkit.Mvvm`. ViewModels inherit from `ViewModelBase` (which extends `ObservableObject`) and rely heavily on source generators like `[RelayCommand]`. `MainViewModel` acts as the shell/host routing pages.
+- **Dependency Injection**: Relies on `Microsoft.Extensions.DependencyInjection`. Services and `MainViewModel` are singletons, whereas page view models (`HomeViewModel`, `SettingsViewModel`) are transient, getting instantiated cleanly upon navigation.
+- **Configuration Storage**: Managed via `Microsoft.Extensions.Configuration` in `ConfigurationService.cs`, persisting mutable settings dynamically to `appsettings.json` locally on different platforms through the `System.Text.Json` namespace.
+- **Maps**: Uses `Mapsui.Avalonia12` for rendering dynamic map content.
+- **Lifecycle & Navigation**: Navigation handles `BackRequested` on mobile platforms within the main App setup.
+- **Styling Details**: `App.axaml` injects `MaterialTheme` utilizing the `Material.Avalonia` component. Base interface elements might be styled directly in `App.axaml` (e.g. `Button.NavItem`).
 
 ## Testing
 No tests are currently defined.
