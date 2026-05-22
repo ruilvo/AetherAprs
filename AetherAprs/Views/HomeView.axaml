@@ -11,12 +11,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AetherAprs.Views.HomeView"
-x:DataType="vm:HomeViewModel"
-             MarkerLocations="{Binding MarkerLocations}">
+             x:DataType="vm:HomeViewModel">
 
-    <Grid RowDefinitions="*">
-        <mapsui:MapControl Grid.Row="1"
-                           x:Name="MapControl"
+    <Grid>
+        <mapsui:MapControl x:Name="MapControl"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch" />
     </Grid>
