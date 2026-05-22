@@ -11,7 +11,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AetherAprs.Views.HomeView"
-             x:DataType="vm:HomeViewModel">
+x:DataType="vm:HomeViewModel"
+             MarkerLocation="{Binding MarkerLocation}">
 
     <Grid RowDefinitions="*">
         <mapsui:MapControl Grid.Row="1"
