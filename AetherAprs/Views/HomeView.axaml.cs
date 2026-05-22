@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Messages;
-using AetherAprs.Models.Geo;
-using Avalonia;
 using Avalonia.Controls;
 using CommunityToolkit.Mvvm.Messaging;
 using Mapsui;
@@ -14,6 +12,7 @@ using Mapsui.Styles;
 using Mapsui.Tiling;
 using System.Collections.Generic;
 using System.Linq;
+using NetTopologySuite.Geometries;
 
 namespace AetherAprs.Views;
 
@@ -22,12 +21,12 @@ public partial class HomeView : UserControl
     // For MapsUi
     private readonly MemoryLayer _markerLayer;
 
-    private void UpdateMapMarkers(IEnumerable<GeoLocation> locations)
+    private void UpdateMapMarkers(IEnumerable<Point> locations)
     {
         _markerLayer.Features = locations
-            .Select(x =>
+            .Select(p =>
             {
-                var feature = new PointFeature(SphericalMercator.FromLonLat(x.Longitude, x.Latitude));
+                var feature = new PointFeature(SphericalMercator.FromLonLat(p.X, p.Y));
                 feature.Styles.Add(new SymbolStyle
                 {
                     SymbolScale = 0.5,

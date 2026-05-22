@@ -4,10 +4,10 @@
 
 namespace AetherAprs.Messages;
 
-using AetherAprs.Models.Geo;
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using System.Collections.Generic;
+using NetTopologySuite.Geometries;
 
-public class MapMarkersChangedMessage(IEnumerable<GeoLocation> value) : ValueChangedMessage<IEnumerable<GeoLocation>>(value)
+public class MapMarkersChangedMessage(IEnumerable<Point> value) : ValueChangedMessage<IEnumerable<Point>>(value)
 {
 }
