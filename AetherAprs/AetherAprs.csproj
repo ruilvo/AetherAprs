@@ -31,6 +31,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Mapsui.Avalonia12" />
+    <PackageReference Include="NetTopologySuite" />
   </ItemGroup>
   <ItemGroup>
     <None Update="appsettings.json">
