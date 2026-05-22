@@ -25,10 +25,16 @@ public partial class HomeView : UserControl
     private void UpdateMapMarkers(List<GeoLocation> locations)
     {
         _markerLayer.Features = locations
-            .Select(x => (IFeature)new PointFeature(
-                SphericalMercator.FromLonLat(x.Longitude, x.Latitude)
-                )
-            );
+            .Select(x =>
+            {
+                var feature = new PointFeature(SphericalMercator.FromLonLat(x.Longitude, x.Latitude));
+                feature.Styles.Add(new SymbolStyle
+                {
+                    SymbolScale = 0.5,
+                    Fill = new Brush(Color.Red)
+                });
+                return (IFeature)feature;
+            });
     }
 
     public HomeView()
@@ -40,11 +46,6 @@ public partial class HomeView : UserControl
         _markerLayer = new MemoryLayer
         {
             Name = "MarkerLayer",
-            Style = new SymbolStyle
-            {
-                SymbolScale = 0.5,
-                Fill = new Brush(Color.Red)
-            },
             Features = []
         };
         MapControl.Map.Layers.Add(_markerLayer);
