@@ -5,11 +5,22 @@ using Android.App;
 using Android.Runtime;
 using Avalonia;
 using Avalonia.Android;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs.Android
 {
+    public class AndroidApp : App
+    {
+        protected override void RegisterPlatformServices(IServiceCollection services)
+        {
+            services.AddSingleton<Services.Configuration.AndroidConfigurationService>();
+            services.AddSingleton<AetherAprs.Services.Configuration.IConfigurationService>(
+                provider => provider.GetRequiredService<Services.Configuration.AndroidConfigurationService>());
+        }
+    }
+
     [Application]
-    public class Application : AvaloniaAndroidApplication<App>
+    public class Application : AvaloniaAndroidApplication<AndroidApp>
     {
         protected Application(nint javaReference, JniHandleOwnership transfer) : base(javaReference, transfer)
         {

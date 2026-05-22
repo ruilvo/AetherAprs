@@ -1,7 +1,6 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Logging;
 using AetherAprs.Services.Navigation;
 using AetherAprs.ViewModels;
@@ -27,7 +26,6 @@ public partial class App : Application
     internal static void ConfigureServices(IServiceCollection services)
     {
         // Services - singletons for shared state
-        services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<ILoggingService, LoggingService>();
         services.AddSingleton<INavigationFactory, NavigationFactory>();
         services.AddSingleton<INavigationService, NavigationService>();
@@ -38,6 +36,10 @@ public partial class App : Application
         // Page view models - transient so each navigation creates a fresh instance
         services.AddTransient<HomeViewModel>();
         services.AddTransient<SettingsViewModel>();
+    }
+
+    protected virtual void RegisterPlatformServices(IServiceCollection services)
+    {
     }
 
     private MainView CreateMainView()
@@ -77,6 +79,7 @@ public partial class App : Application
     {
         var services = new ServiceCollection();
         ConfigureServices(services);
+        RegisterPlatformServices(services);
         _serviceProvider = services.BuildServiceProvider();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

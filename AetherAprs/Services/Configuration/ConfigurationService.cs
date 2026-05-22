@@ -11,23 +11,22 @@ using Microsoft.Extensions.Configuration;
 namespace AetherAprs.Services.Configuration;
 
 /// <summary>
-/// Loads and persists application settings from JSON configuration files.
-/// On mobile platforms, settings are stored in the app's local data folder.
-/// On desktop, settings are stored alongside the application binary.
+/// Base implementation for loading and persisting application settings from JSON configuration files.
+/// Platform-specific services provide the writable settings base path.
 /// </summary>
-public class ConfigurationService : IConfigurationService
+public abstract class ConfigurationService : IConfigurationService
 {
     private const string EnvironmentVariableName = "DOTNET_ENVIRONMENT";
     private const string DefaultEnvironment = "Production";
     private const string AppSettingsSection = "AppSettings";
-    private const string DefaultFileName = "appsettings.json";
+    protected const string DefaultFileName = "appsettings.json";
 
     private readonly string _settingsFilePath;
 
     /// <inheritdoc/>
     public AppSettings Settings { get; private set; }
 
-    public ConfigurationService()
+    protected ConfigurationService()
     {
         var environment = Environment.GetEnvironmentVariable(EnvironmentVariableName) ?? DefaultEnvironment;
 
@@ -96,33 +95,9 @@ public class ConfigurationService : IConfigurationService
     }
 
     /// <summary>
-    /// Returns the base path for settings files, accounting for mobile platforms
-    /// where the app directory is read-only.
+    /// Returns the platform-specific base path for settings files.
     /// </summary>
-    private static string GetSettingsBasePath()
-    {
-        if (OperatingSystem.IsAndroid() || OperatingSystem.IsIOS())
-        {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var settingsDir = Path.Combine(appData, "AetherAprs");
-
-            if (!Directory.Exists(settingsDir))
-            {
-                Directory.CreateDirectory(settingsDir);
-            }
-
-            // Seed default settings file if it doesn't exist on mobile
-            var mobileSettingsPath = Path.Combine(settingsDir, DefaultFileName);
-            if (!File.Exists(mobileSettingsPath))
-            {
-                File.WriteAllText(mobileSettingsPath, "{}");
-            }
-
-            return settingsDir;
-        }
-
-        return AppContext.BaseDirectory;
-    }
+    protected abstract string GetSettingsBasePath();
 
     private static string ResolveSettingsFilePath(string basePath, string envFileName)
     {
