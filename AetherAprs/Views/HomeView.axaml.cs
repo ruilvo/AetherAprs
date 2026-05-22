@@ -24,11 +24,11 @@ public partial class HomeView : UserControl
 
     private void UpdateMapMarkers(List<GeoLocation> locations)
     {
-        var mapFeatures = locations
-            .Select(x => (IFeature)new PointFeature(SphericalMercator.FromLonLat(x.Longitude, x.Latitude)))
-            .ToList();
-
-        _markerLayer.Features = mapFeatures;
+        _markerLayer.Features = locations
+            .Select(x => (IFeature)new PointFeature(
+                SphericalMercator.FromLonLat(x.Longitude, x.Latitude)
+                )
+            );
     }
 
     public HomeView()
