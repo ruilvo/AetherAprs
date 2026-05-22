@@ -22,7 +22,7 @@ public partial class HomeView : UserControl
     // For MapsUi
     private readonly MemoryLayer _markerLayer;
 
-    private void UpdateMapMarkers(List<GeoLocation> locations)
+    private void UpdateMapMarkers(IEnumerable<GeoLocation> locations)
     {
         _markerLayer.Features = locations
             .Select(x =>

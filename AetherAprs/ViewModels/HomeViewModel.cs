@@ -16,7 +16,7 @@ namespace AetherAprs.ViewModels;
 public partial class HomeViewModel : ViewModelBase
 {
     [ObservableProperty]
-    public partial List<GeoLocation> MarkerLocations { get; set; } 
+    public partial IEnumerable<GeoLocation> MarkerLocations { get; set; } 
 
     public HomeViewModel()
     {
@@ -32,7 +32,7 @@ public partial class HomeViewModel : ViewModelBase
         });
     }
 
-    partial void OnMarkerLocationsChanged(List<GeoLocation> value)
+    partial void OnMarkerLocationsChanged(IEnumerable<GeoLocation> value)
     {
         WeakReferenceMessenger.Default.Send(new MapMarkersChangedMessage(value));
     }

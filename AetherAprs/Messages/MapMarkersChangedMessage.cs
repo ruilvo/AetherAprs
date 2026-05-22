@@ -8,6 +8,6 @@ using AetherAprs.Models.Geo;
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using System.Collections.Generic;
 
-public class MapMarkersChangedMessage(List<GeoLocation> value) : ValueChangedMessage<List<GeoLocation>>(value)
+public class MapMarkersChangedMessage(IEnumerable<GeoLocation> value) : ValueChangedMessage<IEnumerable<GeoLocation>>(value)
 {
 }
