@@ -4,7 +4,7 @@
 
 using AetherAprs.Models.Geo;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using System.Collections.Generic;
 
 namespace AetherAprs.ViewModels;
 
@@ -14,11 +14,14 @@ namespace AetherAprs.ViewModels;
 public partial class HomeViewModel : ViewModelBase
 {
     [ObservableProperty]
-    private GeoLocation? _markerLocation;
+    public partial List<GeoLocation> MarkerLocations { get; set; }
 
     public HomeViewModel()
     {
-        // Example location for demonstration (e.g. Lisbon)
-        MarkerLocation = new GeoLocation(38.7223, -9.1393);
+        MarkerLocations =
+        [
+            // Example location for demonstration (e.g. Lisbon)
+            new GeoLocation(38.7223, -9.1393),
+        ];
     }
 }
