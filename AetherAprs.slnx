@@ -9,5 +9,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   </Project>
   <Project Path="AetherAprs.Desktop/AetherAprs.Desktop.csproj" />
   <Project Path="AetherAprs/AetherAprs.csproj" />
+  <Project Path="AetherAprs.Tests/AetherAprs.Tests.csproj" />
 </Solution>
 
