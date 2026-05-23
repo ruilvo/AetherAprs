@@ -11,16 +11,16 @@ using System.Collections.Generic;
 
 public static class AprsIsCodec
 {
-    public static string Encode(AprsEntry entry)
+    public static string Encode(AprsIsPacket packet)
     {
-        entry.Validate();
-        var payload = AprsPayloadCodec.Encode(entry);
-        var path = entry.Path.Count == 0 ? string.Empty : $",{string.Join(',', entry.Path)}";
-        var aprsIsRoute = entry.AprsIsRoute.Count == 0 ? string.Empty : $",{string.Join(',', entry.AprsIsRoute)}";
-        return $"{entry.Source}>{entry.Destination}{path}{aprsIsRoute}:{payload}";
+        packet.Packet.Validate();
+        var payload = AprsPayloadCodec.Encode(packet.Packet.Payload);
+        var path = packet.Packet.Path.Count == 0 ? string.Empty : $",{string.Join(',', packet.Packet.Path)}";
+        var route = packet.Route.Count == 0 ? string.Empty : $",{string.Join(',', packet.Route)}";
+        return $"{packet.Packet.Source}>{packet.Packet.Destination}{path}{route}:{payload}";
     }
 
-    public static AprsEntry Decode(string packetLine)
+    public static AprsIsPacket Decode(string packetLine)
     {
         var separatorIndex = packetLine.IndexOf(':');
         if (separatorIndex <= 0)
@@ -62,26 +62,16 @@ public static class AprsIsCodec
             }
         }
 
-        var entry = AprsPayloadCodec.Decode(source, destination, path, payload);
-        return new AprsEntry
+        return new AprsIsPacket
         {
-            Kind = entry.Kind,
-            Source = entry.Source,
-            Destination = entry.Destination,
-            Path = entry.Path,
-            AprsIsRoute = aprsIsRoute,
-            Location = entry.Location,
-            Comment = entry.Comment,
-            Symbol = entry.Symbol,
-            Timestamp = entry.Timestamp,
-            AprsTimestamp = entry.AprsTimestamp,
-            StationDataType = entry.StationDataType,
-            ObjectName = entry.ObjectName,
-            ItemName = entry.ItemName,
-            MessageRecipient = entry.MessageRecipient,
-            MessageText = entry.MessageText,
-            MessageId = entry.MessageId,
-            IsAlive = entry.IsAlive,
+            Packet = new AprsPacket
+            {
+                Source = source,
+                Destination = destination,
+                Path = path,
+                Payload = AprsPayloadCodec.Decode(payload),
+            },
+            Route = aprsIsRoute,
         };
     }
 }

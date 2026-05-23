@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 public interface IAprsBackend
 {
-    IAsyncEnumerable<AprsEntry> ReceiveAsync(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<AprsPacket> ReceiveAsync(CancellationToken cancellationToken = default);
 
-    ValueTask SendAsync(AprsEntry entry, CancellationToken cancellationToken = default);
+    ValueTask SendAsync(AprsPacket packet, CancellationToken cancellationToken = default);
 }

@@ -20,14 +20,6 @@ public sealed class AprsEntry
 {
     public required AprsEntryKind Kind { get; init; }
 
-    public required string Source { get; init; }
-
-    public required string Destination { get; init; }
-
-    public IReadOnlyList<string> Path { get; init; } = [];
-
-    public IReadOnlyList<string> AprsIsRoute { get; init; } = [];
-
     public Point? Location { get; init; }
 
     public string? Comment { get; init; }
@@ -54,16 +46,6 @@ public sealed class AprsEntry
 
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(Source))
-        {
-            throw new InvalidOperationException("Source is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(Destination))
-        {
-            throw new InvalidOperationException("Destination is required.");
-        }
-
         AprsTimestamp?.Validate();
 
         switch (Kind)

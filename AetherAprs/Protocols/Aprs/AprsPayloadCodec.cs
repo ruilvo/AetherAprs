@@ -7,7 +7,6 @@ namespace AetherAprs.Protocols.Aprs;
 using AetherAprs.Models;
 using NetTopologySuite.Geometries;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 
 public static class AprsPayloadCodec
@@ -26,7 +25,7 @@ public static class AprsPayloadCodec
         };
     }
 
-    public static AprsEntry Decode(string source, string destination, IReadOnlyList<string> path, string payload)
+    public static AprsEntry Decode(string payload)
     {
         if (string.IsNullOrEmpty(payload))
         {
@@ -35,13 +34,13 @@ public static class AprsPayloadCodec
 
         return payload[0] switch
         {
-            '!' => DecodeStation(source, destination, path, payload, AprsStationDataType.PositionWithoutMessaging),
-            '=' => DecodeStation(source, destination, path, payload, AprsStationDataType.PositionWithMessaging),
-            '/' => DecodeStation(source, destination, path, payload, AprsStationDataType.TimestampedPositionWithoutMessaging),
-            '@' => DecodeStation(source, destination, path, payload, AprsStationDataType.TimestampedPositionWithMessaging),
-            ';' => DecodeObject(source, destination, path, payload),
-            ')' => DecodeItem(source, destination, path, payload),
-            ':' => DecodeMessage(source, destination, path, payload),
+            '!' => DecodeStation(payload, AprsStationDataType.PositionWithoutMessaging),
+            '=' => DecodeStation(payload, AprsStationDataType.PositionWithMessaging),
+            '/' => DecodeStation(payload, AprsStationDataType.TimestampedPositionWithoutMessaging),
+            '@' => DecodeStation(payload, AprsStationDataType.TimestampedPositionWithMessaging),
+            ';' => DecodeObject(payload),
+            ')' => DecodeItem(payload),
+            ':' => DecodeMessage(payload),
             _ => throw new InvalidOperationException($"Unsupported APRS payload type '{payload[0]}'."),
         };
     }
@@ -86,7 +85,7 @@ public static class AprsPayloadCodec
         return $":{recipient}:{entry.MessageText!}{id}";
     }
 
-    private static AprsEntry DecodeStation(string source, string destination, IReadOnlyList<string> path, string payload, AprsStationDataType stationDataType)
+    private static AprsEntry DecodeStation(string payload, AprsStationDataType stationDataType)
     {
         var offset = 1;
         AprsPartialTimestamp? aprsTimestamp = null;
@@ -103,9 +102,6 @@ public static class AprsPayloadCodec
         return new AprsEntry
         {
             Kind = AprsEntryKind.Station,
-            Source = source,
-            Destination = destination,
-            Path = path,
             Location = location,
             Symbol = symbol,
             AprsTimestamp = aprsTimestamp,
@@ -114,7 +110,7 @@ public static class AprsPayloadCodec
         };
     }
 
-    private static AprsEntry DecodeObject(string source, string destination, IReadOnlyList<string> path, string payload)
+    private static AprsEntry DecodeObject(string payload)
     {
         if (payload.Length < 37)
         {
@@ -135,9 +131,6 @@ public static class AprsPayloadCodec
         return new AprsEntry
         {
             Kind = AprsEntryKind.Object,
-            Source = source,
-            Destination = destination,
-            Path = path,
             ObjectName = name,
             IsAlive = state == '*',
             AprsTimestamp = aprsTimestamp,
@@ -147,7 +140,7 @@ public static class AprsPayloadCodec
         };
     }
 
-    private static AprsEntry DecodeItem(string source, string destination, IReadOnlyList<string> path, string payload)
+    private static AprsEntry DecodeItem(string payload)
     {
         var markerIndex = payload.IndexOf('!', 1);
         var deadIndex = payload.IndexOf('_', 1);
@@ -171,9 +164,6 @@ public static class AprsPayloadCodec
         return new AprsEntry
         {
             Kind = AprsEntryKind.Item,
-            Source = source,
-            Destination = destination,
-            Path = path,
             ItemName = name,
             IsAlive = isAlive,
             Location = location,
@@ -182,7 +172,7 @@ public static class AprsPayloadCodec
         };
     }
 
-    private static AprsEntry DecodeMessage(string source, string destination, IReadOnlyList<string> path, string payload)
+    private static AprsEntry DecodeMessage(string payload)
     {
         if (payload.Length < 11 || payload[10] != ':')
         {
@@ -198,9 +188,6 @@ public static class AprsPayloadCodec
         return new AprsEntry
         {
             Kind = AprsEntryKind.Message,
-            Source = source,
-            Destination = destination,
-            Path = path,
             MessageRecipient = recipient,
             MessageText = messageText,
             MessageId = string.IsNullOrEmpty(messageId) ? null : messageId,
