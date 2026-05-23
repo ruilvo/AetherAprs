@@ -1,6 +1,9 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using AetherAprs.Protocols;
+using AetherAprs.Services.Aprs;
+using AetherAprs.Services.AprsIs;
 using AetherAprs.Services.Logging;
 using AetherAprs.Services.Navigation;
 using AetherAprs.ViewModels;
@@ -29,6 +32,8 @@ public partial class App : Application
         services.AddSingleton<ILoggingService, LoggingService>();
         services.AddSingleton<INavigationFactory, NavigationFactory>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IAprsBackend, AprsIsBackend>();
+        services.AddSingleton<IAprsSessionService, AprsSessionService>();
 
         // Main view model - singleton because it owns the navigation state
         services.AddSingleton<MainViewModel>();

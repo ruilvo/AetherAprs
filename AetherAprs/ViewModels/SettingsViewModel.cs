@@ -26,6 +26,15 @@ public partial class SettingsViewModel : ViewModelBase
     private bool _writeToFile;
 
     [ObservableProperty]
+    private string _callsign = string.Empty;
+
+    [ObservableProperty]
+    private string _passcode = string.Empty;
+
+    [ObservableProperty]
+    private string _filter = string.Empty;
+
+    [ObservableProperty]
     private string? _statusMessage;
 
     /// <summary>
@@ -42,6 +51,9 @@ public partial class SettingsViewModel : ViewModelBase
         var settings = _configurationService.Settings;
         _selectedLogLevel = settings.LogLevel;
         _writeToFile = settings.WriteToFile;
+        _callsign = settings.Callsign;
+        _passcode = settings.Passcode;
+        _filter = settings.Filter;
     }
 
     [RelayCommand]
@@ -51,6 +63,9 @@ public partial class SettingsViewModel : ViewModelBase
         {
             LogLevel = SelectedLogLevel,
             WriteToFile = WriteToFile,
+            Callsign = Callsign,
+            Passcode = Passcode,
+            Filter = Filter,
         };
 
         if (_configurationService.SaveSettings(newSettings))
@@ -69,6 +84,9 @@ public partial class SettingsViewModel : ViewModelBase
         var defaults = new AppSettings();
         SelectedLogLevel = defaults.LogLevel;
         WriteToFile = defaults.WriteToFile;
+        Callsign = defaults.Callsign;
+        Passcode = defaults.Passcode;
+        Filter = defaults.Filter;
         StatusMessage = null;
     }
 }

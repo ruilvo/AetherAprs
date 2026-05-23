@@ -3,10 +3,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Messages;
+using AetherAprs.Models;
+using AetherAprs.Services.Aprs;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using NetTopologySuite.Geometries;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels;
 
@@ -15,14 +19,27 @@ namespace AetherAprs.ViewModels;
 /// </summary>
 public partial class HomeViewModel : ViewModelBase
 {
-    [ObservableProperty]
-    public partial IEnumerable<Point> MarkerLocations { get; set; } 
+    private readonly IAprsSessionService _aprsSessionService;
 
-    public HomeViewModel()
+    [ObservableProperty]
+    public partial IEnumerable<Point> MarkerLocations { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsConnected { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
+
+    [ObservableProperty]
+    public partial string? ConnectionStatus { get; set; }
+
+    public HomeViewModel(IAprsSessionService aprsSessionService)
     {
+        _aprsSessionService = aprsSessionService;
+        IsConnected = aprsSessionService.IsConnected;
+
         MarkerLocations =
         [
-            // Example location for demonstration (e.g. Lisbon)
             new Point(new Coordinate{Y= 38.7223, X=-9.1393 }),
         ];
 
@@ -30,10 +47,58 @@ public partial class HomeViewModel : ViewModelBase
         {
             m.Reply(r.MarkerLocations);
         });
+
+        WeakReferenceMessenger.Default.Register<HomeViewModel, AprsPacketReceivedMessage>(this, static (recipient, message) =>
+        {
+            recipient.HandleReceivedPacket(message.Value);
+        });
+
+        WeakReferenceMessenger.Default.Register<HomeViewModel, AprsConnectionStateChangedMessage>(this, static (recipient, message) =>
+        {
+            recipient.IsConnected = message.Value;
+            recipient.IsBusy = false;
+            recipient.ConnectionStatus = message.Value ? "Connected to APRS-IS." : "Disconnected.";
+        });
+
+        WeakReferenceMessenger.Default.Register<HomeViewModel, AprsConnectionErrorMessage>(this, static (recipient, message) =>
+        {
+            recipient.IsBusy = false;
+            recipient.ConnectionStatus = message.Value;
+        });
+    }
+
+    [RelayCommand]
+    private async Task ConnectAsync()
+    {
+        IsBusy = true;
+        ConnectionStatus = "Connecting to APRS-IS...";
+        await _aprsSessionService.StartAsync();
+    }
+
+    [RelayCommand]
+    private async Task DisconnectAsync()
+    {
+        IsBusy = true;
+        ConnectionStatus = "Disconnecting from APRS-IS...";
+        await _aprsSessionService.StopAsync();
     }
 
     partial void OnMarkerLocationsChanged(IEnumerable<Point> value)
     {
         WeakReferenceMessenger.Default.Send(new MapMarkersChangedMessage(value));
+    }
+
+    private void HandleReceivedPacket(AprsPacket packet)
+    {
+        if (packet.Payload.Location is null)
+        {
+            return;
+        }
+
+        MarkerLocations =
+        [
+            ..MarkerLocations,
+            packet.Payload.Location,
+        ];
     }
 }

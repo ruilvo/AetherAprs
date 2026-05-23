@@ -38,6 +38,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 </StackPanel>
             </controls:Card>
 
+            <controls:Card Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="APRS-IS"
+                               Theme="{StaticResource TitleMediumTextBlock}"
+                               Classes="Primary" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Callsign"
+                                   Theme="{StaticResource LabelMediumTextBlock}" />
+                        <TextBox Text="{Binding Callsign}"
+                                 HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Passcode"
+                                   Theme="{StaticResource LabelMediumTextBlock}" />
+                        <TextBox Text="{Binding Passcode}"
+                                 HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Filter"
+                                   Theme="{StaticResource LabelMediumTextBlock}" />
+                        <TextBox Text="{Binding Filter}"
+                                 HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </StackPanel>
+            </controls:Card>
+
             <!-- Action Buttons -->
             <StackPanel Orientation="Horizontal" Spacing="12">
                 <Button Theme="{StaticResource MaterialRaisedButton}"

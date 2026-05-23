@@ -25,6 +25,21 @@ public class AppSettings
     public bool WriteToFile { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets the APRS-IS login callsign.
+    /// </summary>
+    public string Callsign { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the APRS-IS passcode.
+    /// </summary>
+    public string Passcode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the APRS-IS filter string.
+    /// </summary>
+    public string Filter { get; set; } = string.Empty;
+
+    /// <summary>
     /// Validates the settings, throwing if any value is invalid.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when a value is outside its allowed range.</exception>
@@ -46,5 +61,8 @@ public class AppSettings
     {
         LogLevel = LogLevel,
         WriteToFile = WriteToFile,
+        Callsign = Callsign,
+        Passcode = Passcode,
+        Filter = Filter,
     };
 }
