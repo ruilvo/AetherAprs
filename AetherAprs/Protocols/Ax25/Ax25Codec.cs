@@ -78,11 +78,35 @@ public static class Ax25Codec
 
     public static Ax25Address ParseAddress(string text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new InvalidOperationException("AX.25 address is required.");
+        }
+
         var repeated = text.EndsWith('*');
         var cleanText = repeated ? text[..^1] : text;
         var parts = cleanText.Split('-', 2, StringSplitOptions.TrimEntries);
         var callSign = parts[0].ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(callSign) || callSign.Length > 6)
+        {
+            throw new InvalidOperationException("AX.25 callsigns must be between 1 and 6 characters.");
+        }
+
+        foreach (var character in callSign)
+        {
+            if (!char.IsLetterOrDigit(character))
+            {
+                throw new InvalidOperationException("AX.25 callsigns may only contain letters and digits.");
+            }
+        }
+
         var ssid = parts.Length == 2 ? byte.Parse(parts[1]) : (byte)0;
+        if (ssid > 15)
+        {
+            throw new InvalidOperationException("AX.25 SSID must be between 0 and 15.");
+        }
+
         return new Ax25Address(callSign, ssid, repeated);
     }
 
@@ -95,6 +119,16 @@ public static class Ax25Codec
 
     private static byte[] EncodeAddress(Ax25Address address, bool isLast)
     {
+        if (string.IsNullOrWhiteSpace(address.CallSign) || address.CallSign.Length > 6)
+        {
+            throw new InvalidOperationException("AX.25 callsigns must be between 1 and 6 characters.");
+        }
+
+        if (address.Ssid > 15)
+        {
+            throw new InvalidOperationException("AX.25 SSID must be between 0 and 15.");
+        }
+
         var callSign = address.CallSign.ToUpperInvariant().PadRight(6);
         var bytes = new byte[7];
 

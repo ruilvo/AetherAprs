@@ -34,6 +34,17 @@ public static class Ax25AprsKissCodec
     {
         var decodedKissFrame = KissCodec.Decode(kissFrame);
         var ax25Frame = Ax25Codec.Decode(decodedKissFrame.Payload);
+
+        if (ax25Frame.Control != Ax25Codec.UiFrameControl)
+        {
+            throw new InvalidOperationException("AX.25 frame is not a UI frame.");
+        }
+
+        if (ax25Frame.ProtocolId != Ax25Codec.NoLayer3ProtocolId)
+        {
+            throw new InvalidOperationException("AX.25 frame does not carry APRS text.");
+        }
+
         var payload = Encoding.ASCII.GetString(ax25Frame.Information);
         var path = ax25Frame.Digipeaters.Select(Ax25Codec.FormatAddress).ToArray();
         return AprsPayloadCodec.Decode(

@@ -26,6 +26,8 @@ public sealed class AprsEntry
 
     public IReadOnlyList<string> Path { get; init; } = [];
 
+    public IReadOnlyList<string> AprsIsRoute { get; init; } = [];
+
     public Point? Location { get; init; }
 
     public string? Comment { get; init; }
@@ -33,6 +35,10 @@ public sealed class AprsEntry
     public AprsSymbol? Symbol { get; init; }
 
     public DateTimeOffset? Timestamp { get; init; }
+
+    public AprsPartialTimestamp? AprsTimestamp { get; init; }
+
+    public AprsStationDataType? StationDataType { get; init; }
 
     public string? ObjectName { get; init; }
 
@@ -57,6 +63,8 @@ public sealed class AprsEntry
         {
             throw new InvalidOperationException("Destination is required.");
         }
+
+        AprsTimestamp?.Validate();
 
         switch (Kind)
         {
@@ -88,18 +96,32 @@ public sealed class AprsEntry
         {
             throw new InvalidOperationException("Station entries require a symbol.");
         }
+
+        if (StationDataType is null)
+        {
+            throw new InvalidOperationException("Station entries require a station data type.");
+        }
+
+        if (StationDataType is AprsStationDataType.TimestampedPositionWithoutMessaging or AprsStationDataType.TimestampedPositionWithMessaging)
+        {
+            if (AprsTimestamp is null && Timestamp is null)
+            {
+                throw new InvalidOperationException("Timestamped station entries require an APRS timestamp or a full timestamp.");
+            }
+        }
+        else if (AprsTimestamp is not null || Timestamp is not null)
+        {
+            throw new InvalidOperationException("Untimestamped station entries cannot carry a timestamp.");
+        }
     }
 
     private void ValidateObject()
     {
-        if (string.IsNullOrWhiteSpace(ObjectName))
-        {
-            throw new InvalidOperationException("Object entries require an object name.");
-        }
+        ValidateProtocolIdentifier(ObjectName, 9, "Object entries require an object name.", "Object names must be at most 9 characters.");
 
-        if (Timestamp is null)
+        if (AprsTimestamp is null && Timestamp is null)
         {
-            throw new InvalidOperationException("Object entries require a timestamp.");
+            throw new InvalidOperationException("Object entries require an APRS timestamp or a full timestamp.");
         }
 
         if (Location is null)
@@ -115,9 +137,11 @@ public sealed class AprsEntry
 
     private void ValidateItem()
     {
-        if (string.IsNullOrWhiteSpace(ItemName))
+        ValidateProtocolIdentifier(ItemName, 9, "Item entries require an item name.", "Item names must be at most 9 characters.");
+
+        if (ItemName!.Contains('!') || ItemName.Contains('_'))
         {
-            throw new InvalidOperationException("Item entries require an item name.");
+            throw new InvalidOperationException("Item names cannot contain APRS item state separators.");
         }
 
         if (Location is null)
@@ -133,14 +157,24 @@ public sealed class AprsEntry
 
     private void ValidateMessage()
     {
-        if (string.IsNullOrWhiteSpace(MessageRecipient))
-        {
-            throw new InvalidOperationException("Message entries require a message recipient.");
-        }
+        ValidateProtocolIdentifier(MessageRecipient, 9, "Message entries require a message recipient.", "Message recipients must be at most 9 characters.");
 
         if (string.IsNullOrWhiteSpace(MessageText))
         {
             throw new InvalidOperationException("Message entries require message text.");
+        }
+    }
+
+    private static void ValidateProtocolIdentifier(string? value, int maxLength, string missingMessage, string tooLongMessage)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException(missingMessage);
+        }
+
+        if (value.Length > maxLength)
+        {
+            throw new InvalidOperationException(tooLongMessage);
         }
     }
 }

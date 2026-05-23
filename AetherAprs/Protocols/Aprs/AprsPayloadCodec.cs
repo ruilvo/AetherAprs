@@ -35,8 +35,10 @@ public static class AprsPayloadCodec
 
         return payload[0] switch
         {
-            '!' or '=' => DecodeStation(source, destination, path, payload, hasTimestamp: false),
-            '/' or '@' => DecodeStation(source, destination, path, payload, hasTimestamp: true),
+            '!' => DecodeStation(source, destination, path, payload, AprsStationDataType.PositionWithoutMessaging),
+            '=' => DecodeStation(source, destination, path, payload, AprsStationDataType.PositionWithMessaging),
+            '/' => DecodeStation(source, destination, path, payload, AprsStationDataType.TimestampedPositionWithoutMessaging),
+            '@' => DecodeStation(source, destination, path, payload, AprsStationDataType.TimestampedPositionWithMessaging),
             ';' => DecodeObject(source, destination, path, payload),
             ')' => DecodeItem(source, destination, path, payload),
             ':' => DecodeMessage(source, destination, path, payload),
@@ -46,8 +48,16 @@ public static class AprsPayloadCodec
 
     private static string EncodeStation(AprsEntry entry)
     {
-        var prefix = entry.Timestamp is null ? '!' : '/';
-        var timestamp = entry.Timestamp is null ? string.Empty : FormatTimestamp(entry.Timestamp.Value);
+        var prefix = entry.StationDataType switch
+        {
+            AprsStationDataType.PositionWithoutMessaging => '!',
+            AprsStationDataType.PositionWithMessaging => '=',
+            AprsStationDataType.TimestampedPositionWithoutMessaging => '/',
+            AprsStationDataType.TimestampedPositionWithMessaging => '@',
+            _ => throw new InvalidOperationException("Station entries require a station data type."),
+        };
+
+        var timestamp = prefix is '/' or '@' ? FormatTimestamp(entry.AprsTimestamp, entry.Timestamp) : string.Empty;
         var (symbolTable, symbolCode) = EncodeSymbol(entry.Symbol!);
         var coordinates = FormatCoordinates(entry.Location!, symbolTable, symbolCode);
         return $"{prefix}{timestamp}{coordinates}{entry.Comment ?? string.Empty}";
@@ -56,10 +66,9 @@ public static class AprsPayloadCodec
     private static string EncodeObject(AprsEntry entry)
     {
         var (symbolTable, symbolCode) = EncodeSymbol(entry.Symbol!);
-        var name = entry.ObjectName!.PadRight(9).Substring(0, 9);
         var state = entry.IsAlive ? '*' : '_';
         var coordinates = FormatCoordinates(entry.Location!, symbolTable, symbolCode);
-        return $";{name}{state}{FormatTimestamp(entry.Timestamp!.Value)}{coordinates}{entry.Comment ?? string.Empty}";
+        return $";{entry.ObjectName!.PadRight(9)}{state}{FormatTimestamp(entry.AprsTimestamp, entry.Timestamp)}{coordinates}{entry.Comment ?? string.Empty}";
     }
 
     private static string EncodeItem(AprsEntry entry)
@@ -72,19 +81,19 @@ public static class AprsPayloadCodec
 
     private static string EncodeMessage(AprsEntry entry)
     {
-        var recipient = entry.MessageRecipient!.PadRight(9).Substring(0, 9);
+        var recipient = entry.MessageRecipient!.PadRight(9);
         var id = entry.MessageId is null ? string.Empty : $"{{{entry.MessageId}";
         return $":{recipient}:{entry.MessageText!}{id}";
     }
 
-    private static AprsEntry DecodeStation(string source, string destination, IReadOnlyList<string> path, string payload, bool hasTimestamp)
+    private static AprsEntry DecodeStation(string source, string destination, IReadOnlyList<string> path, string payload, AprsStationDataType stationDataType)
     {
         var offset = 1;
-        DateTimeOffset? timestamp = null;
+        AprsPartialTimestamp? aprsTimestamp = null;
 
-        if (hasTimestamp)
+        if (stationDataType is AprsStationDataType.TimestampedPositionWithoutMessaging or AprsStationDataType.TimestampedPositionWithMessaging)
         {
-            timestamp = ParseTimestamp(payload.Substring(offset, 7));
+            aprsTimestamp = ParseTimestamp(payload.Substring(offset, 7));
             offset += 7;
         }
 
@@ -99,21 +108,27 @@ public static class AprsPayloadCodec
             Path = path,
             Location = location,
             Symbol = symbol,
-            Timestamp = timestamp,
+            AprsTimestamp = aprsTimestamp,
+            StationDataType = stationDataType,
             Comment = string.IsNullOrEmpty(comment) ? null : comment,
         };
     }
 
     private static AprsEntry DecodeObject(string source, string destination, IReadOnlyList<string> path, string payload)
     {
-        if (payload.Length < 18)
+        if (payload.Length < 37)
         {
             throw new InvalidOperationException("Object payload is too short.");
         }
 
         var name = payload.Substring(1, 9).TrimEnd();
-        var isAlive = payload[10] == '*';
-        var timestamp = ParseTimestamp(payload.Substring(11, 7));
+        var state = payload[10];
+        if (state is not '*' and not '_')
+        {
+            throw new InvalidOperationException("Object payload contains an invalid object state.");
+        }
+
+        var aprsTimestamp = ParseTimestamp(payload.Substring(11, 7));
         var (location, symbol, consumed) = ParseCoordinates(payload, 18);
         var comment = payload[(18 + consumed)..];
 
@@ -124,8 +139,8 @@ public static class AprsPayloadCodec
             Destination = destination,
             Path = path,
             ObjectName = name,
-            IsAlive = isAlive,
-            Timestamp = timestamp,
+            IsAlive = state == '*',
+            AprsTimestamp = aprsTimestamp,
             Location = location,
             Symbol = symbol,
             Comment = string.IsNullOrEmpty(comment) ? null : comment,
@@ -134,16 +149,21 @@ public static class AprsPayloadCodec
 
     private static AprsEntry DecodeItem(string source, string destination, IReadOnlyList<string> path, string payload)
     {
-        var markerIndex = payload.IndexOf("!", StringComparison.Ordinal);
-        var deadIndex = payload.IndexOf("_", StringComparison.Ordinal);
-        var separatorIndex = markerIndex >= 0 ? markerIndex : deadIndex;
+        var markerIndex = payload.IndexOf('!', 1);
+        var deadIndex = payload.IndexOf('_', 1);
+        var separatorIndex = markerIndex >= 0 && deadIndex >= 0 ? Math.Min(markerIndex, deadIndex) : Math.Max(markerIndex, deadIndex);
 
-        if (separatorIndex < 2)
+        if (separatorIndex is < 2 or > 10)
         {
-            throw new InvalidOperationException("Item payload is missing its name separator.");
+            throw new InvalidOperationException("Item payload is missing a valid name separator.");
         }
 
-        var name = payload[1..separatorIndex];
+        var name = payload.Substring(1, separatorIndex - 1);
+        if (name.Contains('!') || name.Contains('_'))
+        {
+            throw new InvalidOperationException("Item payload contains an invalid item name.");
+        }
+
         var isAlive = payload[separatorIndex] == '!';
         var (location, symbol, consumed) = ParseCoordinates(payload, separatorIndex + 1);
         var comment = payload[(separatorIndex + 1 + consumed)..];
@@ -215,6 +235,11 @@ public static class AprsPayloadCodec
 
     private static string FormatLatitude(double latitude)
     {
+        if (latitude is < -90 or > 90)
+        {
+            throw new InvalidOperationException("Latitude must be between -90 and 90 degrees.");
+        }
+
         var hemisphere = latitude >= 0 ? 'N' : 'S';
         var absoluteLatitude = Math.Abs(latitude);
         var degrees = (int)Math.Floor(absoluteLatitude);
@@ -224,6 +249,11 @@ public static class AprsPayloadCodec
 
     private static string FormatLongitude(double longitude)
     {
+        if (longitude is < -180 or > 180)
+        {
+            throw new InvalidOperationException("Longitude must be between -180 and 180 degrees.");
+        }
+
         var hemisphere = longitude >= 0 ? 'E' : 'W';
         var absoluteLongitude = Math.Abs(longitude);
         var degrees = (int)Math.Floor(absoluteLongitude);
@@ -233,39 +263,73 @@ public static class AprsPayloadCodec
 
     private static double ParseLatitude(string latitude)
     {
+        if (latitude.Length != 8 || latitude[7] is not ('N' or 'S'))
+        {
+            throw new InvalidOperationException("Latitude is malformed.");
+        }
+
         var degrees = double.Parse(latitude[..2], CultureInfo.InvariantCulture);
         var minutes = double.Parse(latitude[2..7], CultureInfo.InvariantCulture);
+        if (degrees > 90 || minutes >= 60)
+        {
+            throw new InvalidOperationException("Latitude is outside APRS limits.");
+        }
+
         var value = degrees + (minutes / 60d);
         return latitude[7] == 'S' ? -value : value;
     }
 
     private static double ParseLongitude(string longitude)
     {
+        if (longitude.Length != 9 || longitude[8] is not ('E' or 'W'))
+        {
+            throw new InvalidOperationException("Longitude is malformed.");
+        }
+
         var degrees = double.Parse(longitude[..3], CultureInfo.InvariantCulture);
         var minutes = double.Parse(longitude[3..8], CultureInfo.InvariantCulture);
+        if (degrees > 180 || minutes >= 60)
+        {
+            throw new InvalidOperationException("Longitude is outside APRS limits.");
+        }
+
         var value = degrees + (minutes / 60d);
         return longitude[8] == 'W' ? -value : value;
     }
 
-    private static string FormatTimestamp(DateTimeOffset timestamp)
+    private static string FormatTimestamp(AprsPartialTimestamp? aprsTimestamp, DateTimeOffset? timestamp)
     {
-        var utc = timestamp.ToUniversalTime();
-        return utc.ToString("ddHHmm'z'", CultureInfo.InvariantCulture);
+        var normalized = aprsTimestamp ?? (timestamp is not null
+            ? new AprsPartialTimestamp
+            {
+                Day = timestamp.Value.ToUniversalTime().Day,
+                Hour = timestamp.Value.ToUniversalTime().Hour,
+                Minute = timestamp.Value.ToUniversalTime().Minute,
+                Suffix = 'z',
+            }
+            : throw new InvalidOperationException("An APRS timestamp is required."));
+
+        normalized.Validate();
+        return string.Format(CultureInfo.InvariantCulture, "{0:00}{1:00}{2:00}{3}", normalized.Day, normalized.Hour, normalized.Minute, normalized.Suffix);
     }
 
-    private static DateTimeOffset ParseTimestamp(string timestamp)
+    private static AprsPartialTimestamp ParseTimestamp(string timestamp)
     {
-        if (timestamp.Length != 7 || timestamp[6] != 'z')
+        if (timestamp.Length != 7)
         {
-            throw new InvalidOperationException("Only zulu APRS timestamps are supported.");
+            throw new InvalidOperationException("APRS timestamp must be 7 characters long.");
         }
 
-        var day = int.Parse(timestamp[..2], CultureInfo.InvariantCulture);
-        var hour = int.Parse(timestamp.Substring(2, 2), CultureInfo.InvariantCulture);
-        var minute = int.Parse(timestamp.Substring(4, 2), CultureInfo.InvariantCulture);
-        var now = DateTimeOffset.UtcNow;
-        var safeDay = Math.Min(day, DateTime.DaysInMonth(now.Year, now.Month));
-        return new DateTimeOffset(now.Year, now.Month, safeDay, hour, minute, 0, TimeSpan.Zero);
+        var parsed = new AprsPartialTimestamp
+        {
+            Day = int.Parse(timestamp[..2], CultureInfo.InvariantCulture),
+            Hour = int.Parse(timestamp.Substring(2, 2), CultureInfo.InvariantCulture),
+            Minute = int.Parse(timestamp.Substring(4, 2), CultureInfo.InvariantCulture),
+            Suffix = timestamp[6],
+        };
+
+        parsed.Validate();
+        return parsed;
     }
 
     private static (char TableSelector, char SymbolCode) EncodeSymbol(AprsSymbol symbol)
