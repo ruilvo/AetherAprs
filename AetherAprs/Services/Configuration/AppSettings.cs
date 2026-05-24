@@ -27,17 +27,17 @@ public class AppSettings
     /// <summary>
     /// Gets or sets the APRS-IS login callsign.
     /// </summary>
-    public string Callsign { get; set; } = string.Empty;
+    public string Callsign { get; set; } = "N0CALL";
 
     /// <summary>
     /// Gets or sets the APRS-IS passcode.
     /// </summary>
-    public string Passcode { get; set; } = string.Empty;
+    public string Passcode { get; set; } = "12345";
 
     /// <summary>
     /// Gets or sets the APRS-IS filter string.
     /// </summary>
-    public string Filter { get; set; } = string.Empty;
+    public string Filter { get; set; } = "m/50";
 
     /// <summary>
     /// Validates the settings, throwing if any value is invalid.

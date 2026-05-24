@@ -33,7 +33,7 @@ public sealed class AprsSessionService(
         }
 
         var settings = _configurationService.Settings;
-        if (string.IsNullOrWhiteSpace(settings.Callsign) || string.IsNullOrWhiteSpace(settings.Passcode))
+        if (string.IsNullOrWhiteSpace(settings.Callsign) || string.IsNullOrWhiteSpace(settings.Passcode) || IsPlaceholderCredentials(settings.Callsign, settings.Passcode))
         {
             WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage("Callsign and passcode are required before connecting to APRS-IS."));
             return;
@@ -66,6 +66,19 @@ public sealed class AprsSessionService(
         _receiveLoopTask = RunReceiveLoopAsync(_receiveLoopCancellationTokenSource.Token);
         IsConnected = true;
         WeakReferenceMessenger.Default.Send(new AprsConnectionStateChangedMessage(true));
+    }
+
+    private static bool IsPlaceholderCredentials(string callsign, string passcode)
+    {
+        var trimmedCallsign = callsign.Trim();
+        var trimmedPasscode = passcode.Trim();
+
+        if (!string.Equals(trimmedPasscode, "12345", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return string.Equals(trimmedCallsign, "N0CALL", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
