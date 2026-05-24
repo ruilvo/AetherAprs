@@ -34,8 +34,8 @@ public class LoggingService : ILoggingService, IDisposable
         ArgumentNullException.ThrowIfNull(configurationService);
 
         var settings = configurationService.Settings;
-        _minLogLevel = settings.LogLevel;
-        _writeToFile = settings.WriteToFile;
+        _minLogLevel = settings.Logging.LogLevel;
+        _writeToFile = settings.Logging.WriteToFile;
 
         if (!_writeToFile)
         {

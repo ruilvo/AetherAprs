@@ -45,12 +45,12 @@ public sealed class AprsIsBackend(IConfigurationService configurationService) : 
         };
 
         var settings = _configurationService.Settings;
-        var login = $"user {settings.Callsign} pass {settings.Passcode} vers AetherAprs 0.1";
+        var login = $"user {settings.AprsIs.Callsign} pass {settings.AprsIs.Passcode} vers AetherAprs 0.1";
         await _writer.WriteLineAsync(login);
 
-        if (!string.IsNullOrWhiteSpace(settings.Filter))
+        if (!string.IsNullOrWhiteSpace(settings.AprsIs.Filter))
         {
-            await _writer.WriteLineAsync($"#filter {settings.Filter}");
+            await _writer.WriteLineAsync($"#filter {settings.AprsIs.Filter}");
         }
     }
 

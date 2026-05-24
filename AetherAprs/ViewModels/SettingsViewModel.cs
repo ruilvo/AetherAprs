@@ -49,11 +49,11 @@ public partial class SettingsViewModel : ViewModelBase
 
         // Load current settings
         var settings = _configurationService.Settings;
-        _selectedLogLevel = settings.LogLevel;
-        _writeToFile = settings.WriteToFile;
-        _callsign = settings.Callsign;
-        _passcode = settings.Passcode;
-        _filter = settings.Filter;
+        _selectedLogLevel = settings.Logging.LogLevel;
+        _writeToFile = settings.Logging.WriteToFile;
+        _callsign = settings.AprsIs.Callsign;
+        _passcode = settings.AprsIs.Passcode;
+        _filter = settings.AprsIs.Filter;
     }
 
     [RelayCommand]
@@ -61,11 +61,17 @@ public partial class SettingsViewModel : ViewModelBase
     {
         var newSettings = new AppSettings
         {
-            LogLevel = SelectedLogLevel,
-            WriteToFile = WriteToFile,
-            Callsign = Callsign,
-            Passcode = Passcode,
-            Filter = Filter,
+            Logging = new LoggingSettings
+            {
+                LogLevel = SelectedLogLevel,
+                WriteToFile = WriteToFile,
+            },
+            AprsIs = new AprsSettings
+            {
+                Callsign = Callsign,
+                Passcode = Passcode,
+                Filter = Filter,
+            },
         };
 
         if (_configurationService.SaveSettings(newSettings))
@@ -82,11 +88,11 @@ public partial class SettingsViewModel : ViewModelBase
     private void Reset()
     {
         var defaults = new AppSettings();
-        SelectedLogLevel = defaults.LogLevel;
-        WriteToFile = defaults.WriteToFile;
-        Callsign = defaults.Callsign;
-        Passcode = defaults.Passcode;
-        Filter = defaults.Filter;
+        SelectedLogLevel = defaults.Logging.LogLevel;
+        WriteToFile = defaults.Logging.WriteToFile;
+        Callsign = defaults.AprsIs.Callsign;
+        Passcode = defaults.AprsIs.Passcode;
+        Filter = defaults.AprsIs.Filter;
         StatusMessage = null;
     }
 }

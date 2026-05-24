@@ -33,7 +33,9 @@ public sealed class AprsSessionService(
         }
 
         var settings = _configurationService.Settings;
-        if (string.IsNullOrWhiteSpace(settings.Callsign) || string.IsNullOrWhiteSpace(settings.Passcode) || IsPlaceholderCredentials(settings.Callsign, settings.Passcode))
+        var callsign = settings.AprsIs.Callsign;
+        var passcode = settings.AprsIs.Passcode;
+        if (string.IsNullOrWhiteSpace(callsign) || string.IsNullOrWhiteSpace(passcode) || IsPlaceholderCredentials(callsign, passcode))
         {
             WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage("Callsign and passcode are required before connecting to APRS-IS."));
             return;

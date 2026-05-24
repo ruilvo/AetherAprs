@@ -24,16 +24,19 @@ public sealed class AprsSessionServiceTests
     {
         var settings = new AppSettings
         {
-            Callsign = "N0CALL-1",
-            Passcode = "12345",
-            Filter = "r/38.7/-9.1/50",
+            AprsIs = new AprsSettings
+            {
+                Callsign = "N0CALL-1",
+                Passcode = "12345",
+                Filter = "r/38.7/-9.1/50",
+            },
         };
 
         var clone = settings.Clone();
 
-        Assert.Equal(settings.Callsign, clone.Callsign);
-        Assert.Equal(settings.Passcode, clone.Passcode);
-        Assert.Equal(settings.Filter, clone.Filter);
+        Assert.Equal(settings.AprsIs.Callsign, clone.AprsIs.Callsign);
+        Assert.Equal(settings.AprsIs.Passcode, clone.AprsIs.Passcode);
+        Assert.Equal(settings.AprsIs.Filter, clone.AprsIs.Filter);
     }
 
     [Fact]
@@ -121,8 +124,11 @@ public sealed class AprsSessionServiceTests
     {
         public AppSettings Settings { get; private set; } = settings ?? new AppSettings
         {
-            Callsign = "N0CALL-1",
-            Passcode = "12345",
+            AprsIs = new AprsSettings
+            {
+                Callsign = "N0CALL-1",
+                Passcode = "12345",
+            },
         };
 
         public bool SaveSettings(AppSettings newSettings)
