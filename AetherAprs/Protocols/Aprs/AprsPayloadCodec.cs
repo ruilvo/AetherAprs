@@ -292,12 +292,19 @@ public static class AprsPayloadCodec
                 Day = timestamp.Value.ToUniversalTime().Day,
                 Hour = timestamp.Value.ToUniversalTime().Hour,
                 Minute = timestamp.Value.ToUniversalTime().Minute,
+                Second = null,
                 Suffix = 'z',
             }
             : throw new InvalidOperationException("An APRS timestamp is required."));
 
         normalized.Validate();
-        return string.Format(CultureInfo.InvariantCulture, "{0:00}{1:00}{2:00}{3}", normalized.Day, normalized.Hour, normalized.Minute, normalized.Suffix);
+
+        return normalized.Suffix switch
+        {
+            'h' => string.Format(CultureInfo.InvariantCulture, "{0:00}{1:00}{2:00}h", normalized.Hour, normalized.Minute, normalized.Second!.Value),
+            'z' or '/' => string.Format(CultureInfo.InvariantCulture, "{0:00}{1:00}{2:00}{3}", normalized.Day!.Value, normalized.Hour, normalized.Minute, normalized.Suffix),
+            _ => throw new InvalidOperationException($"Unsupported APRS timestamp suffix '{normalized.Suffix}'."),
+        };
     }
 
     private static AprsPartialTimestamp ParseTimestamp(string timestamp)
@@ -307,12 +314,27 @@ public static class AprsPayloadCodec
             throw new InvalidOperationException("APRS timestamp must be 7 characters long.");
         }
 
-        var parsed = new AprsPartialTimestamp
+        var suffix = timestamp[6];
+
+        var parsed = suffix switch
         {
-            Day = int.Parse(timestamp[..2], CultureInfo.InvariantCulture),
-            Hour = int.Parse(timestamp.Substring(2, 2), CultureInfo.InvariantCulture),
-            Minute = int.Parse(timestamp.Substring(4, 2), CultureInfo.InvariantCulture),
-            Suffix = timestamp[6],
+            'h' => new AprsPartialTimestamp
+            {
+                Day = null,
+                Hour = int.Parse(timestamp[..2], CultureInfo.InvariantCulture),
+                Minute = int.Parse(timestamp.Substring(2, 2), CultureInfo.InvariantCulture),
+                Second = int.Parse(timestamp.Substring(4, 2), CultureInfo.InvariantCulture),
+                Suffix = suffix,
+            },
+            'z' or '/' => new AprsPartialTimestamp
+            {
+                Day = int.Parse(timestamp[..2], CultureInfo.InvariantCulture),
+                Hour = int.Parse(timestamp.Substring(2, 2), CultureInfo.InvariantCulture),
+                Minute = int.Parse(timestamp.Substring(4, 2), CultureInfo.InvariantCulture),
+                Second = null,
+                Suffix = suffix,
+            },
+            _ => throw new InvalidOperationException($"Unsupported APRS timestamp suffix '{suffix}'."),
         };
 
         parsed.Validate();

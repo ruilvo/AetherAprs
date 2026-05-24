@@ -48,6 +48,80 @@ public sealed class AprsCodecTests
     }
 
     [Fact]
+    public void Station_payload_supports_local_ddhhmm_slash_timestamp()
+    {
+        var payload = "/231234/3843.34N/00908.36W>station";
+
+        var decoded = AprsPayloadCodec.Decode(payload);
+
+        Assert.Equal(AprsEntryKind.Station, decoded.Kind);
+        Assert.Equal(AprsStationDataType.TimestampedPositionWithoutMessaging, decoded.StationDataType);
+        Assert.NotNull(decoded.AprsTimestamp);
+        Assert.Equal(23, decoded.AprsTimestamp!.Day!.Value);
+        Assert.Equal(12, decoded.AprsTimestamp.Hour);
+        Assert.Equal(34, decoded.AprsTimestamp.Minute);
+        Assert.Null(decoded.AprsTimestamp.Second);
+        Assert.Equal('/', decoded.AprsTimestamp.Suffix);
+    }
+
+    [Fact]
+    public void Station_payload_supports_hhmmsSh_timestamp()
+    {
+        var payload = "/123456h3843.34N/00908.36W>station";
+
+        var decoded = AprsPayloadCodec.Decode(payload);
+
+        Assert.Equal(AprsEntryKind.Station, decoded.Kind);
+        Assert.Equal(AprsStationDataType.TimestampedPositionWithoutMessaging, decoded.StationDataType);
+        Assert.NotNull(decoded.AprsTimestamp);
+        Assert.Null(decoded.AprsTimestamp!.Day);
+        Assert.Equal(12, decoded.AprsTimestamp.Hour);
+        Assert.Equal(34, decoded.AprsTimestamp.Minute);
+        Assert.Equal(56, decoded.AprsTimestamp.Second!.Value);
+        Assert.Equal('h', decoded.AprsTimestamp.Suffix);
+    }
+
+    [Fact]
+    public void Station_payload_encode_round_trip_preserves_local_ddhhmm_slash_timestamp()
+    {
+        var entry = new AprsEntry
+        {
+            Kind = AprsEntryKind.Station,
+            Location = new Point(-9.1393, 38.7223),
+            Symbol = new AprsSymbol { Table = AprsSymbolTable.Primary, Code = '>' },
+            StationDataType = AprsStationDataType.TimestampedPositionWithoutMessaging,
+            AprsTimestamp = new AprsPartialTimestamp { Day = 23, Hour = 12, Minute = 34, Second = null, Suffix = '/' },
+            Comment = "station",
+        };
+
+        var payload = AprsPayloadCodec.Encode(entry);
+        var decoded = AprsPayloadCodec.Decode(payload);
+
+        Assert.Equal("/231234/", payload.Substring(0, 8));
+        AssertPayloadStation(entry, decoded);
+    }
+
+    [Fact]
+    public void Station_payload_encode_round_trip_preserves_hhmmsSh_timestamp()
+    {
+        var entry = new AprsEntry
+        {
+            Kind = AprsEntryKind.Station,
+            Location = new Point(-9.1393, 38.7223),
+            Symbol = new AprsSymbol { Table = AprsSymbolTable.Primary, Code = '>' },
+            StationDataType = AprsStationDataType.TimestampedPositionWithoutMessaging,
+            AprsTimestamp = new AprsPartialTimestamp { Day = null, Hour = 12, Minute = 34, Second = 56, Suffix = 'h' },
+            Comment = "station",
+        };
+
+        var payload = AprsPayloadCodec.Encode(entry);
+        var decoded = AprsPayloadCodec.Decode(payload);
+
+        Assert.Equal("/123456h", payload.Substring(0, 8));
+        AssertPayloadStation(entry, decoded);
+    }
+
+    [Fact]
     public void Kiss_round_trip_preserves_packet_addressing_and_item_payload()
     {
         var packet = new AprsPacket
@@ -227,6 +301,7 @@ public sealed class AprsCodecTests
             Assert.Equal(expected.AprsTimestamp.Day, actual.AprsTimestamp!.Day);
             Assert.Equal(expected.AprsTimestamp.Hour, actual.AprsTimestamp.Hour);
             Assert.Equal(expected.AprsTimestamp.Minute, actual.AprsTimestamp.Minute);
+            Assert.Equal(expected.AprsTimestamp.Second, actual.AprsTimestamp.Second);
             Assert.Equal(expected.AprsTimestamp.Suffix, actual.AprsTimestamp.Suffix);
         }
     }
