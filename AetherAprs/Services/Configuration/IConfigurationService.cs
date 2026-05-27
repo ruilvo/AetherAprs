@@ -20,4 +20,9 @@ public interface IConfigurationService
     /// <param name="newSettings">The settings to persist.</param>
     /// <returns><c>true</c> if the settings were persisted successfully; otherwise <c>false</c>.</returns>
     bool SaveSettings(AppSettings newSettings);
+
+    /// <summary>
+    /// Returns the default settings as defined in the bundled <c>appsettings.json</c>, ignoring any user overrides.
+    /// </summary>
+    AppSettings GetDefaults();
 }

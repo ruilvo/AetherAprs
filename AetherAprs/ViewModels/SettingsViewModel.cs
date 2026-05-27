@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace AetherAprs.ViewModels;
@@ -20,22 +21,22 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly IConfigurationService _configurationService;
 
     [ObservableProperty]
-    private LogLevel _selectedLogLevel;
+    public required partial LogLevel SelectedLogLevel { get; set; }
 
     [ObservableProperty]
-    private bool _writeToFile;
+    public required partial bool WriteToFile { get; set; }
 
     [ObservableProperty]
-    private string _callsign = string.Empty;
+    public required partial string Callsign { get; set; }
 
     [ObservableProperty]
-    private string _passcode = string.Empty;
+    public required partial string Passcode { get; set; }
 
     [ObservableProperty]
-    private string _filter = string.Empty;
+    public required partial string Filter { get; set; }
 
     [ObservableProperty]
-    private string? _statusMessage;
+    public required partial string? StatusMessage { get; set; }
 
     /// <summary>
     /// Gets the available log levels for display in the UI.
@@ -43,36 +44,29 @@ public partial class SettingsViewModel : ViewModelBase
     public IReadOnlyList<LogLevel> LogLevels { get; } =
         Enum.GetValues<LogLevel>().ToArray();
 
+    [SetsRequiredMembers]
     public SettingsViewModel(IConfigurationService configurationService)
     {
         _configurationService = configurationService;
 
-        // Load current settings
         var settings = _configurationService.Settings;
-        _selectedLogLevel = settings.Logging.LogLevel;
-        _writeToFile = settings.Logging.WriteToFile;
-        _callsign = settings.AprsIs.Callsign;
-        _passcode = settings.AprsIs.Passcode;
-        _filter = settings.AprsIs.Filter;
+        SelectedLogLevel = settings.Logging.LogLevel;
+        WriteToFile = settings.Logging.WriteToFile;
+        Callsign = settings.AprsIs.Callsign;
+        Passcode = settings.AprsIs.Passcode;
+        Filter = settings.AprsIs.Filter;
+        StatusMessage = null;
     }
 
     [RelayCommand]
     private void Save()
     {
-        var newSettings = new AppSettings
-        {
-            Logging = new LoggingSettings
-            {
-                LogLevel = SelectedLogLevel,
-                WriteToFile = WriteToFile,
-            },
-            AprsIs = new AprsSettings
-            {
-                Callsign = Callsign,
-                Passcode = Passcode,
-                Filter = Filter,
-            },
-        };
+        var newSettings = _configurationService.Settings.Clone();
+        newSettings.Logging.LogLevel = SelectedLogLevel;
+        newSettings.Logging.WriteToFile = WriteToFile;
+        newSettings.AprsIs.Callsign = Callsign;
+        newSettings.AprsIs.Passcode = Passcode;
+        newSettings.AprsIs.Filter = Filter;
 
         if (_configurationService.SaveSettings(newSettings))
         {
@@ -87,7 +81,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private void Reset()
     {
-        var defaults = new AppSettings();
+        var defaults = _configurationService.GetDefaults();
         SelectedLogLevel = defaults.Logging.LogLevel;
         WriteToFile = defaults.Logging.WriteToFile;
         Callsign = defaults.AprsIs.Callsign;

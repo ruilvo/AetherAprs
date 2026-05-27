@@ -21,6 +21,7 @@ public abstract class ConfigurationService : IConfigurationService
     private const string AppSettingsSection = "AppSettings";
     protected const string DefaultFileName = "appsettings.json";
 
+    private readonly string _basePath;
     private readonly string _settingsFilePath;
 
     /// <inheritdoc/>
@@ -30,18 +31,26 @@ public abstract class ConfigurationService : IConfigurationService
     {
         var environment = Environment.GetEnvironmentVariable(EnvironmentVariableName) ?? DefaultEnvironment;
 
-        var basePath = GetSettingsBasePath();
+        _basePath = GetSettingsBasePath();
         var envFileName = $"appsettings.{environment}.json";
 
-        _settingsFilePath = ResolveSettingsFilePath(basePath, envFileName);
+        var defaultFilePath = Path.Combine(_basePath, DefaultFileName);
+        if (!File.Exists(defaultFilePath))
+        {
+            throw new FileNotFoundException(
+                $"Required configuration file '{DefaultFileName}' was not found.",
+                defaultFilePath);
+        }
+
+        _settingsFilePath = ResolveSettingsFilePath(_basePath, envFileName);
 
         var builder = new ConfigurationBuilder()
-            .SetBasePath(basePath)
-            .AddJsonFile(DefaultFileName, optional: true, reloadOnChange: false)
+            .SetBasePath(_basePath)
+            .AddJsonFile(DefaultFileName, optional: false, reloadOnChange: false)
             .AddJsonFile(envFileName, optional: true, reloadOnChange: false);
 
         var configuration = builder.Build();
-        Settings = configuration.GetSection(AppSettingsSection).Get<AppSettings>() ?? new AppSettings();
+        Settings = LoadSettings(configuration);
 
         try
         {
@@ -49,9 +58,33 @@ public abstract class ConfigurationService : IConfigurationService
         }
         catch (ArgumentOutOfRangeException)
         {
-            // Fall back to defaults if stored settings are invalid
-            Settings = new AppSettings();
+            // Fall back to bundled defaults if stored settings are invalid
+            Settings = GetDefaults();
         }
+    }
+
+    /// <inheritdoc/>
+    public AppSettings GetDefaults()
+    {
+        var builder = new ConfigurationBuilder()
+            .SetBasePath(_basePath)
+            .AddJsonFile(DefaultFileName, optional: false, reloadOnChange: false);
+
+        return LoadSettings(builder.Build());
+    }
+
+    private static AppSettings LoadSettings(IConfiguration configuration)
+    {
+        var section = configuration.GetSection(AppSettingsSection);
+        if (!section.Exists())
+        {
+            throw new InvalidOperationException(
+                $"Configuration section '{AppSettingsSection}' was not found.");
+        }
+
+        return section.Get<AppSettings>()
+            ?? throw new InvalidOperationException(
+                $"Configuration section '{AppSettingsSection}' could not be bound to AppSettings.");
     }
 
     /// <inheritdoc/>

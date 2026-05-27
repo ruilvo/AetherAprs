@@ -19,9 +19,6 @@ using System.Threading.Tasks;
 
 public sealed class AprsIsBackend(IConfigurationService configurationService) : IAprsBackend, IAsyncDisposable
 {
-    private const string DefaultHost = "rotate.aprs2.net";
-    private const int DefaultPort = 14580;
-
     private readonly IConfigurationService _configurationService = configurationService;
     private TcpClient? _tcpClient;
     private StreamReader? _reader;
@@ -34,8 +31,10 @@ public sealed class AprsIsBackend(IConfigurationService configurationService) : 
             return;
         }
 
+        var settings = _configurationService.Settings;
+
         _tcpClient = new TcpClient();
-        await _tcpClient.ConnectAsync(DefaultHost, DefaultPort, cancellationToken);
+        await _tcpClient.ConnectAsync(settings.AprsIs.Host, settings.AprsIs.Port, cancellationToken);
         var stream = _tcpClient.GetStream();
         _reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
         _writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
@@ -43,12 +42,6 @@ public sealed class AprsIsBackend(IConfigurationService configurationService) : 
             NewLine = "\r\n",
             AutoFlush = true,
         };
-
-        var settings = _configurationService.Settings;
-        if (IsPlaceholderCredentials(settings.AprsIs.Callsign, settings.AprsIs.Passcode))
-        {
-            throw new InvalidOperationException("Callsign and passcode are required before connecting to APRS-IS.");
-        }
 
         var login = $"user {settings.AprsIs.Callsign} pass {settings.AprsIs.Passcode} vers AetherAprs 0.1";
         await _writer.WriteLineAsync(login);
@@ -103,21 +96,6 @@ public sealed class AprsIsBackend(IConfigurationService configurationService) : 
         cancellationToken.ThrowIfCancellationRequested();
         var line = AprsIsCodec.Encode(new AprsIsPacket { Packet = packet });
         await _writer.WriteLineAsync(line);
-    }
-
-    private static bool IsPlaceholderCredentials(string callsign, string passcode)
-    {
-        if (string.IsNullOrWhiteSpace(callsign) || string.IsNullOrWhiteSpace(passcode))
-        {
-            return true;
-        }
-
-        if (!string.Equals(passcode.Trim(), "12345", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return string.Equals(callsign.Trim(), "N0CALL", StringComparison.OrdinalIgnoreCase);
     }
 
     public ValueTask DisposeAsync()

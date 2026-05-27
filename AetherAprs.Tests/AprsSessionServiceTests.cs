@@ -24,8 +24,15 @@ public sealed class AprsSessionServiceTests
     {
         var settings = new AppSettings
         {
+            Logging = new LoggingSettings
+            {
+                LogLevel = AetherAprs.Services.Logging.LogLevel.Information,
+                WriteToFile = false,
+            },
             AprsIs = new AprsSettings
             {
+                Host = "rotate.aprs2.net",
+                Port = 14580,
                 Callsign = "N0CALL-1",
                 Passcode = "12345",
                 Filter = "r/38.7/-9.1/50",
@@ -34,64 +41,76 @@ public sealed class AprsSessionServiceTests
 
         var clone = settings.Clone();
 
+        Assert.Equal(settings.AprsIs.Host, clone.AprsIs.Host);
+        Assert.Equal(settings.AprsIs.Port, clone.AprsIs.Port);
         Assert.Equal(settings.AprsIs.Callsign, clone.AprsIs.Callsign);
         Assert.Equal(settings.AprsIs.Passcode, clone.AprsIs.Passcode);
         Assert.Equal(settings.AprsIs.Filter, clone.AprsIs.Filter);
     }
 
     [Fact]
-    public async Task Session_service_sends_outbound_message_to_backend()
+    public async Task Session_service_broadcasts_outbound_message_to_all_backends()
     {
-        var backend = new FakeAprsBackend();
-        using var session = new AprsSessionService(backend, new FakeConfigurationService());
+        var first = new FakeAprsBackend();
+        var second = new FakeAprsBackend();
+        await using var session = new AprsSessionService();
         var packet = CreatePacket();
 
-        await session.StartAsync();
+        await session.RegisterBackendAsync(first);
+        await session.RegisterBackendAsync(second);
         WeakReferenceMessenger.Default.Send(new SendAprsPacketMessage(packet));
 
-        Assert.True(backend.ConnectCalled);
-        Assert.Same(packet, backend.SentPackets.Single());
+        await WaitForAsync(() => first.SentPackets.Count == 1 && second.SentPackets.Count == 1);
+
+        Assert.True(first.ConnectCalled);
+        Assert.True(second.ConnectCalled);
+        Assert.Same(packet, first.SentPackets.Single());
+        Assert.Same(packet, second.SentPackets.Single());
     }
 
     [Fact]
     public async Task Session_service_publishes_received_packets()
     {
         var backend = new FakeAprsBackend();
-        using var session = new AprsSessionService(backend, new FakeConfigurationService());
+        await using var session = new AprsSessionService();
         var recipient = new PacketRecipient();
         var packet = CreatePacket();
 
         WeakReferenceMessenger.Default.Register<PacketRecipient, AprsPacketReceivedMessage>(recipient, static (r, m) => r.Packet = m.Value);
 
-        await session.StartAsync();
+        await session.RegisterBackendAsync(backend);
         await backend.PublishAsync(packet);
         await backend.CompleteAsync();
 
-        await WaitForPacketAsync(recipient);
+        await WaitForAsync(() => recipient.Packet is not null);
 
         Assert.Same(packet, recipient.Packet);
         WeakReferenceMessenger.Default.UnregisterAll(recipient);
     }
 
     [Fact]
-    public async Task Session_service_requires_callsign_and_passcode_before_connecting()
+    public async Task Unregistering_backend_stops_delivery_and_disposes_async_backend()
     {
-        var backend = new FakeAprsBackend();
-        using var session = new AprsSessionService(backend, new FakeConfigurationService(new AppSettings()));
-        var recipient = new ErrorRecipient();
+        var first = new FakeAprsBackend();
+        var second = new FakeAprsBackend();
+        await using var session = new AprsSessionService();
 
-        WeakReferenceMessenger.Default.Register<ErrorRecipient, AprsConnectionErrorMessage>(recipient, static (r, m) => r.Message = m.Value);
+        var firstHandle = await session.RegisterBackendAsync(first);
+        await session.RegisterBackendAsync(second);
 
-        await session.StartAsync();
+        await session.UnregisterBackendAsync(firstHandle);
 
-        Assert.False(backend.ConnectCalled);
-        Assert.Contains("Callsign", recipient.Message);
-        WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        WeakReferenceMessenger.Default.Send(new SendAprsPacketMessage(CreatePacket()));
+        await WaitForAsync(() => second.SentPackets.Count == 1);
+
+        Assert.True(first.Disposed);
+        Assert.Empty(first.SentPackets);
+        Assert.Single(second.SentPackets);
     }
 
-    private static async Task WaitForPacketAsync(PacketRecipient recipient)
+    private static async Task WaitForAsync(System.Func<bool> predicate)
     {
-        for (var attempt = 0; attempt < 50 && recipient.Packet is null; attempt++)
+        for (var attempt = 0; attempt < 50 && !predicate(); attempt++)
         {
             await Task.Delay(10);
         }
@@ -115,34 +134,13 @@ public sealed class AprsSessionServiceTests
         public AprsPacket? Packet { get; set; }
     }
 
-    private sealed class ErrorRecipient
-    {
-        public string? Message { get; set; }
-    }
-
-    private sealed class FakeConfigurationService(AppSettings? settings = null) : IConfigurationService
-    {
-        public AppSettings Settings { get; private set; } = settings ?? new AppSettings
-        {
-            AprsIs = new AprsSettings
-            {
-                Callsign = "N0CALL-1",
-                Passcode = "12345",
-            },
-        };
-
-        public bool SaveSettings(AppSettings newSettings)
-        {
-            Settings = newSettings;
-            return true;
-        }
-    }
-
-    private sealed class FakeAprsBackend : IAprsBackend
+    private sealed class FakeAprsBackend : IAprsBackend, System.IAsyncDisposable
     {
         private readonly Channel<AprsPacket> _receivedPackets = Channel.CreateUnbounded<AprsPacket>();
 
         public bool ConnectCalled { get; private set; }
+
+        public bool Disposed { get; private set; }
 
         public List<AprsPacket> SentPackets { get; } = [];
 
@@ -172,6 +170,13 @@ public sealed class AprsSessionServiceTests
         {
             _receivedPackets.Writer.Complete();
             return Task.CompletedTask;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Disposed = true;
+            _receivedPackets.Writer.TryComplete();
+            return ValueTask.CompletedTask;
         }
     }
 }
