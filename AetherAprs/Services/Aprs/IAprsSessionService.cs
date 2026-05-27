@@ -4,14 +4,14 @@
 
 namespace AetherAprs.Services.Aprs;
 
+using AetherAprs.Protocols;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 public interface IAprsSessionService
 {
-    bool IsConnected { get; }
+    Task<Guid> RegisterBackendAsync(IAprsBackend backend, CancellationToken cancellationToken = default);
 
-    Task StartAsync(CancellationToken cancellationToken = default);
-
-    Task StopAsync(CancellationToken cancellationToken = default);
+    Task UnregisterBackendAsync(Guid handle, CancellationToken cancellationToken = default);
 }

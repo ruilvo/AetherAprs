@@ -45,6 +45,11 @@ public sealed class AprsIsBackend(IConfigurationService configurationService) : 
         };
 
         var settings = _configurationService.Settings;
+        if (IsPlaceholderCredentials(settings.AprsIs.Callsign, settings.AprsIs.Passcode))
+        {
+            throw new InvalidOperationException("Callsign and passcode are required before connecting to APRS-IS.");
+        }
+
         var login = $"user {settings.AprsIs.Callsign} pass {settings.AprsIs.Passcode} vers AetherAprs 0.1";
         await _writer.WriteLineAsync(login);
 
@@ -98,6 +103,21 @@ public sealed class AprsIsBackend(IConfigurationService configurationService) : 
         cancellationToken.ThrowIfCancellationRequested();
         var line = AprsIsCodec.Encode(new AprsIsPacket { Packet = packet });
         await _writer.WriteLineAsync(line);
+    }
+
+    private static bool IsPlaceholderCredentials(string callsign, string passcode)
+    {
+        if (string.IsNullOrWhiteSpace(callsign) || string.IsNullOrWhiteSpace(passcode))
+        {
+            return true;
+        }
+
+        if (!string.Equals(passcode.Trim(), "12345", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return string.Equals(callsign.Trim(), "N0CALL", StringComparison.OrdinalIgnoreCase);
     }
 
     public ValueTask DisposeAsync()

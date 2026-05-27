@@ -5,111 +5,99 @@
 namespace AetherAprs.Services.Aprs;
 
 using AetherAprs.Messages;
-using AetherAprs.Models;
 using AetherAprs.Protocols;
-using AetherAprs.Services.Configuration;
 using CommunityToolkit.Mvvm.Messaging;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-public sealed class AprsSessionService(
-    IAprsBackend aprsBackend,
-    IConfigurationService configurationService) : IAprsSessionService, IDisposable
+public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
 {
-    private readonly IAprsBackend _aprsBackend = aprsBackend;
-    private readonly IConfigurationService _configurationService = configurationService;
-    private CancellationTokenSource? _receiveLoopCancellationTokenSource;
-    private Task? _receiveLoopTask;
-    private bool _isRegistered;
+    private readonly Dictionary<Guid, BackendEntry> _backends = new();
+    private readonly object _gate = new();
 
-    public bool IsConnected { get; private set; }
-
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public AprsSessionService()
     {
-        if (IsConnected)
+        WeakReferenceMessenger.Default.Register<AprsSessionService, SendAprsPacketMessage>(this, static (service, message) =>
         {
-            return;
+            service.BroadcastAsync(message.Value);
+        });
+    }
+
+    public async Task<Guid> RegisterBackendAsync(IAprsBackend backend, CancellationToken cancellationToken = default)
+    {
+        await backend.ConnectAsync(cancellationToken);
+
+        var handle = Guid.NewGuid();
+        var cts = new CancellationTokenSource();
+        var task = RunReceiveLoopAsync(backend, cts.Token);
+
+        lock (_gate)
+        {
+            _backends[handle] = new BackendEntry(backend, cts, task);
         }
 
-        var settings = _configurationService.Settings;
-        var callsign = settings.AprsIs.Callsign;
-        var passcode = settings.AprsIs.Passcode;
-        if (string.IsNullOrWhiteSpace(callsign) || string.IsNullOrWhiteSpace(passcode) || IsPlaceholderCredentials(callsign, passcode))
-        {
-            WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage("Callsign and passcode are required before connecting to APRS-IS."));
-            return;
-        }
+        return handle;
+    }
 
-        await _aprsBackend.ConnectAsync(cancellationToken);
-
-        if (!_isRegistered)
+    public async Task UnregisterBackendAsync(Guid handle, CancellationToken cancellationToken = default)
+    {
+        BackendEntry? entry;
+        lock (_gate)
         {
-            WeakReferenceMessenger.Default.Register<AprsSessionService, SendAprsPacketMessage>(this, static async (service, message) =>
+            if (!_backends.Remove(handle, out entry))
             {
-                if (!service.IsConnected)
-                {
-                    return;
-                }
-
-                try
-                {
-                    await service._aprsBackend.SendAsync(message.Value);
-                }
-                catch (Exception ex)
-                {
-                    WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage(ex.Message));
-                }
-            });
-            _isRegistered = true;
+                return;
+            }
         }
 
-        _receiveLoopCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _receiveLoopTask = RunReceiveLoopAsync(_receiveLoopCancellationTokenSource.Token);
-        IsConnected = true;
-        WeakReferenceMessenger.Default.Send(new AprsConnectionStateChangedMessage(true));
-    }
+        entry.Cts.Cancel();
+        await entry.ReceiveTask.WaitAsync(cancellationToken);
 
-    private static bool IsPlaceholderCredentials(string callsign, string passcode)
-    {
-        var trimmedCallsign = callsign.Trim();
-        var trimmedPasscode = passcode.Trim();
-
-        if (!string.Equals(trimmedPasscode, "12345", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return string.Equals(trimmedCallsign, "N0CALL", StringComparison.OrdinalIgnoreCase);
-    }
-
-    public async Task StopAsync(CancellationToken cancellationToken = default)
-    {
-        if (!IsConnected)
-        {
-            return;
-        }
-
-        _receiveLoopCancellationTokenSource?.Cancel();
-        if (_receiveLoopTask is not null)
-        {
-            await _receiveLoopTask.WaitAsync(cancellationToken);
-        }
-
-        if (_aprsBackend is IAsyncDisposable asyncDisposable)
+        if (entry.Backend is IAsyncDisposable asyncDisposable)
         {
             await asyncDisposable.DisposeAsync();
         }
 
-        IsConnected = false;
-        WeakReferenceMessenger.Default.Send(new AprsConnectionStateChangedMessage(false));
+        entry.Cts.Dispose();
     }
 
-    private async Task RunReceiveLoopAsync(CancellationToken cancellationToken)
+    private void BroadcastAsync(Models.AprsPacket packet)
+    {
+        List<IAprsBackend> snapshot;
+        lock (_gate)
+        {
+            snapshot = new List<IAprsBackend>(_backends.Count);
+            foreach (var entry in _backends.Values)
+            {
+                snapshot.Add(entry.Backend);
+            }
+        }
+
+        foreach (var backend in snapshot)
+        {
+            _ = SendSafeAsync(backend, packet);
+        }
+    }
+
+    private static async Task SendSafeAsync(IAprsBackend backend, Models.AprsPacket packet)
     {
         try
         {
-            await foreach (var packet in _aprsBackend.ReceiveAsync(cancellationToken))
+            await backend.SendAsync(packet);
+        }
+        catch (Exception ex)
+        {
+            WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage(ex.Message));
+        }
+    }
+
+    private static async Task RunReceiveLoopAsync(IAprsBackend backend, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await foreach (var packet in backend.ReceiveAsync(cancellationToken))
             {
                 WeakReferenceMessenger.Default.Send(new AprsPacketReceivedMessage(packet));
             }
@@ -123,15 +111,21 @@ public sealed class AprsSessionService(
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        if (_isRegistered)
+        WeakReferenceMessenger.Default.UnregisterAll(this);
+
+        List<Guid> handles;
+        lock (_gate)
         {
-            WeakReferenceMessenger.Default.UnregisterAll(this);
-            _isRegistered = false;
+            handles = new List<Guid>(_backends.Keys);
         }
 
-        _receiveLoopCancellationTokenSource?.Cancel();
-        _receiveLoopCancellationTokenSource?.Dispose();
+        foreach (var handle in handles)
+        {
+            await UnregisterBackendAsync(handle);
+        }
     }
+
+    private sealed record BackendEntry(IAprsBackend Backend, CancellationTokenSource Cts, Task ReceiveTask);
 }
