@@ -9,7 +9,6 @@ using AetherAprs.Services.Navigation;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,35 +48,10 @@ public partial class App : Application
 
     private MainView CreateMainView()
     {
-        // Single-view platforms require manual view creation with ViewModel assignment.
         return new MainView
         {
             DataContext = _serviceProvider!.GetRequiredService<MainViewModel>()
         };
-    }
-
-    private void SetupMobileBackHooks(TopLevel? topLevel)
-    {
-        if (topLevel is null) return;
-        var nav = _serviceProvider!.GetRequiredService<INavigationService>();
-
-        topLevel.BackRequested += (s, e) =>
-        {
-            if (nav.CanGoBack)
-            {
-                nav.GoBack();
-                e.Handled = true;
-            }
-        };
-    }
-
-    private void InitializeViewBasedPlatform(
-        Action<MainView> assignMainView)
-    {
-        var view = CreateMainView();
-
-        assignMainView(view);
-        SetupMobileBackHooks(TopLevel.GetTopLevel(view));
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -101,14 +75,12 @@ public partial class App : Application
             else if (ApplicationLifetime is IActivityApplicationLifetime activityLifetime)
             {
                 log.Debug("Initialising activity lifetime");
-                InitializeViewBasedPlatform(
-                    view => activityLifetime.MainViewFactory = () => view);
+                activityLifetime.MainViewFactory = CreateMainView;
             }
             else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
             {
                 log.Debug("Initialising single-view lifetime");
-                InitializeViewBasedPlatform(
-                    view => singleViewPlatform.MainView = view);
+                singleViewPlatform.MainView = CreateMainView();
             }
             else
             {

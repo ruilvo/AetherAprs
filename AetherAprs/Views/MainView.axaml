@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel">
-    <controls:NavigationDrawer LeftDrawerOpened="{Binding ElementName=NavDrawerSwitch, Path=IsChecked, Mode=TwoWay}">
+    <controls:NavigationDrawer LeftDrawerOpened="{Binding IsDrawerOpen, Mode=TwoWay}">
         <controls:NavigationDrawer.LeftDrawerContent>
             <Border Classes="Surface" Padding="16" MinWidth="280">
                 <StackPanel Spacing="8">
@@ -57,6 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <Border Classes="Surface" Padding="8" BoxShadow="0 2 8 0 #20000000">
                 <StackPanel Spacing="4" Orientation="Horizontal">
                     <ToggleButton Name="NavDrawerSwitch"
+                                  IsChecked="{Binding IsDrawerOpen, Mode=TwoWay}"
                                   Theme="{StaticResource MaterialFlatButton}"
                                   Width="40" Height="40" Padding="8">
                         <icons:MaterialIcon Kind="Menu" Width="24" Height="24" />
