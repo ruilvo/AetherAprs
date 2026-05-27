@@ -1,7 +1,8 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Services.Logging;
 using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -11,13 +12,22 @@ namespace AetherAprs.Services.Navigation;
 /// <summary>
 /// Default <see cref="INavigationService"/> implementation with bounded history and disposal support.
 /// </summary>
-public partial class NavigationService(INavigationFactory factory) : ObservableObject, INavigationService
+public partial class NavigationService : ObservableObject, INavigationService
 {
     private const int MaxHistorySize = 50;
+
+    private readonly INavigationFactory _factory;
+    private readonly ILoggingService _log;
     private readonly Stack<ObservableObject> _history = new();
 
     [ObservableProperty]
     private ObservableObject? _currentView;
+
+    public NavigationService(INavigationFactory factory, ILoggingService loggingService)
+    {
+        _factory = factory;
+        _log = loggingService.ForContext(nameof(NavigationService));
+    }
 
     /// <inheritdoc/>
     public bool CanGoBack => _history.Count > 0;
@@ -25,20 +35,24 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
     /// <inheritdoc/>
     public void NavigateTo<T>() where T : ObservableObject
     {
+        var targetName = typeof(T).Name;
+        var fromName = CurrentView?.GetType().Name ?? "(none)";
+        _log.Debug($"NavigateTo {targetName} (from {fromName})");
+
         if (CurrentView != null)
         {
             _history.Push(CurrentView);
 
-            // Limit history size to prevent unbounded memory growth
             if (_history.Count > MaxHistorySize)
             {
+                _log.Warn($"Navigation history exceeded {MaxHistorySize}; trimming");
                 TrimHistory();
             }
 
             OnPropertyChanged(nameof(CanGoBack));
         }
 
-        CurrentView = factory.Create<T>();
+        CurrentView = _factory.Create<T>();
     }
 
     /// <inheritdoc/>
@@ -46,10 +60,11 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
     {
         if (!_history.TryPop(out var previous))
         {
+            _log.Debug("GoBack called with empty history; no-op");
             return;
         }
 
-        // Dispose the current view if it implements IDisposable
+        _log.Debug($"GoBack to {previous.GetType().Name} (from {CurrentView?.GetType().Name ?? "(none)"})");
         DisposeViewModel(CurrentView);
 
         CurrentView = previous;
@@ -59,6 +74,7 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
     /// <inheritdoc/>
     public void ClearHistory()
     {
+        _log.Debug($"Clearing navigation history ({_history.Count} entries)");
         while (_history.TryPop(out var viewModel))
         {
             DisposeViewModel(viewModel);
@@ -69,7 +85,6 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
 
     private void TrimHistory()
     {
-        // Remove the oldest half of the history when limit is exceeded
         var itemsToRemove = _history.Count - (MaxHistorySize / 2);
         if (itemsToRemove <= 0)
         {
@@ -78,26 +93,23 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
 
         var tempStack = new Stack<ObservableObject>(_history.Count - itemsToRemove);
 
-        // Keep the most recent items
         for (var i = 0; i < _history.Count - itemsToRemove; i++)
         {
             tempStack.Push(_history.Pop());
         }
 
-        // Dispose the oldest items
         while (_history.TryPop(out var oldViewModel))
         {
             DisposeViewModel(oldViewModel);
         }
 
-        // Restore the kept items
         while (tempStack.TryPop(out var viewModel))
         {
             _history.Push(viewModel);
         }
     }
 
-    private static void DisposeViewModel(ObservableObject? viewModel)
+    private void DisposeViewModel(ObservableObject? viewModel)
     {
         if (viewModel is IDisposable disposable)
         {
@@ -107,7 +119,7 @@ public partial class NavigationService(INavigationFactory factory) : ObservableO
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error disposing view model: {ex.Message}");
+                _log.Error($"Disposing {viewModel.GetType().Name} threw: {ex.Message}");
             }
         }
     }

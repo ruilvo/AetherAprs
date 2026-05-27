@@ -87,27 +87,47 @@ public partial class App : Application
         RegisterPlatformServices(services);
         _serviceProvider = services.BuildServiceProvider();
 
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        var log = _serviceProvider.GetRequiredService<ILoggingService>().ForContext(nameof(App));
+        log.Info($"AetherAprs starting (lifetime={ApplicationLifetime?.GetType().Name ?? "(none)"})");
+
+        try
         {
-            desktop.MainWindow = new MainWindow { DataContext = _serviceProvider.GetRequiredService<MainViewModel>() };
-            desktop.ShutdownRequested += OnShutdownRequested;
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                log.Debug("Initialising desktop lifetime");
+                desktop.MainWindow = new MainWindow { DataContext = _serviceProvider.GetRequiredService<MainViewModel>() };
+                desktop.ShutdownRequested += OnShutdownRequested;
+            }
+            else if (ApplicationLifetime is IActivityApplicationLifetime activityLifetime)
+            {
+                log.Debug("Initialising activity lifetime");
+                InitializeViewBasedPlatform(
+                    view => activityLifetime.MainViewFactory = () => view);
+            }
+            else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
+            {
+                log.Debug("Initialising single-view lifetime");
+                InitializeViewBasedPlatform(
+                    view => singleViewPlatform.MainView = view);
+            }
+            else
+            {
+                log.Warn("No recognised application lifetime; main view not created");
+            }
         }
-        else if (ApplicationLifetime is IActivityApplicationLifetime activityLifetime)
+        catch (Exception ex)
         {
-            InitializeViewBasedPlatform(
-                view => activityLifetime.MainViewFactory = () => view);
-        }
-        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
-        {
-            InitializeViewBasedPlatform(
-                view => singleViewPlatform.MainView = view);
+            log.Critical($"Framework initialisation failed: {ex}");
+            throw;
         }
 
+        log.Info("Framework initialisation complete");
         base.OnFrameworkInitializationCompleted();
     }
 
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
+        _serviceProvider?.GetService<ILoggingService>()?.ForContext(nameof(App)).Info("Shutdown requested; disposing services");
         _serviceProvider?.Dispose();
     }
 }

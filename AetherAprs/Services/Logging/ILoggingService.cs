@@ -55,4 +55,9 @@ public interface ILoggingService
     /// Logs a message at the Critical level, indicating a fatal or unrecoverable condition.
     /// </summary>
     void Critical(string message);
+
+    /// <summary>
+    /// Returns a logger that prefixes every message with <paramref name="contextName"/> (e.g. the owning class name).
+    /// </summary>
+    ILoggingService ForContext(string contextName);
 }

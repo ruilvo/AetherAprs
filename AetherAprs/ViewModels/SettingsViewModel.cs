@@ -19,6 +19,7 @@ namespace AetherAprs.ViewModels;
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly IConfigurationService _configurationService;
+    private readonly ILoggingService _log;
 
     [ObservableProperty]
     public required partial LogLevel SelectedLogLevel { get; set; }
@@ -45,9 +46,11 @@ public partial class SettingsViewModel : ViewModelBase
         Enum.GetValues<LogLevel>().ToArray();
 
     [SetsRequiredMembers]
-    public SettingsViewModel(IConfigurationService configurationService)
+    public SettingsViewModel(IConfigurationService configurationService, ILoggingService loggingService)
     {
         _configurationService = configurationService;
+        _log = loggingService.ForContext(nameof(SettingsViewModel));
+        _log.Debug("Constructed");
 
         var settings = _configurationService.Settings;
         SelectedLogLevel = settings.Logging.LogLevel;
@@ -61,6 +64,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private void Save()
     {
+        _log.Info("User requested settings save");
         var newSettings = _configurationService.Settings.Clone();
         newSettings.Logging.LogLevel = SelectedLogLevel;
         newSettings.Logging.WriteToFile = WriteToFile;
@@ -70,10 +74,12 @@ public partial class SettingsViewModel : ViewModelBase
 
         if (_configurationService.SaveSettings(newSettings))
         {
+            _log.Info($"Settings saved (LogLevel={SelectedLogLevel}, WriteToFile={WriteToFile}, Callsign={Callsign})");
             StatusMessage = "Settings saved.";
         }
         else
         {
+            _log.Error("Settings save failed");
             StatusMessage = "Failed to save settings.";
         }
     }
@@ -81,6 +87,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private void Reset()
     {
+        _log.Info("User requested settings reset to defaults");
         var defaults = _configurationService.GetDefaults();
         SelectedLogLevel = defaults.Logging.LogLevel;
         WriteToFile = defaults.Logging.WriteToFile;

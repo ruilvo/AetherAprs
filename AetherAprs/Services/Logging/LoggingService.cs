@@ -64,6 +64,8 @@ public class LoggingService : ILoggingService, IDisposable
             _writeToFile = false;
             _logFilePath = string.Empty;
         }
+
+        Info($"Logging started (minLevel={_minLogLevel}, writeToFile={_writeToFile}{(_writeToFile ? $", path={_logFilePath}" : string.Empty)})");
     }
 
     /// <inheritdoc/>
@@ -97,6 +99,21 @@ public class LoggingService : ILoggingService, IDisposable
     public void Warn(string message) => Log(LogLevel.Warning, message);
     public void Error(string message) => Log(LogLevel.Error, message);
     public void Critical(string message) => Log(LogLevel.Critical, message);
+
+    public ILoggingService ForContext(string contextName) => new ContextLogger(this, contextName);
+
+    private sealed class ContextLogger(ILoggingService inner, string contextName) : ILoggingService
+    {
+        private readonly string _prefix = $"[{contextName}] ";
+
+        public void Log(LogLevel level, string message) => inner.Log(level, _prefix + message);
+        public void Debug(string message) => inner.Log(LogLevel.Debug, _prefix + message);
+        public void Info(string message) => inner.Log(LogLevel.Information, _prefix + message);
+        public void Warn(string message) => inner.Log(LogLevel.Warning, _prefix + message);
+        public void Error(string message) => inner.Log(LogLevel.Error, _prefix + message);
+        public void Critical(string message) => inner.Log(LogLevel.Critical, _prefix + message);
+        public ILoggingService ForContext(string nestedContextName) => new ContextLogger(inner, contextName + "/" + nestedContextName);
+    }
 
     private async Task ProcessQueueAsync(CancellationToken cancellationToken)
     {
@@ -143,6 +160,8 @@ public class LoggingService : ILoggingService, IDisposable
 
         if (disposing)
         {
+            Info("Logging stopping");
+
             _writeQueue?.CompleteAdding();
 
             try

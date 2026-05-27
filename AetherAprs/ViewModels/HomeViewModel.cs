@@ -6,6 +6,7 @@ using AetherAprs.Messages;
 using AetherAprs.Models;
 using AetherAprs.Protocols;
 using AetherAprs.Services.Aprs;
+using AetherAprs.Services.Logging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -23,6 +24,7 @@ public partial class HomeViewModel : ViewModelBase
 {
     private readonly IAprsSessionService _aprsSessionService;
     private readonly IAprsBackend _aprsIsBackend;
+    private readonly ILoggingService _log;
     private Guid? _aprsIsHandle;
 
     [ObservableProperty]
@@ -37,10 +39,12 @@ public partial class HomeViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? ConnectionStatus { get; set; }
 
-    public HomeViewModel(IAprsSessionService aprsSessionService, IAprsBackend aprsIsBackend)
+    public HomeViewModel(IAprsSessionService aprsSessionService, IAprsBackend aprsIsBackend, ILoggingService loggingService)
     {
         _aprsSessionService = aprsSessionService;
         _aprsIsBackend = aprsIsBackend;
+        _log = loggingService.ForContext(nameof(HomeViewModel));
+        _log.Debug("Constructed");
 
         MarkerLocations =
         [
@@ -59,6 +63,7 @@ public partial class HomeViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<HomeViewModel, AprsConnectionErrorMessage>(this, static (recipient, message) =>
         {
+            recipient._log.Warn($"Connection error surfaced to UI: {message.Value}");
             recipient.IsBusy = false;
             recipient.ConnectionStatus = message.Value;
         });
@@ -69,9 +74,11 @@ public partial class HomeViewModel : ViewModelBase
     {
         if (_aprsIsHandle is not null)
         {
+            _log.Debug("Connect command ignored; already connected");
             return;
         }
 
+        _log.Info("User requested APRS-IS connect");
         IsBusy = true;
         ConnectionStatus = "Connecting to APRS-IS...";
         try
@@ -79,9 +86,11 @@ public partial class HomeViewModel : ViewModelBase
             _aprsIsHandle = await _aprsSessionService.RegisterBackendAsync(_aprsIsBackend);
             IsConnected = true;
             ConnectionStatus = "Connected to APRS-IS.";
+            _log.Info("APRS-IS connect succeeded");
         }
         catch (Exception ex)
         {
+            _log.Error($"APRS-IS connect failed: {ex.Message}");
             ConnectionStatus = ex.Message;
         }
         finally
@@ -95,9 +104,11 @@ public partial class HomeViewModel : ViewModelBase
     {
         if (_aprsIsHandle is not { } handle)
         {
+            _log.Debug("Disconnect command ignored; not connected");
             return;
         }
 
+        _log.Info("User requested APRS-IS disconnect");
         IsBusy = true;
         ConnectionStatus = "Disconnecting from APRS-IS...";
         try
@@ -106,6 +117,7 @@ public partial class HomeViewModel : ViewModelBase
             _aprsIsHandle = null;
             IsConnected = false;
             ConnectionStatus = "Disconnected.";
+            _log.Info("APRS-IS disconnect complete");
         }
         finally
         {

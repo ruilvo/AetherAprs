@@ -9,6 +9,7 @@ using AetherAprs.Models;
 using AetherAprs.Protocols;
 using AetherAprs.Services.Aprs;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Logging;
 using CommunityToolkit.Mvvm.Messaging;
 using NetTopologySuite.Geometries;
 using System.Collections.Generic;
@@ -53,7 +54,7 @@ public sealed class AprsSessionServiceTests
     {
         var first = new FakeAprsBackend();
         var second = new FakeAprsBackend();
-        await using var session = new AprsSessionService();
+        await using var session = new AprsSessionService(new NullLoggingService());
         var packet = CreatePacket();
 
         await session.RegisterBackendAsync(first);
@@ -72,7 +73,7 @@ public sealed class AprsSessionServiceTests
     public async Task Session_service_publishes_received_packets()
     {
         var backend = new FakeAprsBackend();
-        await using var session = new AprsSessionService();
+        await using var session = new AprsSessionService(new NullLoggingService());
         var recipient = new PacketRecipient();
         var packet = CreatePacket();
 
@@ -93,7 +94,7 @@ public sealed class AprsSessionServiceTests
     {
         var first = new FakeAprsBackend();
         var second = new FakeAprsBackend();
-        await using var session = new AprsSessionService();
+        await using var session = new AprsSessionService(new NullLoggingService());
 
         var firstHandle = await session.RegisterBackendAsync(first);
         await session.RegisterBackendAsync(second);
@@ -132,6 +133,17 @@ public sealed class AprsSessionServiceTests
     private sealed class PacketRecipient
     {
         public AprsPacket? Packet { get; set; }
+    }
+
+    private sealed class NullLoggingService : ILoggingService
+    {
+        public void Log(LogLevel level, string message) { }
+        public void Debug(string message) { }
+        public void Info(string message) { }
+        public void Warn(string message) { }
+        public void Error(string message) { }
+        public void Critical(string message) { }
+        public ILoggingService ForContext(string contextName) => this;
     }
 
     private sealed class FakeAprsBackend : IAprsBackend, System.IAsyncDisposable
