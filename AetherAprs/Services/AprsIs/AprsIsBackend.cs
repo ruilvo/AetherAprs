@@ -36,12 +36,12 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
     {
         if (_tcpClient is not null)
         {
-            _log.Debug("ConnectAsync called while already connected; no-op");
+            _log.Debug("ConnectAsync called while already connected; no-op.");
             return;
         }
 
         var settings = _configurationService.Settings;
-        _log.Info($"Connecting to {settings.AprsIs.Host}:{settings.AprsIs.Port} as {settings.AprsIs.Callsign}");
+        _log.Info($"Connecting to {settings.AprsIs.Host}:{settings.AprsIs.Port} as {settings.AprsIs.Callsign}.");
 
         try
         {
@@ -50,7 +50,7 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log.Error($"TCP connect to {settings.AprsIs.Host}:{settings.AprsIs.Port} failed: {ex.Message}");
+            _log.Error($"TCP connect to {settings.AprsIs.Host}:{settings.AprsIs.Port} failed: {ex.Message}.");
             _tcpClient?.Dispose();
             _tcpClient = null;
             throw;
@@ -65,23 +65,23 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
         };
 
         var login = $"user {settings.AprsIs.Callsign} pass {settings.AprsIs.Passcode} vers AetherAprs 0.1";
-        _log.Debug($"Sending login line for {settings.AprsIs.Callsign}");
+        _log.Debug($"Sending login line for {settings.AprsIs.Callsign}.");
         await _writer.WriteLineAsync(login);
 
         if (!string.IsNullOrWhiteSpace(settings.AprsIs.Filter))
         {
-            _log.Debug($"Sending filter: {settings.AprsIs.Filter}");
+            _log.Debug($"Sending filter: {settings.AprsIs.Filter}.");
             await _writer.WriteLineAsync($"#filter {settings.AprsIs.Filter}");
         }
 
-        _log.Info("APRS-IS connection established");
+        _log.Info("APRS-IS connection established.");
     }
 
     public async IAsyncEnumerable<AprsPacket> ReceiveAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (_reader is null)
         {
-            _log.Error("ReceiveAsync called before ConnectAsync");
+            _log.Error("ReceiveAsync called before ConnectAsync.");
             throw new InvalidOperationException("APRS-IS backend is not connected.");
         }
 
@@ -90,7 +90,7 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
             var line = await _reader.ReadLineAsync(cancellationToken);
             if (line is null)
             {
-                _log.Info("APRS-IS stream closed by remote");
+                _log.Info("APRS-IS stream closed by remote.");
                 yield break;
             }
 
@@ -101,7 +101,7 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
 
             if (line.StartsWith('#'))
             {
-                _log.Debug($"Server comment: {line}");
+                _log.Debug($"Server comment: {line}.");
                 continue;
             }
 
@@ -112,27 +112,27 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
             }
             catch (InvalidOperationException ex)
             {
-                _log.Warn($"Failed to decode APRS-IS line ({ex.Message}): {Truncate(line, 200)}");
+                _log.Warn($"Failed to decode APRS-IS line ({ex.Message}): {Truncate(line, 200)}.");
                 continue;
             }
 
             yield return packet.Packet;
         }
 
-        _log.Debug("ReceiveAsync exiting due to cancellation");
+        _log.Debug("ReceiveAsync exiting due to cancellation.");
     }
 
     public async ValueTask SendAsync(AprsPacket packet, CancellationToken cancellationToken = default)
     {
         if (_writer is null)
         {
-            _log.Error("SendAsync called before ConnectAsync");
+            _log.Error("SendAsync called before ConnectAsync.");
             throw new InvalidOperationException("APRS-IS backend is not connected.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
         var line = AprsIsCodec.Encode(new AprsIsPacket { Packet = packet });
-        _log.Debug($"TX: {Truncate(line, 200)}");
+        _log.Debug($"TX: {Truncate(line, 200)}.");
         await _writer.WriteLineAsync(line);
     }
 
@@ -140,7 +140,7 @@ public sealed class AprsIsBackend : IAprsBackend, IAsyncDisposable
     {
         if (_tcpClient is not null)
         {
-            _log.Info("Disposing APRS-IS connection");
+            _log.Info("Disposing APRS-IS connection.");
         }
 
         _reader?.Dispose();

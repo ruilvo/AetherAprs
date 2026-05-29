@@ -44,7 +44,7 @@ public partial class HomeViewModel : ViewModelBase
         _aprsSessionService = aprsSessionService;
         _aprsIsBackend = aprsIsBackend;
         _log = loggingService.ForContext(nameof(HomeViewModel));
-        _log.Debug("Constructed");
+        _log.Debug("Constructed.");
 
         MarkerLocations =
         [
@@ -63,7 +63,7 @@ public partial class HomeViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<HomeViewModel, AprsConnectionErrorMessage>(this, static (recipient, message) =>
         {
-            recipient._log.Warn($"Connection error surfaced to UI: {message.Value}");
+            recipient._log.Warn($"Connection error surfaced to UI: {message.Value}.");
             recipient.IsBusy = false;
             recipient.ConnectionStatus = message.Value;
         });
@@ -74,11 +74,11 @@ public partial class HomeViewModel : ViewModelBase
     {
         if (_aprsIsHandle is not null)
         {
-            _log.Debug("Connect command ignored; already connected");
+            _log.Debug("Connect command ignored; already connected.");
             return;
         }
 
-        _log.Info("User requested APRS-IS connect");
+        _log.Info("User requested APRS-IS connect.");
         IsBusy = true;
         ConnectionStatus = "Connecting to APRS-IS...";
         try
@@ -86,11 +86,11 @@ public partial class HomeViewModel : ViewModelBase
             _aprsIsHandle = await _aprsSessionService.RegisterBackendAsync(_aprsIsBackend);
             IsConnected = true;
             ConnectionStatus = "Connected to APRS-IS.";
-            _log.Info("APRS-IS connect succeeded");
+            _log.Info("APRS-IS connect succeeded.");
         }
         catch (Exception ex)
         {
-            _log.Error($"APRS-IS connect failed: {ex.Message}");
+            _log.Error($"APRS-IS connect failed: {ex.Message}.");
             ConnectionStatus = ex.Message;
         }
         finally
@@ -104,11 +104,11 @@ public partial class HomeViewModel : ViewModelBase
     {
         if (_aprsIsHandle is not { } handle)
         {
-            _log.Debug("Disconnect command ignored; not connected");
+            _log.Debug("Disconnect command ignored; not connected.");
             return;
         }
 
-        _log.Info("User requested APRS-IS disconnect");
+        _log.Info("User requested APRS-IS disconnect.");
         IsBusy = true;
         ConnectionStatus = "Disconnecting from APRS-IS...";
         try
@@ -117,7 +117,7 @@ public partial class HomeViewModel : ViewModelBase
             _aprsIsHandle = null;
             IsConnected = false;
             ConnectionStatus = "Disconnected.";
-            _log.Info("APRS-IS disconnect complete");
+            _log.Info("APRS-IS disconnect complete.");
         }
         finally
         {

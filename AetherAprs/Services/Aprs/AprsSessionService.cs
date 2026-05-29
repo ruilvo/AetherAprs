@@ -22,7 +22,7 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
     public AprsSessionService(ILoggingService loggingService)
     {
         _log = loggingService.ForContext(nameof(AprsSessionService));
-        _log.Debug("Constructed; subscribing to SendAprsPacketMessage");
+        _log.Debug("Constructed; subscribing to SendAprsPacketMessage.");
 
         WeakReferenceMessenger.Default.Register<AprsSessionService, SendAprsPacketMessage>(this, static (service, message) =>
         {
@@ -35,7 +35,7 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(backend);
 
         var backendName = backend.GetType().Name;
-        _log.Info($"Registering backend {backendName}");
+        _log.Info($"Registering backend {backendName}.");
 
         try
         {
@@ -43,7 +43,7 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log.Error($"Backend {backendName} failed to connect: {ex.Message}");
+            _log.Error($"Backend {backendName} failed to connect: {ex.Message}.");
             throw;
         }
 
@@ -56,7 +56,7 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
             _backends[handle] = new BackendEntry(backend, backendName, cts, task);
         }
 
-        _log.Info($"Registered backend {backendName} as {handle:N} (total={_backends.Count})");
+        _log.Info($"Registered backend {backendName} as {handle:N} (total={_backends.Count}).");
         return handle;
     }
 
@@ -67,12 +67,12 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
         {
             if (!_backends.Remove(handle, out entry))
             {
-                _log.Warn($"Unregister called for unknown handle {handle:N}");
+                _log.Warn($"Unregister called for unknown handle {handle:N}.");
                 return;
             }
         }
 
-        _log.Info($"Unregistering backend {entry.Name} ({handle:N})");
+        _log.Info($"Unregistering backend {entry.Name} ({handle:N}).");
         entry.Cts.Cancel();
 
         try
@@ -81,7 +81,7 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log.Warn($"Receive loop for {entry.Name} exited with error: {ex.Message}");
+            _log.Warn($"Receive loop for {entry.Name} exited with error: {ex.Message}.");
         }
 
         if (entry.Backend is IAsyncDisposable asyncDisposable)
@@ -92,12 +92,12 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
             }
             catch (Exception ex)
             {
-                _log.Error($"Backend {entry.Name} disposal threw: {ex.Message}");
+                _log.Error($"Backend {entry.Name} disposal threw: {ex.Message}.");
             }
         }
 
         entry.Cts.Dispose();
-        _log.Info($"Unregistered backend {entry.Name} (remaining={_backends.Count})");
+        _log.Info($"Unregistered backend {entry.Name} (remaining={_backends.Count}).");
     }
 
     private void Broadcast(Models.AprsPacket packet)
@@ -108,7 +108,7 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
             snapshot = new List<BackendEntry>(_backends.Values);
         }
 
-        _log.Debug($"Broadcasting packet from {packet.Source} to {snapshot.Count} backend(s)");
+        _log.Debug($"Broadcasting packet from {packet.Source} to {snapshot.Count} backend(s).");
 
         foreach (var entry in snapshot)
         {
@@ -121,41 +121,41 @@ public sealed class AprsSessionService : IAprsSessionService, IAsyncDisposable
         try
         {
             await entry.Backend.SendAsync(packet);
-            _log.Debug($"Sent packet from {packet.Source} via {entry.Name}");
+            _log.Debug($"Sent packet from {packet.Source} via {entry.Name}.");
         }
         catch (Exception ex)
         {
-            _log.Error($"Send via {entry.Name} failed: {ex.Message}");
+            _log.Error($"Send via {entry.Name} failed: {ex.Message}.");
             WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage(ex.Message));
         }
     }
 
     private async Task RunReceiveLoopAsync(IAprsBackend backend, string backendName, CancellationToken cancellationToken)
     {
-        _log.Debug($"Receive loop started for {backendName}");
+        _log.Debug($"Receive loop started for {backendName}.");
         try
         {
             await foreach (var packet in backend.ReceiveAsync(cancellationToken))
             {
-                _log.Debug($"Received packet from {packet.Source} via {backendName} ({packet.Payload.Kind})");
+                _log.Debug($"Received packet from {packet.Source} via {backendName} ({packet.Payload.Kind}).");
                 WeakReferenceMessenger.Default.Send(new AprsPacketReceivedMessage(packet));
             }
-            _log.Info($"Receive loop for {backendName} ended (stream closed)");
+            _log.Info($"Receive loop for {backendName} ended (stream closed).");
         }
         catch (OperationCanceledException)
         {
-            _log.Debug($"Receive loop for {backendName} cancelled");
+            _log.Debug($"Receive loop for {backendName} cancelled.");
         }
         catch (Exception ex)
         {
-            _log.Error($"Receive loop for {backendName} failed: {ex.Message}");
+            _log.Error($"Receive loop for {backendName} failed: {ex.Message}.");
             WeakReferenceMessenger.Default.Send(new AprsConnectionErrorMessage(ex.Message));
         }
     }
 
     public async ValueTask DisposeAsync()
     {
-        _log.Info("Disposing session; unregistering all backends");
+        _log.Info("Disposing session; unregistering all backends.");
         WeakReferenceMessenger.Default.UnregisterAll(this);
 
         List<Guid> handles;
