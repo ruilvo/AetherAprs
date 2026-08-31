@@ -8,7 +8,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs;
 
@@ -19,19 +18,12 @@ public class ViewLocator : IDataTemplate
 {
     public Control? Build(object? param)
     {
-        if (param is null)
-            return null;
-
-        var app = Application.Current as App;
-        if (app?.Services is null)
-        {
-            return new TextBlock { Text = "Services not initialized" };
-        }
-
         return param switch
         {
-            MainViewModel => app.Services.GetRequiredService<MainView>(),
-            _ => new TextBlock { Text = "Not Found: " + param.GetType().Name }
+            MainViewModel => new MainView(),
+            _ => param is null
+                ? null
+                : new TextBlock { Text = "Not Found: " + param.GetType().Name }
         };
     }
 

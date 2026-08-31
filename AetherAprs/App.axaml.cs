@@ -7,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 
 namespace AetherAprs;
@@ -48,6 +49,13 @@ public partial class App : Application
 
     private void ConfigureServices(IServiceCollection services)
     {
+        // Register logging
+        services.AddLogging(builder =>
+        {
+            builder.AddDebug();
+            builder.AddConsole();
+        });
+
         // Register ViewModels
         services.AddSingleton<MainViewModel>();
 

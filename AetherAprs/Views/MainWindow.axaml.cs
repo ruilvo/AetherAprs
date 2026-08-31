@@ -8,16 +8,13 @@ namespace AetherAprs.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow() : this(null)
-    {
-    }
-
-    public MainWindow(MainViewModel? viewModel)
+    public MainWindow()
     {
         InitializeComponent();
-        if (viewModel is not null)
-        {
-            DataContext = viewModel;
-        }
+    }
+
+    public MainWindow(MainViewModel viewModel) : this()
+    {
+        DataContext = viewModel;
     }
 }
