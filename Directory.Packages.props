@@ -1,0 +1,27 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<Project>
+    <!-- https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management -->
+    <PropertyGroup>
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+        <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    </PropertyGroup>
+    <PropertyGroup>
+        <Avalonia12Version>12.1.1</Avalonia12Version>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageVersion Include="Avalonia" Version="$(Avalonia12Version)" />
+        <PackageVersion Include="Avalonia.Themes.Fluent" Version="$(Avalonia12Version)" />
+        <PackageVersion Include="Avalonia.Fonts.Inter" Version="$(Avalonia12Version)" />
+        <PackageVersion Include="Avalonia.Android" Version="$(Avalonia12Version)" />
+
+        <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+
+        <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+
+        <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
+    </ItemGroup>
+</Project>
