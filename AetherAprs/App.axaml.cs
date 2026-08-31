@@ -6,11 +6,15 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace AetherAprs;
 
 public partial class App : Application
 {
+    public IServiceProvider Services { get; private set; } = null!;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -21,25 +25,34 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Configure dependency injection
+        var services = new ServiceCollection();
+        ConfigureServices(services);
+        Services = services.BuildServiceProvider();
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainViewModel()
-            };
+            desktop.MainWindow = Services.GetRequiredService<MainWindow>();
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = new MainViewModel() };
+            singleViewFactoryApplicationLifetime.MainViewFactory = () => Services.GetRequiredService<MainView>();
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainView
-            {
-                DataContext = new MainViewModel()
-            };
+            singleViewPlatform.MainView = Services.GetRequiredService<MainView>();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private void ConfigureServices(IServiceCollection services)
+    {
+        // Register ViewModels
+        services.AddSingleton<MainViewModel>();
+
+        // Register Views
+        services.AddTransient<MainWindow>();
+        services.AddTransient<MainView>();
     }
 }

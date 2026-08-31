@@ -3,13 +3,22 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using Avalonia;
 using Avalonia.Controls;
+using AetherAprs.ViewModels;
 
 namespace AetherAprs.Views;
 
 public partial class MainView : UserControl
 {
-    public MainView()
+    public MainView() : this(null)
+    {
+    }
+
+    public MainView(MainViewModel? viewModel)
     {
         InitializeComponent();
+        if (viewModel is not null)
+        {
+            DataContext = viewModel;
+        }
     }
 }
