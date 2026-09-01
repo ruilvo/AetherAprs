@@ -1,7 +1,9 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -29,11 +31,18 @@ public static class ServiceProviderFactory
     /// <param name="services">The service collection to configure.</param>
     public static void ConfigureServices(IServiceCollection services)
     {
+        // Register configuration
+        ConfigurationService configService = new();
+        services.AddSingleton<IConfigurationService>(configService);
+        services.AddSingleton(configService.Configuration);
+        services.AddSingleton(configService.Settings);
+
         // Register logging
         services.AddLogging(builder =>
         {
             builder.AddDebug();
             builder.AddConsole();
+            builder.AddConfiguration(configService.Configuration.GetSection("Logging"));
         });
 
         // Register ViewModels
