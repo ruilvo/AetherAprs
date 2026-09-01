@@ -1,6 +1,7 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using AetherAprs.Factories;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
 using Avalonia;
@@ -17,19 +18,6 @@ public partial class App : Application
     // Ignore the warning about the property being non-nullable, as it will
     // be initialized in OnFrameworkInitializationCompleted.
     public IServiceProvider ServiceProvider { get; private set; } = null!;
-
-    private static void ConfigureServices(IServiceCollection services)
-    {
-        // Register logging
-        services.AddLogging(builder =>
-        {
-            builder.AddDebug();
-            builder.AddConsole();
-        });
-
-        // Register ViewModels
-        services.AddSingleton<MainViewModel>();
-    }
 
     /// <summary>
     /// This method is intended to be overridden in platform-specific
@@ -59,10 +47,7 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         // Configure dependency injection
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-        ConfigurePlatformServices(services);
-        ServiceProvider = services.BuildServiceProvider();
+        ServiceProvider = ServiceProviderFactory.CreateServiceProvider(ConfigurePlatformServices);
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
