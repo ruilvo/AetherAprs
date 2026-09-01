@@ -21,29 +21,35 @@ public static class ServiceProviderFactory
         "platform -specific configuration action before accessing the " +
         "ServiceProvider property."));
 
-    private static void ConfigureServices(IServiceCollection services)
+    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> configurePlatformServices)
     {
-        // Register configuration
-        ConfigurationService configService = new();
-        services.AddSingleton<IConfigurationService>(configService);
+        var services = new ServiceCollection();
 
-        // Register logging
+        // Register platform-specific services first
+        configurePlatformServices(services);
+
+        // Register configuration service
+        services.AddSingleton<IConfigurationService, ConfigurationService>();
+
+        // Register logging with deferred configuration resolution
         services.AddLogging(builder =>
         {
             builder.AddDebug();
             builder.AddConsole();
-            builder.AddConfiguration(configService.Configuration.GetSection("Logging"));
         });
+
+        // Configure logging options - this callback receives the service provider automatically
+        services.AddOptions<LoggerFilterOptions>()
+            .Configure<IConfigurationService>((options, configService) =>
+            {
+                var loggingConfig = configService.Configuration.GetSection("Logging");
+                loggingConfig.Bind(options);
+            });
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>();
-    }
 
-    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> configurePlatformServices)
-    {
-        var services = new ServiceCollection();
-        configurePlatformServices(services);
-        ConfigureServices(services);
+        // Build the final service provider
         serviceProvider = services.BuildServiceProvider();
         return serviceProvider;
     }

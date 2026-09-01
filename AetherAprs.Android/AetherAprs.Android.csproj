@@ -23,6 +23,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </AndroidResource>
   </ItemGroup>
 
+  <!-- Always include base configuration file -->
+  <ItemGroup>
+    <AndroidAsset Include="..\AetherAprs\appsettings.json">
+      <Link>Assets\appsettings.json</Link>
+    </AndroidAsset>
+  </ItemGroup>
+
+  <!-- Only include Development configuration in DEBUG builds -->
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <AndroidAsset Include="..\AetherAprs\appsettings.Development.json">
+      <Link>Assets\appsettings.Development.json</Link>
+    </AndroidAsset>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />

@@ -5,12 +5,19 @@ using Android.App;
 using Android.Runtime;
 using Avalonia;
 using Avalonia.Android;
+using Microsoft.Extensions.DependencyInjection;
+using System.IO;
+using System.Linq;
 
 namespace AetherAprs.Android
 {
     public class AndroidApp : App
     {
-        // Extension point for Android-specific initialization code.
+        protected override void ConfigurePlatformServices(IServiceCollection services)
+        {
+            // Register Android-specific implementation of IAppDataDirProviderService
+            services.AddSingleton<AetherAprs.Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+        }
     }
 
     [Application]
@@ -18,6 +25,52 @@ namespace AetherAprs.Android
     {
         protected Application(nint javaReference, JniHandleOwnership transfer) : base(javaReference, transfer)
         {
+        }
+
+        public override void OnCreate()
+        {
+            base.OnCreate();
+            
+            // Ensure configuration files exist before Avalonia initializes
+            EnsureConfigurationFiles();
+        }
+
+        private static void EnsureConfigurationFiles()
+        {
+            // Use the AppDataDirProviderService to get the directory
+            var appDataDirProvider = new Services.AppDataDirProviderService();
+            var appDataDir = appDataDirProvider.GetAppDataDirectory();
+            
+            // Always extract base configuration file
+            ExtractConfigFile(appDataDir, "appsettings.json");
+
+#if DEBUG
+            // Only extract Development configuration in DEBUG builds
+            ExtractConfigFile(appDataDir, "appsettings.Development.json");
+#endif
+        }
+
+        private static void ExtractConfigFile(string targetDirectory, string fileName)
+        {
+            var targetPath = Path.Combine(targetDirectory, fileName);
+            
+            // Only extract if the file doesn't already exist
+            if (!File.Exists(targetPath))
+            {
+                try
+                {
+                    using var stream = Context?.Assets?.Open(fileName);
+                    if (stream != null)
+                    {
+                        using var fileStream = File.Create(targetPath);
+                        stream.CopyTo(fileStream);
+                    }
+                }
+                catch (Java.IO.FileNotFoundException)
+                {
+                    // Asset doesn't exist, skip it (optional files)
+                }
+            }
         }
 
         protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)

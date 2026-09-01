@@ -26,6 +26,8 @@ public partial class App : Application
     /// <param name="services">The service collection to register services in.</param>
     protected virtual void ConfigurePlatformServices(IServiceCollection services)
     {
+        // Register default implementation of IAppDataDirProviderService for desktop/core platforms
+        services.AddSingleton<Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
     }
 
     public override void Initialize()

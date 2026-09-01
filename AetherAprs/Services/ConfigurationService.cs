@@ -4,6 +4,9 @@
 using AetherAprs.Configuration;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services;
 
@@ -18,19 +21,39 @@ public interface IConfigurationService
     /// Gets the configuration root for advanced scenarios.
     /// </summary>
     IConfiguration Configuration { get; }
+
+    /// <summary>
+    /// Saves the current settings to the configuration file.
+    /// </summary>
+    Task SaveSettingsAsync();
 }
 
 public class ConfigurationService : IConfigurationService
 {
+    private readonly IAppDataDirProviderService _appDataDirProvider;
+    private static readonly string appSettingsFileName = "appsettings.json";
+    private static readonly string appSettingsDevelopmentFileName = "appsettings.Development.json";
+    private static readonly JsonSerializerOptions jsonSerializerOptions = new()
+    {
+        WriteIndented = true
+    };
+
     public AppSettings Settings { get; }
     public IConfiguration Configuration { get; }
 
-    public ConfigurationService()
+    public ConfigurationService(IAppDataDirProviderService appDataDirProvider)
     {
+        _appDataDirProvider = appDataDirProvider;
+
+        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
         var builder = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddJsonFile($"appsettings.{GetEnvironment()}.json", optional: true, reloadOnChange: true);
+            .SetBasePath(configDirectory)
+            .AddJsonFile(appSettingsFileName, optional: false, reloadOnChange: false);
+
+#if DEBUG
+        // Only load environment-specific configuration in DEBUG builds
+        builder.AddJsonFile(appSettingsDevelopmentFileName, optional: true, reloadOnChange: false);
+#endif
 
         Configuration = builder.Build();
 
@@ -39,12 +62,20 @@ public class ConfigurationService : IConfigurationService
         Configuration.Bind(Settings);
     }
 
-    private static string GetEnvironment()
+    public async Task SaveSettingsAsync()
     {
+        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
+
 #if DEBUG
-        return "Development";
+        // In DEBUG builds, save to Development file to keep base config clean
+        var filePath = Path.Combine(configDirectory, appSettingsDevelopmentFileName);
 #else
-        return "Production";
+        // In RELEASE builds, save to base file
+        var filePath = Path.Combine(configDirectory, appSettingsFileName);
 #endif
+
+        var json = JsonSerializer.Serialize(Settings, jsonSerializerOptions);
+
+        await File.WriteAllTextAsync(filePath, json);
     }
 }
