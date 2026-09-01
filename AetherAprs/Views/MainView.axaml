@@ -9,11 +9,40 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
+             xmlns:views="using:AetherAprs.Views"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel"
              d:DataContext="{x:Static local:DesignData.MainViewModel}">
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <TabbedPage Name="MainTabbedPage" TabPlacement="Bottom">
+
+        <ContentPage Header="Home">
+            <ContentPage.Icon>
+                <materialIcons:MaterialIcon Kind="Home" />
+            </ContentPage.Icon>
+            <views:HomeView />
+        </ContentPage>
+
+        <ContentPage Header="Map">
+            <ContentPage.Icon>
+                <materialIcons:MaterialIcon Kind="Map" />
+            </ContentPage.Icon>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <TextBlock Classes="Headline6" Text="Map Tab" HorizontalAlignment="Center" />
+                <TextBlock Classes="Body2" Text="Map view will appear here." HorizontalAlignment="Center" />
+            </StackPanel>
+        </ContentPage>
+
+        <ContentPage Header="Settings">
+            <ContentPage.Icon>
+                <materialIcons:MaterialIcon Kind="Cog" />
+            </ContentPage.Icon>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <TextBlock Classes="Headline6" Text="Settings Tab" HorizontalAlignment="Center" />
+                <TextBlock Classes="Body2" Text="Adjust your preferences." HorizontalAlignment="Center" />
+            </StackPanel>
+        </ContentPage>
+
+    </TabbedPage>
 </UserControl>
