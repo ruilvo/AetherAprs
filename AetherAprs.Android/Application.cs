@@ -23,6 +23,9 @@ namespace AetherAprs.Android
     [Application]
     public class Application : AvaloniaAndroidApplication<AndroidApp>
     {
+        private static readonly string appSettingsFileName = "appsettings.json";
+        private static readonly string appSettingsDevelopmentFileName = "appsettings.Development.json";
+
         protected Application(nint javaReference, JniHandleOwnership transfer) : base(javaReference, transfer)
         {
         }
@@ -30,7 +33,7 @@ namespace AetherAprs.Android
         public override void OnCreate()
         {
             base.OnCreate();
-            
+
             // Ensure configuration files exist before Avalonia initializes
             EnsureConfigurationFiles();
         }
@@ -40,20 +43,20 @@ namespace AetherAprs.Android
             // Use the AppDataDirProviderService to get the directory
             var appDataDirProvider = new Services.AppDataDirProviderService();
             var appDataDir = appDataDirProvider.GetAppDataDirectory();
-            
+
             // Always extract base configuration file
-            ExtractConfigFile(appDataDir, "appsettings.json");
+            ExtractConfigFile(appDataDir, appSettingsFileName);
 
 #if DEBUG
             // Only extract Development configuration in DEBUG builds
-            ExtractConfigFile(appDataDir, "appsettings.Development.json");
+            ExtractConfigFile(appDataDir, appSettingsDevelopmentFileName);
 #endif
         }
 
         private static void ExtractConfigFile(string targetDirectory, string fileName)
         {
             var targetPath = Path.Combine(targetDirectory, fileName);
-            
+
             // Only extract if the file doesn't already exist
             if (!File.Exists(targetPath))
             {
