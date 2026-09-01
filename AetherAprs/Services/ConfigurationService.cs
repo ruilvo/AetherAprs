@@ -7,9 +7,6 @@ using System;
 
 namespace AetherAprs.Services;
 
-/// <summary>
-/// Service for managing application configuration.
-/// </summary>
 public interface IConfigurationService
 {
     /// <summary>
@@ -23,9 +20,6 @@ public interface IConfigurationService
     IConfiguration Configuration { get; }
 }
 
-/// <summary>
-/// Implementation of the configuration service.
-/// </summary>
 public class ConfigurationService : IConfigurationService
 {
     public AppSettings Settings { get; }
