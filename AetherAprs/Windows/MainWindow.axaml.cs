@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using Avalonia.Controls;
 
-namespace AetherAprs.Views;
+namespace AetherAprs.Windows;
 
 public partial class MainWindow : Window
 {

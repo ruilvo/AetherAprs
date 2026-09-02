@@ -4,11 +4,11 @@
 using AetherAprs.Factories;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
+using AetherAprs.Windows;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using System;
 
 namespace AetherAprs;
