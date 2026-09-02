@@ -109,6 +109,78 @@ Without proper registration in all three places (ServiceProviderFactory, DesignD
 - `IActivityApplicationLifetime` - Android/iOS with factory pattern
 - `ISingleViewApplicationLifetime` - Browser/single-view platforms
 
+## C# Naming Conventions
+
+Follow these conventions consistently throughout the codebase:
+
+**Fields:**
+- Private instance fields MUST use `_camelCase`
+  ```csharp
+  private readonly ILogger _logger;
+  ```
+- Private static fields SHOULD use `_camelCase`
+  ```csharp
+  private static readonly Foo _instance;
+  ```
+
+**Properties and Methods:**
+- Public and protected properties MUST use `PascalCase`
+  ```csharp
+  public AppSettings Settings { get; set; }
+  ```
+- Public and protected methods MUST use `PascalCase`
+  ```csharp
+  public void StartService()
+  ```
+- Private methods SHOULD use `PascalCase`
+  ```csharp
+  private void ValidateSettings()
+  ```
+
+**Variables and Parameters:**
+- Method parameters MUST use `camelCase`
+  ```csharp
+  public void Configure(AppSettings settings)
+  ```
+- Local variables MUST use `camelCase`
+  ```csharp
+  var connectionString = ...;
+  ```
+
+**Constants and Types:**
+- Constants SHOULD use `PascalCase`
+  ```csharp
+  private const int DefaultTimeout = 30;
+  ```
+- Types (classes, structs, interfaces, enums, records) MUST use `PascalCase`
+  ```csharp
+  public class ConfigurationService
+  ```
+- Interfaces MUST start with `I`
+  ```csharp
+  public interface IConfigurationService
+  ```
+- Enum members MUST use `PascalCase`
+  ```csharp
+  LogLevel.Warning
+  ```
+
+**MVVM Toolkit:**
+- Use `[ObservableProperty]` on partial properties, NOT backing fields
+  ```csharp
+  // Correct
+  [ObservableProperty]
+  public partial string Title { get; set; } = "Default";
+  
+  // Incorrect - don't use backing field approach
+  [ObservableProperty]
+  private string _title = "Default";
+  ```
+
+**General Rules:**
+- Do NOT use `this.` prefix when `_camelCase` fields distinguish fields from parameters
+- The `_` prefix is specifically for fields. Do NOT prefix properties, methods, parameters, or local variables with `_`
+
 ## Common Mistakes to Avoid
 
 - Creating files without SPDX headers - pre-commit will reject
@@ -118,3 +190,5 @@ Without proper registration in all three places (ServiceProviderFactory, DesignD
 - Adding Android-specific code to core project instead of Android project
 - Creating new ViewModels without registering them in `ServiceProviderFactory.cs`, `DesignData.cs`, AND `ViewLocator.cs`
 - Manually instantiating views or using inline DataTemplates instead of letting ViewLocator handle ViewModel-to-View resolution
+- Using inconsistent naming conventions for private fields (always use `_camelCase`)
+- Using backing field approach with `[ObservableProperty]` instead of partial properties
