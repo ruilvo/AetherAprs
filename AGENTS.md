@@ -82,7 +82,7 @@ Do NOT specify versions in individual project files.
 
 ## Architecture Notes
 
-**Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `ConfigurePlatformServices()` override (Android app provides its own `IAppDataDirProviderService`).
+**Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`).
 
 **MVVM**: Uses CommunityToolkit.Mvvm. ViewModels resolved from DI container and assigned to DataContext.
 
@@ -95,7 +95,7 @@ When creating new ViewModels:
 4. Add ViewModel → View mapping in `ViewLocator.cs`
 
 When binding ViewModels to UI:
-- ALWAYS use `<ContentControl Content="{Binding ViewModelProperty}" />` 
+- ALWAYS use `<ContentControl Content="{Binding ViewModelProperty}" />`
 - NEVER manually instantiate views with `<views:SomeView DataContext="{Binding ...}" />`
 - NEVER use inline DataTemplates for ViewModel-to-View mapping
 - Let the ViewLocator handle all ViewModel-to-View resolution automatically
@@ -171,7 +171,7 @@ Follow these conventions consistently throughout the codebase:
   // Correct
   [ObservableProperty]
   public partial string Title { get; set; } = "Default";
-  
+
   // Incorrect - don't use backing field approach
   [ObservableProperty]
   private string _title = "Default";

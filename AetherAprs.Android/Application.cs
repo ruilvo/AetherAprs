@@ -13,7 +13,7 @@ namespace AetherAprs.Android
 {
     public class AndroidApp : App
     {
-        protected override void ConfigurePlatformServices(IServiceCollection services)
+        protected override void RegisterPlatformServices(IServiceCollection services)
         {
             // Register Android-specific implementation of IAppDataDirProviderService
             services.AddSingleton<AetherAprs.Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();

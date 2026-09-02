@@ -20,12 +20,12 @@ public static class ServiceProviderFactory
         "platform -specific configuration action before accessing the " +
         "ServiceProvider property."));
 
-    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> configurePlatformServices)
+    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> registerPlatformServices)
     {
         var services = new ServiceCollection();
 
         // Register platform-specific services first
-        configurePlatformServices(services);
+        registerPlatformServices(services);
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();
