@@ -86,6 +86,13 @@ Do NOT specify versions in individual project files.
 
 **MVVM**: Uses CommunityToolkit.Mvvm. ViewModels resolved from DI container and assigned to DataContext.
 
+**Design-time data**: `DesignData.cs` provides design-time ViewModels for XAML previews. When creating new ViewModels:
+1. Register in `ServiceProviderFactory.cs` (runtime DI)
+2. Register in `DesignData.cs` (design-time DI)
+3. Add public property to expose the ViewModel instance
+
+Without design-time registration, XAML previews will fail.
+
 **Configuration**: Uses Microsoft.Extensions.Configuration with `appsettings.json` and `appsettings.Development.json`. Files copied to output directory. Android project links these from core project via `<AndroidAsset Include="..\AetherAprs\appsettings.json">`. Development config only included in Android Debug builds.
 
 **Multi-platform lifecycle**: App.axaml.cs handles three Avalonia lifetime types:
@@ -100,3 +107,4 @@ Do NOT specify versions in individual project files.
 - Putting package versions in .csproj instead of Directory.Packages.props
 - Assuming standard .NET namespaces are available without explicit using statements
 - Adding Android-specific code to core project instead of Android project
+- Creating new ViewModels without registering them in both `ServiceProviderFactory.cs` AND `DesignData.cs`
