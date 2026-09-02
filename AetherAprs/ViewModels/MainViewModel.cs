@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Services;
 
 namespace AetherAprs.ViewModels;
@@ -14,10 +13,12 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     public partial ViewModelBase? CurrentContent { get; set; }
 
+    public NavigationBarViewModel NavigationBar { get; }
 
-    public MainViewModel(INavigationService navService)
+    public MainViewModel(INavigationService navService, NavigationBarViewModel navigationBarViewModel)
     {
         navigationService = navService;
+        NavigationBar = navigationBarViewModel;
 
         navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
 
@@ -28,23 +29,5 @@ public partial class MainViewModel : ViewModelBase
     private void OnCurrentViewModelChanged(object? sender, ViewModelBase? viewModel)
     {
         CurrentContent = viewModel;
-    }
-
-    [RelayCommand]
-    private void NavigateToHome()
-    {
-        navigationService.NavigateTo<HomeViewModel>();
-    }
-
-    [RelayCommand]
-    private void NavigateToSettings()
-    {
-        navigationService.NavigateTo<SettingsViewModel>();
-    }
-
-    [RelayCommand]
-    private void GoBack()
-    {
-        navigationService.GoBack();
     }
 }

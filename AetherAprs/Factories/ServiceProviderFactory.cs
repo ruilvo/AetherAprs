@@ -62,6 +62,7 @@ public static class ServiceProviderFactory
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>();
+        services.AddSingleton<NavigationBarViewModel>();
         services.AddTransient<HomeViewModel>();
         services.AddTransient<SettingsViewModel>();
 

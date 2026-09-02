@@ -1,0 +1,51 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:local="using:AetherAprs"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="80"
+             x:Class="AetherAprs.Views.NavigationBarView"
+             x:DataType="vm:NavigationBarViewModel"
+             d:DataContext="{x:Static local:DesignData.NavigationBarViewModel}">
+  <Border BorderThickness="0,1,0,0" 
+          BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+    <Grid ColumnDefinitions="*,*">
+      
+      <!-- Home tab button -->
+      <Button Grid.Column="0" 
+              Command="{Binding NavigateToHomeCommand}"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              Background="Transparent"
+              BorderThickness="0"
+              Padding="0,12">
+        <StackPanel Spacing="4">
+          <materialIcons:MaterialIcon Kind="Home" Width="24" Height="24" />
+          <TextBlock Text="Home" FontSize="12" />
+        </StackPanel>
+      </Button>
+      
+      <!-- Settings tab button -->
+      <Button Grid.Column="1" 
+              Command="{Binding NavigateToSettingsCommand}"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              Background="Transparent"
+              BorderThickness="0"
+              Padding="0,12">
+        <StackPanel Spacing="4">
+          <materialIcons:MaterialIcon Kind="Cog" Width="24" Height="24" />
+          <TextBlock Text="Settings" FontSize="12" />
+        </StackPanel>
+      </Button>
+      
+    </Grid>
+  </Border>
+</UserControl>
