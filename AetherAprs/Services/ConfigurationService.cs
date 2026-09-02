@@ -27,10 +27,10 @@ public class ConfigurationService : IConfigurationService
 {
     private readonly IAppDataDirProviderService _appDataDirProvider;
 
-    private static readonly string appSettingsFileName = "appsettings.json";
-    private static readonly string appSettingsDevelopmentFileName = "appsettings.Development.json";
+    private static readonly string _appSettingsFileName = "appsettings.json";
+    private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
 
-    private static readonly JsonSerializerOptions jsonSerializerOptions = new()
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         WriteIndented = true
     };
@@ -46,13 +46,13 @@ public class ConfigurationService : IConfigurationService
         var builder = new ConfigurationBuilder()
             .SetBasePath(configDirectory)
             .AddJsonFile(
-                appSettingsFileName,
+                _appSettingsFileName,
                 optional: false,
                 reloadOnChange: false);
 
 #if DEBUG
         builder.AddJsonFile(
-            appSettingsDevelopmentFileName,
+            _appSettingsDevelopmentFileName,
             optional: true,
             reloadOnChange: false);
 #endif
@@ -70,16 +70,16 @@ public class ConfigurationService : IConfigurationService
 #if DEBUG
         var filePath = Path.Combine(
             configDirectory,
-            appSettingsDevelopmentFileName);
+            _appSettingsDevelopmentFileName);
 #else
         var filePath = Path.Combine(
             configDirectory,
-            appSettingsFileName);
+            _appSettingsFileName);
 #endif
 
         var json = JsonSerializer.Serialize(
             Settings,
-            jsonSerializerOptions);
+            _jsonSerializerOptions);
 
         await File.WriteAllTextAsync(filePath, json);
     }

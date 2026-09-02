@@ -11,9 +11,9 @@ namespace AetherAprs.Factories;
 
 public static class ServiceProviderFactory
 {
-    private static IServiceProvider? serviceProvider;
+    private static IServiceProvider? _serviceProvider;
 
-    public static IServiceProvider ServiceProvider => serviceProvider ??= CreateServiceProvider(_ =>
+    public static IServiceProvider ServiceProvider => _serviceProvider ??= CreateServiceProvider(_ =>
         throw new InvalidOperationException("A platform service configuration " +
         "must be supplied before creating the application service provider.\n" +
         "Call ServiceProviderFactory.CreateServiceProvider with a " +
@@ -66,7 +66,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<SettingsViewModel>();
 
         // Build the final service provider
-        serviceProvider = services.BuildServiceProvider();
-        return serviceProvider;
+        _serviceProvider = services.BuildServiceProvider();
+        return _serviceProvider;
     }
 }

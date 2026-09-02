@@ -23,8 +23,8 @@ namespace AetherAprs.Android
     [Application]
     public class Application : AvaloniaAndroidApplication<AndroidApp>
     {
-        private static readonly string appSettingsFileName = "appsettings.json";
-        private static readonly string appSettingsDevelopmentFileName = "appsettings.Development.json";
+        private static readonly string _appSettingsFileName = "appsettings.json";
+        private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
 
         protected Application(nint javaReference, JniHandleOwnership transfer) : base(javaReference, transfer)
         {
@@ -45,11 +45,11 @@ namespace AetherAprs.Android
             var appDataDir = appDataDirProvider.GetAppDataDirectory();
 
             // Always extract base configuration file
-            ExtractConfigFile(appDataDir, appSettingsFileName);
+            ExtractConfigFile(appDataDir, _appSettingsFileName);
 
 #if DEBUG
             // Only extract Development configuration in DEBUG builds
-            ExtractConfigFile(appDataDir, appSettingsDevelopmentFileName);
+            ExtractConfigFile(appDataDir, _appSettingsDevelopmentFileName);
 #endif
         }
 

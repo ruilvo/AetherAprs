@@ -12,7 +12,7 @@ namespace AetherAprs;
 /// </summary>
 public static class DesignData
 {
-    private static readonly ServiceProvider serviceProvider = CreateDesignTimeServiceProvider();
+    private static readonly ServiceProvider _serviceProvider = CreateDesignTimeServiceProvider();
     private static ServiceProvider CreateDesignTimeServiceProvider()
     {
         var services = new ServiceCollection();
@@ -32,7 +32,7 @@ public static class DesignData
     {
         get
         {
-            return serviceProvider.GetRequiredService<MainViewModel>();
+            return _serviceProvider.GetRequiredService<MainViewModel>();
         }
     }
 
@@ -40,7 +40,7 @@ public static class DesignData
     {
         get
         {
-            return serviceProvider.GetRequiredService<HomeViewModel>();
+            return _serviceProvider.GetRequiredService<HomeViewModel>();
         }
     }
 
@@ -48,7 +48,7 @@ public static class DesignData
     {
         get
         {
-            return serviceProvider.GetRequiredService<SettingsViewModel>();
+            return _serviceProvider.GetRequiredService<SettingsViewModel>();
         }
     }
 

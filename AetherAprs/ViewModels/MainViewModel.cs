@@ -8,25 +8,25 @@ namespace AetherAprs.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    private readonly INavigationService navigationService;
+    private readonly INavigationService _navigationService;
 
     [ObservableProperty]
-    private int selectedTabIndex = 0;
+    public partial int SelectedTabIndex { get; set; } = 0;
 
     public HomeViewModel HomeViewModel { get; }
     public SettingsViewModel SettingsViewModel { get; }
 
     public MainViewModel(INavigationService navService, HomeViewModel homeViewModel, SettingsViewModel settingsViewModel)
     {
-        navigationService = navService;
+        _navigationService = navService;
         HomeViewModel = homeViewModel;
         SettingsViewModel = settingsViewModel;
 
         // Subscribe to navigation changes to update tab index
-        navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
+        _navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
 
         // Navigate to home on startup
-        navigationService.NavigateTo<HomeViewModel>();
+        _navigationService.NavigateTo<HomeViewModel>();
     }
 
     partial void OnSelectedTabIndexChanged(int value)
@@ -34,11 +34,11 @@ public partial class MainViewModel : ViewModelBase
         // When user clicks tabs, update navigation service
         if (value == 0)
         {
-            navigationService.NavigateTo<HomeViewModel>();
+            _navigationService.NavigateTo<HomeViewModel>();
         }
         else if (value == 1)
         {
-            navigationService.NavigateTo<SettingsViewModel>();
+            _navigationService.NavigateTo<SettingsViewModel>();
         }
     }
 
