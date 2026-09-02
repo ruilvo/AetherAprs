@@ -11,23 +11,47 @@ public partial class MainViewModel : ViewModelBase
     private readonly INavigationService navigationService;
 
     [ObservableProperty]
-    public partial ViewModelBase? CurrentContent { get; set; }
+    private int selectedTabIndex = 0;
 
-    public NavigationBarViewModel NavigationBar { get; }
+    public HomeViewModel HomeViewModel { get; }
+    public SettingsViewModel SettingsViewModel { get; }
 
-    public MainViewModel(INavigationService navService, NavigationBarViewModel navigationBarViewModel)
+    public MainViewModel(INavigationService navService, HomeViewModel homeViewModel, SettingsViewModel settingsViewModel)
     {
         navigationService = navService;
-        NavigationBar = navigationBarViewModel;
+        HomeViewModel = homeViewModel;
+        SettingsViewModel = settingsViewModel;
 
+        // Subscribe to navigation changes to update tab index
         navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
 
-        // Navigate to home page on startup
+        // Navigate to home on startup
         navigationService.NavigateTo<HomeViewModel>();
+    }
+
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        // When user clicks tabs, update navigation service
+        if (value == 0)
+        {
+            navigationService.NavigateTo<HomeViewModel>();
+        }
+        else if (value == 1)
+        {
+            navigationService.NavigateTo<SettingsViewModel>();
+        }
     }
 
     private void OnCurrentViewModelChanged(object? sender, ViewModelBase? viewModel)
     {
-        CurrentContent = viewModel;
+        // When navigation service changes, update tab index
+        if (viewModel is HomeViewModel)
+        {
+            SelectedTabIndex = 0;
+        }
+        else if (viewModel is SettingsViewModel)
+        {
+            SelectedTabIndex = 1;
+        }
     }
 }

@@ -17,14 +17,13 @@ public static class DesignData
     {
         var services = new ServiceCollection();
 
-        // Minimum services required for design-time data
+        // Register services required by ViewModels
         services.AddSingleton<INavigationService, NavigationService>();
 
         // Register view models
         services.AddSingleton<MainViewModel>();
-        services.AddSingleton<NavigationBarViewModel>();
-        services.AddTransient<HomeViewModel>();
-        services.AddTransient<SettingsViewModel>();
+        services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<SettingsViewModel>();
 
         return services.BuildServiceProvider();
     }
@@ -34,14 +33,6 @@ public static class DesignData
         get
         {
             return serviceProvider.GetRequiredService<MainViewModel>();
-        }
-    }
-
-    public static NavigationBarViewModel NavigationBarViewModel
-    {
-        get
-        {
-            return serviceProvider.GetRequiredService<NavigationBarViewModel>();
         }
     }
 

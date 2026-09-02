@@ -35,7 +35,6 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
     {
         var viewModelType = typeof(TViewModel);
 
-
         // Clear stack if navigating to home
         if (viewModelType == _homeViewModelType)
         {
@@ -68,7 +67,7 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
         else if (_currentViewModel?.GetType() != _homeViewModelType)
         {
             // Not on home page and no history - go to home
-            var homeViewModel = (ViewModelBase)serviceProvider.GetRequiredService(_homeViewModelType);
+            var homeViewModel = serviceProvider.GetRequiredService<HomeViewModel>();
             CurrentViewModel = homeViewModel;
         }
         else

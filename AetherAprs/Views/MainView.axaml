@@ -9,19 +9,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
-             xmlns:views="using:AetherAprs.Views"
-             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:ext="using:AetherAprs.Extensions"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel"
              d:DataContext="{x:Static local:DesignData.MainViewModel}">
-  <Grid RowDefinitions="*,Auto">
-    
-    <!-- Main content area -->
-    <ContentControl Grid.Row="0" Content="{Binding CurrentContent}" />
-    
-    <!-- Bottom navigation bar -->
-    <ContentControl Grid.Row="1" Content="{Binding NavigationBar}" />
-    
-  </Grid>
+  
+  <TabbedPage x:Name="MainTabbedPage" 
+              TabPlacement="Bottom"
+              SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+
+    <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
+      <ContentControl Content="{Binding HomeViewModel}" />
+    </ContentPage>
+
+    <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
+      <ContentControl Content="{Binding SettingsViewModel}" />
+    </ContentPage>
+
+  </TabbedPage>
+  
 </UserControl>
