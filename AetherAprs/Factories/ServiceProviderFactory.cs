@@ -42,8 +42,9 @@ public static class ServiceProviderFactory
         services.AddOptions<LoggerFilterOptions>()
             .Configure<IConfigurationService>((options, configService) =>
             {
-                var loggingConfig = configService.Configuration.GetSection("Logging");
-                loggingConfig.Bind(options);
+                // TODO: evaluate whether this is actually possible.
+                // Does this assign operation actually work?
+                options = configService.Settings.Logging;
             });
 
         // Register ViewModels

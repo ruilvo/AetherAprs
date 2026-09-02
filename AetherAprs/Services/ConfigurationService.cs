@@ -18,11 +18,6 @@ public interface IConfigurationService
     AppSettings Settings { get; }
 
     /// <summary>
-    /// Gets the configuration root for advanced scenarios.
-    /// </summary>
-    IConfiguration Configuration { get; }
-
-    /// <summary>
     /// Saves the current settings to the configuration file.
     /// </summary>
     Task SaveSettingsAsync();
@@ -31,35 +26,41 @@ public interface IConfigurationService
 public class ConfigurationService : IConfigurationService
 {
     private readonly IAppDataDirProviderService _appDataDirProvider;
+
     private static readonly string appSettingsFileName = "appsettings.json";
     private static readonly string appSettingsDevelopmentFileName = "appsettings.Development.json";
+
     private static readonly JsonSerializerOptions jsonSerializerOptions = new()
     {
         WriteIndented = true
     };
 
     public AppSettings Settings { get; }
-    public IConfiguration Configuration { get; }
 
     public ConfigurationService(IAppDataDirProviderService appDataDirProvider)
     {
         _appDataDirProvider = appDataDirProvider;
 
         var configDirectory = _appDataDirProvider.GetAppDataDirectory();
+
         var builder = new ConfigurationBuilder()
             .SetBasePath(configDirectory)
-            .AddJsonFile(appSettingsFileName, optional: false, reloadOnChange: false);
+            .AddJsonFile(
+                appSettingsFileName,
+                optional: false,
+                reloadOnChange: false);
 
 #if DEBUG
-        // Only load environment-specific configuration in DEBUG builds
-        builder.AddJsonFile(appSettingsDevelopmentFileName, optional: true, reloadOnChange: false);
+        builder.AddJsonFile(
+            appSettingsDevelopmentFileName,
+            optional: true,
+            reloadOnChange: false);
 #endif
 
-        Configuration = builder.Build();
+        var configuration = builder.Build();
 
-        // Bind the configuration to strongly-typed settings
         Settings = new AppSettings();
-        Configuration.Bind(Settings);
+        configuration.Bind(Settings);
     }
 
     public async Task SaveSettingsAsync()
@@ -67,14 +68,18 @@ public class ConfigurationService : IConfigurationService
         var configDirectory = _appDataDirProvider.GetAppDataDirectory();
 
 #if DEBUG
-        // In DEBUG builds, save to Development file to keep base config clean
-        var filePath = Path.Combine(configDirectory, appSettingsDevelopmentFileName);
+        var filePath = Path.Combine(
+            configDirectory,
+            appSettingsDevelopmentFileName);
 #else
-        // In RELEASE builds, save to base file
-        var filePath = Path.Combine(configDirectory, appSettingsFileName);
+        var filePath = Path.Combine(
+            configDirectory,
+            appSettingsFileName);
 #endif
 
-        var json = JsonSerializer.Serialize(Settings, jsonSerializerOptions);
+        var json = JsonSerializer.Serialize(
+            Settings,
+            jsonSerializerOptions);
 
         await File.WriteAllTextAsync(filePath, json);
     }
