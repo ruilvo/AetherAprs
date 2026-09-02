@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -31,6 +30,9 @@ public static class ServiceProviderFactory
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();
 
+        // Register navigation service
+        services.AddSingleton<INavigationService, NavigationService>();
+
         // Register logging with deferred configuration resolution
         services.AddLogging(builder =>
         {
@@ -42,13 +44,26 @@ public static class ServiceProviderFactory
         services.AddOptions<LoggerFilterOptions>()
             .Configure<IConfigurationService>((options, configService) =>
             {
-                // TODO: evaluate whether this is actually possible.
-                // Does this assign operation actually work?
-                options = configService.Settings.Logging;
+                var appLoggingOptions = configService.Settings.Logging;
+                // Deep copy the settings from the configuration service's
+                // settings to the LoggerFilterOptions.
+                options.CaptureScopes = appLoggingOptions.CaptureScopes;
+                options.MinLevel = appLoggingOptions.MinLevel;
+                options.Rules.Clear();
+                foreach (var rule in appLoggingOptions.Rules)
+                {
+                    options.Rules.Add(new LoggerFilterRule(
+                        rule.ProviderName,
+                        rule.CategoryName,
+                        rule.LogLevel,
+                        rule.Filter));
+                }
             });
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>();
+        services.AddTransient<HomeViewModel>();
+        services.AddTransient<SettingsViewModel>();
 
         // Build the final service provider
         serviceProvider = services.BuildServiceProvider();

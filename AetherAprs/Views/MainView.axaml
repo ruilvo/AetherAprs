@@ -15,34 +15,56 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel"
              d:DataContext="{x:Static local:DesignData.MainViewModel}">
-    <TabbedPage Name="MainTabbedPage" TabPlacement="Bottom">
-
-        <ContentPage Header="Home">
-            <ContentPage.Icon>
-                <materialIcons:MaterialIcon Kind="Home" />
-            </ContentPage.Icon>
-            <views:HomeView />
-        </ContentPage>
-
-        <ContentPage Header="Map">
-            <ContentPage.Icon>
-                <materialIcons:MaterialIcon Kind="Map" />
-            </ContentPage.Icon>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                <TextBlock Classes="Headline6" Text="Map Tab" HorizontalAlignment="Center" />
-                <TextBlock Classes="Body2" Text="Map view will appear here." HorizontalAlignment="Center" />
-            </StackPanel>
-        </ContentPage>
-
-        <ContentPage Header="Settings">
-            <ContentPage.Icon>
-                <materialIcons:MaterialIcon Kind="Cog" />
-            </ContentPage.Icon>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                <TextBlock Classes="Headline6" Text="Settings Tab" HorizontalAlignment="Center" />
-                <TextBlock Classes="Body2" Text="Adjust your preferences." HorizontalAlignment="Center" />
-            </StackPanel>
-        </ContentPage>
-
-    </TabbedPage>
+  <Grid RowDefinitions="*,Auto">
+    
+    <!-- Main content area -->
+    <ContentControl Grid.Row="0" Content="{Binding CurrentContent}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="vm:HomeViewModel">
+          <views:HomeView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:SettingsViewModel">
+          <views:SettingsView />
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
+    
+    <!-- Bottom navigation bar -->
+    <Border Grid.Row="1" 
+            BorderThickness="0,1,0,0" 
+            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
+      <Grid ColumnDefinitions="*,*">
+        
+        <!-- Home tab button -->
+        <Button Grid.Column="0" 
+                Command="{Binding NavigateToHomeCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0,12">
+          <StackPanel Spacing="4">
+            <materialIcons:MaterialIcon Kind="Home" Width="24" Height="24" />
+            <TextBlock Text="Home" FontSize="12" />
+          </StackPanel>
+        </Button>
+        
+        <!-- Settings tab button -->
+        <Button Grid.Column="1" 
+                Command="{Binding NavigateToSettingsCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0,12">
+          <StackPanel Spacing="4">
+            <materialIcons:MaterialIcon Kind="Cog" Width="24" Height="24" />
+            <TextBlock Text="Settings" FontSize="12" />
+          </StackPanel>
+        </Button>
+        
+      </Grid>
+    </Border>
+    
+  </Grid>
 </UserControl>
