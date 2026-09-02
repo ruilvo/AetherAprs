@@ -18,9 +18,10 @@ public static class ServiceProviderFactory
         "must be supplied before creating the application service provider.\n" +
         "Call ServiceProviderFactory.CreateServiceProvider with a " +
         "platform -specific configuration action before accessing the " +
-        "ServiceProvider property."));
+        "ServiceProvider property."), _ => { });
 
-    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> registerPlatformServices)
+    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> registerPlatformServices,
+                                                      Action<IServiceCollection> overrideCoreServices)
     {
         var services = new ServiceCollection();
 
@@ -64,6 +65,10 @@ public static class ServiceProviderFactory
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<SettingsViewModel>();
+
+        // Allow overriding core services for testing or platform-specific
+        // implementations
+        overrideCoreServices(services);
 
         // Build the final service provider
         _serviceProvider = services.BuildServiceProvider();

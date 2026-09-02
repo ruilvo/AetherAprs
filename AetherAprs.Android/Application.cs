@@ -7,7 +7,6 @@ using Avalonia;
 using Avalonia.Android;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
-using System.Linq;
 
 namespace AetherAprs.Android
 {
@@ -17,6 +16,12 @@ namespace AetherAprs.Android
         {
             // Register Android-specific implementation of IAppDataDirProviderService
             services.AddSingleton<AetherAprs.Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+        }
+
+        protected override void OverrideCoreServices(IServiceCollection services)
+        {
+            // Add any core service overrides here if needed. For now, we don't
+            // have any specific overrides for Android.
         }
     }
 

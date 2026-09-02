@@ -24,6 +24,13 @@ public partial class App : Application
     /// implementations of the App class to register platform-specific services.
     /// </summary>
     /// <param name="services">The service collection to register services in.</param>
+    protected virtual void OverrideCoreServices(IServiceCollection services)
+    {
+        // This method can be overridden in platform-specific implementations of
+        // the App class to override core services with platform-specific
+        // implementations.
+    }
+
     protected virtual void RegisterPlatformServices(IServiceCollection services)
     {
         // Register default implementation of IAppDataDirProviderService for desktop/core platforms
@@ -49,7 +56,9 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         // Configure dependency injection
-        ServiceProvider = ServiceProviderFactory.CreateServiceProvider(RegisterPlatformServices);
+        ServiceProvider = ServiceProviderFactory.CreateServiceProvider(RegisterPlatformServices, OverrideCoreServices);
+
+
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
