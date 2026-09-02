@@ -10,19 +10,6 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Services;
 
-public interface IConfigurationService
-{
-    /// <summary>
-    /// Gets the strongly-typed application settings.
-    /// </summary>
-    AppSettings Settings { get; }
-
-    /// <summary>
-    /// Saves the current settings to the configuration file.
-    /// </summary>
-    Task SaveSettingsAsync();
-}
-
 public class ConfigurationService : IConfigurationService
 {
     private readonly IAppDataDirProviderService _appDataDirProvider;
