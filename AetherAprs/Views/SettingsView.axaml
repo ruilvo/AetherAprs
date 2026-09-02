@@ -8,19 +8,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <StackPanel Spacing="20" Margin="20">
-    <TextBlock Text="{Binding Title}" 
-               FontSize="24" 
+    <TextBlock Text="{Binding Title}"
+               FontSize="24"
                FontWeight="Bold" />
-    <TextBlock Text="{Binding Description}" 
-               FontSize="14" 
+    <TextBlock Text="{Binding Description}"
+               FontSize="14"
                TextWrapping="Wrap" />
-    <TextBlock Text="Settings options will be implemented here." 
-               FontSize="12" 
-               Foreground="Gray" 
+    <TextBlock Text="Settings options will be implemented here."
+               FontSize="12"
+               Foreground="Gray"
                Margin="0,40,0,0" />
   </StackPanel>
 </UserControl>
