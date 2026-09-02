@@ -86,12 +86,21 @@ Do NOT specify versions in individual project files.
 
 **MVVM**: Uses CommunityToolkit.Mvvm. ViewModels resolved from DI container and assigned to DataContext.
 
-**Design-time data**: `DesignData.cs` provides design-time ViewModels for XAML previews. When creating new ViewModels:
+**ViewLocator Pattern**: `ViewLocator.cs` provides automatic ViewModel-to-View mapping. The ViewLocator is registered in `App.axaml` as an application-level DataTemplate.
+
+When creating new ViewModels:
 1. Register in `ServiceProviderFactory.cs` (runtime DI)
 2. Register in `DesignData.cs` (design-time DI)
-3. Add public property to expose the ViewModel instance
+3. Add public property to expose the ViewModel instance in DesignData
+4. Add ViewModel → View mapping in `ViewLocator.cs`
 
-Without design-time registration, XAML previews will fail.
+When binding ViewModels to UI:
+- ALWAYS use `<ContentControl Content="{Binding ViewModelProperty}" />` 
+- NEVER manually instantiate views with `<views:SomeView DataContext="{Binding ...}" />`
+- NEVER use inline DataTemplates for ViewModel-to-View mapping
+- Let the ViewLocator handle all ViewModel-to-View resolution automatically
+
+Without proper registration in all three places (ServiceProviderFactory, DesignData, ViewLocator), views won't work at runtime or in the designer.
 
 **Configuration**: Uses Microsoft.Extensions.Configuration with `appsettings.json` and `appsettings.Development.json`. Files copied to output directory. Android project links these from core project via `<AndroidAsset Include="..\AetherAprs\appsettings.json">`. Development config only included in Android Debug builds.
 
@@ -107,4 +116,5 @@ Without design-time registration, XAML previews will fail.
 - Putting package versions in .csproj instead of Directory.Packages.props
 - Assuming standard .NET namespaces are available without explicit using statements
 - Adding Android-specific code to core project instead of Android project
-- Creating new ViewModels without registering them in both `ServiceProviderFactory.cs` AND `DesignData.cs`
+- Creating new ViewModels without registering them in `ServiceProviderFactory.cs`, `DesignData.cs`, AND `ViewLocator.cs`
+- Manually instantiating views or using inline DataTemplates instead of letting ViewLocator handle ViewModel-to-View resolution
