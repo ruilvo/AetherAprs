@@ -60,18 +60,11 @@ namespace AetherAprs.Android
             // Only extract if the file doesn't already exist
             if (!File.Exists(targetPath))
             {
-                try
+                using var stream = Context?.Assets?.Open(fileName);
+                if (stream != null)
                 {
-                    using var stream = Context?.Assets?.Open(fileName);
-                    if (stream != null)
-                    {
-                        using var fileStream = File.Create(targetPath);
-                        stream.CopyTo(fileStream);
-                    }
-                }
-                catch (Java.IO.FileNotFoundException)
-                {
-                    // Asset doesn't exist, skip it (optional files)
+                    using var fileStream = File.Create(targetPath);
+                    stream.CopyTo(fileStream);
                 }
             }
         }
