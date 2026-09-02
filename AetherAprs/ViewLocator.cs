@@ -18,6 +18,9 @@ public class ViewLocator: IDataTemplate
         return param switch
         {
             MainViewModel => new MainView(),
+            HomeViewModel => new HomeView(),
+            SettingsViewModel => new SettingsView(),
+            NavigationBarViewModel => new NavigationBarView(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

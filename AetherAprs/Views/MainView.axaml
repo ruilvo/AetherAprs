@@ -18,19 +18,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <Grid RowDefinitions="*,Auto">
     
     <!-- Main content area -->
-    <ContentControl Grid.Row="0" Content="{Binding CurrentContent}">
-      <ContentControl.DataTemplates>
-        <DataTemplate DataType="vm:HomeViewModel">
-          <views:HomeView />
-        </DataTemplate>
-        <DataTemplate DataType="vm:SettingsViewModel">
-          <views:SettingsView />
-        </DataTemplate>
-      </ContentControl.DataTemplates>
-    </ContentControl>
+    <ContentControl Grid.Row="0" Content="{Binding CurrentContent}" />
     
     <!-- Bottom navigation bar -->
-    <views:NavigationBarView Grid.Row="1" DataContext="{Binding NavigationBar}" />
+    <ContentControl Grid.Row="1" Content="{Binding NavigationBar}" />
     
   </Grid>
 </UserControl>
