@@ -6,9 +6,7 @@
             "url": "https://docs-mcp.avaloniaui.net/mcp"
         }
     },
-    "lsp": {
-        "csharp": {}
-    },
+    "lsp": true,
     "permission": {
         "lsp": "allow"
     }
