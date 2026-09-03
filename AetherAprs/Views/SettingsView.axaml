@@ -8,9 +8,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:local="using:AetherAprs"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.SettingsView"
-             x:DataType="vm:SettingsViewModel">
+             x:DataType="vm:SettingsViewModel"
+             d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
   <StackPanel Spacing="20" Margin="20">
     <TextBlock Text="{Binding Title}"
                FontSize="24"
