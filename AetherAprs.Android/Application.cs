@@ -16,6 +16,9 @@ namespace AetherAprs.Android
         {
             // Register Android-specific implementation of IAppDataDirProviderService
             services.AddSingleton<AetherAprs.Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+            
+            // Register Android-specific implementation of ILocationService
+            services.AddSingleton<AetherAprs.Services.ILocationService, Services.LocationService>();
         }
 
         protected override void OverrideCoreServices(IServiceCollection services)

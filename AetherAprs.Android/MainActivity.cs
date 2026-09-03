@@ -23,9 +23,22 @@ public class MainActivity : AvaloniaMainActivity
     private INavigationService? navigationService;
     private BackInvokedCallback? backInvokedCallback;
 
+    /// <summary>
+    /// Gets the current MainActivity instance for permission requests.
+    /// </summary>
+    public static MainActivity? Instance { get; private set; }
+
+    /// <summary>
+    /// Event raised when permission request results are available.
+    /// </summary>
+    public static event Action<int, string[], Permission[]>? OnPermissionResult;
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+
+        // Store instance for permission requests
+        Instance = this;
 
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(() =>
@@ -93,7 +106,22 @@ public class MainActivity : AvaloniaMainActivity
     protected override void OnDestroy()
     {
         navigationService?.RequestAppExit -= OnRequestAppExit;
+        
+        // Clear instance reference
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+        
         base.OnDestroy();
+    }
+
+    public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+    {
+        base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        // Notify any listeners about permission results
+        OnPermissionResult?.Invoke(requestCode, permissions, grantResults);
     }
 
     private class BackInvokedCallback(Action onBackInvoked) : Java.Lang.Object, IOnBackInvokedCallback
