@@ -6,6 +6,16 @@
             "url": "https://docs-mcp.avaloniaui.net/mcp"
         }
     },
+    "references": {
+        "material-avalonia": {
+            "repository": "AvaloniaCommunity/material.avalonia",
+            "branch": "master"
+        },
+        "maps-avalonia-12": {
+            "repository": "Mapsui/Mapsui",
+            "branch": "main"
+        }
+    },
     "lsp": true,
     "permission": {
         "lsp": "allow"
