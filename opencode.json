@@ -19,5 +19,9 @@
     "lsp": true,
     "permission": {
         "lsp": "allow"
-    }
+    },
+    "instructions": [
+        "AGENTS.md",
+        "CLAUDE.md"
+    ]
 }
