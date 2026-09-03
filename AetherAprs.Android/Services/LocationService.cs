@@ -9,6 +9,7 @@ using Android.Locations;
 using Android.OS;
 using AndroidX.Core.App;
 using AndroidX.Core.Content;
+using AetherAprs.Models;
 using AetherAprs.Services;
 using System;
 using System.Linq;
