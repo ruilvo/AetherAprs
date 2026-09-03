@@ -53,7 +53,7 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     var location = await _locationService.GetCurrentLocationAsync(_locationUpdateCancellation.Token);
-                    
+
                     UserLocation = location;
 
                     _logger.LogInformation("Location updated: {Lat}, {Lon}", location.Latitude, location.Longitude);
@@ -69,7 +69,7 @@ public partial class HomeViewModel : ViewModelBase
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error getting location");
-                    
+
                     // Wait longer on error before retrying
                     await Task.Delay(TimeSpan.FromSeconds(10), _locationUpdateCancellation.Token);
                 }
