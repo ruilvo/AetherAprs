@@ -8,10 +8,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.HomeView"
              x:DataType="vm:HomeViewModel">
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <mapsui:MapControl x:Name="MapControl" />
 </UserControl>

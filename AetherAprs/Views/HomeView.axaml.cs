@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using Avalonia.Controls;
+using Mapsui;
+using Mapsui.Tiling;
 
 namespace AetherAprs.Views;
 
@@ -10,5 +12,13 @@ public partial class HomeView : UserControl
     public HomeView()
     {
         InitializeComponent();
+        InitializeMap();
+    }
+
+    private void InitializeMap()
+    {
+        // Initialize the map with default OpenStreetMap tiles
+        MapControl.Map = new Map();
+        MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer());
     }
 }
