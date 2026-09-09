@@ -30,8 +30,11 @@ public sealed class AprsSymbolBitmapProvider : IDisposable
 
     private static readonly Uri[] SpriteSheetUris =
     [
+        // Primary sheet
         new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-0_2x.png"),
+        // Secondary sheet
         new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-1_2x.png"),
+        // Overlay sheet
         new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-2_2x.png"),
     ];
 
