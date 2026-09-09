@@ -20,6 +20,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\AetherAprs\AetherAprs.csproj" />
+    <ProjectReference Include="..\AetherAprs\AetherAprs.csproj" />
   </ItemGroup>
 </Project>
