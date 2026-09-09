@@ -220,14 +220,14 @@ public class AprsParserTests
     }
 
     // ---------------------------------------------------------------
-    // AX.25 frame parsing
+    // AX.25 frame parsing (via Ax25Parser)
     // ---------------------------------------------------------------
 
     [Fact]
     public void ParseFrame_ValidAx25Position_ReturnsPositionPacket()
     {
         var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
-        var result = AprsParser.ParseFrame(frame);
+        var result = Ax25Parser.ParseFrame(frame);
 
         var pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
@@ -240,7 +240,7 @@ public class AprsParserTests
     public void ParseFrame_ValidAx25Message_ReturnsMessagePacket()
     {
         var frame = BuildAx25Frame("APZ001", "N0CALL", ":OTHER    :Hello!");
-        var result = AprsParser.ParseFrame(frame);
+        var result = Ax25Parser.ParseFrame(frame);
 
         var msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal(new Callsign("N0CALL"), msg.Source);
@@ -253,7 +253,7 @@ public class AprsParserTests
     {
         // Simulate a frame with a digipeater address (3 addresses)
         var frame = BuildAx25Frame("APZ001", "N0CALL", ["WIDE1-1"], "!3830.00N/00906.00E#");
-        var result = AprsParser.ParseFrame(frame);
+        var result = Ax25Parser.ParseFrame(frame);
 
         var pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Latitude, 6);
@@ -262,7 +262,7 @@ public class AprsParserTests
     [Fact]
     public void ParseFrame_TooShort_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => AprsParser.ParseFrame([0x01, 0x02]));
+        var ex = Assert.Throws<ArgumentException>(() => Ax25Parser.ParseFrame([0x01, 0x02]));
         Assert.Contains("too short", ex.Message);
     }
 
@@ -270,7 +270,7 @@ public class AprsParserTests
     public void ParseFrame_EmptyInfo_ReturnsUnknownPacket()
     {
         var frame = BuildAx25Frame("APZ001", "N0CALL", "");
-        var result = AprsParser.ParseFrame(frame);
+        var result = Ax25Parser.ParseFrame(frame);
 
         Assert.IsType<UnknownPacket>(result);
     }

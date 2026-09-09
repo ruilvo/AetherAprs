@@ -18,17 +18,17 @@ namespace AetherAprs.Modems.Aprs;
 /// instantiate it or own its disposal. Disposing the wrapper only stops
 /// the receive loop without disposing the underlying KISS modem.
 /// </summary>
-public sealed class AprsModem : IAsyncDisposable
+public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
 {
     private readonly KissModem _kissModem;
     private bool _started;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="AprsModem"/>.
+    /// Initializes a new instance of <see cref="AprsRfModem"/>.
     /// </summary>
     /// <param name="kissModem">The underlying KISS modem. Must not be null.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="kissModem"/> is null.</exception>
-    public AprsModem(KissModem kissModem)
+    public AprsRfModem(KissModem kissModem)
     {
         ArgumentNullException.ThrowIfNull(kissModem);
         _kissModem = kissModem;
@@ -36,11 +36,11 @@ public sealed class AprsModem : IAsyncDisposable
 
     /// <summary>
     /// Raised when a valid APRS packet has been received and parsed.
-    /// Switch on <see cref="IAprsPacket"/> for the concrete type:
+    /// Switch on <see cref="AprsPacket"/> for the concrete type:
     /// <c>PositionPacket</c>, <c>MessagePacket</c>, <c>StatusPacket</c>,
     /// <c>WeatherPacket</c>, or <c>UnknownPacket</c>.
     /// </summary>
-    public event EventHandler<IAprsPacket>? PacketReceived;
+    public event EventHandler<AprsPacket>? PacketReceived;
 
     /// <summary>
     /// Raised when an error occurs during packet reception or parsing.
@@ -55,7 +55,7 @@ public sealed class AprsModem : IAsyncDisposable
     {
         if (_started)
         {
-            throw new InvalidOperationException("AprsModem is already started.");
+            throw new InvalidOperationException("AprsRfModem is already started.");
         }
 
         _kissModem.FrameReceived += OnKissFrameReceived;
@@ -86,21 +86,18 @@ public sealed class AprsModem : IAsyncDisposable
     }
 
     /// <summary>
-    /// Encodes and sends an <see cref="IAprsPacket"/> over the air.
-    /// Dispatches to the correct APRS serializer based on the concrete packet type.
+    /// Encodes and sends an <see cref="AprsPacket"/> over the air.
+    /// Serializes using AX.25 and wraps in a KISS frame.
     /// </summary>
     /// <param name="packet">The APRS packet to send.</param>
-    /// <param name="source">The source callsign.</param>
-    /// <param name="destination">The destination callsign.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     /// <returns>A task that completes when the packet has been written to the stream.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="packet"/> is null.</exception>
-    public Task SendAsync(IAprsPacket packet, Callsign source, Callsign destination,
-        CancellationToken cancellationToken = default)
+    public Task SendAsync(AprsPacket packet, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(packet);
 
-        var ax25Data = AprsSerializer.Serialize(packet, source, destination);
+        var ax25Data = Ax25Serializer.Serialize(packet);
         var kissFrame = new KissFrame(0x00, ax25Data);
         return _kissModem.SendAsync(kissFrame, cancellationToken);
     }
@@ -122,7 +119,7 @@ public sealed class AprsModem : IAsyncDisposable
 
         try
         {
-            var packet = AprsParser.ParseFrame(frame.Data);
+            var packet = Ax25Parser.ParseFrame(frame.Data);
             PacketReceived?.Invoke(this, packet);
         }
         catch (Exception ex)

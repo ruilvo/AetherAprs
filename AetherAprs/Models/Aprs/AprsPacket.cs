@@ -9,7 +9,7 @@ namespace AetherAprs.Models.Aprs;
 /// <summary>
 /// Abstract base record for all APRS packets.
 /// </summary>
-public abstract record AprsPacket : IAprsPacket
+public abstract record AprsPacket
 {
     /// <summary>
     /// Gets the source callsign.

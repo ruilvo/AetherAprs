@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using AetherAprs.Models.Aprs;
@@ -11,101 +10,47 @@ using AetherAprs.Models.Aprs;
 namespace AetherAprs.Modems.Aprs;
 
 /// <summary>
-/// Static serializer for APRS packets. Encodes typed <see cref="IAprsPacket"/>
-/// into AX.25 UI-frame byte arrays ready for KISS framing.
+/// Static serializer for APRS packets. Produces the APRS info field string
+/// (the application-layer payload) from a typed <see cref="AprsPacket"/>.
 /// </summary>
+/// <remarks>
+/// This handles only the APRS info field format (e.g. <c>!DDMM.mmX/DDDMM.mmYC...</c>).
+/// For AX.25 framing (addresses + control + PID), use <see cref="Ax25Serializer"/>.
+/// </remarks>
 public static class AprsSerializer
 {
-    private const int AddressLength = 7;
-    private const byte UiControl = 0x03;
-    private const byte NoLayer3Pid = 0xF0;
-
     /// <summary>
-    /// Serializes an <see cref="IAprsPacket"/> into an AX.25 UI-frame byte array
-    /// (addresses + control + PID + info), suitable for wrapping in a KISS frame.
+    /// Formats an <see cref="AprsPacket"/> into its APRS info field string.
     /// </summary>
-    /// <param name="packet">The packet to serialize.</param>
-    /// <param name="source">The source callsign.</param>
-    /// <param name="destination">The destination callsign.</param>
-    /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
+    /// <param name="packet">The packet to format.</param>
+    /// <returns>The APRS info field string (e.g. <c>!3830.00N/00906.00E#</c>).</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="packet"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown if the packet type is not supported.</exception>
-    public static byte[] Serialize(IAprsPacket packet, Callsign source, Callsign destination)
+    public static string FormatInfoField(AprsPacket packet)
     {
         ArgumentNullException.ThrowIfNull(packet);
 
         return packet switch
         {
-            PositionPacket pos => SerializePosition(pos, source, destination),
-            MessagePacket msg => SerializeMessage(msg, source, destination),
-            StatusPacket status => SerializeStatus(status, source, destination),
-            WeatherPacket weather => SerializeWeather(weather, source, destination),
-            UnknownPacket unknown => SerializeUnknown(unknown, source, destination),
+            PositionPacket pos => FormatPosition(pos),
+            MessagePacket msg => FormatMessage(msg),
+            StatusPacket status => FormatStatus(status),
+            WeatherPacket weather => FormatWeather(weather),
+            UnknownPacket unknown => unknown.Raw,
             _ => throw new ArgumentException($"Unsupported packet type: {packet.GetType().Name}.")
         };
     }
 
     // ---------------------------------------------------------------
-    // AX.25 framer
+    // Position formatter
     // ---------------------------------------------------------------
 
-    private static byte[] BuildAx25Frame(Callsign destination, Callsign source, string infoField)
+    private static string FormatPosition(PositionPacket packet)
     {
-        var infoBytes = Encoding.ASCII.GetBytes(infoField);
-        return BuildAx25Frame(destination, source, infoBytes);
-    }
-
-    private static byte[] BuildAx25Frame(Callsign destination, Callsign source, byte[] infoBytes)
-    {
-        var frame = new List<byte>();
-
-        // Destination address (7 bytes)
-        frame.AddRange(EncodeAddress(destination, isLast: false));
-
-        // Source address (7 bytes, marked as last address in the list)
-        frame.AddRange(EncodeAddress(source, isLast: true));
-
-        // Control field: UI-frame (0x03)
-        frame.Add(UiControl);
-
-        // PID: No layer 3 (0xF0)
-        frame.Add(NoLayer3Pid);
-
-        // Info field
-        frame.AddRange(infoBytes);
-
-        return [.. frame];
-    }
-
-    private static byte[] EncodeAddress(Callsign callsign, bool isLast)
-    {
-        var bytes = new byte[AddressLength];
-
-        // Pad callsign base to 6 characters with spaces
-        var padded = callsign.Base.PadRight(6, ' ');
-
-        // Each character: ASCII value left-shifted by 1
-        for (int i = 0; i < 6; i++)
-        {
-            bytes[i] = (byte)(padded[i] << 1);
-        }
-
-        // SSID byte: bits 1-4 = SSID, bit 0 = 1 if last address (HDLC extension bit)
-        int ssid = callsign.Ssid ?? 0;
-        bytes[6] = (byte)((ssid << 1) | 0x60 | (isLast ? 0x01 : 0x00));
-
-        return bytes;
-    }
-
-    // ---------------------------------------------------------------
-    // Position serializer
-    // ---------------------------------------------------------------
-
-    private static byte[] SerializePosition(PositionPacket packet, Callsign source, Callsign destination)
-    {
-        // Format: !DDMM.mmX/DDDMM.mmYC[comment]
+        // Format: !DDMM.mmX[overlay]/DDDMM.mmYC[comment]
         // (using '!' — no timestamp, suitable for typical fixed/generic positions)
         // The '/' or '\' between lat and lon IS the symbol table indicator.
-        char typeId = '!'; // simple position without timestamp
+        char typeId = '!';
 
         string lat = FormatLatitude(packet.Latitude, packet.Precision);
         string lon = FormatLongitude(packet.Longitude, packet.Precision);
@@ -128,7 +73,7 @@ public static class AprsSerializer
             info.Append(packet.Comment);
         }
 
-        return BuildAx25Frame(destination, source, info.ToString());
+        return info.ToString();
     }
 
     private static string FormatLatitude(double latitude, int precision)
@@ -164,10 +109,10 @@ public static class AprsSerializer
     }
 
     // ---------------------------------------------------------------
-    // Message serializer
+    // Message formatter
     // ---------------------------------------------------------------
 
-    private static byte[] SerializeMessage(MessagePacket packet, Callsign source, Callsign destination)
+    private static string FormatMessage(MessagePacket packet)
     {
         // Format: :ADDRESSEE :message text{msgid}
         var info = new StringBuilder();
@@ -184,25 +129,24 @@ public static class AprsSerializer
             info.Append(packet.Text);
         }
 
-        return BuildAx25Frame(destination, source, info.ToString());
+        return info.ToString();
     }
 
     // ---------------------------------------------------------------
-    // Status serializer
+    // Status formatter
     // ---------------------------------------------------------------
 
-    private static byte[] SerializeStatus(StatusPacket packet, Callsign source, Callsign destination)
+    private static string FormatStatus(StatusPacket packet)
     {
         // Format: >status text
-        var info = $">{packet.Text}";
-        return BuildAx25Frame(destination, source, info);
+        return $">{packet.Text}";
     }
 
     // ---------------------------------------------------------------
-    // Weather serializer
+    // Weather formatter
     // ---------------------------------------------------------------
 
-    private static byte[] SerializeWeather(WeatherPacket packet, Callsign source, Callsign destination)
+    private static string FormatWeather(WeatherPacket packet)
     {
         // Format: _c111s222g333t444h55b77777r111p222...
         // Only non-null fields are included.
@@ -226,15 +170,6 @@ public static class AprsSerializer
         if (packet.Rain24h.HasValue)
             info.Append(CultureInfo.InvariantCulture, $"p{packet.Rain24h.Value:F2}");
 
-        return BuildAx25Frame(destination, source, info.ToString());
-    }
-
-    // ---------------------------------------------------------------
-    // Unknown serializer (passthrough raw data)
-    // ---------------------------------------------------------------
-
-    private static byte[] SerializeUnknown(UnknownPacket packet, Callsign source, Callsign destination)
-    {
-        return BuildAx25Frame(destination, source, packet.Raw);
+        return info.ToString();
     }
 }

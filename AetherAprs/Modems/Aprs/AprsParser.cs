@@ -4,42 +4,35 @@
 
 using System;
 using System.Globalization;
-using System.Text;
 using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.Modems.Aprs;
 
 /// <summary>
-/// Static parser for APRS packets. Decodes AX.25 UI-frames and parses
-/// the APRS application-layer info field into typed packet objects.
+/// Static parser for APRS info fields. Decodes the APRS application-layer
+/// info field string into typed packet objects.
 /// </summary>
+/// <remarks>
+/// This handles only the APRS info field format (e.g. <c>!DDMM.mmX/DDDMM.mmYC...</c>).
+/// For AX.25 frame decoding, use <see cref="Ax25Parser"/>.
+/// </remarks>
 public static class AprsParser
 {
     /// <summary>
-    /// Parses a raw AX.25 UI-frame byte array into a typed <see cref="IAprsPacket"/>.
-    /// The input is the complete KISS data payload (command + addresses + control + PID + info).
+    /// Parses an APRS info field string into a typed <see cref="AprsPacket"/>.
     /// </summary>
-    /// <param name="ax25Data">The AX.25 frame payload.</param>
+    /// <param name="info">The APRS info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="destination">The destination callsign.</param>
     /// <returns>A typed APRS packet.</returns>
-    /// <exception cref="ArgumentException">Thrown if the data is too short or malformed.</exception>
-    public static IAprsPacket ParseFrame(byte[] ax25Data)
-    {
-        var (source, dest, infoBytes) = DecodeAx25(ax25Data);
-        var info = Encoding.ASCII.GetString(infoBytes);
-        return ParseInfoField(info, source, dest);
-    }
-
-    /// <summary>
-    /// Parses an APRS info field string into a typed packet.
-    /// </summary>
-    public static IAprsPacket ParseInfoField(string info, Callsign source, Callsign dest)
+    public static AprsPacket ParseInfoField(string info, Callsign source, Callsign destination)
     {
         if (string.IsNullOrEmpty(info))
         {
             return new UnknownPacket
             {
                 Source = source,
-                Destination = dest,
+                Destination = destination,
                 Raw = info ?? string.Empty
             };
         }
@@ -48,98 +41,25 @@ public static class AprsParser
 
         return typeId switch
         {
-            '!' or '=' => ParsePosition(info, source, dest, hasTimestamp: false),
-            '@' or '/' => ParsePosition(info, source, dest, hasTimestamp: true),
-            ':' => ParseMessage(info, source, dest),
-            '>' => ParseStatus(info, source, dest),
-            '_' => ParseWeather(info, source, dest),
+            '!' or '=' => ParsePosition(info, source, destination, hasTimestamp: false),
+            '@' or '/' => ParsePosition(info, source, destination, hasTimestamp: true),
+            ':' => ParseMessage(info, source, destination),
+            '>' => ParseStatus(info, source, destination),
+            '_' => ParseWeather(info, source, destination),
             _ => new UnknownPacket
             {
                 Source = source,
-                Destination = dest,
+                Destination = destination,
                 Raw = info
             }
         };
     }
 
     // ---------------------------------------------------------------
-    // AX.25 UI-frame decoder
-    // ---------------------------------------------------------------
-
-    private static (Callsign Source, Callsign Destination, byte[] Info) DecodeAx25(byte[] data)
-    {
-        if (data.Length < 15)
-        {
-            throw new ArgumentException($"AX.25 frame too short: {data.Length} bytes.", nameof(data));
-        }
-
-        var destination = DecodeAddress(data, 0);
-        var source = DecodeAddress(data, 7);
-
-        // Walk through address fields to find where the control field starts.
-        // Addresses are 7 bytes each; the last byte of each address has
-        // bit 0 (the HDLC extension bit) = 1 for the final address in the list.
-        int addrEnd = 14;
-        while (addrEnd < data.Length)
-        {
-            if ((data[addrEnd - 1] & 0x01) != 0)
-            {
-                break;
-            }
-
-            addrEnd += 7;
-        }
-
-        if (addrEnd >= data.Length)
-        {
-            throw new ArgumentException("Missing control field in AX.25 frame.");
-        }
-
-        // PID field follows control field
-        int pidOffset = addrEnd + 1;
-        if (pidOffset >= data.Length)
-        {
-            throw new ArgumentException("Missing PID field in AX.25 frame.");
-        }
-
-        // Info field
-        int infoOffset = pidOffset + 1;
-        int infoLength = data.Length - infoOffset;
-        if (infoLength <= 0)
-        {
-            // Empty info field — return UnknownPacket
-            return (source, destination, []);
-        }
-
-        var info = new byte[infoLength];
-        Array.Copy(data, infoOffset, info, 0, infoLength);
-
-        return (source, destination, info);
-    }
-
-    private static Callsign DecodeAddress(byte[] data, int offset)
-    {
-        // 6 bytes of callsign characters (ASCII, left-shifted by 1)
-        Span<char> chars = stackalloc char[6];
-        for (int i = 0; i < 6; i++)
-        {
-            chars[i] = (char)(data[offset + i] >> 1);
-        }
-
-        var @base = new string(chars).TrimEnd();
-
-        // SSID byte: bits 1-4 contain the SSID (shifted left by 1)
-        int ssidByte = data[offset + 6];
-        int ssid = (ssidByte >> 1) & 0x0F;
-
-        return new Callsign(@base, ssid == 0 ? null : ssid);
-    }
-
-    // ---------------------------------------------------------------
     // Position parser
     // ---------------------------------------------------------------
 
-    private static IAprsPacket ParsePosition(string info, Callsign source, Callsign dest, bool hasTimestamp)
+    private static AprsPacket ParsePosition(string info, Callsign source, Callsign dest, bool hasTimestamp)
     {
         int pos = 1; // skip type identifier
 

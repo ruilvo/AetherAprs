@@ -4,6 +4,7 @@
 
 using System;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Modems.Aprs;
 using Xunit;
 
 namespace AetherAprs.Tests.Models;
@@ -158,9 +159,9 @@ public class PacketTests
     }
 
     [Fact]
-    public void IAprsPacket_SwitchOnConcreteType_Works()
+    public void AprsPacket_SwitchOnConcreteType_Works()
     {
-        IAprsPacket pkt = new PositionPacket
+        AprsPacket pkt = new PositionPacket
         {
             Source = Source,
             Destination = Dest,
