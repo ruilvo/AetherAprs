@@ -14,6 +14,10 @@
         "maps-avalonia-12": {
             "repository": "Mapsui/Mapsui",
             "branch": "main"
+        },
+        "xunit-v3": {
+            "repository": "xunit/xunit.net",
+            "branch": "main"
         }
     },
     "lsp": true,

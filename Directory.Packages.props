@@ -31,5 +31,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
     <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
     <PackageVersion Include="Mapsui.Avalonia12" Version="5.1.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageVersion Include="xunit.v3" Version="2.0.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.2" />
   </ItemGroup>
 </Project>
