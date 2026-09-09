@@ -9,12 +9,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
              x:Class="AetherAprs.Views.NewPortDialogContent"
              x:DataType="vm:NewPortDialogViewModel"
              d:DataContext="{x:Static local:DesignData.NewPortDialogViewModel}">
 
-  <StackPanel Spacing="16">
+  <StackPanel Spacing="16" MinWidth="380">
     <!-- Port Name -->
     <Label Content="Port Name" />
     <TextBox Text="{Binding Name}"
@@ -74,5 +75,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </Grid>
       </StackPanel>
     </Border>
+
+    <!-- Dialog buttons -->
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Content="Cancel"
+              MinWidth="80"
+              Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
+              CommandParameter="CANCEL" />
+      <Button Content="Add Port"
+              MinWidth="80"
+              Classes="filled"
+              Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
+              CommandParameter="OK" />
+    </StackPanel>
   </StackPanel>
 </UserControl>

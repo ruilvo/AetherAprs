@@ -7,6 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:AetherAprs"
              xmlns:themes="clr-namespace:Material.Styles.Themes;assembly=Material.Styles"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="AetherAprs.App">
 
@@ -16,6 +17,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <Application.Styles>
         <themes:MaterialTheme BaseTheme="Light" PrimaryColor="Green" SecondaryColor="LightBlue" />
+        <dialogHost:DialogHostStyles />
         <materialIcons:MaterialIconStyles />
     </Application.Styles>
 </Application>

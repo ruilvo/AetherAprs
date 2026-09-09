@@ -16,5 +16,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
         d:DataContext="{x:Static local:DesignData.MainViewModel}"
         Icon="/Assets/logo.ico"
         Title="AetherAprs">
-        <views:MainView />
+  <views:MainView />
 </Window>

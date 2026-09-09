@@ -10,27 +10,30 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel"
              d:DataContext="{x:Static local:DesignData.MainViewModel}">
-  
-  <TabbedPage x:Name="MainTabbedPage" 
-              TabPlacement="Bottom"
-              SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
 
-    <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
-      <ContentControl Content="{Binding HomeViewModel}" />
-    </ContentPage>
+  <dialogHost:DialogHost Name="MainDialogHost" Identifier="MainDialogHost">
+    <TabbedPage x:Name="MainTabbedPage"
+                TabPlacement="Bottom"
+                SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
 
-    <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
-      <ContentControl Content="{Binding PortsViewModel}" />
-    </ContentPage>
+      <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
+        <ContentControl Content="{Binding HomeViewModel}" />
+      </ContentPage>
 
-    <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
-      <ContentControl Content="{Binding SettingsViewModel}" />
-    </ContentPage>
+      <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
+        <ContentControl Content="{Binding PortsViewModel}" />
+      </ContentPage>
 
-  </TabbedPage>
-  
+      <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
+        <ContentControl Content="{Binding SettingsViewModel}" />
+      </ContentPage>
+
+    </TabbedPage>
+  </dialogHost:DialogHost>
+
 </UserControl>

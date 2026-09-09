@@ -4,11 +4,9 @@
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Material.Dialog;
-using Material.Dialog.Interfaces;
-using Material.Dialog.Views;
+using DialogHostAvalonia;
 using AetherAprs.ViewModels;
-using AetherAprs.Configuration;
+using AetherAprs.Views;
 
 namespace AetherAprs.Views;
 
@@ -27,12 +25,6 @@ public partial class PortsView : UserControl
             return;
         }
 
-        TopLevel? topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel is not Window ownerWindow)
-        {
-            return;
-        }
-
         // Get global callsign
         var configService = App.GetService<AetherAprs.Services.IConfigurationService>();
         var globalCallsign = configService.Settings.Aprs.Callsign;
@@ -43,23 +35,9 @@ public partial class PortsView : UserControl
         var dialogVm = new NewPortDialogViewModel(globalCallsign, nextNumber);
         dialogContent.DataContext = dialogVm;
 
-        var dialog = DialogHelper.CreateCustomDialog(new CustomDialogBuilderParams
-        {
-            WindowTitle = "Add New Port",
-            ContentHeader = "New Port",
-            SupportingText = "Configure your new APRS port.",
-            Content = dialogContent,
-            Width = 420,
-            DialogButtons = new DialogButton[]
-            {
-                new() { Content = "Cancel", Result = DialogHelper.DIALOG_RESULT_CANCEL, IsNegative = true },
-                new() { Content = "Add Port", Result = DialogHelper.DIALOG_RESULT_OK, IsPositive = true }
-            }
-        });
+        var result = await DialogHost.Show(dialogContent, "MainDialogHost");
 
-        var result = await dialog.ShowDialog(ownerWindow);
-
-        if (result.GetResult == DialogHelper.DIALOG_RESULT_OK)
+        if (result is "OK")
         {
             var config = dialogVm.BuildConfig();
             viewModel.AddPortCommand.Execute(config);
