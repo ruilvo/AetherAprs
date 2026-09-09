@@ -28,8 +28,8 @@ public class AprsParserTests
         var pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Latitude, 6);
         Assert.Equal(9.1, pos.Longitude, 6);
-        Assert.Equal('/', pos.Symbol.Table);
-        Assert.Equal('#', pos.Symbol.Code);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal(SymbolCode.NumberSign, pos.Symbol.Code);
         Assert.Equal("Test", pos.Comment);
         Assert.Equal(2, pos.Precision);
     }

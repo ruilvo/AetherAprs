@@ -113,9 +113,15 @@ public static class AprsSerializer
         var info = new StringBuilder();
         info.Append(typeId);
         info.Append(lat);
-        info.Append(packet.Symbol.Table); // separator between lat and lon = symbol table
+
+        if (packet.Symbol.Overlay.HasValue)
+        {
+            info.Append(packet.Symbol.Overlay.Value);
+        }
+
+        info.Append(packet.Symbol.TableChar); // separator between lat and lon = symbol table
         info.Append(lon);
-        info.Append(packet.Symbol.Code);
+        info.Append(packet.Symbol.CodeChar);
 
         if (!string.IsNullOrEmpty(packet.Comment))
         {

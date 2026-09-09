@@ -175,15 +175,55 @@ public static class AprsParser
         }
         pos = latEnd;
 
-        // Expect separator '/'
-        if (pos >= info.Length || (info[pos] != '/' && info[pos] != '\\'))
+        // Parse the separator between lat and lon.
+        // '/' = primary table (no overlay)
+        // '\' = alternate table (no overlay)
+        // Otherwise: overlay character, read the actual table from the next char
+
+        SymbolTable symbolTable;
+        char? overlay = null;
+
+        if (pos >= info.Length)
         {
             return AsUnknown(info, source, dest);
         }
 
-        // The separator character also indicates the symbol table ('/' = primary, '\' = alternate)
-        char symbolTable = info[pos];
-        pos++;
+        if (info[pos] == '/')
+        {
+            symbolTable = SymbolTable.Primary;
+            pos++;
+        }
+        else if (info[pos] == '\\')
+        {
+            symbolTable = SymbolTable.Alternate;
+            pos++;
+        }
+        else
+        {
+            // Overlay character before the table indicator
+            overlay = info[pos];
+            pos++;
+
+            if (pos >= info.Length)
+            {
+                return AsUnknown(info, source, dest);
+            }
+
+            if (info[pos] == '/')
+            {
+                symbolTable = SymbolTable.Primary;
+                pos++;
+            }
+            else if (info[pos] == '\\')
+            {
+                symbolTable = SymbolTable.Alternate;
+                pos++;
+            }
+            else
+            {
+                return AsUnknown(info, source, dest);
+            }
+        }
 
         // Parse longitude: DDDMM.mmY (variable length, find direction char)
         int lonEnd = pos;
@@ -207,12 +247,12 @@ public static class AprsParser
         pos = lonEnd;
 
         // Parse symbol code (1 char) and optional comment
-        char symbolCode;
+        SymbolCode symbolCode;
         string? comment = null;
 
         if (pos < info.Length)
         {
-            symbolCode = info[pos];
+            symbolCode = info[pos].ToSymbolCode();
             pos++;
 
             if (pos < info.Length)
@@ -222,7 +262,7 @@ public static class AprsParser
         }
         else
         {
-            symbolCode = ' ';
+            symbolCode = SymbolCode.Space;
         }
 
         return new PositionPacket
@@ -232,7 +272,7 @@ public static class AprsParser
             Raw = info,
             Latitude = latitude,
             Longitude = longitude,
-            Symbol = new Symbol(symbolTable, symbolCode),
+            Symbol = new Symbol(symbolTable, symbolCode, overlay),
             Comment = comment,
             Precision = Math.Min(latPrecision, lonPrecision),
             Course = null,

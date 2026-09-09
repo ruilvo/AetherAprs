@@ -23,7 +23,7 @@ public class PacketTests
             Raw = "!3850.00N/00910.00W#",
             Latitude = 38.5,
             Longitude = -9.10,
-            Symbol = new Symbol('/', '#')
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
         };
 
         Assert.Equal(PacketType.Position, pkt.Type);
@@ -44,7 +44,7 @@ public class PacketTests
             Raw = "!3850.00N/00910.00W#Test Comment",
             Latitude = 38.5,
             Longitude = -9.10,
-            Symbol = new Symbol('/', '#'),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Comment = "Test Comment"
         };
 
@@ -167,7 +167,7 @@ public class PacketTests
             Raw = "!3850.00N/00910.00W#",
             Latitude = 38.5,
             Longitude = -9.10,
-            Symbol = new Symbol('/', '#')
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
         };
 
         var type = pkt switch

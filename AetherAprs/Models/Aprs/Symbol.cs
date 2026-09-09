@@ -5,28 +5,46 @@
 namespace AetherAprs.Models.Aprs;
 
 /// <summary>
-/// Represents an APRS symbol (table identifier + code character).
+/// Represents an APRS symbol (table identifier + code character + optional overlay).
 /// </summary>
 public readonly record struct Symbol
 {
     /// <summary>
-    /// Gets the symbol table identifier character ('/' or '\').
+    /// Gets the symbol table (primary or alternate).
     /// </summary>
-    public char Table { get; }
+    public SymbolTable Table { get; }
 
     /// <summary>
     /// Gets the symbol code character.
     /// </summary>
-    public char Code { get; }
+    public SymbolCode Code { get; }
+
+    /// <summary>
+    /// Gets the optional overlay character (typically '0'-'9' or 'A'-'Z').
+    /// When non-null, the overlay character modifies the symbol appearance.
+    /// </summary>
+    public char? Overlay { get; }
 
     /// <summary>
     /// Initializes a new instance of <see cref="Symbol"/>.
     /// </summary>
-    /// <param name="table">The symbol table ('/' for primary, '\' for alternate).</param>
-    /// <param name="code">The symbol code character.</param>
-    public Symbol(char table, char code)
+    /// <param name="table">The symbol table.</param>
+    /// <param name="code">The symbol code.</param>
+    /// <param name="overlay">Optional overlay character (typically '0'-'9' or 'A'-'Z').</param>
+    public Symbol(SymbolTable table, SymbolCode code, char? overlay = null)
     {
         Table = table;
         Code = code;
+        Overlay = overlay;
     }
+
+    /// <summary>
+    /// Gets the APRS symbol table character ('/' or '\').
+    /// </summary>
+    public char TableChar => Table.ToChar();
+
+    /// <summary>
+    /// Gets the APRS symbol code character.
+    /// </summary>
+    public char CodeChar => Code.ToChar();
 }

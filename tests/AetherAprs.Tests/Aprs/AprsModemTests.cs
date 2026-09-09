@@ -93,7 +93,7 @@ public class AprsModemTests
             Destination = Dest,
             Latitude = 38.5,
             Longitude = -9.10,
-            Symbol = new Symbol('/', '#'),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
 
@@ -343,7 +343,7 @@ public class AprsModemTests
             new PositionPacket
             {
                 Source = Source, Destination = Dest, Latitude = 38.5, Longitude = -9.10,
-                Symbol = new Symbol('/', '#')
+                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
             },
             new MessagePacket
             {

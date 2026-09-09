@@ -29,7 +29,7 @@ public class AprsSerializerTests
             Raw = "!3830.00N/00906.00W#",
             Latitude = 38.5,
             Longitude = -9.1,
-            Symbol = new Symbol('/', '#'),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
 
@@ -40,8 +40,8 @@ public class AprsSerializerTests
         var pos = Assert.IsType<PositionPacket>(parsed);
         Assert.Equal(38.5, pos.Latitude, 4);
         Assert.Equal(-9.1, pos.Longitude, 4);
-        Assert.Equal('/', pos.Symbol.Table);
-        Assert.Equal('#', pos.Symbol.Code);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal(SymbolCode.NumberSign, pos.Symbol.Code);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public class AprsSerializerTests
             Raw = string.Empty,
             Latitude = 38.5,
             Longitude = -9.1,
-            Symbol = new Symbol('/', '#'),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Comment = "Test Comment",
             Precision = 2
         };
@@ -74,7 +74,7 @@ public class AprsSerializerTests
             Destination = Dest,
             Latitude = -33.5,
             Longitude = 151.0,
-            Symbol = new Symbol('/', '>'),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign),
             Precision = 2
         };
 
@@ -226,7 +226,7 @@ public class AprsSerializerTests
             Destination = Dest,
             Latitude = 38.5,
             Longitude = -9.10,
-            Symbol = new Symbol('/', '#'),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
 
