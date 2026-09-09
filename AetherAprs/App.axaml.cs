@@ -37,6 +37,15 @@ public partial class App : Application
         services.AddSingleton<Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
     }
 
+    /// <summary>
+    /// Gets a service from the application's service provider.
+    /// </summary>
+    public static T GetService<T>() where T : notnull
+    {
+        var app = Current as App;
+        return (T)(app?.ServiceProvider.GetRequiredService(typeof(T)) ?? throw new InvalidOperationException("Service provider not initialized."));
+    }
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

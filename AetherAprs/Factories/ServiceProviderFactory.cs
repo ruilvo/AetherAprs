@@ -34,6 +34,9 @@ public static class ServiceProviderFactory
         // Register navigation service
         services.AddSingleton<INavigationService, NavigationService>();
 
+        // Register port service
+        services.AddSingleton<IPortService, PortService>();
+
         // Register logging with deferred configuration resolution
         services.AddLogging(builder =>
         {
@@ -64,6 +67,7 @@ public static class ServiceProviderFactory
         // Register ViewModels
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
 
         // Allow overriding core services for testing or platform-specific

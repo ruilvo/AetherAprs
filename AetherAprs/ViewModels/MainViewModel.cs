@@ -1,6 +1,7 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Services;
 
@@ -14,12 +15,18 @@ public partial class MainViewModel : ViewModelBase
     public partial int SelectedTabIndex { get; set; } = 0;
 
     public HomeViewModel HomeViewModel { get; }
+    public PortsViewModel PortsViewModel { get; }
     public SettingsViewModel SettingsViewModel { get; }
 
-    public MainViewModel(INavigationService navService, HomeViewModel homeViewModel, SettingsViewModel settingsViewModel)
+    public MainViewModel(
+        INavigationService navService,
+        HomeViewModel homeViewModel,
+        PortsViewModel portsViewModel,
+        SettingsViewModel settingsViewModel)
     {
         _navigationService = navService;
         HomeViewModel = homeViewModel;
+        PortsViewModel = portsViewModel;
         SettingsViewModel = settingsViewModel;
 
         // Subscribe to navigation changes to update tab index
@@ -38,6 +45,10 @@ public partial class MainViewModel : ViewModelBase
         }
         else if (value == 1)
         {
+            _navigationService.NavigateTo<PortsViewModel>();
+        }
+        else if (value == 2)
+        {
             _navigationService.NavigateTo<SettingsViewModel>();
         }
     }
@@ -49,9 +60,13 @@ public partial class MainViewModel : ViewModelBase
         {
             SelectedTabIndex = 0;
         }
-        else if (viewModel is SettingsViewModel)
+        else if (viewModel is PortsViewModel)
         {
             SelectedTabIndex = 1;
+        }
+        else if (viewModel is SettingsViewModel)
+        {
+            SelectedTabIndex = 2;
         }
     }
 }

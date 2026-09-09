@@ -19,6 +19,7 @@ public class ViewLocator: IDataTemplate
         {
             MainViewModel => new MainView(),
             HomeViewModel => new HomeView(),
+            PortsViewModel => new PortsView(),
             SettingsViewModel => new SettingsView(),
             _ => param is null
                 ? null

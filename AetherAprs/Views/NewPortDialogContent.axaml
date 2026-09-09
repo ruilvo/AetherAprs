@@ -1,0 +1,78 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:local="using:AetherAprs"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+             x:Class="AetherAprs.Views.NewPortDialogContent"
+             x:DataType="vm:NewPortDialogViewModel"
+             d:DataContext="{x:Static local:DesignData.NewPortDialogViewModel}">
+
+  <StackPanel Spacing="16">
+    <!-- Port Name -->
+    <Label Content="Port Name" />
+    <TextBox Text="{Binding Name}"
+             PlaceholderText="e.g. APRS-IS Port 1" />
+
+    <!-- Port Type Selector -->
+    <Label Content="Port Type" />
+    <ComboBox ItemsSource="{Binding PortTypes}"
+              SelectedItem="{Binding SelectedPortType}">
+      <ComboBox.ItemTemplate>
+        <DataTemplate x:DataType="x:Object">
+          <TextBlock Text="{Binding}" />
+        </DataTemplate>
+      </ComboBox.ItemTemplate>
+    </ComboBox>
+
+    <!-- APRS-IS Settings Section -->
+    <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
+            CornerRadius="8"
+            Padding="16"
+            BorderThickness="1"
+            BorderBrush="{DynamicResource MaterialCardBorderBrush}">
+      <StackPanel Spacing="12">
+        <TextBlock Text="APRS-IS Settings"
+                   FontSize="14"
+                   FontWeight="SemiBold" />
+
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+              ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowSpacing="12">
+
+          <Label Grid.Row="0" Grid.Column="0" Content="Server" VerticalAlignment="Center" />
+          <TextBox Grid.Row="0" Grid.Column="1"
+                   Text="{Binding Server}"
+                   PlaceholderText="e.g. euro.aprs2.net" />
+
+          <Label Grid.Row="1" Grid.Column="0" Content="Port" VerticalAlignment="Center" />
+          <TextBox Grid.Row="1" Grid.Column="1"
+                   Text="{Binding ServerPort}"
+                   PlaceholderText="14580" />
+
+          <Label Grid.Row="2" Grid.Column="0" Content="Passcode" VerticalAlignment="Center" />
+          <TextBox Grid.Row="2" Grid.Column="1"
+                   Text="{Binding Passcode}"
+                   PlaceholderText="Auto-filled from callsign" />
+
+          <Label Grid.Row="3" Grid.Column="0" Content="Filter" VerticalAlignment="Center" />
+          <TextBox Grid.Row="3" Grid.Column="1"
+                   Text="{Binding Filter}"
+                   PlaceholderText="e.g. m/50" />
+
+          <Label Grid.Row="4" Grid.Column="0" Content="SSID (optional)" VerticalAlignment="Center" />
+          <TextBox Grid.Row="4" Grid.Column="1"
+                   Text="{Binding Ssid}"
+                   PlaceholderText="Leave empty for default" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -25,6 +25,9 @@ public static class DesignData
         // Register services required by ViewModels
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
+        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<IPortService, PortService>();
 
         // Register logging
         services.AddLogging(builder =>
@@ -37,6 +40,7 @@ public static class DesignData
         // Register view models
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
 
         return services.BuildServiceProvider();
@@ -86,6 +90,24 @@ public static class DesignData
         get
         {
             return _serviceProvider.GetRequiredService<SettingsViewModel>();
+        }
+    }
+
+    public static PortsViewModel PortsViewModel
+    {
+        get
+        {
+            return _serviceProvider.GetRequiredService<PortsViewModel>();
+        }
+    }
+
+    public static NewPortDialogViewModel NewPortDialogViewModel
+    {
+        get
+        {
+            var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
+            var callsign = configService.Settings.Aprs.Callsign;
+            return new NewPortDialogViewModel(callsign, 1);
         }
     }
 }

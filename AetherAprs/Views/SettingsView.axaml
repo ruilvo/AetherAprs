@@ -13,16 +13,68 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:Class="AetherAprs.Views.SettingsView"
              x:DataType="vm:SettingsViewModel"
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
-  <StackPanel Spacing="20" Margin="20">
-    <TextBlock Text="{Binding Title}"
-               FontSize="24"
-               FontWeight="Bold" />
-    <TextBlock Text="{Binding Description}"
-               FontSize="14"
-               TextWrapping="Wrap" />
-    <TextBlock Text="Settings options will be implemented here."
-               FontSize="12"
-               Foreground="Gray"
-               Margin="0,40,0,0" />
-  </StackPanel>
+  <ScrollViewer>
+    <StackPanel Spacing="20" Margin="20">
+
+      <!-- Station Section -->
+      <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
+              CornerRadius="8"
+              Padding="20"
+              BorderThickness="1"
+              BorderBrush="{DynamicResource MaterialCardBorderBrush}">
+        <StackPanel Spacing="16">
+          <TextBlock Text="Station"
+                     FontSize="18"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+
+          <TextBlock Text="Configure your station identity used for APRS."
+                     FontSize="13"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="Auto,*"
+                ColumnSpacing="16"
+                RowSpacing="16">
+
+            <Label Grid.Row="0" Grid.Column="0"
+                   Content="Callsign"
+                   VerticalAlignment="Center"
+                   Target="{Binding ElementName=CallsignBox}" />
+            <TextBox Grid.Row="0" Grid.Column="1"
+                     x:Name="CallsignBox"
+                     Text="{Binding Callsign}"
+                     PlaceholderText="e.g. N0CALL" />
+
+            <Label Grid.Row="1" Grid.Column="0"
+                   Content="Default SSID"
+                   VerticalAlignment="Center"
+                   Target="{Binding ElementName=SsidBox}" />
+            <TextBox Grid.Row="1" Grid.Column="1"
+                     x:Name="SsidBox"
+                     Text="{Binding DefaultSsid}"
+                     PlaceholderText="0" />
+          </Grid>
+
+          <Button Content="Save"
+                  Command="{Binding SaveCommand}"
+                  HorizontalAlignment="Right"
+                  Classes="Primary" />
+
+          <TextBlock Text="Settings saved!"
+                     IsVisible="{Binding IsSaved}"
+                     Foreground="{DynamicResource MaterialSuccessBrush}"
+                     FontSize="12" />
+        </StackPanel>
+      </Border>
+
+      <!-- Placeholder for future settings sections -->
+      <TextBlock Text="More settings options will be added here."
+                 FontSize="12"
+                 Foreground="Gray"
+                 Margin="0,12,0,0" />
+
+    </StackPanel>
+  </ScrollViewer>
 </UserControl>

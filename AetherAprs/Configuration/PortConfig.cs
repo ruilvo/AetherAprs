@@ -1,0 +1,36 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using System;
+using System.Collections.Generic;
+
+namespace AetherAprs.Configuration;
+
+public enum PortType
+{
+    AprsIs,
+    Kiss
+}
+
+public class PortConfig
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public PortType Type { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public bool IsEnabled { get; set; }
+
+    // APRS-IS fields
+    public string? Server { get; set; }
+
+    public int ServerPort { get; set; } = 14580;
+
+    public string? Passcode { get; set; }
+
+    public string? Filter { get; set; }
+
+    public int? Ssid { get; set; }
+}

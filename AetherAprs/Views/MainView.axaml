@@ -23,6 +23,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <ContentControl Content="{Binding HomeViewModel}" />
     </ContentPage>
 
+    <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
+      <ContentControl Content="{Binding PortsViewModel}" />
+    </ContentPage>
+
     <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
       <ContentControl Content="{Binding SettingsViewModel}" />
     </ContentPage>
