@@ -101,14 +101,22 @@ When adding packages:
 2. Add `<PackageReference Include="Name" />` (no version) to `.csproj`
 3. Build to verify
 
-### No Test Framework
+### Test Framework
 
-This repo has no test framework. Verification relies on:
-- Successful compilation (`dotnet build`)
-- Manual testing (if you can run the app)
-- Code review and inspection
+Tests use **xUnit v3** (`xunit.v3`, not `xunit` v2). Run them with:
 
-Do not promise "tests pass" when no tests exist.
+```powershell
+dotnet test tests/AetherAprs.Tests/AetherAprs.Tests.csproj
+```
+
+Key differences from xUnit v2:
+- `[Fact]` is in the `Xunit` namespace
+- `ValueTask`-returning async methods work directly with `Assert.ThrowsAsync<T>` (no `.AsTask()` needed)
+- `IAsyncDisposable` types require `await using` in tests
+- Use `TestContext.Current.CancellationToken` for test cancellation (suppresses xUnit1051 warnings)
+- Test classes don't need `public`
+
+No mocking library is currently referenced. Add one via `Directory.Packages.props` and the `.csproj` when needed.
 
 ### ImplicitUsings Disabled
 

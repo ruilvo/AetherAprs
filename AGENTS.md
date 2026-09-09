@@ -9,9 +9,13 @@ Quick-reference instructions for AI agents working in the AetherAprs codebase.
 
 ## Project Overview
 
-AetherAprs is a cross-platform ham radio APRS application built with Avalonia UI and .NET 10. Two projects:
-- `AetherAprs/` - Core library (net10.0), contains ViewModels, Views, Services
-- `AetherAprs.Android/` - Android app (net10.0-android, API 23+), references core project
+AetherAprs is a cross-platform ham radio APRS application built with Avalonia UI and .NET 10. Three projects:
+
+| Project | Path | Target |
+|---|---|---|
+| Core library | `AetherAprs/` | net10.0 |
+| Android app | `AetherAprs.Android/` | net10.0-android |
+| Test project | `tests/AetherAprs.Tests/` | net10.0 |
 
 ## Build Commands
 
@@ -25,9 +29,16 @@ dotnet build AetherAprs.Android/AetherAprs.Android.csproj
 
 # Run desktop (if supported on platform)
 dotnet run --project AetherAprs/AetherAprs.csproj
-```
 
-No test framework currently exists in this repo.
+# Build only the test project
+dotnet build tests/AetherAprs.Tests/AetherAprs.Tests.csproj
+
+# Run all tests
+dotnet test tests/AetherAprs.Tests/AetherAprs.Tests.csproj
+
+# Run tests without rebuilding (after a successful build)
+dotnet test tests/AetherAprs.Tests/AetherAprs.Tests.csproj --no-build
+```
 
 ## Critical Requirements
 
@@ -79,6 +90,23 @@ Package versions are centralized in `Directory.Packages.props`. When adding a ne
    ```
 
 Do NOT specify versions in individual project files.
+
+## Test Project
+
+Tests use **xUnit v3** (`xunit.v3` package, **not** `xunit` v2). Important differences from v2:
+- `[Fact]` is in `Xunit` namespace (not `Xunit.FactAttribute`)
+- Test classes do NOT need `public` (but can be)
+- Use `Assert.ThrowsAsync<T>` instead of `await Assert.ThrowsAsync<T>` with `.AsTask()` extension - `ValueTask`-returning methods work directly
+- `IAsyncDisposable` types require `await using` (not `using`) in tests
+- `TestContext.Current.CancellationToken` is available for test cancellation (suppresses xUnit1051 warnings)
+
+No mocking library is currently referenced. When adding one, follow the central package management rules.
+
+### Where to place tests
+
+Mirror the source namespace structure under `tests/AetherAprs.Tests/`:
+- Source: `AetherAprs/Modems/Kiss/KissSerializer.cs` → Tests: `tests/AetherAprs.Tests/Kiss/KissSerializerTests.cs`
+- Namespace for tests: `AetherAprs.Tests.<Subnamespace>` (e.g. `AetherAprs.Tests.Kiss`)
 
 ## Architecture Notes
 
