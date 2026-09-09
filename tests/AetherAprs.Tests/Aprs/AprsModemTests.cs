@@ -97,7 +97,7 @@ public class AprsModemTests
             Precision = 2
         };
 
-        await aprsModem.SendAsync(packet, Source, Dest);
+        await aprsModem.SendAsync(packet, Source, Dest, TestContext.Current.CancellationToken);
 
         var written = stream.ToArray();
 
@@ -124,7 +124,7 @@ public class AprsModemTests
             Text = "Hello"
         };
 
-        await aprsModem.SendAsync(packet, Source, Dest);
+        await aprsModem.SendAsync(packet, Source, Dest, TestContext.Current.CancellationToken);
 
         var written = stream.ToArray();
         Assert.Equal(0xC0, written[0]);
@@ -146,7 +146,7 @@ public class AprsModemTests
             Text = "Online"
         };
 
-        await aprsModem.SendAsync(packet, Source, Dest);
+        await aprsModem.SendAsync(packet, Source, Dest, TestContext.Current.CancellationToken);
 
         var written = stream.ToArray();
         Assert.Equal(0xC0, written[0]);
@@ -161,7 +161,7 @@ public class AprsModemTests
         await using var aprsModem = new AprsModem(kissModem);
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            aprsModem.SendAsync(null!, Source, Dest));
+            aprsModem.SendAsync(null!, Source, Dest, TestContext.Current.CancellationToken));
     }
 
     // ---------------------------------------------------------------
@@ -184,7 +184,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         var pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Latitude, 4);
         Assert.Equal(9.10, pos.Longitude, 4);
@@ -206,7 +206,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         var msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal("Hello", msg.Text);
         Assert.Equal(5, msg.MessageNumber);
@@ -227,7 +227,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         var status = Assert.IsType<StatusPacket>(result);
         Assert.Equal("Online via APRS", status.Text);
     }
@@ -247,7 +247,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         var w = Assert.IsType<WeatherPacket>(result);
         Assert.Equal(100, w.WindDirection);
         Assert.Equal(20, w.WindSpeed);
@@ -268,7 +268,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.IsType<UnknownPacket>(result);
     }
 
@@ -288,7 +288,7 @@ public class AprsModemTests
         aprsModem.Start();
 
         // Wait a bit — no event should fire
-        await Task.Delay(500);
+        await Task.Delay(500, TestContext.Current.CancellationToken);
 
         Assert.False(packetReceived);
     }
@@ -310,7 +310,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.NotNull(error);
     }
 
@@ -326,7 +326,7 @@ public class AprsModemTests
 
         aprsModem.Start();
 
-        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.IsType<IOException>(error);
     }
 
