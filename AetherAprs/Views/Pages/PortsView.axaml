@@ -19,19 +19,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <Grid RowDefinitions="Auto,*">
     <!-- Header -->
-    <StackPanel Grid.Row="0" Spacing="8" Margin="20,20,20,0">
+    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
       <TextBlock Text="{Binding Title}"
-                 FontSize="24"
+                 Classes="Headline5"
                  FontWeight="Bold" />
       <TextBlock Text="Manage your APRS ports"
-                 FontSize="14"
+                 Classes="Body2"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
     </StackPanel>
 
     <!-- Port list or empty state -->
-    <ScrollViewer Grid.Row="1" Margin="20,16,20,80">
-      <ItemsControl ItemsSource="{Binding PortItems}">
+    <ScrollViewer Grid.Row="1" Margin="16,16,16,80">
+      <ItemsControl ItemsSource="{Binding PortItems}" HorizontalAlignment="Stretch">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <StackPanel Spacing="12" />
@@ -39,60 +39,60 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:PortItemViewModel">
-            <Button Background="Transparent" BorderThickness="0" Padding="0"
-                    Click="OnPortClicked">
-              <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
-                      CornerRadius="8"
-                      Padding="16"
-                      BorderThickness="1"
-                      BorderBrush="{DynamicResource MaterialCardBorderBrush}"
-                      Cursor="Hand">
-                <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
-                  <!-- Port name -->
-                  <TextBlock Grid.Row="0" Grid.Column="0"
-                             Text="{Binding Name}"
-                             FontSize="16"
-                             FontWeight="SemiBold"
-                             VerticalAlignment="Center" />
+            <controls:Card Padding="16" Margin="0" HorizontalAlignment="Stretch">
+              <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <!-- Clickable area for edit -->
+                <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
+                        Background="Transparent" BorderThickness="0" Padding="8"
+                        Click="OnPortClicked"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Left">
+                  <StackPanel>
+                    <!-- Port name -->
+                    <TextBlock Text="{Binding Name}"
+                               Classes="Subheading"
+                               FontWeight="SemiBold" />
+                    
+                    <!-- Status text -->
+                    <TextBlock Text="{Binding StatusText}"
+                               Classes="Caption"
+                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                               Margin="0,4,0,0" />
+                  </StackPanel>
+                </Button>
 
-                  <!-- Type badge -->
-                  <Border Grid.Row="0" Grid.Column="1"
-                          Background="{DynamicResource MaterialPrimaryBrush}"
-                          CornerRadius="4"
-                          Padding="8,2"
-                          Margin="0,0,12,0"
-                          VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Type}"
-                               FontSize="11"
-                               Foreground="White" />
-                  </Border>
+                <!-- Type badge -->
+                <Border Grid.Row="0" Grid.Column="1"
+                        Background="{DynamicResource MaterialPrimaryBrush}"
+                        CornerRadius="4"
+                        Padding="8,4"
+                        VerticalAlignment="Top">
+                  <TextBlock Text="{Binding Type}"
+                             Classes="Caption"
+                             Foreground="White"
+                             TextAlignment="Center" />
+                </Border>
 
-                  <!-- Toggle switch -->
-                  <ToggleSwitch Grid.Row="0" Grid.Column="2"
-                                IsChecked="{Binding IsEnabled}"
-                                VerticalAlignment="Center" />
+                <!-- Toggle switch (make it accessible with min height) -->
+                <ToggleSwitch Grid.Row="0" Grid.Column="2"
+                              IsChecked="{Binding IsEnabled}"
+                              VerticalAlignment="Center"
+                              MinHeight="40" />
 
-                  <!-- Status text -->
-                  <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                             Text="{Binding StatusText}"
-                             FontSize="12"
-                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
-                             Margin="0,4,0,0" />
-
-                  <!-- Delete button -->
-                  <Button Grid.Row="1" Grid.Column="2"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Command="{Binding $parent[ItemsControl].DataContext.DeletePortCommand}"
-                          CommandParameter="{Binding}"
-                          ToolTip.Tip="Delete port"
-                          HorizontalAlignment="Right"
-                          VerticalAlignment="Center">
-                    <avalonia:MaterialIcon Kind="Delete" Foreground="{DynamicResource MaterialErrorBrush}" />
-                  </Button>
-                </Grid>
-              </Border>
-            </Button>
+                <!-- Delete button -->
+                <Button Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Command="{Binding $parent[ItemsControl].DataContext.DeletePortCommand}"
+                        CommandParameter="{Binding}"
+                        ToolTip.Tip="Delete port"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Padding="8">
+                  <avalonia:MaterialIcon Kind="Delete" Foreground="{DynamicResource MaterialErrorBrush}" />
+                </Button>
+              </Grid>
+            </controls:Card>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
@@ -102,8 +102,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <controls:FloatingButton Grid.Row="1"
                              HorizontalAlignment="Right"
                              VerticalAlignment="Bottom"
-                             Margin="0,0,20,20"
-                             x:Name="AddPortButton">
+                             Margin="0,0,16,16"
+                             x:Name="AddPortButton"
+                             MinHeight="56"
+                             MinWidth="56">
       <Viewbox Stretch="Fill"
                HorizontalAlignment="Stretch"
                VerticalAlignment="Stretch">

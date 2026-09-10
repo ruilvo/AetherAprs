@@ -9,67 +9,63 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.SettingsView"
              x:DataType="vm:SettingsViewModel"
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
+  <UserControl.Styles>
+    <Style Selector="TextBox">
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="MinHeight" Value="48" />
+    </Style>
+  </UserControl.Styles>
+  
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
-      <StackPanel Spacing="20" Margin="20,20,20,20">
+      <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
 
         <!-- Station Section -->
-        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
-                CornerRadius="8"
-                Padding="20"
-                BorderThickness="1"
-                BorderBrush="{DynamicResource MaterialCardBorderBrush}">
-          <StackPanel Spacing="16">
-            <TextBlock Text="Station"
-                       FontSize="18"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource MaterialPrimaryBrush}" />
+        <StackPanel Spacing="16">
+          <TextBlock Classes="Headline5"
+                     Text="Station Settings"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
-            <TextBlock Text="Configure your station identity used for APRS."
-                       FontSize="13"
-                       TextWrapping="Wrap"
-                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+          <TextBlock Classes="Body2"
+                     Text="Configure your station identity used for APRS."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
-            <Grid RowDefinitions="Auto,Auto"
-                  ColumnDefinitions="Auto,*"
-                  ColumnSpacing="16"
-                  RowSpacing="16">
+          <StackPanel Spacing="12">
+            <!-- Callsign -->
+            <TextBox x:Name="CallsignBox"
+                     Text="{Binding Callsign}"
+                     PlaceholderText="e.g. N0CALL"
+                     wpf:TextFieldAssist.Label="Callsign"
+                     UseFloatingPlaceholder="True" />
 
-              <Label Grid.Row="0" Grid.Column="0"
-                     Content="Callsign"
-                     VerticalAlignment="Center"
-                     Target="{Binding ElementName=CallsignBox}" />
-              <TextBox Grid.Row="0" Grid.Column="1"
-                       x:Name="CallsignBox"
-                       Text="{Binding Callsign}"
-                       PlaceholderText="e.g. N0CALL" />
+            <!-- Default SSID -->
+            <TextBox x:Name="SsidBox"
+                     Text="{Binding DefaultSsid}"
+                     PlaceholderText="0"
+                     wpf:TextFieldAssist.Label="Default SSID"
+                     UseFloatingPlaceholder="True" />
 
-              <Label Grid.Row="1" Grid.Column="0"
-                     Content="Default SSID"
-                     VerticalAlignment="Center"
-                     Target="{Binding ElementName=SsidBox}" />
-              <TextBox Grid.Row="1" Grid.Column="1"
-                       x:Name="SsidBox"
-                       Text="{Binding DefaultSsid}"
-                       PlaceholderText="0" />
-            </Grid>
-
-            <TextBlock Text="Settings saved!"
+            <!-- Success message -->
+            <TextBlock Text="✓ Settings saved!"
                        IsVisible="{Binding IsSaved}"
                        Foreground="{DynamicResource MaterialSuccessBrush}"
-                       FontSize="12" />
+                       Margin="0,12,0,0"
+                       Classes="Caption" />
           </StackPanel>
-        </Border>
+        </StackPanel>
 
         <!-- Placeholder for future settings sections -->
         <TextBlock Text="More settings options will be added here."
-                   FontSize="12"
-                   Foreground="Gray"
-                   Margin="0,12,0,0" />
+                   Classes="Caption"
+                   Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                   Margin="0,8,0,0" />
 
       </StackPanel>
     </ScrollViewer>
@@ -79,11 +75,16 @@ SPDX-License-Identifier: GPL-3.0-or-later
             Background="{DynamicResource MaterialBackgroundBrush}"
             BorderThickness="0,1,0,0"
             BorderBrush="{DynamicResource MaterialDividerBrush}"
-            Padding="20,16">
-      <Button Content="Save"
-              Command="{Binding SaveCommand}"
-              HorizontalAlignment="Right"
-              Classes="Primary" />
+            Padding="16">
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="Save"
+                Command="{Binding SaveCommand}"
+                MinWidth="80"
+                MinHeight="36"
+                Classes="Filled" />
+      </StackPanel>
     </Border>
   </Grid>
 </UserControl>

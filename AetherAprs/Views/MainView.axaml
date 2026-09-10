@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel"
@@ -19,18 +20,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <dialogHost:DialogHost Name="MainDialogHost" Identifier="MainDialogHost">
     <TabbedPage x:Name="MainTabbedPage"
                 TabPlacement="Bottom"
-                SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+                SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
 
       <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
-        <ContentControl Content="{Binding HomeViewModel}" />
+        <ContentControl Content="{Binding HomeViewModel}" 
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" />
       </ContentPage>
 
       <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
-        <ContentControl Content="{Binding PortsViewModel}" />
+        <ContentControl Content="{Binding PortsViewModel}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" />
       </ContentPage>
 
       <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
-        <ContentControl Content="{Binding SettingsViewModel}" />
+        <ContentControl Content="{Binding SettingsViewModel}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" />
       </ContentPage>
 
     </TabbedPage>

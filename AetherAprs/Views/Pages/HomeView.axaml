@@ -14,5 +14,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:Class="AetherAprs.Views.Pages.HomeView"
              x:DataType="vm:HomeViewModel"
              d:DataContext="{x:Static local:DesignData.HomeViewModel}">
-    <mapsui:MapControl x:Name="MapControl" />
+    
+    <Grid RowDefinitions="*" ColumnDefinitions="*">
+        <mapsui:MapControl x:Name="MapControl" 
+                           Grid.Row="0" Grid.Column="0"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch" />
+    </Grid>
 </UserControl>
