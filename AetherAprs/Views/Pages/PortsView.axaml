@@ -85,8 +85,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                         ToolTip.Tip="Delete port"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center">
-                  <Path Data="{ext:MaterialIconGeometryExt Delete}"
-                        Fill="{DynamicResource MaterialErrorBrush}" />
+                  <avalonia:MaterialIcon Kind="Delete" Foreground="{DynamicResource MaterialErrorBrush}" />
                 </Button>
               </Grid>
             </Border>
@@ -101,13 +100,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              VerticalAlignment="Bottom"
                              Margin="0,0,20,20"
                              x:Name="AddPortButton">
-      <Template>
-        <Viewbox Stretch="Fill"
-                 HorizontalAlignment="Stretch"
-                 VerticalAlignment="Stretch">
-          <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
-        </Viewbox>
-      </Template>
+      <Viewbox Stretch="Fill"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch">
+        <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
+      </Viewbox>
     </controls:FloatingButton>
   </Grid>
 </UserControl>
