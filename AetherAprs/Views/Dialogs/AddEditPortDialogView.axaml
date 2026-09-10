@@ -11,7 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:converters="using:AetherAprs.Converters"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
               x:Class="AetherAprs.Views.Dialogs.AddEditPortDialogView"
              x:DataType="vm:AddEditPortDialogViewModel"
              d:DataContext="{x:Static local:DesignData.AddEditPortDialogViewModel}">
@@ -98,7 +98,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               MinWidth="80"
               Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
               CommandParameter="CANCEL" />
-      <Button Content="Add Port"
+      <Button Content="Save"
               MinWidth="80"
               Classes="filled"
               Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
