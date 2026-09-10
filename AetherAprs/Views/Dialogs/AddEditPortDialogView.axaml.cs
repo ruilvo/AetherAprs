@@ -4,7 +4,7 @@
 
 using Avalonia.Controls;
 
-namespace AetherAprs.Views.Dialogues;
+namespace AetherAprs.Views.Dialogs;
 
 public partial class AddEditPortDialogView : UserControl
 {

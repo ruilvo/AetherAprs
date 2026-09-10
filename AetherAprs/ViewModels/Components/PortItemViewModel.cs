@@ -8,7 +8,7 @@ using AetherAprs.Configuration;
 
 namespace AetherAprs.ViewModels;
 
-public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onDelete) : ViewModelBase
+public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onDelete, Action<PortItemViewModel> onEdit) : ViewModelBase
 {
 
     [ObservableProperty]
@@ -24,6 +24,12 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     public partial bool IsEnabled { get; set; } = config.IsEnabled;
 
     [ObservableProperty]
+    public partial bool IsRx { get; set; } = config.IsRx;
+
+    [ObservableProperty]
+    public partial bool IsTx { get; set; } = config.IsTx;
+
+    [ObservableProperty]
     public partial string StatusText { get; set; } = config.IsEnabled ? "Running" : "Stopped";
 
     partial void OnIsEnabledChanged(bool value)
@@ -37,6 +43,11 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
         onDelete(this);
     }
 
+    public void Edit()
+    {
+        onEdit(this);
+    }
+
     public PortConfig ToConfig()
     {
         return new PortConfig
@@ -44,7 +55,9 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             Id = Id,
             Name = Name,
             Type = Type,
-            IsEnabled = IsEnabled
+            IsEnabled = IsEnabled,
+            IsRx = IsRx,
+            IsTx = IsTx
         };
     }
 }

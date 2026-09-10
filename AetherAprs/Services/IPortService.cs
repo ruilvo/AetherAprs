@@ -17,6 +17,8 @@ public interface IPortService
 
     Task AddPortAsync(PortConfig port);
 
+    Task UpdatePortAsync(PortConfig port);
+
     Task RemovePortAsync(Guid id);
 
     Task SetPortEnabledAsync(Guid id, bool enabled);

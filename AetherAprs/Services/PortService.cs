@@ -43,6 +43,19 @@ public class PortService : IPortService
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public async Task UpdatePortAsync(PortConfig updatedPort)
+    {
+        var port = _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == updatedPort.Id);
+        if (port is not null)
+        {
+            port.Name = updatedPort.Name;
+            port.IsRx = updatedPort.IsRx;
+            port.IsTx = updatedPort.IsTx;
+            await _configurationService.SaveSettingsAsync();
+            PortsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     public async Task RemovePortAsync(Guid id)
     {
         // Stop if running

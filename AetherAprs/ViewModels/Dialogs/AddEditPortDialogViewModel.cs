@@ -32,6 +32,12 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
     [ObservableProperty]
     public partial int? Ssid { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsRx { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool IsTx { get; set; } = false;
+
     public PortType[] PortTypes { get; } = [PortType.AprsIs];
 
     public PortConfig BuildConfig()
@@ -44,7 +50,9 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
             ServerPort = ServerPort,
             Passcode = Passcode,
             Filter = Filter,
-            Ssid = Ssid
+            Ssid = Ssid,
+            IsRx = IsRx,
+            IsTx = IsTx
         };
     }
 }

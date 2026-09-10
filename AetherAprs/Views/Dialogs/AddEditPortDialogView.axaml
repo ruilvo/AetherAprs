@@ -12,7 +12,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:converters="using:AetherAprs.Converters"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
-             x:Class="AetherAprs.Views.Dialogues.AddEditPortDialogView"
+              x:Class="AetherAprs.Views.Dialogs.AddEditPortDialogView"
              x:DataType="vm:AddEditPortDialogViewModel"
              d:DataContext="{x:Static local:DesignData.AddEditPortDialogViewModel}">
 
@@ -26,6 +26,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <Label Content="Port Name" />
     <TextBox Text="{Binding Name}"
              PlaceholderText="e.g. APRS-IS Port 1" />
+
+    <!-- Port Direction -->
+    <Label Content="Port Direction" />
+    <StackPanel Spacing="8">
+      <CheckBox Content="Receive (Rx)" IsChecked="{Binding IsRx}" />
+      <CheckBox Content="Transmit (Tx)" IsChecked="{Binding IsTx}" />
+    </StackPanel>
 
     <!-- Port Type Selector -->
     <Label Content="Port Type" />

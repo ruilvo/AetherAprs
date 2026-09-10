@@ -5,6 +5,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
@@ -37,7 +38,7 @@ public partial class PortsViewModel : ViewModelBase
         PortItems.Clear();
         foreach (var port in _portService.Ports)
         {
-            var item = new PortItemViewModel(port, OnTogglePort, OnDeletePort);
+            var item = new PortItemViewModel(port, OnTogglePort, OnDeletePort, OnEditPort);
             PortItems.Add(item);
         }
     }
@@ -57,6 +58,19 @@ public partial class PortsViewModel : ViewModelBase
         _ = _portService.RemovePortAsync(item.Id);
     }
 
+    private void OnEditPort(PortItemViewModel item)
+    {
+        // This will be handled from the view code-behind
+        EditPortCommand.Execute(item);
+    }
+
+    [RelayCommand]
+    public async Task EditPort(PortItemViewModel item)
+    {
+        // The view will handle showing the dialog and calling UpdatePortAsync
+        await Task.CompletedTask;
+    }
+
     [RelayCommand]
     private void DeletePort(PortItemViewModel item)
     {
@@ -67,6 +81,11 @@ public partial class PortsViewModel : ViewModelBase
     private void AddPort(PortConfig config)
     {
         _ = _portService.AddPortAsync(config);
+    }
+
+    public async Task UpdatePortAsync(PortConfig config)
+    {
+        await _portService.UpdatePortAsync(config);
     }
 
     public int GetNextPortNumber()

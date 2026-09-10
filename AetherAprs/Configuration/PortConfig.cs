@@ -23,6 +23,10 @@ public class PortConfig
 
     public bool IsEnabled { get; set; }
 
+    public bool IsRx { get; set; } = true;
+
+    public bool IsTx { get; set; } = false;
+
     // APRS-IS fields
     public string? Server { get; set; }
 
