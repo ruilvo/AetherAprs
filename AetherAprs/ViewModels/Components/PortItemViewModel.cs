@@ -24,7 +24,7 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     public partial bool IsEnabled { get; set; } = config.IsEnabled;
 
     [ObservableProperty]
-    public partial string StatusText { get; set; } = "Idle";
+    public partial string StatusText { get; set; } = config.IsEnabled ? "Running" : "Stopped";
 
     partial void OnIsEnabledChanged(bool value)
     {
