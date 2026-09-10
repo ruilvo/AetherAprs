@@ -8,45 +8,33 @@ using AetherAprs.Configuration;
 
 namespace AetherAprs.ViewModels;
 
-public partial class PortItemViewModel : ViewModelBase
+public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onDelete) : ViewModelBase
 {
-    private readonly Action<PortItemViewModel> _onToggle;
-    private readonly Action<PortItemViewModel> _onDelete;
 
     [ObservableProperty]
-    public partial Guid Id { get; set; }
+    public partial Guid Id { get; set; } = config.Id;
 
     [ObservableProperty]
-    public partial string Name { get; set; } = string.Empty;
+    public partial string Name { get; set; } = config.Name;
 
     [ObservableProperty]
-    public partial PortType Type { get; set; }
+    public partial PortType Type { get; set; } = config.Type;
 
     [ObservableProperty]
-    public partial bool IsEnabled { get; set; }
+    public partial bool IsEnabled { get; set; } = config.IsEnabled;
 
     [ObservableProperty]
     public partial string StatusText { get; set; } = "Idle";
 
-    public PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onDelete)
-    {
-        Id = config.Id;
-        Name = config.Name;
-        Type = config.Type;
-        IsEnabled = config.IsEnabled;
-        _onToggle = onToggle;
-        _onDelete = onDelete;
-    }
-
     partial void OnIsEnabledChanged(bool value)
     {
         StatusText = value ? "Running" : "Stopped";
-        _onToggle(this);
+        onToggle(this);
     }
 
     public void Delete()
     {
-        _onDelete(this);
+        onDelete(this);
     }
 
     public PortConfig ToConfig()

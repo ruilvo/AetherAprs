@@ -8,12 +8,11 @@ using AetherAprs.Helpers;
 
 namespace AetherAprs.ViewModels;
 
-public partial class AddEditPortDialogViewModel : ViewModelBase
+public partial class AddEditPortDialogViewModel(string globalCallsign, int nextPortNumber) : ViewModelBase
 {
-    private readonly string _globalCallsign;
 
     [ObservableProperty]
-    public partial string Name { get; set; } = "APRS-IS Port 1";
+    public partial string Name { get; set; } = $"APRS-IS Port {nextPortNumber}";
 
     [ObservableProperty]
     public partial PortType SelectedPortType { get; set; } = PortType.AprsIs;
@@ -25,7 +24,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial int ServerPort { get; set; } = 14580;
 
     [ObservableProperty]
-    public partial string Passcode { get; set; } = string.Empty;
+    public partial string Passcode { get; set; } = AprsPasscode.Compute(globalCallsign);
 
     [ObservableProperty]
     public partial string Filter { get; set; } = "m/50";
@@ -34,13 +33,6 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial int? Ssid { get; set; }
 
     public PortType[] PortTypes { get; } = [PortType.AprsIs];
-
-    public AddEditPortDialogViewModel(string globalCallsign, int nextPortNumber)
-    {
-        _globalCallsign = globalCallsign;
-        Name = $"APRS-IS Port {nextPortNumber}";
-        Passcode = AprsPasscode.Compute(globalCallsign);
-    }
 
     public PortConfig BuildConfig()
     {
