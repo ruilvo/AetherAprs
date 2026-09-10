@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Modems.Aprs;
 
@@ -25,6 +26,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private readonly Callsign _callsign;
     private readonly string _passcode;
     private readonly string _filter;
+    private readonly ILogger<AprsIsModem> _logger;
     private TcpClient? _tcpClient;
     private StreamReader? _reader;
     private StreamWriter? _writer;
@@ -45,6 +47,22 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="host"/> or <paramref name="callsign"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="host"/> is empty or whitespace, or <paramref name="passcode"/> is null.</exception>
     public AprsIsModem(string host, int port, Callsign callsign, string passcode, string filter = "")
+        : this(host, port, callsign, passcode, filter, new NoOpLogger<AprsIsModem>())
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="AprsIsModem"/>.
+    /// </summary>
+    /// <param name="host">The APRS-IS server hostname or IP address.</param>
+    /// <param name="port">The APRS-IS server TCP port (typically 14580 for receive+send, 14501 for send-only).</param>
+    /// <param name="callsign">The callsign to authenticate with.</param>
+    /// <param name="passcode">The APRS-IS passcode for the callsign.</param>
+    /// <param name="filter">Optional APRS-IS filter string (e.g. <c>m/50</c> for messages only). Leave empty for all.</param>
+    /// <param name="logger">Logger for diagnostic information.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="host"/> or <paramref name="callsign"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="host"/> is empty or whitespace, or <paramref name="passcode"/> is null.</exception>
+    public AprsIsModem(string host, int port, Callsign callsign, string passcode, string filter, ILogger<AprsIsModem> logger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrEmpty(passcode);
@@ -54,6 +72,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         _callsign = callsign;
         _passcode = passcode;
         _filter = filter ?? string.Empty;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -200,35 +219,38 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         await _writer.FlushAsync().ConfigureAwait(false);
 
         // Read lines from the server
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            var line = await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+         while (!cancellationToken.IsCancellationRequested)
+         {
+             var line = await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
-            if (line is null)
-            {
-                // Connection closed by server
-                break;
-            }
+             if (line is null)
+             {
+                 // Connection closed by server
+                 _logger.LogInformation("Connection closed by server.");
+                 break;
+             }
 
-            if (line.Length == 0 || line[0] == '#')
-            {
-                // Empty or comment line (server status messages start with #)
-                continue;
-            }
+             _logger.LogInformation("Server response: {Response}", line);
 
-            try
-            {
-                var packet = ParseIsLine(line);
-                if (packet is not null)
-                {
-                    PacketReceived?.Invoke(this, packet);
-                }
-            }
-            catch (Exception ex)
-            {
-                ReceiveError?.Invoke(this, ex);
-            }
-        }
+             if (line.Length == 0 || line[0] == '#')
+             {
+                 // Empty or comment line (server status messages start with #)
+                 continue;
+             }
+
+             try
+             {
+                 var packet = ParseIsLine(line);
+                 if (packet is not null)
+                 {
+                     PacketReceived?.Invoke(this, packet);
+                 }
+             }
+             catch (Exception ex)
+             {
+                 ReceiveError?.Invoke(this, ex);
+             }
+         }
     }
 
     /// <summary>
@@ -296,5 +318,20 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
 
         return new Callsign(value, null);
+    }
+
+    /// <summary>
+    /// A no-operation logger implementation used as a default when no logger is provided.
+    /// </summary>
+    private sealed class NoOpLogger<T> : ILogger<T>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => false;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            // No-op
+        }
     }
 }

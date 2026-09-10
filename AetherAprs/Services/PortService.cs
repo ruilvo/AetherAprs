@@ -10,6 +10,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services;
@@ -18,14 +19,17 @@ public class PortService : IPortService
 {
     private readonly IConfigurationService _configurationService;
     private readonly ILogger<PortService> _logger;
+    private readonly IServiceProvider _serviceProvider;
     private readonly Dictionary<Guid, AprsIsModem> _activeModems = new();
 
     public PortService(
         IConfigurationService configurationService,
-        ILogger<PortService> logger)
+        ILogger<PortService> logger,
+        IServiceProvider serviceProvider)
     {
         _configurationService = configurationService;
         _logger = logger;
+        _serviceProvider = serviceProvider;
     }
 
     public IReadOnlyList<PortConfig> Ports => _configurationService.Settings.Ports;
@@ -118,7 +122,8 @@ public class PortService : IPortService
                     port.ServerPort,
                     fullCallsign,
                     port.Passcode!,
-                    port.Filter ?? string.Empty);
+                    port.Filter ?? string.Empty,
+                    _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
 
                 modem.PacketReceived += OnModemPacketReceived;
                 modem.ReceiveError += OnModemReceiveError;
@@ -149,7 +154,7 @@ public class PortService : IPortService
 
     private void OnModemPacketReceived(object? sender, AprsPacket packet)
     {
-        _logger.LogDebug("Packet received from {Source}: {Raw}", packet.Source, packet.Raw);
+        _logger.LogInformation("Packet received from {Source}: {Raw}", packet.Source, packet.Raw);
     }
 
     private void OnModemReceiveError(object? sender, Exception exception)
