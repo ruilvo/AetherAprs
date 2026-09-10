@@ -12,7 +12,7 @@ using Mapsui.Tiling;
 using System;
 using System.ComponentModel;
 
-namespace AetherAprs.Views;
+namespace AetherAprs.Views.Pages;
 
 public partial class HomeView : UserControl
 {

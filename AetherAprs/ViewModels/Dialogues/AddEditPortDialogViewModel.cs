@@ -8,7 +8,7 @@ using AetherAprs.Helpers;
 
 namespace AetherAprs.ViewModels;
 
-public partial class NewPortDialogViewModel : ViewModelBase
+public partial class AddEditPortDialogViewModel : ViewModelBase
 {
     private readonly string _globalCallsign;
 
@@ -33,9 +33,9 @@ public partial class NewPortDialogViewModel : ViewModelBase
     [ObservableProperty]
     public partial int? Ssid { get; set; }
 
-    public PortType[] PortTypes { get; } = [PortType.AprsIs, PortType.Kiss];
+    public PortType[] PortTypes { get; } = [PortType.AprsIs];
 
-    public NewPortDialogViewModel(string globalCallsign, int nextPortNumber)
+    public AddEditPortDialogViewModel(string globalCallsign, int nextPortNumber)
     {
         _globalCallsign = globalCallsign;
         Name = $"APRS-IS Port {nextPortNumber}";

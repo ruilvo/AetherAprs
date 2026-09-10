@@ -4,11 +4,11 @@
 
 using Avalonia.Controls;
 
-namespace AetherAprs.Views;
+namespace AetherAprs.Views.Dialogues;
 
-public partial class NewPortDialogContent : UserControl
+public partial class AddEditPortDialogView : UserControl
 {
-    public NewPortDialogContent()
+    public AddEditPortDialogView()
     {
         InitializeComponent();
     }

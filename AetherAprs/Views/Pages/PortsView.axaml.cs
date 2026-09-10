@@ -6,9 +6,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using DialogHostAvalonia;
 using AetherAprs.ViewModels;
-using AetherAprs.Views;
+using AetherAprs.Views.Dialogues;
 
-namespace AetherAprs.Views;
+namespace AetherAprs.Views.Pages;
 
 public partial class PortsView : UserControl
 {
@@ -31,8 +31,8 @@ public partial class PortsView : UserControl
         var nextNumber = viewModel.GetNextPortNumber();
 
         // Create dialog content
-        var dialogContent = new NewPortDialogContent();
-        var dialogVm = new NewPortDialogViewModel(globalCallsign, nextNumber);
+        var dialogContent = new AddEditPortDialogView();
+        var dialogVm = new AddEditPortDialogViewModel(globalCallsign, nextNumber);
         dialogContent.DataContext = dialogVm;
 
         var result = await DialogHost.Show(dialogContent, "MainDialogHost");

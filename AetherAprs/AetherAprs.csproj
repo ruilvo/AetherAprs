@@ -45,4 +45,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="Mapsui.Avalonia12" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Views\Dialogues\AddEditPortDialogView.axaml.cs">
+      <DependentUpon>AddEditPortDialogView.axaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
 </Project>

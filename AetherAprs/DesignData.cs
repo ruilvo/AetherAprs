@@ -101,13 +101,13 @@ public static class DesignData
         }
     }
 
-    public static NewPortDialogViewModel NewPortDialogViewModel
+    public static AddEditPortDialogViewModel AddEditPortDialogViewModel
     {
         get
         {
             var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
             var callsign = configService.Settings.Aprs.Callsign;
-            return new NewPortDialogViewModel(callsign, 1);
+            return new AddEditPortDialogViewModel(callsign, 1);
         }
     }
 }

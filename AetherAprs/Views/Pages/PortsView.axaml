@@ -10,8 +10,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.PortsView"
+             x:Class="AetherAprs.Views.Pages.PortsView"
              x:DataType="vm:PortsViewModel"
              d:DataContext="{x:Static local:DesignData.PortsViewModel}">
 
@@ -94,17 +96,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </ScrollViewer>
 
     <!-- Floating Action Button -->
-    <Button Grid.Row="1"
-            Width="56"
-            Height="56"
-            CornerRadius="28"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Bottom"
-            Margin="0,0,20,20"
-            Classes="Fab"
-            x:Name="AddPortButton">
-      <Path Data="{ext:MaterialIconGeometryExt Plus}"
-            Fill="White" />
-    </Button>
+    <controls:FloatingButton Grid.Row="1"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="0,0,20,20"
+                             x:Name="AddPortButton">
+      <Template>
+        <Viewbox Stretch="Fill"
+                 HorizontalAlignment="Stretch"
+                 VerticalAlignment="Stretch">
+          <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
+        </Viewbox>
+      </Template>
+    </controls:FloatingButton>
   </Grid>
 </UserControl>

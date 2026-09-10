@@ -4,7 +4,7 @@
 using AetherAprs.Factories;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
-using AetherAprs.Windows;
+using AetherAprs.Views.Windows;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;

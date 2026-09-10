@@ -10,7 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.SettingsView"
+             x:Class="AetherAprs.Views.Pages.SettingsView"
              x:DataType="vm:SettingsViewModel"
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
   <ScrollViewer>

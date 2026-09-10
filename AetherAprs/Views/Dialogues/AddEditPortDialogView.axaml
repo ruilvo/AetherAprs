@@ -9,11 +9,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
+             xmlns:converters="using:AetherAprs.Converters"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="600"
-             x:Class="AetherAprs.Views.NewPortDialogContent"
-             x:DataType="vm:NewPortDialogViewModel"
-             d:DataContext="{x:Static local:DesignData.NewPortDialogViewModel}">
+             x:Class="AetherAprs.Views.Dialogues.AddEditPortDialogView"
+             x:DataType="vm:AddEditPortDialogViewModel"
+             d:DataContext="{x:Static local:DesignData.AddEditPortDialogViewModel}">
+
+  <UserControl.Resources>
+    <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
+    <converters:PortTypeToIsVisibleConverter x:Key="PortTypeToIsVisibleConverter" />
+  </UserControl.Resources>
 
   <StackPanel Spacing="16" MinWidth="380">
     <!-- Port Name -->
@@ -27,7 +33,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               SelectedItem="{Binding SelectedPortType}">
       <ComboBox.ItemTemplate>
         <DataTemplate x:DataType="x:Object">
-          <TextBlock Text="{Binding}" />
+          <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
         </DataTemplate>
       </ComboBox.ItemTemplate>
     </ComboBox>
@@ -37,7 +43,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
             CornerRadius="8"
             Padding="16"
             BorderThickness="1"
-            BorderBrush="{DynamicResource MaterialCardBorderBrush}">
+            BorderBrush="{DynamicResource MaterialCardBorderBrush}"
+            IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=AprsIs}">
       <StackPanel Spacing="12">
         <TextBlock Text="APRS-IS Settings"
                    FontSize="14"

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
+using AetherAprs.Views.Pages;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 
