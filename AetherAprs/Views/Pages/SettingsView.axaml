@@ -24,9 +24,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="*,Auto">
-    <ScrollViewer Grid.Row="0">
-      <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
+  <controls:SnackbarHost x:Name="SettingsSnackbarHost" HostName="{Binding $self.Name}">
+    <Grid RowDefinitions="*,Auto">
+      <ScrollViewer Grid.Row="0">
+        <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
 
         <!-- Station Section -->
         <StackPanel Spacing="16">
@@ -68,13 +69,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 </DataTemplate>
               </ComboBox.ItemTemplate>
             </ComboBox>
-
-            <!-- Success message -->
-            <TextBlock Text="✓ Settings saved!"
-                       IsVisible="{Binding IsSaved}"
-                       Foreground="{DynamicResource MaterialSuccessBrush}"
-                       Margin="0,12,0,0"
-                       Classes="Caption" />
           </StackPanel>
         </StackPanel>
 
@@ -116,5 +110,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 Classes="Filled" />
       </StackPanel>
     </Border>
-  </Grid>
+    </Grid>
+  </controls:SnackbarHost>
 </UserControl>
