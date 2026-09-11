@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Factories;
+using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
 using AetherAprs.Views.Windows;
@@ -10,6 +11,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Threading.Tasks;
 
 namespace AetherAprs;
 
@@ -85,6 +87,20 @@ public partial class App : Application
             singleViewPlatform.MainView = CreateMainView();
         }
 
+        _ = StartEnabledPortsAsync();
+
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task StartEnabledPortsAsync()
+    {
+        try
+        {
+            await ServiceProvider.GetRequiredService<IPortService>().StartAllEnabledPortsAsync();
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Failed to start enabled ports: {exception}");
+        }
     }
 }
