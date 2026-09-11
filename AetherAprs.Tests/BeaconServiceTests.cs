@@ -4,6 +4,7 @@
 
 using System;
 using AetherAprs.Models;
+using AetherAprs.Modems.Aprs;
 using AetherAprs.Services;
 using Xunit;
 
@@ -118,7 +119,7 @@ public class BeaconServiceTests
         var location2 = CreateLocation(38.7323, -9.1393, timestamp: time2);
 
         var decision = service.EvaluateLocationUpdate(location2, location1);
-        
+
         // Should calculate course and speed
         Assert.NotNull(decision.CurrentCourseDegrees);
         Assert.NotNull(decision.CurrentSpeedKmh);
@@ -203,6 +204,20 @@ public class BeaconServiceTests
     }
 
     [Fact]
+    public void CreatePositionPacketUsesAprsStandardUncompressedPrecision()
+    {
+        var service = new BeaconService();
+        var location = CreateLocation(41.41764333333333, -8.521698333333333);
+
+        var packet = service.CreatePositionPacket(location, "CT7ALW-7");
+
+        Assert.Equal(2, packet.Precision);
+        Assert.Equal(
+            "!4125.06N/00831.30WaWalking",
+            AprsSerializer.FormatInfoField(packet));
+    }
+
+    [Fact]
     public void BeaconConfigurationPresetsHaveValidValues()
     {
         var walkConfig = BeaconConfiguration.CreateWalkPreset();
@@ -274,7 +289,7 @@ public class BeaconServiceTests
         var location2 = CreateLocation(38.8223, -9.1393, timestamp: time2);
 
         var decision1 = service.EvaluateLocationUpdate(location2, location1);
-        
+
         // Verify decision includes interval information
         Assert.True(decision1.ActiveIntervalSeconds > 0);
         Assert.True(decision1.SecondsUntilNextBeacon >= 0);

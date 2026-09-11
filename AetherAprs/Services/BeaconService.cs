@@ -255,7 +255,7 @@ public sealed class BeaconService : IBeaconService
             Course = _lastCourseDegrees.HasValue ? _lastCourseDegrees.Value : null,
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
             Comment = config.BeaconComment,
-            Precision = 3
+            Precision = 2
         };
     }
 

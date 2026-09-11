@@ -41,6 +41,117 @@ public class AprsSerializerTests
     }
 
     [Fact]
+    public void FormatInfoField_PositionPacket_UsesAprsUncompressedMinutePrecision()
+    {
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("CT7ALW", 7),
+            Destination = new Callsign("APRS"),
+            Latitude = 41.41764333333333,
+            Longitude = -8.521698333333333,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+            Comment = "Walking",
+            Precision = 2
+        };
+
+        var infoField = AprsSerializer.FormatInfoField(packet);
+
+        Assert.Equal("!4125.06N/00831.30WaWalking", infoField);
+    }
+
+    [Fact]
+    public void FormatInfoField_PositionPacket_CarriesRoundingAcrossMinuteBoundary()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Latitude = 41.999999,
+            Longitude = -8.999999,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+            Precision = 2
+        };
+
+        var infoField = AprsSerializer.FormatInfoField(packet);
+
+        Assert.Equal("!4200.00N/00900.00Wa", infoField);
+    }
+
+    [Fact]
+    public void FormatInfoField_PositionPacket_PreservesHemisphereAtZero()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Latitude = -0.01,
+            Longitude = 0.01,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+            Precision = 2
+        };
+
+        var infoField = AprsSerializer.FormatInfoField(packet);
+
+        Assert.Equal("!0000.60S/00000.60Ea", infoField);
+    }
+
+    [Fact]
+    public void FormatInfoField_PositionPacket_WithOverlayUsesOverlayBeforeTable()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Latitude = 38.5,
+            Longitude = -9.1,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign, 'A'),
+            Precision = 2
+        };
+
+        var infoField = AprsSerializer.FormatInfoField(packet);
+
+        Assert.StartsWith("!3830.00NA/00906.00W#", infoField);
+    }
+
+    [Theory]
+    [InlineData(-90.1, 0)]
+    [InlineData(90.1, 0)]
+    [InlineData(0, -180.1)]
+    [InlineData(0, 180.1)]
+    public void FormatInfoField_PositionPacket_InvalidCoordinatesThrow(double latitude, double longitude)
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Latitude = latitude,
+            Longitude = longitude,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+            Precision = 2
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => AprsSerializer.FormatInfoField(packet));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void FormatInfoField_PositionPacket_NonStandardPrecisionThrows(int precision)
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Latitude = 38.5,
+            Longitude = -9.1,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = precision
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => AprsSerializer.FormatInfoField(packet));
+    }
+
+    [Fact]
     public void FormatInfoField_PositionWithComment_IncludesComment()
     {
         var packet = new PositionPacket

@@ -78,14 +78,24 @@ public static class AprsSerializer
 
     private static string FormatLatitude(double latitude, int precision)
     {
+        ValidateCoordinate(latitude, -90, 90, nameof(latitude));
+        ValidatePrecision(precision);
+
         bool isSouth = latitude < 0;
         double absLat = Math.Abs(latitude);
 
         int deg = (int)absLat;
         double minDecimal = (absLat - deg) * 60.0;
-        int min = (int)(minDecimal + 1e-7);
-        double decMin = Math.Abs(minDecimal - min) * Math.Pow(10, precision);
-        int decValue = (int)Math.Round(decMin);
+        int scale = (int)Math.Pow(10, precision);
+        int roundedMinutes = (int)Math.Round(minDecimal * scale, MidpointRounding.AwayFromZero);
+        int min = roundedMinutes / scale;
+        int decValue = roundedMinutes % scale;
+
+        if (min == 60)
+        {
+            deg++;
+            min = 0;
+        }
 
         char dir = isSouth ? 'S' : 'N';
 
@@ -94,18 +104,44 @@ public static class AprsSerializer
 
     private static string FormatLongitude(double longitude, int precision)
     {
+        ValidateCoordinate(longitude, -180, 180, nameof(longitude));
+        ValidatePrecision(precision);
+
         bool isWest = longitude < 0;
         double absLon = Math.Abs(longitude);
 
         int deg = (int)absLon;
         double minDecimal = (absLon - deg) * 60.0;
-        int min = (int)(minDecimal + 1e-7);
-        double decMin = Math.Abs(minDecimal - min) * Math.Pow(10, precision);
-        int decValue = (int)Math.Round(decMin);
+        int scale = (int)Math.Pow(10, precision);
+        int roundedMinutes = (int)Math.Round(minDecimal * scale, MidpointRounding.AwayFromZero);
+        int min = roundedMinutes / scale;
+        int decValue = roundedMinutes % scale;
+
+        if (min == 60)
+        {
+            deg++;
+            min = 0;
+        }
 
         char dir = isWest ? 'W' : 'E';
 
         return $"{deg:D3}{min:D2}.{decValue.ToString(new string('0', precision))}{dir}";
+    }
+
+    private static void ValidateCoordinate(double coordinate, double minimum, double maximum, string parameterName)
+    {
+        if (!double.IsFinite(coordinate) || coordinate < minimum || coordinate > maximum)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, coordinate, $"Coordinate must be between {minimum} and {maximum} degrees.");
+        }
+    }
+
+    private static void ValidatePrecision(int precision)
+    {
+        if (precision is < 1 or > 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(precision), precision, "APRS uncompressed positions require one or two decimal minute digits.");
+        }
     }
 
     // ---------------------------------------------------------------

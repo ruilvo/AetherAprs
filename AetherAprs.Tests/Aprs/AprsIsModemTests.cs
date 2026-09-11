@@ -149,8 +149,7 @@ public class AprsIsModemTests
         await modem.SendAsync(packet, TestContext.Current.CancellationToken);
 
         var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
-        Assert.StartsWith("N0CALL>APZ001,TCPIP*:", transmitted);
-        Assert.Contains("!3830.00N/00906.00W#", transmitted);
+        Assert.Equal("N0CALL>APZ001,TCPIP*:!3830.00N/00906.00W#", transmitted);
     }
 
     [Fact]

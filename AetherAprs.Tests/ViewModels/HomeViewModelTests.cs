@@ -240,7 +240,7 @@ public sealed class HomeViewModelTests
                 Destination = new Callsign("APRS"),
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
-                Precision = 3,
+                Precision = 2,
                 Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
                 Comment = "Walking"
             };
