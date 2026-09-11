@@ -142,14 +142,14 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         await _connectionReady.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-        // APRS-IS line format: source>dest:info_field
+        // APRS-IS client-originated packets must identify the TCP connection in the path.
         var infoField = AprsSerializer.FormatInfoField(packet);
         if (_writer is null)
         {
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
         }
 
-        var line = $"{packet.Source}>{packet.Destination}:{infoField}";
+        var line = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
         await _writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
         await _writer.FlushAsync().ConfigureAwait(false);
     }
@@ -205,6 +205,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
     private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
     {
+        _connectionReady = CreateConnectionReadySource();
         _tcpClient?.Dispose();
         _reader?.Dispose();
         _writer?.Dispose();
@@ -221,7 +222,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         };
 
         // Send APRS-IS login
-        var login = $"user {_callsign.Base} pass {_passcode} vers AetherAprs 1.0";
+        var login = $"user {_callsign} pass {_passcode} vers AetherAprs 1.0";
         if (!string.IsNullOrEmpty(_filter))
         {
             login += $" filter {_filter}";
@@ -235,7 +236,6 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         await _writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
         await _writer.FlushAsync().ConfigureAwait(false);
-        _connectionReady.TrySetResult(true);
 
         // Read lines from the server
         while (!cancellationToken.IsCancellationRequested)
@@ -251,10 +251,23 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
              _logger.LogInformation("Server response: {Response}", line);
 
-             if (line.Length == 0 || line[0] == '#')
-             {
-                 // Empty or comment line (server status messages start with #)
-                 continue;
+            if (line.StartsWith("# logresp ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (line.Contains(" verified", StringComparison.OrdinalIgnoreCase))
+                {
+                    _connectionReady.TrySetResult(true);
+                }
+                else
+                {
+                    _connectionReady.TrySetException(
+                        new InvalidOperationException($"APRS-IS login was rejected: {line}"));
+                }
+            }
+
+            if (line.Length == 0 || line[0] == '#')
+            {
+                // Empty or comment line (server status messages start with #)
+                continue;
              }
 
              try
@@ -270,6 +283,9 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                  ReceiveError?.Invoke(this, ex);
              }
          }
+
+        _connectionReady.TrySetException(
+            new IOException("APRS-IS connection closed before authentication completed."));
     }
 
     private static TaskCompletionSource<bool> CreateConnectionReadySource() =>
@@ -312,29 +328,30 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         Callsign destination;
         string? rawSource = null;
 
-        try
+        if (IsExtendedSourceIdentifier(sourceStr))
         {
-            source = ParseCallsign(sourceStr);
-            destination = ParseCallsign(destStr);
-        }
-        catch (ArgumentException)
-        {
-            if (!IsExtendedSourceIdentifier(sourceStr))
-            {
-                return null;
-            }
-
             source = new Callsign("APRS");
             rawSource = sourceStr.Trim().ToUpperInvariant();
-
+        }
+        else
+        {
             try
             {
-                destination = ParseCallsign(destStr);
+                source = ParseCallsign(sourceStr);
             }
             catch (ArgumentException)
             {
                 return null;
             }
+        }
+
+        try
+        {
+            destination = ParseCallsign(destStr);
+        }
+        catch (ArgumentException)
+        {
+            return null;
         }
 
         var packet = AprsParser.ParseInfoField(info, source, destination);
@@ -346,20 +363,23 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         string identifier = value.Trim();
         int dashIndex = identifier.LastIndexOf('-');
 
-        if (dashIndex > 0)
+        if (dashIndex <= 0)
         {
-            if (dashIndex == identifier.Length - 1 ||
-                !int.TryParse(identifier[(dashIndex + 1)..], out var ssid) ||
-                ssid is < 0 or > 15)
-            {
-                return false;
-            }
-
-            identifier = identifier[..dashIndex];
+            return identifier.Length > 6 && identifier.Length <= 9 &&
+                   identifier.All(char.IsAsciiLetterOrDigit);
         }
 
-        return identifier.Length is > 6 and <= 9 &&
-               identifier.All(char.IsAsciiLetterOrDigit);
+        string baseCall = identifier[..dashIndex];
+        string ssid = identifier[(dashIndex + 1)..];
+        if (baseCall.Length is < 2 or > 6 ||
+            !baseCall.All(char.IsAsciiLetterOrDigit) ||
+            ssid.Length is < 1 or > 2 ||
+            !ssid.All(char.IsAsciiLetterOrDigit))
+        {
+            return false;
+        }
+
+        return !int.TryParse(ssid, out var numericSsid) || numericSsid is < 0 or > 15;
     }
 
     /// <summary>

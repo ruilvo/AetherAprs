@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
@@ -107,6 +111,68 @@ public class AprsIsModemTests
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             modem.SendAsync(null!, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SendAsync_AfterVerifiedLogin_UsesTcpIpPath()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        var login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("filter", login);
+
+        await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Latitude = 38.5,
+            Longitude = -9.10,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2
+        };
+
+        await modem.SendAsync(packet, TestContext.Current.CancellationToken);
+
+        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.StartsWith("N0CALL>APZ001,TCPIP*:", transmitted);
+        Assert.Contains("!3830.00N/00906.00W#", transmitted);
+    }
+
+    [Fact]
+    public async Task Login_IncludesConfiguredSsid()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem(
+            "127.0.0.1",
+            endpoint.Port,
+            new Callsign("N0CALL", 1),
+            "12345");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+
+        var login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("user N0CALL-1 pass 12345", login);
     }
 
     // ---------------------------------------------------------------
@@ -249,6 +315,17 @@ public class AprsIsModemTests
         Assert.Equal(-0.330833, position.Latitude, 5);
         Assert.Equal(120.297167, position.Longitude, 5);
         Assert.Equal("Earthquake", position.Comment);
+    }
+
+    [Fact]
+    public void ParseIsLine_AlphaNumericSsid_PreservesSourceAndDecodesPacket()
+    {
+        var line = "4K0WHX-N0>APWHXF:>2349-507H-VGF3-0395-WJ2F-RN0F-K0TJA.";
+        var result = InvokeParseIsLine(line);
+
+        var status = Assert.IsType<StatusPacket>(result);
+        Assert.Equal(new Callsign("APRS"), status.Source);
+        Assert.Equal("4K0WHX-N0", status.RawSource);
     }
 
     // ---------------------------------------------------------------
