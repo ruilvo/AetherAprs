@@ -28,6 +28,9 @@ public partial class HomeViewModel : ViewModelBase
     private Dictionary<Guid, bool> _previousPortEnabledState = new();
 
     [ObservableProperty]
+    public partial ReceivedBeaconsViewModel? ReceivedBeacons { get; set; }
+
+    [ObservableProperty]
     public partial LocationData? UserLocation { get; set; }
 
     [ObservableProperty]
@@ -47,6 +50,7 @@ public partial class HomeViewModel : ViewModelBase
         IBeaconService beaconService,
         IPortService portService,
         IConfigurationService configurationService,
+        ReceivedBeaconsViewModel receivedBeacons,
         ILogger<HomeViewModel> logger)
     {
         _locationService = locationService;
@@ -54,6 +58,7 @@ public partial class HomeViewModel : ViewModelBase
         _portService = portService;
         _configurationService = configurationService;
         _logger = logger;
+        ReceivedBeacons = receivedBeacons;
         IsLocationAvailable = _locationService.IsLocationAvailable();
         _previousPortEnabledState = _portService.Ports
             .ToDictionary(port => port.Id, port => port.IsEnabled);

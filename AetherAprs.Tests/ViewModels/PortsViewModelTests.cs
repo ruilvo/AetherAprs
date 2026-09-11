@@ -76,6 +76,7 @@ public sealed class PortsViewModelTests
         public TestPortService(params PortConfig[] ports) => _ports = [.. ports];
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged;
+        public event EventHandler<AprsPacket>? PacketReceived;
         public Guid? LastPortId { get; private set; }
         public bool LastEnabled { get; private set; }
         public Task LastOperation => _operation.Task;

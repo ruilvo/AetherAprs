@@ -32,6 +32,8 @@ public static class DesignData
         services.AddSingleton<IPortService, PortService>();
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
+        services.AddSingleton<AprsSymbolMapConverter>();
+        services.AddSingleton<ReceivedBeaconsViewModel>();
 
         // Register logging
         services.AddLogging(builder =>

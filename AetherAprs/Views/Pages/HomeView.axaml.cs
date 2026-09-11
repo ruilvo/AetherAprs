@@ -46,6 +46,12 @@ public partial class HomeView : UserControl
     {
         if (DataContext is HomeViewModel viewModel)
         {
+            // Add received beacons layer if available
+            if (viewModel.ReceivedBeacons != null && MapControl.Map != null)
+            {
+                MapControl.Map.Layers.Add(viewModel.ReceivedBeacons.BeaconsLayer, group: 1);
+            }
+
             viewModel.PropertyChanged += OnViewModelPropertyChanged;
             
             // Only start location tracking at runtime, not in designer

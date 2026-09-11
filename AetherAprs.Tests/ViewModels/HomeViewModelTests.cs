@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
@@ -143,11 +144,14 @@ public sealed class HomeViewModelTests
         var portService = new TestPortService(port);
         var configuration = new TestConfigurationService();
         configuration.Settings.Aprs.Callsign = string.Empty;
+        var symbolProvider = new AprsSymbolBitmapProvider();
+        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider);
         var viewModel = new HomeViewModel(
             new TestLocationService(),
             new TestBeaconService(),
             portService,
             configuration,
+            receivedBeacons,
             NullLogger<HomeViewModel>.Instance);
         viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
 
@@ -162,11 +166,14 @@ public sealed class HomeViewModelTests
     {
         var configuration = new TestConfigurationService();
         configuration.Settings.Aprs.Callsign = "CT7ALW";
+        var symbolProvider = new AprsSymbolBitmapProvider();
+        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider);
         return new HomeViewModel(
             new TestLocationService(),
             beaconService,
             portService,
             configuration,
+            receivedBeacons,
             NullLogger<HomeViewModel>.Instance);
     }
 
@@ -282,6 +289,8 @@ public sealed class HomeViewModelTests
         public IReadOnlyList<PortConfig> Ports { get; }
 
         public event EventHandler? PortsChanged;
+
+        public event EventHandler<AprsPacket>? PacketReceived;
 
         public TaskCompletionSource<PositionPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 

@@ -42,6 +42,8 @@ public static class ServiceProviderFactory
         // Register beacon service
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
+        services.AddSingleton<AprsSymbolMapConverter>();
+        services.AddSingleton<ReceivedBeaconsViewModel>();
 
         // Register logging with deferred configuration resolution
         services.AddLogging(builder =>

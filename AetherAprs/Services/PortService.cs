@@ -36,6 +36,8 @@ public class PortService : IPortService
 
     public event EventHandler? PortsChanged;
 
+    public event EventHandler<AprsPacket>? PacketReceived;
+
     public async Task AddPortAsync(PortConfig port)
     {
         _configurationService.Settings.Ports.Add(port);
@@ -218,6 +220,7 @@ public class PortService : IPortService
     private void OnModemPacketReceived(object? sender, AprsPacket packet)
     {
         _logger.LogInformation("Packet received from {Source}: {Raw}", packet.Source, packet.Raw);
+        PacketReceived?.Invoke(this, packet);
     }
 
     private void OnModemReceiveError(object? sender, Exception exception)

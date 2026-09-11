@@ -16,6 +16,8 @@ public interface IPortService
 
     event EventHandler? PortsChanged;
 
+    event EventHandler<AprsPacket>? PacketReceived;
+
     Task AddPortAsync(PortConfig port);
 
     Task UpdatePortAsync(PortConfig port);
