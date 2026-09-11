@@ -114,6 +114,13 @@ public partial class PortsView : UserControl
             dialogVm.SelectedBeaconMode = item.DynamicBeaconMode;
         }
 
+        // Populate APRS-IS fields
+        dialogVm.Server = item.Server ?? "euro.aprs2.net";
+        dialogVm.ServerPort = item.ServerPort;
+        dialogVm.Passcode = item.Passcode ?? string.Empty;
+        dialogVm.Filter = item.Filter ?? "m/50";
+        dialogVm.Ssid = item.Ssid;
+
         dialogContent.DataContext = dialogVm;
 
         var result = await DialogHost.Show(dialogContent, "MainDialogHost");

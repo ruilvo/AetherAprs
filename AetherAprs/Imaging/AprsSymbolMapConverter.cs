@@ -17,7 +17,7 @@ namespace AetherAprs.Imaging;
 /// </summary>
 public sealed class AprsSymbolMapConverter : IDisposable
 {
-    private readonly AprsSymbolBitmapProvider _provider;
+    private readonly IAprsSymbolBitmapProvider _provider;
     private readonly Dictionary<(int table, int code, char? overlay), string> _base64Cache = new();
     private bool _disposed;
 
@@ -25,7 +25,7 @@ public sealed class AprsSymbolMapConverter : IDisposable
     /// Initializes a new instance of <see cref="AprsSymbolMapConverter"/>.
     /// </summary>
     /// <param name="provider">The bitmap provider that loads and composites sprite sheets.</param>
-    public AprsSymbolMapConverter(AprsSymbolBitmapProvider provider)
+    public AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider)
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }

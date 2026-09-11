@@ -14,7 +14,7 @@ namespace AetherAprs.Imaging;
 /// Provides <see cref="SKBitmap"/> images for APRS symbols by extracting and
 /// compositing from sprite sheets.
 /// </summary>
-public interface IAprsSymbolBitmapProvider
+public interface IAprsSymbolBitmapProvider : IDisposable
 {
     SKBitmap GetSymbolBitmap(Symbol symbol);
 }

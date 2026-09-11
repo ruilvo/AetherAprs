@@ -40,6 +40,21 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     public partial DynamicBeaconMode? DynamicBeaconMode { get; set; } = config.DynamicBeaconMode;
 
     [ObservableProperty]
+    public partial string? Server { get; set; } = config.Server;
+
+    [ObservableProperty]
+    public partial int ServerPort { get; set; } = config.ServerPort;
+
+    [ObservableProperty]
+    public partial string? Passcode { get; set; } = config.Passcode;
+
+    [ObservableProperty]
+    public partial string? Filter { get; set; } = config.Filter;
+
+    [ObservableProperty]
+    public partial int? Ssid { get; set; } = config.Ssid;
+
+    [ObservableProperty]
     public partial string StatusText { get; set; } = config.IsEnabled ? "Running" : "Stopped";
 
     partial void OnIsEnabledChanged(bool value)
@@ -71,6 +86,11 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             SymbolTableCharacter = SymbolTableCharacter,
             SymbolCodeCharacter = SymbolCodeCharacter,
             DynamicBeaconMode = DynamicBeaconMode,
+            Server = Server,
+            ServerPort = ServerPort,
+            Passcode = Passcode,
+            Filter = Filter,
+            Ssid = Ssid
         };
     }
 }

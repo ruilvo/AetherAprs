@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using Avalonia.Threading;
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Projections;
@@ -34,7 +35,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
     public ReceivedBeaconsViewModel(
         IPortService portService,
-        AprsSymbolBitmapProvider symbolBitmapProvider)
+        IAprsSymbolBitmapProvider symbolBitmapProvider)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
         _symbolConverter = new AprsSymbolMapConverter(
@@ -59,6 +60,12 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             return;
         }
 
+        // Marshal to UI thread since this event may be raised from a background thread
+        Dispatcher.UIThread.Post(() => UpdateBeaconOnMap(positionPacket));
+    }
+
+    private void UpdateBeaconOnMap(PositionPacket positionPacket)
+    {
         // Create a unique key for this beacon (callsign + SSID)
         var beaconKey = positionPacket.Source.ToString();
 
@@ -68,21 +75,38 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             positionPacket.Latitude);
         var mapPoint = new MPoint(mercatorCoordinate.x, mercatorCoordinate.y);
 
-        // Create the ImageStyle with the correct APRS symbol
-        var imageStyle = _symbolConverter.CreateImageStyle(positionPacket.Symbol, scale: 0.5);
+        // Create the ImageStyle with the correct APRS symbol (smaller scale)
+        var imageStyle = _symbolConverter.CreateImageStyle(positionPacket.Symbol, scale: 0.15);
+
+        // Create a text label style for the callsign (no background)
+        var labelStyle = new LabelStyle
+        {
+            Text = beaconKey,
+            Offset = new Offset(35, 0), // Offset to the right of the icon
+            Font = new Mapsui.Styles.Font { FontFamily = "Arial", Size = 10 },
+            ForeColor = Color.Black,
+            BackColor = null, // Transparent background
+            Halo = null // No halo effect
+        };
+
+        // Create a transparent symbol style to override any default backgrounds
+        var transparentSymbolStyle = new SymbolStyle
+        {
+            Fill = null,
+            Outline = null
+        };
 
         // Create new feature for this beacon at the position
         var feature = new PointFeature(mapPoint)
         {
-            Styles = [imageStyle]
+            Styles = [transparentSymbolStyle, imageStyle, labelStyle]
         };
 
         // Update or add beacon
-        if (_beaconsByCallsign.ContainsKey(beaconKey))
+        if (_beaconsByCallsign.TryGetValue(beaconKey, out var existingFeature))
         {
-            // Remove old feature and recreate with new position
-            _beaconsLayer.Clear();
-            _beaconsByCallsign.Clear();
+            // Remove old feature
+            _beaconsLayer.TryRemove(existingFeature);
         }
 
         _beaconsByCallsign[beaconKey] = feature;
