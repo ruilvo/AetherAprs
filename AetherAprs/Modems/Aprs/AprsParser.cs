@@ -43,6 +43,7 @@ public static class AprsParser
         {
             '!' or '=' => ParsePosition(info, source, destination, hasTimestamp: false),
             '@' or '/' => ParsePosition(info, source, destination, hasTimestamp: true),
+            ';' => ParseObjectPosition(info, source, destination),
             ':' => ParseMessage(info, source, destination),
             '>' => ParseStatus(info, source, destination),
             '_' => ParseWeather(info, source, destination),
@@ -200,6 +201,22 @@ public static class AprsParser
             Altitude = null,
             Timestamp = null
         };
+    }
+
+    private static AprsPacket ParseObjectPosition(string info, Callsign source, Callsign destination)
+    {
+        // Object format: ;objectnam*DDHHMMz<position> (or '_' for a killed object).
+        if (info.Length < 19 || (info[10] != '*' && info[10] != '_'))
+        {
+            return AsUnknown(info, source, destination);
+        }
+
+        var positionInfo = "@" + info[11..];
+        var packet = ParsePosition(positionInfo, source, destination, hasTimestamp: true);
+
+        return packet is PositionPacket
+            ? packet with { Raw = info }
+            : packet;
     }
 
     private static bool TryParseLatitude(ReadOnlySpan<char> segment, out double latitude, out int precision)

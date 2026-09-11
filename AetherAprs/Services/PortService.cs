@@ -51,6 +51,11 @@ public class PortService : IPortService
             port.Name = updatedPort.Name;
             port.IsRx = updatedPort.IsRx;
             port.IsTx = updatedPort.IsTx;
+            port.Server = updatedPort.Server;
+            port.ServerPort = updatedPort.ServerPort;
+            port.Passcode = updatedPort.Passcode;
+            port.Filter = updatedPort.Filter;
+            port.Ssid = updatedPort.Ssid;
             port.DynamicBeaconMode = updatedPort.DynamicBeaconMode;
             await _configurationService.SaveSettingsAsync();
             PortsChanged?.Invoke(this, EventArgs.Empty);
@@ -92,6 +97,46 @@ public class PortService : IPortService
         }
 
         PortsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public async Task SendPacketAsync(Guid id, AprsPacket packet)
+    {
+        ArgumentNullException.ThrowIfNull(packet);
+
+        if (!_activeModems.TryGetValue(id, out var modem))
+        {
+            throw new InvalidOperationException($"Port {id} is not running.");
+        }
+
+        var portName = Ports.FirstOrDefault(port => port.Id == id)?.Name ?? id.ToString();
+        var infoField = AprsSerializer.FormatInfoField(packet);
+        var rawPacket = $"{packet.Source}>{packet.Destination}:{infoField}";
+
+        await modem.SendAsync(packet);
+
+        if (packet is PositionPacket position)
+        {
+            _logger.LogInformation(
+                "Transmitted APRS position on port {PortName} ({PortId}): Latitude={Latitude:F5}, Longitude={Longitude:F5}, Altitude={Altitude}, Course={Course}, Speed={Speed}, Comment={Comment}, RawPacket={RawPacket}",
+                portName,
+                id,
+                position.Latitude,
+                position.Longitude,
+                position.Altitude,
+                position.Course,
+                position.Speed,
+                position.Comment,
+                rawPacket);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Transmitted APRS packet on port {PortName} ({PortId}), Type={PacketType}, RawPacket={RawPacket}",
+                portName,
+                id,
+                packet.Type,
+                rawPacket);
+        }
     }
 
     public async Task StartAllEnabledPortsAsync()

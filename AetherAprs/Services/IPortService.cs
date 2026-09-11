@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.Services;
 
@@ -22,6 +23,8 @@ public interface IPortService
     Task RemovePortAsync(Guid id);
 
     Task SetPortEnabledAsync(Guid id, bool enabled);
+
+    Task SendPacketAsync(Guid id, AprsPacket packet);
 
     Task StartAllEnabledPortsAsync();
 

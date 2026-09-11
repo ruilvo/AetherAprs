@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -33,6 +34,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private Stream? _stream;
     private CancellationTokenSource? _readCts;
     private Task? _readTask;
+    private TaskCompletionSource<bool> _connectionReady = CreateConnectionReadySource();
     private bool _started;
     private bool _disposed;
 
@@ -91,6 +93,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             throw new InvalidOperationException("AprsIsModem is already started.");
         }
 
+        _connectionReady = CreateConnectionReadySource();
         _readCts = new CancellationTokenSource();
         _readTask = ReadLoopAsync(_readCts.Token);
 
@@ -109,6 +112,8 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         {
             await _readCts.CancelAsync();
         }
+
+        _connectionReady.TrySetCanceled();
 
         if (_readTask is not null)
         {
@@ -129,6 +134,13 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     public async Task SendAsync(AprsPacket packet, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(packet);
+
+        if (!_started)
+        {
+            throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
+        }
+
+        await _connectionReady.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         // APRS-IS line format: source>dest:info_field
         var infoField = AprsSerializer.FormatInfoField(packet);
@@ -215,15 +227,22 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             login += $" filter {_filter}";
         }
 
+        _logger.LogInformation(
+            "Connecting to APRS-IS {Host}:{Port} with filter {Filter}",
+            _host,
+            _port,
+            string.IsNullOrEmpty(_filter) ? "<none>" : _filter);
+
         await _writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
         await _writer.FlushAsync().ConfigureAwait(false);
+        _connectionReady.TrySetResult(true);
 
         // Read lines from the server
-         while (!cancellationToken.IsCancellationRequested)
-         {
-             var line = await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var line = await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
-             if (line is null)
+            if (line is null)
              {
                  // Connection closed by server
                  _logger.LogInformation("Connection closed by server.");
@@ -252,6 +271,9 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
              }
          }
     }
+
+    private static TaskCompletionSource<bool> CreateConnectionReadySource() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>
     /// Parses an APRS-IS text line into an <see cref="AprsPacket"/>.
@@ -288,6 +310,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         Callsign source;
         Callsign destination;
+        string? rawSource = null;
 
         try
         {
@@ -296,10 +319,47 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
         catch (ArgumentException)
         {
-            return null;
+            if (!IsExtendedSourceIdentifier(sourceStr))
+            {
+                return null;
+            }
+
+            source = new Callsign("APRS");
+            rawSource = sourceStr.Trim().ToUpperInvariant();
+
+            try
+            {
+                destination = ParseCallsign(destStr);
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
         }
 
-        return AprsParser.ParseInfoField(info, source, destination);
+        var packet = AprsParser.ParseInfoField(info, source, destination);
+        return packet with { RawSource = rawSource };
+    }
+
+    private static bool IsExtendedSourceIdentifier(string value)
+    {
+        string identifier = value.Trim();
+        int dashIndex = identifier.LastIndexOf('-');
+
+        if (dashIndex > 0)
+        {
+            if (dashIndex == identifier.Length - 1 ||
+                !int.TryParse(identifier[(dashIndex + 1)..], out var ssid) ||
+                ssid is < 0 or > 15)
+            {
+                return false;
+            }
+
+            identifier = identifier[..dashIndex];
+        }
+
+        return identifier.Length is > 6 and <= 9 &&
+               identifier.All(char.IsAsciiLetterOrDigit);
     }
 
     /// <summary>

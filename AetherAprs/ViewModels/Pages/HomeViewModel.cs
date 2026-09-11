@@ -54,51 +54,59 @@ public partial class HomeViewModel : ViewModelBase
         _configurationService = configurationService;
         _logger = logger;
         IsLocationAvailable = _locationService.IsLocationAvailable();
+        _previousPortEnabledState = _portService.Ports
+            .ToDictionary(port => port.Id, port => port.IsEnabled);
 
-        // Subscribe to port changes to send initial beacon when TX port enables
         _portService.PortsChanged += OnPortsChanged;
     }
 
-    private void OnPortsChanged(object? sender, EventArgs e)
+    private async void OnPortsChanged(object? sender, EventArgs e)
     {
-        // Check for ports transitioning from disabled to enabled
-        _ = Task.Run(async () =>
+        try
         {
-            try
+            var enabledTxPorts = _portService.Ports.Where(port => port.IsTx).ToList();
+            var portsJustEnabled = enabledTxPorts
+                .Where(port => port.IsEnabled && (!_previousPortEnabledState.TryGetValue(port.Id, out var wasEnabled) || !wasEnabled))
+                .ToList();
+
+            _previousPortEnabledState = enabledTxPorts
+                .ToDictionary(port => port.Id, port => port.IsEnabled);
+
+            if (UserLocation == null || portsJustEnabled.Count == 0)
+                return;
+
+            var callsign = _configurationService.Settings.Aprs.Callsign;
+            if (string.IsNullOrEmpty(callsign))
+                return;
+
+            var sentPortNames = new List<string>();
+            foreach (var port in portsJustEnabled)
             {
-                if (UserLocation == null)
-                    return;
-
-                // Find ports that just transitioned to enabled (false → true)
-                var enabledTxPorts = _portService.Ports.Where(p => p.IsTx).ToList();
-                var portsJustEnabled = enabledTxPorts
-                    .Where(p => p.IsEnabled && (!_previousPortEnabledState.ContainsKey(p.Id) || !_previousPortEnabledState[p.Id]))
-                    .ToList();
-
-                // Update tracking state for all TX ports
-                foreach (var port in enabledTxPorts)
+                try
                 {
-                    _previousPortEnabledState[port.Id] = port.IsEnabled;
+                    _beaconService.SetActiveMode(port.DynamicBeaconMode);
+                    var packet = _beaconService.CreatePositionPacket(UserLocation, callsign);
+                    await _portService.SendPacketAsync(port.Id, packet);
+                    sentPortNames.Add(port.Name);
+                    _logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending initial beacon on port activation for {PortName}", port.Name);
+                }
+            }
 
-                // Only transmit if at least one TX port was just enabled
-                if (portsJustEnabled.Count == 0)
-                    return;
-
-                var callsign = _configurationService.Settings.Aprs.Callsign;
-                if (string.IsNullOrEmpty(callsign))
-                    return;
-
-                var packet = _beaconService.CreatePositionPacket(UserLocation, callsign);
-                var portNames = string.Join(", ", portsJustEnabled.Select(p => p.Name));
-                _logger.LogInformation("Initial beacon sent due to port activation: {Ports}", portNames);
+            if (sentPortNames.Count > 0)
+            {
+                _beaconService.ResetTransmissionTimer();
+                var portNames = string.Join(", ", sentPortNames);
                 BeaconStatus = $"✓ Initial beacon sent on port activation ({portNames})";
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending initial beacon on port activation");
-            }
-        });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending initial beacon on port activation");
+        }
     }
 
     public async Task StartLocationTrackingAsync()
@@ -187,19 +195,16 @@ public partial class HomeViewModel : ViewModelBase
                 return;
             }
 
-            // Create position packet
-            var packet = _beaconService.CreatePositionPacket(currentLocation, callsign);
-
             // Send to each TX port with the configured beacon mode
+            var sentPortCount = 0;
             foreach (var port in txPorts)
             {
                 try
                 {
-                    // Set beacon mode for this port
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-
-                    // Get active port modem and send
-                    // Note: This would need to be enhanced to get the actual modem instance
+                    var packet = _beaconService.CreatePositionPacket(currentLocation, callsign);
+                    await _portService.SendPacketAsync(port.Id, packet);
+                    sentPortCount++;
                     _logger.LogInformation(
                         "Beacon transmitted on port {PortName}: {Lat}, {Lon} (Speed: {Speed:F1}km/h, Course: {Course:F0}°)",
                         port.Name,
@@ -212,6 +217,12 @@ public partial class HomeViewModel : ViewModelBase
                 {
                     _logger.LogError(ex, "Error transmitting beacon on port {PortName}", port.Name);
                 }
+            }
+
+            if (sentPortCount == 0)
+            {
+                BeaconStatus = "Beacon transmission failed";
+                return;
             }
 
             // Reset transmission timer
@@ -252,14 +263,26 @@ public partial class HomeViewModel : ViewModelBase
                 return;
             }
 
-            var packet = _beaconService.CreatePositionPacket(UserLocation, callsign);
-
+            var sentPortCount = 0;
             foreach (var port in txPorts)
             {
-                _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
+                try
+                {
+                    _beaconService.SetActiveMode(port.DynamicBeaconMode);
+                    var packet = _beaconService.CreatePositionPacket(UserLocation, callsign);
+                    await _portService.SendPacketAsync(port.Id, packet);
+                    sentPortCount++;
+                    _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error sending manual beacon on port {PortName}", port.Name);
+                }
             }
 
-            BeaconStatus = "✓ Manual beacon sent";
+            BeaconStatus = sentPortCount > 0
+                ? "✓ Manual beacon sent"
+                : "Manual beacon transmission failed";
         }
         catch (Exception ex)
         {

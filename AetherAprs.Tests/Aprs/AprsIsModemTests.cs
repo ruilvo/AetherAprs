@@ -237,6 +237,20 @@ public class AprsIsModemTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public void ParseIsLine_ExtendedSourceIdentifier_PreservesSourceAndDecodesPacket()
+    {
+        var line = "7000tgi9>APHPIB,TCPIP*,qAC,T2CAEAST:;7000tgi9 *290819z0019.85S\\12017.83E!Earthquake";
+        var result = InvokeParseIsLine(line);
+
+        var position = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(new Callsign("APRS"), position.Source);
+        Assert.Equal("7000TGI9", position.RawSource);
+        Assert.Equal(-0.330833, position.Latitude, 5);
+        Assert.Equal(120.297167, position.Longitude, 5);
+        Assert.Equal("Earthquake", position.Comment);
+    }
+
     // ---------------------------------------------------------------
     // Helper — invoke private static ParseIsLine via reflection
     // ---------------------------------------------------------------
