@@ -30,8 +30,11 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
     /// <summary>Size of each cell in pixels (2x resolution).</summary>
     private const int CellSize = 128;
 
-    /// <summary>ASCII code offset (first printable character).</summary>
-    private const int CodeOffset = 0x20;
+    /// <summary>
+    /// ASCII code offset for the packed symbol sheets. The sheets omit the
+    /// space character, so the first cell represents '!'.
+    /// </summary>
+    private const int CodeOffset = 0x21;
 
     private static readonly Uri[] SpriteSheetUris =
     [
@@ -152,6 +155,11 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
 
     private static (int row, int col) GetCellPosition(int codeValue)
     {
+        if (codeValue < CodeOffset)
+        {
+            throw new ArgumentOutOfRangeException(nameof(codeValue), "The symbol sprite sheets do not contain the space character.");
+        }
+
         var index = codeValue - CodeOffset;
         return (index / Columns, index % Columns);
     }
