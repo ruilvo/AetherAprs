@@ -8,6 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:models="using:AetherAprs.Models"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
@@ -24,11 +25,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <Style Selector="NumericUpDown">
       <Setter Property="Margin" Value="0,4,0,0" />
       <Setter Property="MinHeight" Value="40" />
-    </Style>
-    <Style Selector="RadioButton">
-      <Setter Property="Margin" Value="0,8,0,0" />
-      <Setter Property="MinHeight" Value="40" />
-      <Setter Property="Padding" Value="16" />
     </Style>
   </UserControl.Styles>
 
@@ -52,21 +48,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Subtitle2"
                      Text="Active Beacon Mode"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
-          
-          <RadioButton Content="Walk (Pedestrian)"
-                       IsChecked="{Binding ActiveMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Walk}"
-                       Command="{Binding SetActiveModeCommand}"
-                       CommandParameter="Walk" />
-          
-          <RadioButton Content="Drive (Vehicular)"
-                       IsChecked="{Binding ActiveMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Drive}"
-                       Command="{Binding SetActiveModeCommand}"
-                       CommandParameter="Drive" />
-          
-          <RadioButton Content="Custom"
-                       IsChecked="{Binding ActiveMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Custom}"
-                       Command="{Binding SetActiveModeCommand}"
-                       CommandParameter="Custom" />
+
+          <ComboBox Theme="{StaticResource MaterialOutlineComboBox}"
+                    wpf:ComboBoxAssist.Label="Mode"
+                    x:CompileBindings="False"
+                    SelectedValue="{Binding ActiveMode, Mode=TwoWay}"
+                    SelectedValueBinding="{Binding Tag}">
+            <ComboBoxItem Content="Walk (Pedestrian)"
+                          Tag="{x:Static models:DynamicBeaconMode.Walk}" />
+            <ComboBoxItem Content="Drive (Vehicular)"
+                          Tag="{x:Static models:DynamicBeaconMode.Drive}" />
+            <ComboBoxItem Content="Custom"
+                          Tag="{x:Static models:DynamicBeaconMode.Custom}" />
+          </ComboBox>
         </StackPanel>
 
         <!-- Walk Configuration -->
@@ -77,12 +71,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 BorderBrush="{DynamicResource MaterialDividerBrush}">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
-              <TextBlock Classes="Subtitle1" Text="Walk Mode" />
+                    <TextBlock Classes="Subtitle1" Text="Walk Mode" VerticalAlignment="Center" />
               <Button Content="Reset to Default"
                       Command="{Binding ResetWalkToDefaultCommand}"
                       Padding="8,4"
                       MinHeight="32"
                       FontSize="12"
+                      VerticalAlignment="Center"
                       Classes="Outlined" />
             </StackPanel>
 
@@ -194,12 +189,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 BorderBrush="{DynamicResource MaterialDividerBrush}">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
-              <TextBlock Classes="Subtitle1" Text="Drive Mode" />
+                    <TextBlock Classes="Subtitle1" Text="Drive Mode" VerticalAlignment="Center" />
               <Button Content="Reset to Default"
                       Command="{Binding ResetDriveToDefaultCommand}"
                       Padding="8,4"
                       MinHeight="32"
                       FontSize="12"
+                      VerticalAlignment="Center"
                       Classes="Outlined" />
             </StackPanel>
 
@@ -311,12 +307,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 BorderBrush="{DynamicResource MaterialDividerBrush}">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
-              <TextBlock Classes="Subtitle1" Text="Custom Mode" />
+                    <TextBlock Classes="Subtitle1" Text="Custom Mode" VerticalAlignment="Center" />
               <Button Content="Reset to Default"
                       Command="{Binding ResetCustomToDefaultCommand}"
                       Padding="8,4"
                       MinHeight="32"
                       FontSize="12"
+                      VerticalAlignment="Center"
                       Classes="Outlined" />
             </StackPanel>
 

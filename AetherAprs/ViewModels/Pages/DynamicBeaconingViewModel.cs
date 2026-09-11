@@ -61,7 +61,11 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
             return;
 
         ActiveMode = mode;
-        _beaconService.SetActiveMode(mode);
+    }
+
+    partial void OnActiveModeChanged(DynamicBeaconMode value)
+    {
+        _beaconService.SetActiveMode(value);
     }
 
     [RelayCommand]
