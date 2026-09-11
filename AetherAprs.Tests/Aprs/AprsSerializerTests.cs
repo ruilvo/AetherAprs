@@ -49,14 +49,14 @@ public class AprsSerializerTests
             Destination = new Callsign("APRS"),
             Latitude = 41.41764333333333,
             Longitude = -8.521698333333333,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Comment = "Walking",
             Precision = 2
         };
 
         var infoField = AprsSerializer.FormatInfoField(packet);
 
-        Assert.Equal("!4125.06N/00831.30WaWalking", infoField);
+        Assert.Equal("!4125.06N/00831.30W[Walking", infoField);
     }
 
     [Fact]

@@ -241,7 +241,7 @@ public sealed class HomeViewModelTests
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 Precision = 2,
-                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
                 Comment = "Walking"
             };
         }

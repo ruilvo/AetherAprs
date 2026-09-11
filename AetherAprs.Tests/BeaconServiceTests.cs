@@ -4,6 +4,7 @@
 
 using System;
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Services;
 using Xunit;
@@ -211,9 +212,10 @@ public class BeaconServiceTests
 
         var packet = service.CreatePositionPacket(location, "CT7ALW-7");
 
+        Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
         Assert.Equal(2, packet.Precision);
         Assert.Equal(
-            "!4125.06N/00831.30WaWalking",
+            "!4125.06N/00831.30W[Walking",
             AprsSerializer.FormatInfoField(packet));
     }
 

@@ -253,7 +253,7 @@ public sealed class BeaconService : IBeaconService
             Longitude = location.Longitude,
             Altitude = location.Altitude.HasValue ? location.Altitude.Value * 3.28084 : null, // Convert meters to feet
             Course = _lastCourseDegrees.HasValue ? _lastCourseDegrees.Value : null,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Comment = config.BeaconComment,
             Precision = 2
         };
