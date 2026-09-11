@@ -13,6 +13,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Dialogs.AddEditPortDialogView"
@@ -22,6 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <UserControl.Resources>
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
     <converters:PortTypeToIsVisibleConverter x:Key="PortTypeToIsVisibleConverter" />
+    <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
   </UserControl.Resources>
 
   <UserControl.Styles>
@@ -69,6 +71,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="8">
           <ComboBox ItemsSource="{Binding BeaconModes}"
                     SelectedItem="{Binding SelectedBeaconMode}"
+                    IsEnabled="{Binding UseDefaultBeaconMode, Converter={StaticResource InverseBooleanConverter}}"
                     wpf:ComboBoxAssist.Label="Dynamic Beaconing Mode">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:Object">
@@ -82,70 +85,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     VerticalContentAlignment="Center" />
         </StackPanel>
 
-        <!-- APRS Symbol Section -->
-        <StackPanel Spacing="8">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <avalonia:MaterialIcon Kind="MapMarker"
-                                   Width="20"
-                                   Height="20"
-                                    Foreground="{DynamicResource MaterialPrimaryBrush}" />
-            <TextBlock Classes="Subheading"
-                       Text="APRS Symbol"
-                       Foreground="{DynamicResource MaterialPrimaryBrush}" />
-          </StackPanel>
-          <Grid ColumnDefinitions="64,64,Auto"
-                ColumnSpacing="12"
-                VerticalAlignment="Center">
-            <TextBox Grid.Column="0"
-                     Text="{Binding SymbolTableCharacter}"
-                     MaxLength="1"
-                     HorizontalContentAlignment="Center"
-                     PlaceholderText="/"
-                     wpf:TextFieldAssist.Label="Table"
-                     UseFloatingPlaceholder="True" />
-            <TextBox Grid.Column="1"
-                     Text="{Binding SymbolCodeCharacter}"
-                     MaxLength="1"
-                     HorizontalContentAlignment="Center"
-                     PlaceholderText="["
-                     wpf:TextFieldAssist.Label="Code"
-                     UseFloatingPlaceholder="True" />
-            <Border Grid.Column="2"
-                    Width="64"
-                    Height="64"
-                    Padding="4"
-                    CornerRadius="4"
-                    BorderThickness="1"
-                    BorderBrush="{DynamicResource MaterialDividerBrush}"
-                    Background="{DynamicResource MaterialCardBackgroundBrush}">
-              <Image Source="{Binding SymbolPreview}"
-                     Stretch="Uniform" />
-            </Border>
-          </Grid>
-          <CheckBox Content="Use default station symbol"
-                    IsChecked="{Binding UseDefaultSymbol}"
-                    MinHeight="40"
-                    VerticalContentAlignment="Center" />
-          <ComboBox ItemsSource="{Binding SymbolOptions}"
-                    SelectedItem="{Binding SelectedSymbolOption, Mode=TwoWay}"
-                    Theme="{StaticResource MaterialOutlineComboBox}"
-                    wpf:ComboBoxAssist.Label="Choose a symbol">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:AprsSymbolOption">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <TextBlock Text="{Binding Name}" />
-                  <TextBlock Text="(" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                  <TextBlock Text="{Binding TableCharacter}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                  <TextBlock Text="{Binding CodeCharacter}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                  <TextBlock Text=")" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                </StackPanel>
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <TextBlock Text="Enter the APRS table and code characters."
-                     Classes="Caption"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-        </StackPanel>
+        <components:AprsSymbolPickerView
+          TableCharacter="{Binding SymbolTableCharacter, Mode=TwoWay}"
+          CodeCharacter="{Binding SymbolCodeCharacter, Mode=TwoWay}"
+          UseDefault="{Binding UseDefaultSymbol, Mode=TwoWay}"
+            ShowInheritOption="True" />
 
         <!-- Port Type Section -->
         <StackPanel Spacing="8">

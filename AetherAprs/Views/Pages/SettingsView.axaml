@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
@@ -53,17 +54,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="Default SSID"
                      UseFloatingPlaceholder="True" />
 
-            <TextBox Text="{Binding DefaultSymbolTableCharacter}"
-                     MaxLength="1"
-                     PlaceholderText="/"
-                     wpf:TextFieldAssist.Label="Default symbol table"
-                     UseFloatingPlaceholder="True" />
-
-            <TextBox Text="{Binding DefaultSymbolCodeCharacter}"
-                     MaxLength="1"
-                     PlaceholderText="["
-                     wpf:TextFieldAssist.Label="Default symbol code"
-                     UseFloatingPlaceholder="True" />
+            <components:AprsSymbolPickerView
+              TableCharacter="{Binding DefaultSymbolTableCharacter, Mode=TwoWay}"
+              CodeCharacter="{Binding DefaultSymbolCodeCharacter, Mode=TwoWay}"
+              ShowInheritOption="False" />
 
             <ComboBox ItemsSource="{Binding BeaconModes}"
                       SelectedItem="{Binding DefaultBeaconMode}"
