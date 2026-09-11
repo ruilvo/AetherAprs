@@ -25,6 +25,9 @@ public sealed class ConfigurationServiceTests
             var service = new ConfigurationService(provider);
 
             service.Settings.Aprs.Callsign = "CT7ALW";
+            service.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
+            service.Settings.Aprs.DefaultSymbolCodeCharacter = ">";
+            service.Settings.Aprs.DefaultBeaconMode = AetherAprs.Models.DynamicBeaconMode.Drive;
             service.Settings.Ports.Add(new AetherAprs.Configuration.PortConfig
             {
                 Name = "APRS-IS",
@@ -41,6 +44,9 @@ public sealed class ConfigurationServiceTests
             Assert.True(File.Exists(savedPath));
             var reloaded = new ConfigurationService(provider);
             Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
+            Assert.Equal("\\", reloaded.Settings.Aprs.DefaultSymbolTableCharacter);
+            Assert.Equal(">", reloaded.Settings.Aprs.DefaultSymbolCodeCharacter);
+            Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, reloaded.Settings.Aprs.DefaultBeaconMode);
             var port = Assert.Single(reloaded.Settings.Ports);
             Assert.Equal("\\", port.SymbolTableCharacter);
             Assert.Equal(">", port.SymbolCodeCharacter);
@@ -63,8 +69,11 @@ public sealed class ConfigurationServiceTests
             var service = new ConfigurationService(new TestAppDataDirProvider(directory));
 
             var port = Assert.Single(service.Settings.Ports);
-            Assert.Equal("/", port.SymbolTableCharacter);
-            Assert.Equal("[", port.SymbolCodeCharacter);
+            Assert.Null(port.SymbolTableCharacter);
+            Assert.Null(port.SymbolCodeCharacter);
+            Assert.Equal("/", service.Settings.Aprs.DefaultSymbolTableCharacter);
+            Assert.Equal("[", service.Settings.Aprs.DefaultSymbolCodeCharacter);
+            Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Walk, service.Settings.Aprs.DefaultBeaconMode);
         }
         finally
         {

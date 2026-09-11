@@ -5,6 +5,7 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Configuration;
+using AetherAprs.Models;
 
 namespace AetherAprs.ViewModels;
 
@@ -30,10 +31,13 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     public partial bool IsTx { get; set; } = config.IsTx;
 
     [ObservableProperty]
-    public partial string SymbolTableCharacter { get; set; } = config.SymbolTableCharacter;
+    public partial string? SymbolTableCharacter { get; set; } = config.SymbolTableCharacter;
 
     [ObservableProperty]
-    public partial string SymbolCodeCharacter { get; set; } = config.SymbolCodeCharacter;
+    public partial string? SymbolCodeCharacter { get; set; } = config.SymbolCodeCharacter;
+
+    [ObservableProperty]
+    public partial DynamicBeaconMode? DynamicBeaconMode { get; set; } = config.DynamicBeaconMode;
 
     [ObservableProperty]
     public partial string StatusText { get; set; } = config.IsEnabled ? "Running" : "Stopped";
@@ -65,7 +69,8 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             IsRx = IsRx,
             IsTx = IsTx,
             SymbolTableCharacter = SymbolTableCharacter,
-            SymbolCodeCharacter = SymbolCodeCharacter
+            SymbolCodeCharacter = SymbolCodeCharacter,
+            DynamicBeaconMode = DynamicBeaconMode,
         };
     }
 }

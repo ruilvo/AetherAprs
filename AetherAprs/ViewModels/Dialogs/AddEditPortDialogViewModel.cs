@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Imaging;
@@ -11,7 +12,9 @@ using AetherAprs.Models.Aprs;
 using Avalonia.Media.Imaging;
 using SkiaSharp;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace AetherAprs.ViewModels;
 
@@ -19,6 +22,17 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 {
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
     private readonly Func<SKBitmap, Bitmap?> _previewFactory;
+
+    public IReadOnlyList<AprsSymbolOption> SymbolOptions { get; } =
+    [
+        new("Human", "/", "["),
+        new("Ambulance", "/", "a"),
+        new("Car", "/", ">"),
+        new("Truck", "/", "k"),
+        new("Boat", "/", "s"),
+        new("Emergency", "\\", "!"),
+        new("Hospital", "\\", "h")
+    ];
 
     [ObservableProperty]
     public partial string Name { get; set; }
@@ -48,6 +62,12 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial string SymbolCodeCharacter { get; set; } = "[";
 
     [ObservableProperty]
+    public partial bool UseDefaultSymbol { get; set; } = true;
+
+    [ObservableProperty]
+    public partial AprsSymbolOption? SelectedSymbolOption { get; set; }
+
+    [ObservableProperty]
     public partial Bitmap? SymbolPreview { get; private set; }
 
     [ObservableProperty]
@@ -60,33 +80,62 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial bool IsTx { get; set; } = false;
 
     [ObservableProperty]
-    public partial DynamicBeaconMode SelectedBeaconMode { get; set; } = DynamicBeaconMode.Walk;
+    public partial DynamicBeaconMode? SelectedBeaconMode { get; set; }
+
+    [ObservableProperty]
+    public partial bool UseDefaultBeaconMode { get; set; } = true;
 
     public PortType[] PortTypes { get; } = [PortType.AprsIs];
 
-    public DynamicBeaconMode[] BeaconModes { get; } = [DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
+    public DynamicBeaconMode?[] BeaconModes { get; } = [null, DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
 
     public AddEditPortDialogViewModel(
         string globalCallsign,
         int nextPortNumber,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
-        Func<SKBitmap, Bitmap?>? previewFactory = null)
+        Func<SKBitmap, Bitmap?>? previewFactory = null,
+        string defaultSymbolTableCharacter = "/",
+        string defaultSymbolCodeCharacter = "[",
+        DynamicBeaconMode defaultBeaconMode = DynamicBeaconMode.Walk)
     {
         _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
         _previewFactory = previewFactory ?? CreatePreviewBitmap;
         Name = $"APRS-IS Port {nextPortNumber}";
         Passcode = AprsPasscode.Compute(globalCallsign);
+        SymbolTableCharacter = defaultSymbolTableCharacter;
+        SymbolCodeCharacter = defaultSymbolCodeCharacter;
+        SelectedBeaconMode = defaultBeaconMode;
+        UpdateSelectedSymbolOption();
         UpdateSymbolPreview();
     }
 
     partial void OnSymbolTableCharacterChanged(string value)
     {
+        UpdateSelectedSymbolOption();
         UpdateSymbolPreview();
     }
 
     partial void OnSymbolCodeCharacterChanged(string value)
     {
+        UpdateSelectedSymbolOption();
         UpdateSymbolPreview();
+    }
+
+    partial void OnSelectedSymbolOptionChanged(AprsSymbolOption? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        SymbolTableCharacter = value.TableCharacter;
+        SymbolCodeCharacter = value.CodeCharacter;
+    }
+
+    [RelayCommand]
+    private void SelectSymbol(AprsSymbolOption option)
+    {
+        SelectedSymbolOption = option;
     }
 
     public PortConfig BuildConfig()
@@ -105,11 +154,11 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             Passcode = Passcode,
             Filter = Filter,
             Ssid = Ssid,
-            SymbolTableCharacter = SymbolTableCharacter,
-            SymbolCodeCharacter = SymbolCodeCharacter,
+            SymbolTableCharacter = UseDefaultSymbol ? null : SymbolTableCharacter,
+            SymbolCodeCharacter = UseDefaultSymbol ? null : SymbolCodeCharacter,
             IsRx = IsRx,
             IsTx = IsTx,
-            DynamicBeaconMode = SelectedBeaconMode
+            DynamicBeaconMode = UseDefaultBeaconMode ? null : SelectedBeaconMode
         };
     }
 
@@ -127,6 +176,13 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         var symbolBitmap = _symbolBitmapProvider.GetSymbolBitmap(symbol);
         SymbolPreview = _previewFactory(symbolBitmap);
         IsSymbolValid = true;
+    }
+
+    private void UpdateSelectedSymbolOption()
+    {
+        SelectedSymbolOption = SymbolOptions.FirstOrDefault(option =>
+            option.TableCharacter == SymbolTableCharacter &&
+            option.CodeCharacter == SymbolCodeCharacter);
     }
 
     private static Bitmap CreatePreviewBitmap(SKBitmap bitmap)
@@ -159,3 +215,8 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         }
     }
 }
+
+public sealed record AprsSymbolOption(
+    string Name,
+    string TableCharacter,
+    string CodeCharacter);

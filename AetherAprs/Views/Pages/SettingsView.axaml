@@ -22,7 +22,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <Setter Property="MinHeight" Value="48" />
     </Style>
   </UserControl.Styles>
-  
+
   <Grid RowDefinitions="*,Auto">
     <ScrollViewer Grid.Row="0">
       <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
@@ -52,6 +52,28 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      PlaceholderText="0"
                      wpf:TextFieldAssist.Label="Default SSID"
                      UseFloatingPlaceholder="True" />
+
+            <TextBox Text="{Binding DefaultSymbolTableCharacter}"
+                     MaxLength="1"
+                     PlaceholderText="/"
+                     wpf:TextFieldAssist.Label="Default symbol table"
+                     UseFloatingPlaceholder="True" />
+
+            <TextBox Text="{Binding DefaultSymbolCodeCharacter}"
+                     MaxLength="1"
+                     PlaceholderText="["
+                     wpf:TextFieldAssist.Label="Default symbol code"
+                     UseFloatingPlaceholder="True" />
+
+            <ComboBox ItemsSource="{Binding BeaconModes}"
+                      SelectedItem="{Binding DefaultBeaconMode}"
+                      wpf:ComboBoxAssist.Label="Default beacon mode">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="x:Object">
+                  <TextBlock Text="{Binding}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
 
             <!-- Success message -->
             <TextBlock Text="✓ Settings saved!"

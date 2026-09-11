@@ -42,16 +42,16 @@ public class PortConfig
     /// <summary>
     /// APRS symbol table character, normally '/' or '\'.
     /// </summary>
-    public string SymbolTableCharacter { get; set; } = "/";
+    public string? SymbolTableCharacter { get; set; }
 
     /// <summary>
     /// APRS symbol code character.
     /// </summary>
-    public string SymbolCodeCharacter { get; set; } = "[";
+    public string? SymbolCodeCharacter { get; set; }
 
     /// <summary>
     /// Dynamic beaconing mode to use for position transmissions on this port.
-    /// Defaults to Walk mode if not specified.
+    /// Null means that the global APRS default beacon mode is used.
     /// </summary>
-    public DynamicBeaconMode DynamicBeaconMode { get; set; } = DynamicBeaconMode.Walk;
+    public DynamicBeaconMode? DynamicBeaconMode { get; set; }
 }

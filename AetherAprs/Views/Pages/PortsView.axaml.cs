@@ -62,7 +62,10 @@ public partial class PortsView : UserControl
         var dialogVm = new AddEditPortDialogViewModel(
             globalCallsign,
             nextNumber,
-            App.GetService<IAprsSymbolBitmapProvider>());
+            App.GetService<IAprsSymbolBitmapProvider>(),
+            defaultSymbolTableCharacter: configService.Settings.Aprs.DefaultSymbolTableCharacter,
+            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter,
+            defaultBeaconMode: configService.Settings.Aprs.DefaultBeaconMode);
         dialogContent.DataContext = dialogVm;
 
         var result = await DialogHost.Show(dialogContent, "MainDialogHost");
@@ -90,14 +93,26 @@ public partial class PortsView : UserControl
         var dialogVm = new AddEditPortDialogViewModel(
             globalCallsign,
             viewModel.GetNextPortNumber(),
-            App.GetService<IAprsSymbolBitmapProvider>());
+            App.GetService<IAprsSymbolBitmapProvider>(),
+            defaultSymbolTableCharacter: configService.Settings.Aprs.DefaultSymbolTableCharacter,
+            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter,
+            defaultBeaconMode: configService.Settings.Aprs.DefaultBeaconMode);
 
         // Populate with existing values
         dialogVm.Name = item.Name;
         dialogVm.IsRx = item.IsRx;
         dialogVm.IsTx = item.IsTx;
-        dialogVm.SymbolTableCharacter = item.SymbolTableCharacter;
-        dialogVm.SymbolCodeCharacter = item.SymbolCodeCharacter;
+        dialogVm.UseDefaultSymbol = item.SymbolTableCharacter is null || item.SymbolCodeCharacter is null;
+        if (!dialogVm.UseDefaultSymbol)
+        {
+            dialogVm.SymbolTableCharacter = item.SymbolTableCharacter!;
+            dialogVm.SymbolCodeCharacter = item.SymbolCodeCharacter!;
+        }
+        dialogVm.UseDefaultBeaconMode = item.DynamicBeaconMode is null;
+        if (!dialogVm.UseDefaultBeaconMode)
+        {
+            dialogVm.SelectedBeaconMode = item.DynamicBeaconMode;
+        }
 
         dialogContent.DataContext = dialogVm;
 

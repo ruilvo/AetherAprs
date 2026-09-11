@@ -26,8 +26,8 @@ public sealed class AddEditPortDialogViewModelTests
         Assert.Equal(1, provider.RequestCount);
 
         var config = viewModel.BuildConfig();
-        Assert.Equal("/", config.SymbolTableCharacter);
-        Assert.Equal("[", config.SymbolCodeCharacter);
+        Assert.Null(config.SymbolTableCharacter);
+        Assert.Null(config.SymbolCodeCharacter);
     }
 
     [Fact]
@@ -38,6 +38,7 @@ public sealed class AddEditPortDialogViewModelTests
 
         viewModel.SymbolTableCharacter = "\\";
         viewModel.SymbolCodeCharacter = ">";
+        viewModel.UseDefaultSymbol = false;
 
         Assert.True(viewModel.IsSymbolValid);
         Assert.Null(viewModel.SymbolPreview);
@@ -45,6 +46,45 @@ public sealed class AddEditPortDialogViewModelTests
         var config = viewModel.BuildConfig();
         Assert.Equal("\\", config.SymbolTableCharacter);
         Assert.Equal(">", config.SymbolCodeCharacter);
+    }
+
+    [Fact]
+    public void SelectingSymbolOptionUpdatesBothCharacters()
+    {
+        using var provider = new TestSymbolBitmapProvider();
+        var viewModel = CreateViewModel(provider);
+        var ambulance = Assert.Single(viewModel.SymbolOptions, option => option.Name == "Ambulance");
+
+        viewModel.SelectedSymbolOption = ambulance;
+
+        Assert.Equal("/", viewModel.SymbolTableCharacter);
+        Assert.Equal("a", viewModel.SymbolCodeCharacter);
+        Assert.Same(ambulance, viewModel.SelectedSymbolOption);
+    }
+
+    [Fact]
+    public void BuildConfigCanInheritDefaultSymbolAndBeaconMode()
+    {
+        using var provider = new TestSymbolBitmapProvider();
+        var viewModel = CreateViewModel(provider);
+
+        var config = viewModel.BuildConfig();
+
+        Assert.Null(config.SymbolTableCharacter);
+        Assert.Null(config.SymbolCodeCharacter);
+        Assert.Null(config.DynamicBeaconMode);
+    }
+
+    [Fact]
+    public void ManuallyEditingSymbolClearsPresetSelection()
+    {
+        using var provider = new TestSymbolBitmapProvider();
+        var viewModel = CreateViewModel(provider);
+
+        viewModel.SymbolCodeCharacter = "#";
+
+        Assert.Null(viewModel.SelectedSymbolOption);
+        Assert.True(viewModel.IsSymbolValid);
     }
 
     [Theory]
