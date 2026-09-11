@@ -91,6 +91,14 @@ public class CallsignTests
     }
 
     [Fact]
+    public void ToString_WithZeroSsid_ReturnsBase()
+    {
+        var call = new Callsign("N0CALL", 0);
+
+        Assert.Equal("N0CALL", call.ToString());
+    }
+
+    [Fact]
     public void Equality_SameCallsign_AreEqual()
     {
         var a = new Callsign("N0CALL", 1);

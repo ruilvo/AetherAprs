@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models;
+using AetherAprs.Configuration;
 using AetherAprs.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -85,7 +86,7 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-                    var packet = _beaconService.CreatePositionPacket(UserLocation, callsign);
+                    var packet = _beaconService.CreatePositionPacket(UserLocation, GetPortCallsign(port, callsign));
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortNames.Add(port.Name);
                     _logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);
@@ -202,7 +203,7 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-                    var packet = _beaconService.CreatePositionPacket(currentLocation, callsign);
+                    var packet = _beaconService.CreatePositionPacket(currentLocation, GetPortCallsign(port, callsign));
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation(
@@ -269,7 +270,7 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-                    var packet = _beaconService.CreatePositionPacket(UserLocation, callsign);
+                    var packet = _beaconService.CreatePositionPacket(UserLocation, GetPortCallsign(port, callsign));
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
@@ -295,5 +296,17 @@ public partial class HomeViewModel : ViewModelBase
     {
         _locationUpdateCancellation?.Cancel();
         _locationUpdateCancellation = null;
+    }
+
+    private int? GetPortSsid(PortConfig port)
+    {
+        var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
+        return ssid > 0 ? ssid : null;
+    }
+
+    private string GetPortCallsign(PortConfig port, string callsign)
+    {
+        var ssid = GetPortSsid(port);
+        return ssid.HasValue ? $"{callsign}-{ssid.Value}" : callsign;
     }
 }

@@ -41,6 +41,23 @@ public sealed class HomeViewModelTests
     }
 
     [Fact]
+    public async Task EnablingTxPortUsesPortSsidInBeaconSource()
+    {
+        var port = CreatePort(isEnabled: false, isTx: true);
+        port.Ssid = 7;
+        var portService = new TestPortService(port);
+        var viewModel = CreateViewModel(portService, new TestBeaconService());
+        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+
+        port.IsEnabled = true;
+        portService.RaisePortsChanged();
+        var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+
+        Assert.Equal("CT7ALW", packet.Source.Base);
+        Assert.Equal(7, packet.Source.Ssid);
+    }
+
+    [Fact]
     public async Task EnablingRxOnlyPortDoesNotSendInitialBeacon()
     {
         var port = CreatePort(isEnabled: false, isTx: false);
@@ -212,9 +229,14 @@ public sealed class HomeViewModelTests
 
         public PositionPacket CreatePositionPacket(LocationData location, string callsign)
         {
+            var callsignParts = callsign.Split('-');
+            var source = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssid)
+                ? new Callsign(callsignParts[0], ssid)
+                : new Callsign(callsign);
+
             return new PositionPacket
             {
-                Source = new Callsign(callsign),
+                Source = source,
                 Destination = new Callsign("APRS"),
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,

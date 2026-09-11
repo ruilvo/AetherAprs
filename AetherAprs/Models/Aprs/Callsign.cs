@@ -52,6 +52,6 @@ public readonly record struct Callsign
     /// </summary>
     public override string ToString()
     {
-        return Ssid.HasValue ? $"{Base}-{Ssid.Value}" : Base;
+        return Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;
     }
 }
