@@ -14,7 +14,12 @@ namespace AetherAprs.Imaging;
 /// Provides <see cref="SKBitmap"/> images for APRS symbols by extracting and
 /// compositing from sprite sheets.
 /// </summary>
-public sealed class AprsSymbolBitmapProvider : IDisposable
+public interface IAprsSymbolBitmapProvider
+{
+    SKBitmap GetSymbolBitmap(Symbol symbol);
+}
+
+public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDisposable
 {
     /// <summary>Number of columns in each sprite sheet.</summary>
     private const int Columns = 16;

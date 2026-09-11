@@ -30,6 +30,12 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     public partial bool IsTx { get; set; } = config.IsTx;
 
     [ObservableProperty]
+    public partial string SymbolTableCharacter { get; set; } = config.SymbolTableCharacter;
+
+    [ObservableProperty]
+    public partial string SymbolCodeCharacter { get; set; } = config.SymbolCodeCharacter;
+
+    [ObservableProperty]
     public partial string StatusText { get; set; } = config.IsEnabled ? "Running" : "Stopped";
 
     partial void OnIsEnabledChanged(bool value)
@@ -57,7 +63,9 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             Type = Type,
             IsEnabled = IsEnabled,
             IsRx = IsRx,
-            IsTx = IsTx
+            IsTx = IsTx,
+            SymbolTableCharacter = SymbolTableCharacter,
+            SymbolCodeCharacter = SymbolCodeCharacter
         };
     }
 }

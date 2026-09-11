@@ -48,7 +48,9 @@ public class PortService : IPortService
         var port = _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == updatedPort.Id);
         if (port is not null)
         {
+            port.Type = updatedPort.Type;
             port.Name = updatedPort.Name;
+            port.IsEnabled = updatedPort.IsEnabled;
             port.IsRx = updatedPort.IsRx;
             port.IsTx = updatedPort.IsTx;
             port.Server = updatedPort.Server;
@@ -56,6 +58,8 @@ public class PortService : IPortService
             port.Passcode = updatedPort.Passcode;
             port.Filter = updatedPort.Filter;
             port.Ssid = updatedPort.Ssid;
+            port.SymbolTableCharacter = updatedPort.SymbolTableCharacter;
+            port.SymbolCodeCharacter = updatedPort.SymbolCodeCharacter;
             port.DynamicBeaconMode = updatedPort.DynamicBeaconMode;
             await _configurationService.SaveSettingsAsync();
             PortsChanged?.Invoke(this, EventArgs.Empty);

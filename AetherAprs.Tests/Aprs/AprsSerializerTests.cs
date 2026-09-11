@@ -250,6 +250,22 @@ public class AprsSerializerTests
     }
 
     [Fact]
+    public void FormatInfoField_MessageWithSsid_PreservesAddresseeSsid()
+    {
+        var packet = new MessagePacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Addressee = new Callsign("N0CALL", 1),
+            Text = "Hello"
+        };
+
+        var infoField = AprsSerializer.FormatInfoField(packet);
+
+        Assert.Equal(":N0CALL-1 :Hello", infoField);
+    }
+
+    [Fact]
     public void Serialize_Message_RoundTrips()
     {
         var packet = new MessagePacket

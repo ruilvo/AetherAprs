@@ -36,8 +36,27 @@ public sealed class HomeViewModelTests
         Assert.Equal(41.41764, packet.Latitude);
         Assert.Equal(-8.52170, packet.Longitude);
         Assert.Equal("CT7ALW", packet.Source.Base);
+        Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
         Assert.Contains("Initial beacon sent", viewModel.BeaconStatus);
         Assert.Equal(1, portService.SendCount);
+    }
+
+    [Fact]
+    public async Task EnablingTxPortUsesItsConfiguredSymbol()
+    {
+        var port = CreatePort(isEnabled: false, isTx: true);
+        port.SymbolTableCharacter = "\\";
+        port.SymbolCodeCharacter = ">";
+        var portService = new TestPortService(port);
+        var viewModel = CreateViewModel(portService, new TestBeaconService());
+        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+
+        port.IsEnabled = true;
+        portService.RaisePortsChanged();
+        var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+
+        Assert.Equal('\\', packet.Symbol.TableChar);
+        Assert.Equal('>', packet.Symbol.CodeChar);
     }
 
     [Fact]
@@ -227,7 +246,11 @@ public sealed class HomeViewModelTests
         {
         }
 
-        public PositionPacket CreatePositionPacket(LocationData location, string callsign)
+        public PositionPacket CreatePositionPacket(
+            LocationData location,
+            string callsign,
+            string symbolTableCharacter = "/",
+            string symbolCodeCharacter = "[")
         {
             var callsignParts = callsign.Split('-');
             var source = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssid)
@@ -241,7 +264,9 @@ public sealed class HomeViewModelTests
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 Precision = 2,
-                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+                Symbol = new Symbol(
+                    symbolTableCharacter[0].ToSymbolTable(),
+                    symbolCodeCharacter[0].ToSymbolCode()),
                 Comment = "Walking"
             };
         }

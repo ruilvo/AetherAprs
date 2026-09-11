@@ -153,7 +153,7 @@ public static class AprsSerializer
         // Format: :ADDRESSEE :message text{msgid}
         var info = new StringBuilder();
         info.Append(':');
-        info.Append(packet.Addressee.Base.PadRight(9, ' '));
+        info.Append(packet.Addressee.ToString().PadRight(9, ' '));
         info.Append(':');
 
         if (packet.MessageNumber.HasValue)

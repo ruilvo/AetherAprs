@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
+using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,7 @@ public static class DesignData
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IPortService, PortService>();
         services.AddSingleton<IBeaconService, BeaconService>();
+        services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
 
         // Register logging
         services.AddLogging(builder =>
@@ -118,7 +120,7 @@ public static class DesignData
         {
             var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
             var callsign = configService.Settings.Aprs.Callsign;
-            return new AddEditPortDialogViewModel(callsign, 1);
+            return new AddEditPortDialogViewModel(callsign, 1, _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>());
         }
     }
 }

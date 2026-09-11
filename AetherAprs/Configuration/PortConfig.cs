@@ -40,6 +40,16 @@ public class PortConfig
     public int? Ssid { get; set; }
 
     /// <summary>
+    /// APRS symbol table character, normally '/' or '\'.
+    /// </summary>
+    public string SymbolTableCharacter { get; set; } = "/";
+
+    /// <summary>
+    /// APRS symbol code character.
+    /// </summary>
+    public string SymbolCodeCharacter { get; set; } = "[";
+
+    /// <summary>
     /// Dynamic beaconing mode to use for position transmissions on this port.
     /// Defaults to Walk mode if not specified.
     /// </summary>

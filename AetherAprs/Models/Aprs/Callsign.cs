@@ -38,6 +38,14 @@ public readonly record struct Callsign
             throw new ArgumentException($"Callsign base must be 2-6 characters, got '{@base}'.", nameof(@base));
         }
 
+        foreach (var character in @base)
+        {
+            if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')))
+            {
+                throw new ArgumentException("Callsign base must contain only ASCII letters and digits.", nameof(@base));
+            }
+        }
+
         if (ssid is < 0 or > 15)
         {
             throw new ArgumentOutOfRangeException(nameof(ssid), ssid, "SSID must be between 0 and 15.");

@@ -86,7 +86,11 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-                    var packet = _beaconService.CreatePositionPacket(UserLocation, GetPortCallsign(port, callsign));
+                    var packet = _beaconService.CreatePositionPacket(
+                        UserLocation,
+                        GetPortCallsign(port, callsign),
+                        port.SymbolTableCharacter,
+                        port.SymbolCodeCharacter);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortNames.Add(port.Name);
                     _logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);
@@ -203,7 +207,11 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-                    var packet = _beaconService.CreatePositionPacket(currentLocation, GetPortCallsign(port, callsign));
+                    var packet = _beaconService.CreatePositionPacket(
+                        currentLocation,
+                        GetPortCallsign(port, callsign),
+                        port.SymbolTableCharacter,
+                        port.SymbolCodeCharacter);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation(
@@ -270,7 +278,11 @@ public partial class HomeViewModel : ViewModelBase
                 try
                 {
                     _beaconService.SetActiveMode(port.DynamicBeaconMode);
-                    var packet = _beaconService.CreatePositionPacket(UserLocation, GetPortCallsign(port, callsign));
+                    var packet = _beaconService.CreatePositionPacket(
+                        UserLocation,
+                        GetPortCallsign(port, callsign),
+                        port.SymbolTableCharacter,
+                        port.SymbolCodeCharacter);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);

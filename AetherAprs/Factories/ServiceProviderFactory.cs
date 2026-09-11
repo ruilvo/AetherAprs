@@ -4,6 +4,7 @@
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
+using AetherAprs.Imaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -40,6 +41,7 @@ public static class ServiceProviderFactory
 
         // Register beacon service
         services.AddSingleton<IBeaconService, BeaconService>();
+        services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
 
         // Register logging with deferred configuration resolution
         services.AddLogging(builder =>

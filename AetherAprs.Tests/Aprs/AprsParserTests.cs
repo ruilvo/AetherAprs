@@ -129,6 +129,37 @@ public class AprsParserTests
         Assert.Equal("Hi", msg.Text);
     }
 
+    [Fact]
+    public void ParseInfoField_MessageWithSsid_PreservesAddresseeSsid()
+    {
+        var result = AprsParser.ParseInfoField(":N0CALL-1:Hello", new Callsign("MYCALL"), new Callsign("APZ001"));
+
+        var message = Assert.IsType<MessagePacket>(result);
+        Assert.Equal(new Callsign("N0CALL", 1), message.Addressee);
+    }
+
+    [Theory]
+    [InlineData(":N0CALL   :{abc}")]
+    [InlineData(":N0CALL   :Hello{")]
+    public void ParseInfoField_MessageWithMalformedAck_DoesNotThrow(string info)
+    {
+        var exception = Record.Exception(() => AprsParser.ParseInfoField(info, new Callsign("MYCALL"), new Callsign("APZ001")));
+
+        Assert.Null(exception);
+    }
+
+    [Theory]
+    [InlineData("!9000.01N/00000.00E#")]
+    [InlineData("!9000.01S/00000.00E#")]
+    [InlineData("!0000.00N/18000.01E#")]
+    [InlineData("!0000.00N/18000.01W#")]
+    public void ParseInfoField_PositionOutsideCoordinateBounds_ReturnsUnknown(string info)
+    {
+        var result = AprsParser.ParseInfoField(info, new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        Assert.IsType<UnknownPacket>(result);
+    }
+
     // ---------------------------------------------------------------
     // Status parsing
     // ---------------------------------------------------------------

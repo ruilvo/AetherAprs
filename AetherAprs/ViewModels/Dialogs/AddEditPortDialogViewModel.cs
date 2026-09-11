@@ -5,15 +5,23 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
+using AetherAprs.Imaging;
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
+using Avalonia.Media.Imaging;
+using SkiaSharp;
+using System;
+using System.IO;
 
 namespace AetherAprs.ViewModels;
 
-public partial class AddEditPortDialogViewModel(string globalCallsign, int nextPortNumber) : ViewModelBase
+public partial class AddEditPortDialogViewModel : ViewModelBase
 {
+    private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
+    private readonly Func<SKBitmap, Bitmap?> _previewFactory;
 
     [ObservableProperty]
-    public partial string Name { get; set; } = $"APRS-IS Port {nextPortNumber}";
+    public partial string Name { get; set; }
 
     [ObservableProperty]
     public partial PortType SelectedPortType { get; set; } = PortType.AprsIs;
@@ -25,13 +33,25 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
     public partial int ServerPort { get; set; } = 14580;
 
     [ObservableProperty]
-    public partial string Passcode { get; set; } = AprsPasscode.Compute(globalCallsign);
+    public partial string Passcode { get; set; }
 
     [ObservableProperty]
     public partial string Filter { get; set; } = "m/50";
 
     [ObservableProperty]
     public partial int? Ssid { get; set; }
+
+    [ObservableProperty]
+    public partial string SymbolTableCharacter { get; set; } = "/";
+
+    [ObservableProperty]
+    public partial string SymbolCodeCharacter { get; set; } = "[";
+
+    [ObservableProperty]
+    public partial Bitmap? SymbolPreview { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsSymbolValid { get; private set; }
 
     [ObservableProperty]
     public partial bool IsRx { get; set; } = true;
@@ -46,8 +66,36 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
 
     public DynamicBeaconMode[] BeaconModes { get; } = [DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
 
+    public AddEditPortDialogViewModel(
+        string globalCallsign,
+        int nextPortNumber,
+        IAprsSymbolBitmapProvider symbolBitmapProvider,
+        Func<SKBitmap, Bitmap?>? previewFactory = null)
+    {
+        _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
+        _previewFactory = previewFactory ?? CreatePreviewBitmap;
+        Name = $"APRS-IS Port {nextPortNumber}";
+        Passcode = AprsPasscode.Compute(globalCallsign);
+        UpdateSymbolPreview();
+    }
+
+    partial void OnSymbolTableCharacterChanged(string value)
+    {
+        UpdateSymbolPreview();
+    }
+
+    partial void OnSymbolCodeCharacterChanged(string value)
+    {
+        UpdateSymbolPreview();
+    }
+
     public PortConfig BuildConfig()
     {
+        if (!TryCreateSymbol(out _))
+        {
+            throw new InvalidOperationException("The APRS symbol table and code must each contain one valid character.");
+        }
+
         return new PortConfig
         {
             Type = SelectedPortType,
@@ -57,9 +105,57 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
             Passcode = Passcode,
             Filter = Filter,
             Ssid = Ssid,
+            SymbolTableCharacter = SymbolTableCharacter,
+            SymbolCodeCharacter = SymbolCodeCharacter,
             IsRx = IsRx,
             IsTx = IsTx,
             DynamicBeaconMode = SelectedBeaconMode
         };
+    }
+
+    private void UpdateSymbolPreview()
+    {
+        SymbolPreview?.Dispose();
+        SymbolPreview = null;
+        IsSymbolValid = false;
+
+        if (!TryCreateSymbol(out var symbol))
+        {
+            return;
+        }
+
+        var symbolBitmap = _symbolBitmapProvider.GetSymbolBitmap(symbol);
+        SymbolPreview = _previewFactory(symbolBitmap);
+        IsSymbolValid = true;
+    }
+
+    private static Bitmap CreatePreviewBitmap(SKBitmap bitmap)
+    {
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = new MemoryStream(data.ToArray());
+        return new Bitmap(stream);
+    }
+
+    private bool TryCreateSymbol(out Symbol symbol)
+    {
+        symbol = default;
+
+        if (SymbolTableCharacter.Length != 1 || SymbolCodeCharacter.Length != 1)
+        {
+            return false;
+        }
+
+        try
+        {
+            symbol = new Symbol(
+                SymbolTableCharacter[0].ToSymbolTable(),
+                SymbolCodeCharacter[0].ToSymbolCode());
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
     }
 }

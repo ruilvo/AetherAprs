@@ -64,6 +64,15 @@ public class CallsignTests
         Assert.Throws<ArgumentException>(() => new Callsign("TOOLONG"));
     }
 
+    [Theory]
+    [InlineData("N0 CALL")]
+    [InlineData("N0@ALL")]
+    [InlineData("N0CÅLL")]
+    public void Constructor_InvalidCharacters_ThrowsArgumentException(string value)
+    {
+        Assert.Throws<ArgumentException>(() => new Callsign(value));
+    }
+
     [Fact]
     public void Constructor_SsidTooLow_ThrowsArgumentOutOfRangeException()
     {

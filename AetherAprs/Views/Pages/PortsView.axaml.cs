@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using DialogHostAvalonia;
 using AetherAprs.ViewModels;
 using AetherAprs.Views.Dialogs;
+using AetherAprs.Imaging;
 
 namespace AetherAprs.Views.Pages;
 
@@ -58,7 +59,10 @@ public partial class PortsView : UserControl
 
         // Create dialog content
         var dialogContent = new AddEditPortDialogView();
-        var dialogVm = new AddEditPortDialogViewModel(globalCallsign, nextNumber);
+        var dialogVm = new AddEditPortDialogViewModel(
+            globalCallsign,
+            nextNumber,
+            App.GetService<IAprsSymbolBitmapProvider>());
         dialogContent.DataContext = dialogVm;
 
         var result = await DialogHost.Show(dialogContent, "MainDialogHost");
@@ -83,13 +87,18 @@ public partial class PortsView : UserControl
 
         // Create dialog content for editing
         var dialogContent = new AddEditPortDialogView();
-        var dialogVm = new AddEditPortDialogViewModel(globalCallsign, viewModel.GetNextPortNumber());
-        
+        var dialogVm = new AddEditPortDialogViewModel(
+            globalCallsign,
+            viewModel.GetNextPortNumber(),
+            App.GetService<IAprsSymbolBitmapProvider>());
+
         // Populate with existing values
         dialogVm.Name = item.Name;
         dialogVm.IsRx = item.IsRx;
         dialogVm.IsTx = item.IsTx;
-        
+        dialogVm.SymbolTableCharacter = item.SymbolTableCharacter;
+        dialogVm.SymbolCodeCharacter = item.SymbolCodeCharacter;
+
         dialogContent.DataContext = dialogVm;
 
         var result = await DialogHost.Show(dialogContent, "MainDialogHost");
@@ -104,5 +113,3 @@ public partial class PortsView : UserControl
         }
     }
 }
-
-

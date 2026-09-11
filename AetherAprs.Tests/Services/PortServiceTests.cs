@@ -37,8 +37,9 @@ public sealed class PortServiceTests
         var updatedPort = new PortConfig
         {
             Id = existingPort.Id,
-            Type = PortType.AprsIs,
+            Type = PortType.Kiss,
             Name = "Updated name",
+            IsEnabled = true,
             Server = "new.example",
             ServerPort = 14501,
             Passcode = "new-passcode",
@@ -46,12 +47,16 @@ public sealed class PortServiceTests
             Ssid = 2,
             IsRx = false,
             IsTx = true,
+            SymbolTableCharacter = "\\",
+            SymbolCodeCharacter = ">",
             DynamicBeaconMode = DynamicBeaconMode.Drive
         };
 
         await service.UpdatePortAsync(updatedPort);
 
         Assert.Equal("Updated name", existingPort.Name);
+        Assert.Equal(PortType.Kiss, existingPort.Type);
+        Assert.True(existingPort.IsEnabled);
         Assert.Equal("new.example", existingPort.Server);
         Assert.Equal(14501, existingPort.ServerPort);
         Assert.Equal("new-passcode", existingPort.Passcode);
@@ -59,6 +64,8 @@ public sealed class PortServiceTests
         Assert.Equal(2, existingPort.Ssid);
         Assert.False(existingPort.IsRx);
         Assert.True(existingPort.IsTx);
+        Assert.Equal("\\", existingPort.SymbolTableCharacter);
+        Assert.Equal(">", existingPort.SymbolCodeCharacter);
         Assert.Equal(DynamicBeaconMode.Drive, existingPort.DynamicBeaconMode);
         Assert.Equal(1, configuration.SaveCount);
     }

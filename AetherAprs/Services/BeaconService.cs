@@ -57,7 +57,11 @@ public interface IBeaconService
     /// <param name="location">The location to beacon.</param>
     /// <param name="callsign">The callsign to use in the packet.</param>
     /// <returns>A PositionPacket ready for transmission.</returns>
-    PositionPacket CreatePositionPacket(LocationData location, string callsign);
+    PositionPacket CreatePositionPacket(
+        LocationData location,
+        string callsign,
+        string symbolTableCharacter = "/",
+        string symbolCodeCharacter = "[");
 }
 
 /// <summary>
@@ -238,7 +242,11 @@ public sealed class BeaconService : IBeaconService
         _lastTransmitTime = DateTime.UtcNow;
     }
 
-    public PositionPacket CreatePositionPacket(LocationData location, string callsign)
+    public PositionPacket CreatePositionPacket(
+        LocationData location,
+        string callsign,
+        string symbolTableCharacter = "/",
+        string symbolCodeCharacter = "[")
     {
         var config = CurrentConfiguration;
         var callsignParts = callsign.Split('-');
@@ -253,10 +261,22 @@ public sealed class BeaconService : IBeaconService
             Longitude = location.Longitude,
             Altitude = location.Altitude.HasValue ? location.Altitude.Value * 3.28084 : null, // Convert meters to feet
             Course = _lastCourseDegrees.HasValue ? _lastCourseDegrees.Value : null,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+            Symbol = CreateSymbol(symbolTableCharacter, symbolCodeCharacter),
             Comment = config.BeaconComment,
             Precision = 2
         };
+    }
+
+    private static Symbol CreateSymbol(string tableCharacter, string codeCharacter)
+    {
+        if (tableCharacter.Length != 1 || codeCharacter.Length != 1)
+        {
+            throw new ArgumentException("APRS symbol table and code must each contain exactly one character.");
+        }
+
+        return new Symbol(
+            tableCharacter[0].ToSymbolTable(),
+            codeCharacter[0].ToSymbolCode());
     }
 
     private int GetActiveInterval(BeaconConfiguration config, double speedKmh)

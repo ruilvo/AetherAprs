@@ -220,6 +220,18 @@ public class BeaconServiceTests
     }
 
     [Fact]
+    public void CreatePositionPacketUsesConfiguredSymbol()
+    {
+        var service = new BeaconService();
+        var location = CreateLocation(41.41764333333333, -8.521698333333333);
+
+        var packet = service.CreatePositionPacket(location, "CT7ALW-7", "\\", ">");
+
+        Assert.Equal('\\', packet.Symbol.TableChar);
+        Assert.Equal('>', packet.Symbol.CodeChar);
+    }
+
+    [Fact]
     public void BeaconConfigurationPresetsHaveValidValues()
     {
         var walkConfig = BeaconConfiguration.CreateWalkPreset();

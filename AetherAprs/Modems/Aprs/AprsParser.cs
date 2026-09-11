@@ -260,6 +260,11 @@ public static class AprsParser
             return false;
         }
 
+        if (deg == 90 && (min != 0 || decValue != 0))
+        {
+            return false;
+        }
+
         // Direction: last char
         char dir = segment[^1];
         if (dir != 'N' && dir != 'S') { return false; }
@@ -312,6 +317,11 @@ public static class AprsParser
             return false;
         }
 
+        if (deg == 180 && (min != 0 || decValue != 0))
+        {
+            return false;
+        }
+
         // Direction: last char
         char dir = segment[^1];
         if (dir != 'E' && dir != 'W') { return false; }
@@ -330,58 +340,40 @@ public static class AprsParser
     private static MessagePacket ParseMessage(string info, Callsign source, Callsign dest)
     {
         // Format: :ADDRESSEE :message text{msgid}
-        // Addressee is up to 9 characters (space-padded), followed by ':'
         var addresseeStr = "APRS";
+        var addrEnd = info.IndexOf(':', 1);
 
-        if (info.Length > 1)
+        if (addrEnd > 1)
         {
-            // Find the colon that terminates the addressee
-            int addrEnd = info.IndexOf(':', 1);
-            int addrLen;
-
-            if (addrEnd > 1 && addrEnd <= 10)
-            {
-                // Properly terminated: :ADDRESSEE:
-                addrLen = addrEnd - 1;
-                addresseeStr = info.AsSpan(1, addrLen).TrimEnd().ToString();
-            }
-            else if (addrEnd > 10)
-            {
-                // Colon exists but past 9 chars — take first 9 chars
-                addrLen = Math.Min(9, info.Length - 1);
-                addresseeStr = info.AsSpan(1, addrLen).TrimEnd().ToString();
-            }
-            else
-            {
-                // No terminating colon found — take what we can (up to 9 chars)
-                addrLen = Math.Min(9, info.Length - 1);
-                addresseeStr = info.AsSpan(1, addrLen).TrimEnd().ToString();
-            }
-
-            if (string.IsNullOrEmpty(addresseeStr))
-            {
-                addresseeStr = "APRS";
-            }
+            var addrLength = Math.Min(9, addrEnd - 1);
+            addresseeStr = info.AsSpan(1, addrLength).TrimEnd().ToString();
         }
 
-        var addressee = new Callsign(addresseeStr, null);
+        if (string.IsNullOrEmpty(addresseeStr))
+        {
+            addresseeStr = "APRS";
+        }
 
-        // Message text starts after the addressee field and its terminating ':'
-        string text;
-        int textStart = info.Length > 1 ? info.IndexOf(':', 1) + 1 : info.Length;
-        text = (textStart > 0 && textStart < info.Length) ? info[textStart..] : string.Empty;
+        var addresseeParts = addresseeStr.Split('-', 2, StringSplitOptions.None);
+        var addressee = new Callsign(
+            addresseeParts[0],
+            addresseeParts.Length == 2 && int.TryParse(addresseeParts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var addresseeSsid)
+                ? addresseeSsid
+                : null);
 
-        // Check for message number suffix {nn}
+        var textStart = addrEnd >= 0 ? addrEnd + 1 : info.Length;
+        var text = textStart < info.Length ? info[textStart..] : string.Empty;
+
         int? msgNumber = null;
         if (text.Length > 0)
         {
-            int braceStart = text.LastIndexOf('{');
+            var braceStart = text.LastIndexOf('{');
             if (braceStart >= 0 && braceStart <= text.Length - 2 && text[^1] == '}')
             {
                 var suffix = text.AsSpan(braceStart + 1, text.Length - braceStart - 2);
-                if (int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out int num))
+                if (int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
                 {
-                    msgNumber = num;
+                    msgNumber = number;
                     text = text[..braceStart];
                 }
             }
@@ -389,13 +381,13 @@ public static class AprsParser
             // Check ack format: ...}{n}
             if (msgNumber is null && text.EndsWith('}'))
             {
-                int braceOpen = text.LastIndexOf('{');
-                if (braceOpen >= 0 && braceOpen < text.Length - 2 && text[braceOpen - 1] == '}')
+                var braceOpen = text.LastIndexOf('{');
+                if (braceOpen > 0 && braceOpen < text.Length - 2 && text[braceOpen - 1] == '}')
                 {
-                    var ackNum = text.AsSpan(braceOpen + 1, text.Length - braceOpen - 2);
-                    if (int.TryParse(ackNum, NumberStyles.None, CultureInfo.InvariantCulture, out int ackVal))
+                    var ackNumber = text.AsSpan(braceOpen + 1, text.Length - braceOpen - 2);
+                    if (int.TryParse(ackNumber, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
                     {
-                        msgNumber = ackVal;
+                        msgNumber = number;
                         text = text[..(braceOpen - 1)];
                     }
                 }

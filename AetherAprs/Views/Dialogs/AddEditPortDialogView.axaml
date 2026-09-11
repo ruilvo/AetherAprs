@@ -38,7 +38,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <!-- Scrollable content -->
     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="20" Margin="16" MaxWidth="500">
-        
+
         <!-- Port Name Section -->
         <StackPanel Spacing="8">
           <TextBox Text="{Binding Name}"
@@ -53,11 +53,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Text="Port Direction"
                      Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
           <StackPanel Spacing="8" Margin="0,4,0,0">
-            <CheckBox Content="Receive (Rx)" 
+            <CheckBox Content="Receive (Rx)"
                       IsChecked="{Binding IsRx}"
                       MinHeight="40"
                       VerticalContentAlignment="Center" />
-            <CheckBox Content="Transmit (Tx)" 
+            <CheckBox Content="Transmit (Tx)"
                       IsChecked="{Binding IsTx}"
                       MinHeight="40"
                       VerticalContentAlignment="Center" />
@@ -75,6 +75,45 @@ SPDX-License-Identifier: GPL-3.0-or-later
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
+        </StackPanel>
+
+        <!-- APRS Symbol Section -->
+        <StackPanel Spacing="8">
+          <TextBlock Classes="Subheading"
+                     Text="APRS Symbol"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+          <Grid ColumnDefinitions="64,64,Auto"
+                ColumnSpacing="12"
+                VerticalAlignment="Center">
+            <TextBox Grid.Column="0"
+                     Text="{Binding SymbolTableCharacter}"
+                     MaxLength="1"
+                     HorizontalContentAlignment="Center"
+                     PlaceholderText="/"
+                     wpf:TextFieldAssist.Label="Table"
+                     UseFloatingPlaceholder="True" />
+            <TextBox Grid.Column="1"
+                     Text="{Binding SymbolCodeCharacter}"
+                     MaxLength="1"
+                     HorizontalContentAlignment="Center"
+                     PlaceholderText="["
+                     wpf:TextFieldAssist.Label="Code"
+                     UseFloatingPlaceholder="True" />
+            <Border Grid.Column="2"
+                    Width="64"
+                    Height="64"
+                    Padding="4"
+                    CornerRadius="4"
+                    BorderThickness="1"
+                    BorderBrush="{DynamicResource MaterialDividerBrush}"
+                    Background="{DynamicResource MaterialCardBackgroundBrush}">
+              <Image Source="{Binding SymbolPreview}"
+                     Stretch="Uniform" />
+            </Border>
+          </Grid>
+          <TextBlock Text="Enter the APRS table and code characters."
+                     Classes="Caption"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
         </StackPanel>
 
         <!-- Port Type Section -->
@@ -150,6 +189,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <Button Content="Save"
                 MinWidth="80"
                 MinHeight="36"
+          IsEnabled="{Binding IsSymbolValid}"
                 Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
                 CommandParameter="OK"
                 Classes="Filled" />
