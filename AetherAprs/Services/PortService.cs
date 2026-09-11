@@ -51,6 +51,7 @@ public class PortService : IPortService
             port.Name = updatedPort.Name;
             port.IsRx = updatedPort.IsRx;
             port.IsTx = updatedPort.IsTx;
+            port.DynamicBeaconMode = updatedPort.DynamicBeaconMode;
             await _configurationService.SaveSettingsAsync();
             PortsChanged?.Invoke(this, EventArgs.Empty);
         }

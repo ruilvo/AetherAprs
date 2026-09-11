@@ -5,6 +5,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
+using AetherAprs.Models;
 
 namespace AetherAprs.ViewModels;
 
@@ -38,7 +39,12 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
     [ObservableProperty]
     public partial bool IsTx { get; set; } = false;
 
+    [ObservableProperty]
+    public partial DynamicBeaconMode SelectedBeaconMode { get; set; } = DynamicBeaconMode.Walk;
+
     public PortType[] PortTypes { get; } = [PortType.AprsIs];
+
+    public DynamicBeaconMode[] BeaconModes { get; } = [DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
 
     public PortConfig BuildConfig()
     {
@@ -52,7 +58,8 @@ public partial class AddEditPortDialogViewModel(string globalCallsign, int nextP
             Filter = Filter,
             Ssid = Ssid,
             IsRx = IsRx,
-            IsTx = IsTx
+            IsTx = IsTx,
+            DynamicBeaconMode = SelectedBeaconMode
         };
     }
 }

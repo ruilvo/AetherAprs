@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using AetherAprs.Models;
 
 namespace AetherAprs.Configuration;
 
@@ -37,4 +38,10 @@ public class PortConfig
     public string? Filter { get; set; }
 
     public int? Ssid { get; set; }
+
+    /// <summary>
+    /// Dynamic beaconing mode to use for position transmissions on this port.
+    /// Defaults to Walk mode if not specified.
+    /// </summary>
+    public DynamicBeaconMode DynamicBeaconMode { get; set; } = DynamicBeaconMode.Walk;
 }

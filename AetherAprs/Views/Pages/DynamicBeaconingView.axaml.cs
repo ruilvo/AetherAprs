@@ -6,11 +6,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using DialogHostAvalonia;
 
-namespace AetherAprs.Views.Dialogs;
+namespace AetherAprs.Views.Pages;
 
-public partial class AddEditPortDialogView : UserControl
+public partial class DynamicBeaconingView : UserControl
 {
-    public AddEditPortDialogView()
+    public DynamicBeaconingView()
     {
         InitializeComponent();
         KeyDown += OnKeyDown;

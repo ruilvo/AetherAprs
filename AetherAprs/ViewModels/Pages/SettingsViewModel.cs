@@ -7,12 +7,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
 using AetherAprs.Services;
+using AetherAprs.ViewModels.Pages;
 
 namespace AetherAprs.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly IConfigurationService _configurationService;
+    private readonly INavigationService _navigationService;
 
     [ObservableProperty]
     public partial string Title { get; set; } = "Settings";
@@ -29,9 +31,10 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsSaved { get; set; }
 
-    public SettingsViewModel(IConfigurationService configurationService)
+    public SettingsViewModel(IConfigurationService configurationService, INavigationService navigationService)
     {
         _configurationService = configurationService;
+        _navigationService = navigationService;
 
         var aprs = _configurationService.Settings.Aprs;
         Callsign = aprs.Callsign;
@@ -45,5 +48,11 @@ public partial class SettingsViewModel : ViewModelBase
         _configurationService.Settings.Aprs.DefaultSsid = DefaultSsid;
         await _configurationService.SaveSettingsAsync();
         IsSaved = true;
+    }
+
+    [RelayCommand]
+    private void OpenBeaconingSettings()
+    {
+        _navigationService.NavigateTo<DynamicBeaconingViewModel>();
     }
 }

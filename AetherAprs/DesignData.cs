@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Pages;
 using AetherAprs.Models;
 using AetherAprs.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,7 @@ public static class DesignData
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IPortService, PortService>();
+        services.AddSingleton<IBeaconService, BeaconService>();
 
         // Register logging
         services.AddLogging(builder =>
@@ -42,6 +44,7 @@ public static class DesignData
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<DynamicBeaconingViewModel>();
 
         return services.BuildServiceProvider();
     }
@@ -98,6 +101,14 @@ public static class DesignData
         get
         {
             return _serviceProvider.GetRequiredService<PortsViewModel>();
+        }
+    }
+
+    public static DynamicBeaconingViewModel DynamicBeaconingViewModel
+    {
+        get
+        {
+            return _serviceProvider.GetRequiredService<DynamicBeaconingViewModel>();
         }
     }
 

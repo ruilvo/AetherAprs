@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views;
 using AetherAprs.Views.Pages;
 using Avalonia.Controls;
@@ -22,6 +23,7 @@ public class ViewLocator: IDataTemplate
             HomeViewModel => new HomeView(),
             PortsViewModel => new PortsView(),
             SettingsViewModel => new SettingsView(),
+            DynamicBeaconingViewModel => new DynamicBeaconingView(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

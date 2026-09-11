@@ -34,103 +34,126 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <StackPanel Spacing="20" Margin="16" MaxWidth="500">
-    
-    <!-- Port Name Section -->
-    <StackPanel Spacing="8">
-      <TextBox Text="{Binding Name}"
-               PlaceholderText="e.g. APRS-IS Port 1"
-               wpf:TextFieldAssist.Label="Port Name"
-               UseFloatingPlaceholder="True" />
-    </StackPanel>
+  <Grid RowDefinitions="*,Auto" MinWidth="360">
+    <!-- Scrollable content -->
+    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="20" Margin="16" MaxWidth="500">
+        
+        <!-- Port Name Section -->
+        <StackPanel Spacing="8">
+          <TextBox Text="{Binding Name}"
+                   PlaceholderText="e.g. APRS-IS Port 1"
+                   wpf:TextFieldAssist.Label="Port Name"
+                   UseFloatingPlaceholder="True" />
+        </StackPanel>
 
-    <!-- Port Direction Section -->
-    <StackPanel Spacing="12">
-      <TextBlock Classes="Subheading"
-                 Text="Port Direction"
-                 Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
-      <StackPanel Spacing="8" Margin="0,4,0,0">
-        <CheckBox Content="Receive (Rx)" 
-                  IsChecked="{Binding IsRx}"
-                  MinHeight="40"
-                  VerticalContentAlignment="Center" />
-        <CheckBox Content="Transmit (Tx)" 
-                  IsChecked="{Binding IsTx}"
-                  MinHeight="40"
-                  VerticalContentAlignment="Center" />
+        <!-- Port Direction Section -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="Subheading"
+                     Text="Port Direction"
+                     Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
+          <StackPanel Spacing="8" Margin="0,4,0,0">
+            <CheckBox Content="Receive (Rx)" 
+                      IsChecked="{Binding IsRx}"
+                      MinHeight="40"
+                      VerticalContentAlignment="Center" />
+            <CheckBox Content="Transmit (Tx)" 
+                      IsChecked="{Binding IsTx}"
+                      MinHeight="40"
+                      VerticalContentAlignment="Center" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Dynamic Beaconing Mode Section -->
+        <StackPanel Spacing="8">
+          <ComboBox ItemsSource="{Binding BeaconModes}"
+                    SelectedItem="{Binding SelectedBeaconMode}"
+                    wpf:ComboBoxAssist.Label="Dynamic Beaconing Mode">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="x:Object">
+                <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+
+        <!-- Port Type Section -->
+        <StackPanel Spacing="8">
+          <ComboBox ItemsSource="{Binding PortTypes}"
+                    SelectedItem="{Binding SelectedPortType}"
+                    wpf:ComboBoxAssist.Label="Select a port type">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="x:Object">
+                <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </StackPanel>
+
+        <!-- APRS-IS Settings Section -->
+        <StackPanel Spacing="12"
+                    IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=AprsIs}">
+          <TextBlock Classes="Subheading"
+                     Text="APRS-IS Settings"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+
+          <StackPanel Spacing="12">
+            <!-- Server -->
+            <TextBox Text="{Binding Server}"
+                     PlaceholderText="e.g. euro.aprs2.net"
+                     wpf:TextFieldAssist.Label="Server"
+                     UseFloatingPlaceholder="True" />
+
+            <!-- Port -->
+            <TextBox Text="{Binding ServerPort}"
+                     PlaceholderText="14580"
+                     wpf:TextFieldAssist.Label="Port"
+                     UseFloatingPlaceholder="True" />
+
+            <!-- Passcode -->
+            <TextBox Text="{Binding Passcode}"
+                     PlaceholderText="Auto-filled from callsign"
+                     wpf:TextFieldAssist.Label="Passcode"
+                     UseFloatingPlaceholder="True" />
+
+            <!-- Filter -->
+            <TextBox Text="{Binding Filter}"
+                     PlaceholderText="e.g. m/50"
+                     wpf:TextFieldAssist.Label="Filter (optional)"
+                     UseFloatingPlaceholder="True" />
+
+            <!-- SSID (optional) -->
+            <TextBox Text="{Binding Ssid}"
+                     PlaceholderText="Leave empty for default"
+                     wpf:TextFieldAssist.Label="SSID"
+                     UseFloatingPlaceholder="True" />
+          </StackPanel>
+        </StackPanel>
       </StackPanel>
-    </StackPanel>
+    </ScrollViewer>
 
-    <!-- Port Type Section -->
-    <StackPanel Spacing="8">
-      <ComboBox ItemsSource="{Binding PortTypes}"
-                SelectedItem="{Binding SelectedPortType}"
-                wpf:ComboBoxAssist.Label="Select a port type">
-        <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="x:Object">
-            <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
-          </DataTemplate>
-        </ComboBox.ItemTemplate>
-      </ComboBox>
-    </StackPanel>
-
-    <!-- APRS-IS Settings Section -->
-    <StackPanel Spacing="12"
-                IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=AprsIs}">
-      <TextBlock Classes="Subheading"
-                 Text="APRS-IS Settings"
-                 Foreground="{DynamicResource MaterialPrimaryBrush}" />
-
-      <StackPanel Spacing="12">
-        <!-- Server -->
-        <TextBox Text="{Binding Server}"
-                 PlaceholderText="e.g. euro.aprs2.net"
-                 wpf:TextFieldAssist.Label="Server"
-                 UseFloatingPlaceholder="True" />
-
-        <!-- Port -->
-        <TextBox Text="{Binding ServerPort}"
-                 PlaceholderText="14580"
-                 wpf:TextFieldAssist.Label="Port"
-                 UseFloatingPlaceholder="True" />
-
-        <!-- Passcode -->
-        <TextBox Text="{Binding Passcode}"
-                 PlaceholderText="Auto-filled from callsign"
-                 wpf:TextFieldAssist.Label="Passcode"
-                 UseFloatingPlaceholder="True" />
-
-        <!-- Filter -->
-        <TextBox Text="{Binding Filter}"
-                 PlaceholderText="e.g. m/50"
-                 wpf:TextFieldAssist.Label="Filter (optional)"
-                 UseFloatingPlaceholder="True" />
-
-        <!-- SSID (optional) -->
-        <TextBox Text="{Binding Ssid}"
-                 PlaceholderText="Leave empty for default"
-                 wpf:TextFieldAssist.Label="SSID"
-                 UseFloatingPlaceholder="True" />
+    <!-- Dialog buttons (sticky at bottom) -->
+    <Border Grid.Row="1"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="Cancel"
+                MinWidth="80"
+                MinHeight="36"
+                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
+                CommandParameter="CANCEL"
+                Classes="Outline" />
+        <Button Content="Save"
+                MinWidth="80"
+                MinHeight="36"
+                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
+                CommandParameter="OK"
+                Classes="Filled" />
       </StackPanel>
-    </StackPanel>
-
-    <!-- Dialog buttons -->
-    <StackPanel Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                Spacing="8"
-                Margin="0,12,0,0">
-      <Button Content="Cancel"
-              MinWidth="80"
-              MinHeight="36"
-              Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
-              CommandParameter="CANCEL"
-              Classes="Outline" />
-      <Button Content="Save"
-              MinWidth="80"
-              MinHeight="36"
-              Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
-              CommandParameter="OK"
-              Classes="Filled" />
-    </StackPanel>
-  </StackPanel>
+    </Border>
+  </Grid>
 </UserControl>

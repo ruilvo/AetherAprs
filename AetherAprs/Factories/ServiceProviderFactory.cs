@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -37,6 +38,9 @@ public static class ServiceProviderFactory
         // Register port service
         services.AddSingleton<IPortService, PortService>();
 
+        // Register beacon service
+        services.AddSingleton<IBeaconService, BeaconService>();
+
         // Register logging with deferred configuration resolution
         services.AddLogging(builder =>
         {
@@ -69,6 +73,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<DynamicBeaconingViewModel>();
 
         // Allow overriding core services for testing or platform-specific
         // implementations

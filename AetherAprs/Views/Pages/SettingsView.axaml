@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.SettingsView"
              x:DataType="vm:SettingsViewModel"
@@ -62,10 +63,23 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </StackPanel>
 
         <!-- Placeholder for future settings sections -->
-        <TextBlock Text="More settings options will be added here."
-                   Classes="Caption"
-                   Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
-                   Margin="0,8,0,0" />
+        <StackPanel Spacing="16">
+          <TextBlock Classes="Headline5"
+                     Text="Dynamic Beaconing"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+
+          <TextBlock Classes="Body2"
+                     Text="Configure intelligent position beaconing with smart transmit intervals."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <Button Content="Configure Beaconing Modes"
+                  Click="OnConfigureBeaconingClick"
+                  x:Name="ConfigureBeaconingButton"
+                  MinWidth="120"
+                  MinHeight="40"
+                  Classes="Outlined" />
+        </StackPanel>
 
       </StackPanel>
     </ScrollViewer>

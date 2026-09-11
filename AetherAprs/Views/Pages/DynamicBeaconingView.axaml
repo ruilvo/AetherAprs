@@ -1,0 +1,444 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="1000"
+             x:Class="AetherAprs.Views.Pages.DynamicBeaconingView"
+             x:DataType="vm:DynamicBeaconingViewModel"
+             d:DataContext="{x:Static local:DesignData.DynamicBeaconingViewModel}">
+  <UserControl.Styles>
+    <Style Selector="TextBox">
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="NumericUpDown">
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector="RadioButton">
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="700">
+
+        <!-- Header -->
+        <StackPanel Spacing="8">
+          <TextBlock Classes="Headline5"
+                     Text="Dynamic Beaconing"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+          <TextBlock Classes="Body2"
+                     Text="Configure intelligent position beaconing with smart transmit intervals based on your movement speed and direction."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+        </StackPanel>
+
+        <!-- Active Mode Selection -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="Subtitle2"
+                     Text="Active Beacon Mode"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+          
+          <RadioButton Content="Walk (Pedestrian)"
+                       IsChecked="{Binding ActiveMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Walk}"
+                       Command="{Binding SetActiveModeCommand}"
+                       CommandParameter="Walk" />
+          
+          <RadioButton Content="Drive (Vehicular)"
+                       IsChecked="{Binding ActiveMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Drive}"
+                       Command="{Binding SetActiveModeCommand}"
+                       CommandParameter="Drive" />
+          
+          <RadioButton Content="Custom"
+                       IsChecked="{Binding ActiveMode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=Custom}"
+                       Command="{Binding SetActiveModeCommand}"
+                       CommandParameter="Custom" />
+        </StackPanel>
+
+        <!-- Walk Configuration -->
+        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
+                CornerRadius="8"
+                Padding="16"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDividerBrush}">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4" Orientation="Horizontal">
+              <TextBlock Classes="Subtitle1" Text="Walk Mode" />
+              <Button Content="Reset to Default"
+                      Command="{Binding ResetWalkToDefaultCommand}"
+                      Padding="8,4"
+                      MinHeight="32"
+                      FontSize="12"
+                      Classes="Outlined" />
+            </StackPanel>
+
+            <TextBlock Classes="Caption"
+                       Text="Optimized for pedestrian movement with longer intervals and sensitive to direction changes."
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+            <StackPanel Spacing="12">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Slow Speed Interval (stationary or very slow)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.SlowIntervalSeconds}"
+                                 Minimum="60"
+                                 Maximum="3600"
+                                 Increment="60" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Normal Speed Interval" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.NormalIntervalSeconds}"
+                                 Minimum="60"
+                                 Maximum="1800"
+                                 Increment="60" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Fast Speed Interval (moving quickly)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.FastIntervalSeconds}"
+                                 Minimum="30"
+                                 Maximum="600"
+                                 Increment="30" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Slow Speed Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.SlowSpeedThresholdKmh}"
+                                 Minimum="0.5"
+                                 Maximum="30"
+                                 Increment="0.5"
+                                 FormatString="F1" />
+                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Fast Speed Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.FastSpeedThresholdKmh}"
+                                 Minimum="5"
+                                 Maximum="100"
+                                 Increment="5"
+                                 FormatString="F1" />
+                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Course Change Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.CourseChangeThresholdDegrees}"
+                                 Minimum="0"
+                                 Maximum="180"
+                                 Increment="5" />
+                  <TextBlock Grid.Column="1" Text="degrees" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Minimum Distance" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding WalkConfiguration.MinimumDistanceMeters}"
+                                 Minimum="10"
+                                 Maximum="500"
+                                 Increment="10" />
+                  <TextBlock Grid.Column="1" Text="meters" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <TextBox Text="{Binding WalkConfiguration.BeaconComment}"
+                       PlaceholderText="Optional beacon comment"
+                       wpf:TextFieldAssist.Label="Beacon Comment"
+                       UseFloatingPlaceholder="True" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Drive Configuration -->
+        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
+                CornerRadius="8"
+                Padding="16"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDividerBrush}">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4" Orientation="Horizontal">
+              <TextBlock Classes="Subtitle1" Text="Drive Mode" />
+              <Button Content="Reset to Default"
+                      Command="{Binding ResetDriveToDefaultCommand}"
+                      Padding="8,4"
+                      MinHeight="32"
+                      FontSize="12"
+                      Classes="Outlined" />
+            </StackPanel>
+
+            <TextBlock Classes="Caption"
+                       Text="Optimized for vehicular movement with shorter intervals for real-time tracking."
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+            <StackPanel Spacing="12">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Slow Speed Interval (stationary or very slow)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.SlowIntervalSeconds}"
+                                 Minimum="60"
+                                 Maximum="3600"
+                                 Increment="60" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Normal Speed Interval" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.NormalIntervalSeconds}"
+                                 Minimum="30"
+                                 Maximum="1800"
+                                 Increment="30" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Fast Speed Interval (highway speeds)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.FastIntervalSeconds}"
+                                 Minimum="10"
+                                 Maximum="300"
+                                 Increment="10" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Slow Speed Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.SlowSpeedThresholdKmh}"
+                                 Minimum="1"
+                                 Maximum="50"
+                                 Increment="1"
+                                 FormatString="F1" />
+                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Fast Speed Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.FastSpeedThresholdKmh}"
+                                 Minimum="20"
+                                 Maximum="200"
+                                 Increment="10"
+                                 FormatString="F1" />
+                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Course Change Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.CourseChangeThresholdDegrees}"
+                                 Minimum="0"
+                                 Maximum="180"
+                                 Increment="5" />
+                  <TextBlock Grid.Column="1" Text="degrees" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Minimum Distance" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding DriveConfiguration.MinimumDistanceMeters}"
+                                 Minimum="20"
+                                 Maximum="500"
+                                 Increment="20" />
+                  <TextBlock Grid.Column="1" Text="meters" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <TextBox Text="{Binding DriveConfiguration.BeaconComment}"
+                       PlaceholderText="Optional beacon comment"
+                       wpf:TextFieldAssist.Label="Beacon Comment"
+                       UseFloatingPlaceholder="True" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Custom Configuration -->
+        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
+                CornerRadius="8"
+                Padding="16"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDividerBrush}">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4" Orientation="Horizontal">
+              <TextBlock Classes="Subtitle1" Text="Custom Mode" />
+              <Button Content="Reset to Default"
+                      Command="{Binding ResetCustomToDefaultCommand}"
+                      Padding="8,4"
+                      MinHeight="32"
+                      FontSize="12"
+                      Classes="Outlined" />
+            </StackPanel>
+
+            <TextBlock Classes="Caption"
+                       Text="Fully customizable beacon configuration for advanced users."
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+            <StackPanel Spacing="12">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Slow Speed Interval (stationary or very slow)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.SlowIntervalSeconds}"
+                                 Minimum="60"
+                                 Maximum="3600"
+                                 Increment="60" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Normal Speed Interval" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.NormalIntervalSeconds}"
+                                 Minimum="30"
+                                 Maximum="1800"
+                                 Increment="30" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Fast Speed Interval" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.FastIntervalSeconds}"
+                                 Minimum="10"
+                                 Maximum="600"
+                                 Increment="10" />
+                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Slow Speed Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.SlowSpeedThresholdKmh}"
+                                 Minimum="0.5"
+                                 Maximum="50"
+                                 Increment="0.5"
+                                 FormatString="F1" />
+                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Fast Speed Threshold" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.FastSpeedThresholdKmh}"
+                                 Minimum="5"
+                                 Maximum="200"
+                                 Increment="5"
+                                 FormatString="F1" />
+                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Course Change Threshold (0 = disabled)" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.CourseChangeThresholdDegrees}"
+                                 Minimum="0"
+                                 Maximum="180"
+                                 Increment="5" />
+                  <TextBlock Grid.Column="1" Text="degrees" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Body2" Text="Minimum Distance" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <NumericUpDown Grid.Column="0"
+                                 Value="{Binding CustomConfiguration.MinimumDistanceMeters}"
+                                 Minimum="10"
+                                 Maximum="500"
+                                 Increment="10" />
+                  <TextBlock Grid.Column="1" Text="meters" VerticalAlignment="Center" />
+                </Grid>
+              </StackPanel>
+
+              <TextBox Text="{Binding CustomConfiguration.BeaconComment}"
+                       PlaceholderText="Optional beacon comment"
+                       wpf:TextFieldAssist.Label="Beacon Comment"
+                       UseFloatingPlaceholder="True" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Close Button (sticky at bottom) -->
+    <Border Grid.Row="1"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="Close"
+                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
+                CommandParameter="OK"
+                MinWidth="80"
+                MinHeight="36"
+                Classes="Filled" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>
