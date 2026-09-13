@@ -23,7 +23,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <UserControl.Resources>
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
     <converters:PortTypeToIsVisibleConverter x:Key="PortTypeToIsVisibleConverter" />
-    <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
   </UserControl.Resources>
 
   <UserControl.Styles>

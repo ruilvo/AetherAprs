@@ -115,7 +115,7 @@ public class PortService : IPortService
         }
 
         var portName = Ports.FirstOrDefault(port => port.Id == id)?.Name ?? id.ToString();
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         var rawPacket = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
 
         await modem.SendAsync(packet);
