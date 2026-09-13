@@ -28,7 +28,7 @@ public enum DynamicBeaconMode
 /// <summary>
 /// Configuration for dynamic position beaconing with intelligent transmit intervals.
 /// </summary>
-public sealed record BeaconConfiguration
+public sealed record BeaconConfig
 {
     /// <summary>
     /// Identifies this beacon configuration.
@@ -85,7 +85,7 @@ public sealed record BeaconConfiguration
     /// <summary>
     /// Creates a preset Walk beacon configuration optimized for pedestrian movement.
     /// </summary>
-    public static BeaconConfiguration CreateWalkPreset() =>
+    public static BeaconConfig CreateWalkPreset() =>
         new()
         {
             Mode = DynamicBeaconMode.Walk,
@@ -103,7 +103,7 @@ public sealed record BeaconConfiguration
     /// <summary>
     /// Creates a preset Drive beacon configuration optimized for vehicular movement.
     /// </summary>
-    public static BeaconConfiguration CreateDrivePreset() =>
+    public static BeaconConfig CreateDrivePreset() =>
         new()
         {
             Mode = DynamicBeaconMode.Drive,
@@ -121,7 +121,7 @@ public sealed record BeaconConfiguration
     /// <summary>
     /// Creates a blank Custom beacon configuration that can be modified.
     /// </summary>
-    public static BeaconConfiguration CreateCustomPreset() =>
+    public static BeaconConfig CreateCustomPreset() =>
         new()
         {
             Mode = DynamicBeaconMode.Custom,

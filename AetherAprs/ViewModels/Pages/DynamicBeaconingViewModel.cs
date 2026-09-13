@@ -80,21 +80,21 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     [RelayCommand]
     public void ResetWalkToDefault()
     {
-        var defaultWalk = BeaconConfiguration.CreateWalkPreset();
+        var defaultWalk = BeaconConfig.CreateWalkPreset();
         WalkConfiguration = new BeaconConfigurationItemViewModel(defaultWalk);
     }
 
     [RelayCommand]
     public void ResetDriveToDefault()
     {
-        var defaultDrive = BeaconConfiguration.CreateDrivePreset();
+        var defaultDrive = BeaconConfig.CreateDrivePreset();
         DriveConfiguration = new BeaconConfigurationItemViewModel(defaultDrive);
     }
 
     [RelayCommand]
     public void ResetCustomToDefault()
     {
-        var defaultCustom = BeaconConfiguration.CreateCustomPreset();
+        var defaultCustom = BeaconConfig.CreateCustomPreset();
         CustomConfiguration = new BeaconConfigurationItemViewModel(defaultCustom);
     }
 }
@@ -105,7 +105,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
 public partial class BeaconConfigurationItemViewModel : ViewModelBase
 {
     [ObservableProperty]
-    public partial BeaconConfiguration Configuration { get; set; }
+    public partial BeaconConfig Configuration { get; set; }
 
     [ObservableProperty]
     public partial string DisplayName { get; set; } = string.Empty;
@@ -134,7 +134,7 @@ public partial class BeaconConfigurationItemViewModel : ViewModelBase
     [ObservableProperty]
     public partial string BeaconComment { get; set; } = string.Empty;
 
-    public BeaconConfigurationItemViewModel(BeaconConfiguration configuration)
+    public BeaconConfigurationItemViewModel(BeaconConfig configuration)
     {
         Configuration = configuration;
         DisplayName = configuration.DisplayName;

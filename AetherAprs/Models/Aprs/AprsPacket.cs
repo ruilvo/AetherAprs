@@ -37,7 +37,7 @@ public abstract record AprsPacket
     public string Raw { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the original APRS-IS source identifier when it is not a standard callsign.
+    /// Gets the original source identifier when it is not a standard callsign.
     /// </summary>
     public string? RawSource { get; init; }
 }

@@ -17,7 +17,7 @@ namespace AetherAprs.Modems.Aprs;
 /// This handles only the APRS info field format (e.g. <c>!DDMM.mmX/DDDMM.mmYC...</c>).
 /// For AX.25 framing (addresses + control + PID), use <see cref="Ax25Serializer"/>.
 /// </remarks>
-public static class AprsSerializer
+public static class AprsInfoFieldSerializer
 {
     /// <summary>
     /// Formats an <see cref="AprsPacket"/> into its APRS info field string.

@@ -12,5 +12,5 @@ public class AppSettings
 
     public AprsSettings Aprs { get; set; } = new();
 
-    public List<PortConfig> Ports { get; set; } = new();
+    public List<PortConfig> Ports { get; set; } = [];
 }

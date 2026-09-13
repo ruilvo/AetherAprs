@@ -9,7 +9,7 @@ using AetherAprs.Models.Aprs;
 namespace AetherAprs.Modems.Aprs;
 
 /// <summary>
-/// Decodes AX.25 UI-frames and dispatches to <see cref="AprsParser.ParseInfoField"/>
+/// Decodes AX.25 UI-frames and dispatches to <see cref="AprsInfoFieldParser.ParseInfoField"/>
 /// for APRS application-layer parsing.
 /// </summary>
 public static class Ax25Parser
@@ -25,7 +25,7 @@ public static class Ax25Parser
     {
         var (source, dest, infoBytes) = DecodeAx25(ax25Data);
         var info = Encoding.ASCII.GetString(infoBytes);
-        return AprsParser.ParseInfoField(info, source, dest);
+        return AprsInfoFieldParser.ParseInfoField(info, source, dest);
     }
 
     // ---------------------------------------------------------------
@@ -92,12 +92,12 @@ public static class Ax25Parser
             chars[i] = (char)(data[offset + i] >> 1);
         }
 
-        var @base = new string(chars).TrimEnd();
+        var callsignBase = new string(chars).TrimEnd();
 
         // SSID byte: bits 1-4 contain the SSID (shifted left by 1)
         int ssidByte = data[offset + 6];
         int ssid = (ssidByte >> 1) & 0x0F;
 
-        return new Callsign(@base, ssid == 0 ? null : ssid);
+        return new Callsign(callsignBase, ssid == 0 ? null : ssid);
     }
 }

@@ -143,7 +143,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         await _connectionReady.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         // APRS-IS client-originated packets must identify the TCP connection in the path.
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         if (_writer is null)
         {
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
@@ -235,7 +235,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             string.IsNullOrEmpty(_filter) ? "<none>" : _filter);
 
         await _writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
-        await _writer.FlushAsync().ConfigureAwait(false);
+        await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
 
         // Read lines from the server
         while (!cancellationToken.IsCancellationRequested)
@@ -354,7 +354,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             return null;
         }
 
-        var packet = AprsParser.ParseInfoField(info, source, destination);
+        var packet = AprsInfoFieldParser.ParseInfoField(info, source, destination);
         return packet with { RawSource = rawSource };
     }
 

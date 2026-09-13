@@ -24,25 +24,25 @@ public readonly record struct Callsign
     /// <summary>
     /// Initializes a new instance of <see cref="Callsign"/>.
     /// </summary>
-    /// <param name="base">The base callsign (2-6 alphanumeric characters).</param>
+    /// <param name="callsignBase">The base callsign (2-6 alphanumeric characters).</param>
     /// <param name="ssid">Optional SSID (0-15).</param>
-    /// <exception cref="ArgumentException">Thrown if <paramref name="base"/> is invalid.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="callsignBase"/> is invalid.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="ssid"/> is out of range.</exception>
-    public Callsign(string @base, int? ssid = null)
+    public Callsign(string callsignBase, int? ssid = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(@base);
-        @base = @base.Trim().ToUpperInvariant();
+        ArgumentException.ThrowIfNullOrWhiteSpace(callsignBase);
+        callsignBase = callsignBase.Trim().ToUpperInvariant();
 
-        if (@base.Length < 2 || @base.Length > 6)
+        if (callsignBase.Length < 2 || callsignBase.Length > 6)
         {
-            throw new ArgumentException($"Callsign base must be 2-6 characters, got '{@base}'.", nameof(@base));
+            throw new ArgumentException($"Callsign base must be 2-6 characters, got '{callsignBase}'.", nameof(callsignBase));
         }
 
-        foreach (var character in @base)
+        foreach (var character in callsignBase)
         {
             if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')))
             {
-                throw new ArgumentException("Callsign base must contain only ASCII letters and digits.", nameof(@base));
+                throw new ArgumentException("Callsign base must contain only ASCII letters and digits.", nameof(callsignBase));
             }
         }
 
@@ -51,7 +51,7 @@ public readonly record struct Callsign
             throw new ArgumentOutOfRangeException(nameof(ssid), ssid, "SSID must be between 0 and 15.");
         }
 
-        Base = @base;
+        Base = callsignBase;
         Ssid = ssid;
     }
 

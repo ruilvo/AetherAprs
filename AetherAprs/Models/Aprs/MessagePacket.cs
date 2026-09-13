@@ -15,7 +15,7 @@ public sealed record MessagePacket : AprsPacket
     public override PacketType Type => PacketType.Message;
 
     /// <summary>
-    /// Gets the addressee callsign (9 characters, space-padded).
+    /// Gets the addressee callsign.
     /// </summary>
     public Callsign Addressee { get; init; }
 

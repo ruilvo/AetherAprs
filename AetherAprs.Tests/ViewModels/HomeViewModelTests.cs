@@ -221,28 +221,28 @@ public sealed class HomeViewModelTests
 
     private sealed class TestBeaconService : IBeaconService
     {
-        public BeaconConfiguration CurrentConfiguration { get; private set; } = BeaconConfiguration.CreateWalkPreset();
+        public BeaconConfig CurrentConfiguration { get; private set; } = BeaconConfig.CreateWalkPreset();
 
-        public IReadOnlyList<BeaconConfiguration> AllConfigurations =>
+        public IReadOnlyList<BeaconConfig> AllConfigurations =>
             new[]
             {
-                BeaconConfiguration.CreateWalkPreset(),
-                BeaconConfiguration.CreateDrivePreset(),
-                BeaconConfiguration.CreateCustomPreset()
+                BeaconConfig.CreateWalkPreset(),
+                BeaconConfig.CreateDrivePreset(),
+                BeaconConfig.CreateCustomPreset()
             };
 
         public void SetActiveMode(DynamicBeaconMode mode)
         {
             CurrentConfiguration = mode switch
             {
-                DynamicBeaconMode.Walk => BeaconConfiguration.CreateWalkPreset(),
-                DynamicBeaconMode.Drive => BeaconConfiguration.CreateDrivePreset(),
-                DynamicBeaconMode.Custom => BeaconConfiguration.CreateCustomPreset(),
+                DynamicBeaconMode.Walk => BeaconConfig.CreateWalkPreset(),
+                DynamicBeaconMode.Drive => BeaconConfig.CreateDrivePreset(),
+                DynamicBeaconMode.Custom => BeaconConfig.CreateCustomPreset(),
                 _ => CurrentConfiguration
             };
         }
 
-        public void UpdateCustomConfiguration(BeaconConfiguration configuration)
+        public void UpdateCustomConfiguration(BeaconConfig configuration)
         {
         }
 

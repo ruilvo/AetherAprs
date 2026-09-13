@@ -66,7 +66,7 @@ public class BeaconServiceTests
     public void UpdateCustomConfigurationModifiesCustomMode()
     {
         var service = new BeaconService();
-        var customConfig = BeaconConfiguration.CreateCustomPreset();
+        var customConfig = BeaconConfig.CreateCustomPreset();
         var modifiedConfig = customConfig with { SlowIntervalSeconds = 3600 };
 
         service.UpdateCustomConfiguration(modifiedConfig);
@@ -152,8 +152,8 @@ public class BeaconServiceTests
     [Fact]
     public void DrivePresetHasShorterIntervalsForHighSpeed()
     {
-        var driveConfig = BeaconConfiguration.CreateDrivePreset();
-        var walkConfig = BeaconConfiguration.CreateWalkPreset();
+        var driveConfig = BeaconConfig.CreateDrivePreset();
+        var walkConfig = BeaconConfig.CreateWalkPreset();
 
         // At highway speeds, drive should transmit more frequently than walk
         Assert.True(driveConfig.FastIntervalSeconds < walkConfig.FastIntervalSeconds);
@@ -216,7 +216,7 @@ public class BeaconServiceTests
         Assert.Equal(2, packet.Precision);
         Assert.Equal(
             "!4125.06N/00831.30W[Walking",
-            AprsSerializer.FormatInfoField(packet));
+            AprsInfoFieldSerializer.FormatInfoField(packet));
     }
 
     [Fact]
@@ -234,9 +234,9 @@ public class BeaconServiceTests
     [Fact]
     public void BeaconConfigurationPresetsHaveValidValues()
     {
-        var walkConfig = BeaconConfiguration.CreateWalkPreset();
-        var driveConfig = BeaconConfiguration.CreateDrivePreset();
-        var customConfig = BeaconConfiguration.CreateCustomPreset();
+        var walkConfig = BeaconConfig.CreateWalkPreset();
+        var driveConfig = BeaconConfig.CreateDrivePreset();
+        var customConfig = BeaconConfig.CreateCustomPreset();
 
         // All should have positive intervals
         Assert.True(walkConfig.SlowIntervalSeconds > 0);
@@ -266,7 +266,7 @@ public class BeaconServiceTests
     [Fact]
     public void CourseChangeThresholdZeroDisablesCourseTrigger()
     {
-        var config = BeaconConfiguration.CreateCustomPreset() with { CourseChangeThresholdDegrees = 0 };
+        var config = BeaconConfig.CreateCustomPreset() with { CourseChangeThresholdDegrees = 0 };
         var service = new BeaconService();
         service.UpdateCustomConfiguration(config);
         service.SetActiveMode(DynamicBeaconMode.Custom);

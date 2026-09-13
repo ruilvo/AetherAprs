@@ -33,7 +33,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("!3830.00N/", infoField);
         Assert.Contains("00906.00W", infoField);
@@ -54,7 +54,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("!4125.06N/00831.30W[Walking", infoField);
     }
@@ -72,7 +72,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("!4200.00N/00900.00Wa", infoField);
     }
@@ -90,7 +90,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("!0000.60S/00000.60Ea", infoField);
     }
@@ -108,7 +108,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("!3830.00NA/00906.00W#", infoField);
     }
@@ -130,7 +130,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => AprsSerializer.FormatInfoField(packet));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AprsInfoFieldSerializer.FormatInfoField(packet));
     }
 
     [Theory]
@@ -148,7 +148,7 @@ public class AprsSerializerTests
             Precision = precision
         };
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => AprsSerializer.FormatInfoField(packet));
+        Assert.Throws<ArgumentOutOfRangeException>(() => AprsInfoFieldSerializer.FormatInfoField(packet));
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Contains("Test Comment", infoField);
     }
@@ -183,7 +183,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Contains('S', infoField);
     }
@@ -226,7 +226,7 @@ public class AprsSerializerTests
             Text = "Hello there"
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith(":OTHER    :", infoField);
         Assert.EndsWith("Hello there", infoField);
@@ -244,7 +244,7 @@ public class AprsSerializerTests
             MessageNumber = 42
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal(":OTHER    :Hello{42}", infoField);
     }
@@ -260,7 +260,7 @@ public class AprsSerializerTests
             Text = "Hello"
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal(":N0CALL-1 :Hello", infoField);
     }
@@ -319,7 +319,7 @@ public class AprsSerializerTests
             Text = "Online via APRS"
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal(">Online via APRS", infoField);
     }
@@ -359,7 +359,7 @@ public class AprsSerializerTests
             Pressure = 10130
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("_", infoField);
         Assert.Contains("c90", infoField);
@@ -379,7 +379,7 @@ public class AprsSerializerTests
             Destination = Dest
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("_", infoField);
     }
@@ -466,7 +466,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("!", infoField);
     }
@@ -474,7 +474,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_NullPacket_ThrowsArgumentNullException()
     {
-        var ex = Assert.Throws<ArgumentNullException>(() => AprsSerializer.FormatInfoField(null!));
+        var ex = Assert.Throws<ArgumentNullException>(() => AprsInfoFieldSerializer.FormatInfoField(null!));
         Assert.Contains("packet", ex.Message, StringComparison.Ordinal);
     }
 }

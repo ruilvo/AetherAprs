@@ -10,7 +10,7 @@ public class AprsSettings
 {
     public string Callsign { get; set; } = "N0CALL";
 
-    public int DefaultSsid { get; set; }
+    public int DefaultSsid { get; set; } = 0;
 
     public string DefaultSymbolTableCharacter { get; set; } = "/";
 

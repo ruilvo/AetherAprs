@@ -26,7 +26,7 @@ public static class Ax25Serializer
     /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
     public static byte[] Serialize(AprsPacket packet)
     {
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         return BuildAx25Frame(packet.Destination, packet.Source, infoField);
     }
 
@@ -40,7 +40,7 @@ public static class Ax25Serializer
     /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
     public static byte[] Serialize(AprsPacket packet, Callsign source, Callsign destination)
     {
-        var infoField = AprsSerializer.FormatInfoField(packet);
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         return BuildAx25Frame(destination, source, infoField);
     }
 

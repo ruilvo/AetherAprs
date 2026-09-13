@@ -19,12 +19,12 @@ public interface IBeaconService
     /// <summary>
     /// Gets the current active beacon configuration based on the selected mode.
     /// </summary>
-    BeaconConfiguration CurrentConfiguration { get; }
+    BeaconConfig CurrentConfiguration { get; }
 
     /// <summary>
     /// Gets all three beacon configurations (Walk, Drive, Custom).
     /// </summary>
-    IReadOnlyList<BeaconConfiguration> AllConfigurations { get; }
+    IReadOnlyList<BeaconConfig> AllConfigurations { get; }
 
     /// <summary>
     /// Sets the active beacon mode (Walk, Drive, or Custom).
@@ -36,7 +36,7 @@ public interface IBeaconService
     /// Updates the custom beacon configuration.
     /// </summary>
     /// <param name="configuration">The new custom configuration.</param>
-    void UpdateCustomConfiguration(BeaconConfiguration configuration);
+    void UpdateCustomConfiguration(BeaconConfig configuration);
 
     /// <summary>
     /// Processes a location update and determines if a beacon should be transmitted.
@@ -106,14 +106,14 @@ public sealed record BeaconTransmitDecision
 public sealed class BeaconService : IBeaconService
 {
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
-    private BeaconConfiguration _walkConfig = BeaconConfiguration.CreateWalkPreset();
-    private BeaconConfiguration _driveConfig = BeaconConfiguration.CreateDrivePreset();
-    private BeaconConfiguration _customConfig = BeaconConfiguration.CreateCustomPreset();
+    private readonly BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
+    private readonly BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
+    private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
     private DateTime _lastTransmitTime = DateTime.UtcNow;
     private double? _lastCourseDegrees;
     private const double EarthRadiusMeters = 6371000.0;
 
-    public BeaconConfiguration CurrentConfiguration =>
+    public BeaconConfig CurrentConfiguration =>
         _activeMode switch
         {
             DynamicBeaconMode.Walk => _walkConfig,
@@ -122,8 +122,8 @@ public sealed class BeaconService : IBeaconService
             _ => _walkConfig
         };
 
-    public IReadOnlyList<BeaconConfiguration> AllConfigurations =>
-        new[] { _walkConfig, _driveConfig, _customConfig };
+    public IReadOnlyList<BeaconConfig> AllConfigurations =>
+        [_walkConfig, _driveConfig, _customConfig];
 
     public void SetActiveMode(DynamicBeaconMode mode)
     {
@@ -131,7 +131,7 @@ public sealed class BeaconService : IBeaconService
         _lastTransmitTime = DateTime.UtcNow;
     }
 
-    public void UpdateCustomConfiguration(BeaconConfiguration configuration)
+    public void UpdateCustomConfiguration(BeaconConfig configuration)
     {
         if (configuration.Mode != DynamicBeaconMode.Custom)
             throw new ArgumentException("Configuration must be for Custom mode.", nameof(configuration));
@@ -279,7 +279,7 @@ public sealed class BeaconService : IBeaconService
             codeCharacter[0].ToSymbolCode());
     }
 
-    private int GetActiveInterval(BeaconConfiguration config, double speedKmh)
+    private static int GetActiveInterval(BeaconConfig config, double speedKmh)
     {
         if (speedKmh <= config.SlowSpeedThresholdKmh)
             return config.SlowIntervalSeconds;

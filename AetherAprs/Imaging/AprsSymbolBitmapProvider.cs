@@ -19,7 +19,7 @@ public interface IAprsSymbolBitmapProvider : IDisposable
     SKBitmap GetSymbolBitmap(Symbol symbol);
 }
 
-public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDisposable
+public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider
 {
     /// <summary>Number of columns in each sprite sheet.</summary>
     private const int Columns = 16;
@@ -36,19 +36,25 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
     /// </summary>
     private const int CodeOffset = 0x21;
 
-    private static readonly Uri[] SpriteSheetUris =
-    [
-        // Primary sheet
-        new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-0_2x.png"),
-        // Secondary sheet
-        new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-1_2x.png"),
-        // Overlay sheet
-        new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-2_2x.png"),
-    ];
+    private enum SpriteSheet
+    {
+        Primary = 0,
+        Secondary = 1,
+        Overlay = 2
+    }
 
-    private readonly SKBitmap[] _spriteSheets;
-    private readonly Dictionary<(int table, int code), SKBitmap> _symbolCache = new();
-    private readonly Dictionary<(int table, int code, char? overlay), SKBitmap> _compositeCache = new();
+    private static readonly Dictionary<SpriteSheet, Uri> SpriteSheetUris = new()
+    {
+        [SpriteSheet.Primary] = new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-0_2x.png"),
+        [SpriteSheet.Secondary] = new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-1_2x.png"),
+        [SpriteSheet.Overlay] = new("avares://AetherAprs/Assets/Aprs/aprs-symbols-64-2_2x.png"),
+    };
+
+    private record struct SpriteKey(SpriteSheet Sheet, SymbolCode Code);
+
+    private readonly Dictionary<SpriteSheet, SKBitmap> _spriteSheets;
+    private readonly Dictionary<SpriteKey, SKBitmap> _spriteCache = [];
+    private readonly Dictionary<Symbol, SKBitmap> _symbolCache = [];
     private bool _disposed;
 
     /// <summary>
@@ -58,27 +64,17 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
     /// <exception cref="InvalidOperationException">Thrown if any sprite sheet fails to load.</exception>
     public AprsSymbolBitmapProvider()
     {
-        _spriteSheets = new SKBitmap[3];
+        _spriteSheets = [];
 
-        for (var i = 0; i < 3; i++)
+        foreach (var (sheet, uri) in SpriteSheetUris)
         {
-            using var stream = AssetLoader.Open(SpriteSheetUris[i]);
+            using var stream = AssetLoader.Open(uri) ?? throw new InvalidOperationException(
+                    $"Failed to open sprite sheet resource: {SpriteSheetUris[sheet]}");
 
-            if (stream == null)
-            {
-                throw new InvalidOperationException(
-                    $"Failed to open sprite sheet resource: {SpriteSheetUris[i]}");
-            }
+            var bitmap = SKBitmap.Decode(stream) ?? throw new InvalidOperationException(
+                    $"Failed to decode sprite sheet: {SpriteSheetUris[sheet]}");
 
-            var bitmap = SKBitmap.Decode(stream);
-
-            if (bitmap == null)
-            {
-                throw new InvalidOperationException(
-                    $"Failed to decode sprite sheet: {SpriteSheetUris[i]}");
-            }
-
-            _spriteSheets[i] = bitmap;
+            _spriteSheets[sheet] = bitmap;
         }
     }
 
@@ -91,22 +87,21 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var tableIndex = (int)symbol.Table;
-        var codeValue = (byte)symbol.Code;
-
+        // If there is no overlay, we can return the base symbol bitmap directly
+        // from the sprite sheet.
         if (!symbol.Overlay.HasValue)
         {
-            return GetOrCreateSymbolBitmap(tableIndex, codeValue);
+            SpriteKey skey = new() { Sheet = (SpriteSheet)symbol.Table, Code = symbol.Code };
+            return GetOrCreateSymbolBitmap(skey);
         }
 
-        var key = (tableIndex, codeValue, symbol.Overlay);
-        if (_compositeCache.TryGetValue(key, out var cached))
+        if (_symbolCache.TryGetValue(symbol, out var cached))
         {
             return cached;
         }
 
-        var composite = CreateCompositeBitmap(tableIndex, codeValue, symbol.Overlay.Value);
-        _compositeCache[key] = composite;
+        var composite = CreateCompositeBitmap(symbol);
+        _symbolCache[symbol] = composite;
         return composite;
     }
 
@@ -115,12 +110,12 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
     /// </summary>
     /// <param name="overlayChar">The overlay character.</param>
     /// <returns>A cached <see cref="SKBitmap"/> of the overlay glyph.</returns>
-    public SKBitmap GetOverlayBitmap(char overlayChar)
+    public SKBitmap GetOverlayBitmap(SymbolCode overlayChar)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var codeValue = (int)overlayChar;
-        return GetOrCreateSymbolBitmap(tableIndex: 2, codeValue);
+        SpriteKey skey = new() { Sheet = SpriteSheet.Overlay, Code = overlayChar };
+        return GetOrCreateSymbolBitmap(skey);
     }
 
     /// <inheritdoc />
@@ -133,34 +128,33 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
 
         _disposed = true;
 
+        foreach (var bitmap in _spriteCache.Values)
+        {
+            bitmap.Dispose();
+        }
+        _spriteCache.Clear();
+
         foreach (var bitmap in _symbolCache.Values)
         {
             bitmap.Dispose();
         }
-
         _symbolCache.Clear();
 
-        foreach (var bitmap in _compositeCache.Values)
-        {
-            bitmap.Dispose();
-        }
-
-        _compositeCache.Clear();
-
-        foreach (var sheet in _spriteSheets)
+        foreach (var sheet in _spriteSheets.Values)
         {
             sheet.Dispose();
         }
+        _spriteSheets.Clear();
     }
 
-    private static (int row, int col) GetCellPosition(int codeValue)
+    private static (int row, int col) GetCellPosition(SymbolCode codeValue)
     {
-        if (codeValue < CodeOffset)
+        if ((int)codeValue < CodeOffset)
         {
             throw new ArgumentOutOfRangeException(nameof(codeValue), "The symbol sprite sheets do not contain the space character.");
         }
 
-        var index = codeValue - CodeOffset;
+        var index = (int)codeValue - CodeOffset;
         return (index / Columns, index % Columns);
     }
 
@@ -186,28 +180,27 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDispo
         return copy;
     }
 
-    private SKBitmap GetOrCreateSymbolBitmap(int tableIndex, int codeValue)
+    private SKBitmap GetOrCreateSymbolBitmap(SpriteKey skey)
     {
-        var key = (tableIndex, codeValue);
-
-        if (_symbolCache.TryGetValue(key, out var cached))
+        if (_spriteCache.TryGetValue(skey, out var cached))
         {
             return cached;
         }
 
-        var (row, col) = GetCellPosition(codeValue);
-        var bitmap = ExtractSubBitmap(_spriteSheets[tableIndex], col, row);
-        _symbolCache[key] = bitmap;
+        var (row, col) = GetCellPosition(skey.Code);
+        var bitmap = ExtractSubBitmap(_spriteSheets[skey.Sheet], col, row);
+        _spriteCache[skey] = bitmap;
         return bitmap;
     }
 
-    private SKBitmap CreateCompositeBitmap(int tableIndex, int codeValue, char overlayChar)
+    private SKBitmap CreateCompositeBitmap(Symbol symbol)
     {
-        var baseSymbol = GetOrCreateSymbolBitmap(tableIndex, codeValue);
+        SpriteKey skey = new() { Sheet = (SpriteSheet)symbol.Table, Code = symbol.Code };
+        var baseSymbol = GetOrCreateSymbolBitmap(skey);
         var result = DeepCopy(baseSymbol);
 
-        var (overlayRow, overlayCol) = GetCellPosition(overlayChar);
-        var overlayBitmap = ExtractSubBitmap(_spriteSheets[2], overlayCol, overlayRow);
+        var (overlayRow, overlayCol) = GetCellPosition(symbol.Code);
+        var overlayBitmap = ExtractSubBitmap(_spriteSheets[SpriteSheet.Overlay], overlayCol, overlayRow);
 
         // Composite the overlay glyph onto the top-left corner of the base symbol
         using var canvas = new SKCanvas(result);

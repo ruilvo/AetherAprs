@@ -16,7 +16,7 @@ namespace AetherAprs.Modems.Aprs;
 /// This handles only the APRS info field format (e.g. <c>!DDMM.mmX/DDDMM.mmYC...</c>).
 /// For AX.25 frame decoding, use <see cref="Ax25Parser"/>.
 /// </remarks>
-public static class AprsParser
+public static class AprsInfoFieldParser
 {
     /// <summary>
     /// Parses an APRS info field string into a typed <see cref="AprsPacket"/>.

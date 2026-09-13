@@ -15,20 +15,14 @@ namespace AetherAprs.Imaging;
 /// instances by extracting sub-bitmaps from sprite sheets, compositing overlays, and
 /// encoding the result as a base64 PNG URI for MapsUI's image pipeline.
 /// </summary>
-public sealed class AprsSymbolMapConverter : IDisposable
+/// <remarks>
+/// Initializes a new instance of <see cref="AprsSymbolMapConverter"/>.
+/// </remarks>
+/// <param name="provider">The bitmap provider that loads and composites sprite sheets.</param>
+public sealed class AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider) : IDisposable
 {
-    private readonly IAprsSymbolBitmapProvider _provider;
-    private readonly Dictionary<(int table, int code, char? overlay), string> _base64Cache = new();
+    private readonly Dictionary<Symbol, string> _base64Cache = [];
     private bool _disposed;
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="AprsSymbolMapConverter"/>.
-    /// </summary>
-    /// <param name="provider">The bitmap provider that loads and composites sprite sheets.</param>
-    public AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider)
-    {
-        _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-    }
 
     /// <summary>
     /// Creates an <see cref="ImageStyle"/> for the given APRS symbol at the specified scale.
@@ -42,13 +36,11 @@ public sealed class AprsSymbolMapConverter : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = ((int)symbol.Table, (byte)symbol.Code, symbol.Overlay);
-
-        if (!_base64Cache.TryGetValue(key, out var base64Uri))
+        if (!_base64Cache.TryGetValue(symbol, out var base64Uri))
         {
-            var bitmap = _provider.GetSymbolBitmap(symbol);
+            var bitmap = provider.GetSymbolBitmap(symbol);
             base64Uri = EncodeToBase64Uri(bitmap);
-            _base64Cache[key] = base64Uri;
+            _base64Cache[symbol] = base64Uri;
         }
 
         return new ImageStyle
@@ -68,7 +60,7 @@ public sealed class AprsSymbolMapConverter : IDisposable
 
         _disposed = true;
         _base64Cache.Clear();
-        _provider.Dispose();
+        provider.Dispose();
     }
 
     private static string EncodeToBase64Uri(SKBitmap bitmap)
