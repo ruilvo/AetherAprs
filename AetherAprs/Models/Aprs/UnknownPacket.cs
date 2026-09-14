@@ -9,6 +9,4 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public sealed record UnknownPacket : AprsPacket
 {
-    /// <inheritdoc />
-    public override PacketType Type => PacketType.Unknown;
 }

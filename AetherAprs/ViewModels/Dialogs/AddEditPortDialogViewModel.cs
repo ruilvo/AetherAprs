@@ -6,18 +6,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
-using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
-using Avalonia.Media.Imaging;
 using DialogHostAvalonia;
-using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,28 +22,15 @@ namespace AetherAprs.ViewModels;
 
 public partial class AddEditPortDialogViewModel : ViewModelBase
 {
-    private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
-    private readonly Func<SKBitmap, Bitmap?> _previewFactory;
     private readonly IBluetoothLeScanner _bleScanner;
     private readonly IBluetoothClassicDeviceProvider _classicDeviceProvider;
     private CancellationTokenSource? _bleScanCts;
-
-    public IReadOnlyList<AprsSymbolOption> SymbolOptions { get; } =
-    [
-        new("Human", "/", "["),
-        new("Ambulance", "/", "a"),
-        new("Car", "/", ">"),
-        new("Truck", "/", "k"),
-        new("Boat", "/", "s"),
-        new("Emergency", "\\", "!"),
-        new("Hospital", "\\", "h")
-    ];
 
     [ObservableProperty]
     public partial string Name { get; set; }
 
     [ObservableProperty]
-    public partial PortType SelectedPortType { get; set; } = PortType.AprsIs;
+    public partial Type SelectedPortSettingsType { get; set; } = typeof(AprsIsSettings);
 
     [ObservableProperty]
     public partial string Server { get; set; } = AprsIsSettings.DefaultServer;
@@ -65,7 +48,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial int? Ssid { get; set; }
 
     [ObservableProperty]
-    public partial KissTransportKind SelectedKissTransportKind { get; set; } = KissTransportKind.Tcp;
+    public partial Type SelectedKissTransportType { get; set; } = typeof(TcpKissTransportSettings);
 
     [ObservableProperty]
     public partial string TcpHost { get; set; } = TcpKissTransportSettings.DefaultHost;
@@ -98,15 +81,6 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial bool UseDefaultSymbol { get; set; } = true;
 
     [ObservableProperty]
-    public partial AprsSymbolOption? SelectedSymbolOption { get; set; }
-
-    [ObservableProperty]
-    public partial Bitmap? SymbolPreview { get; private set; }
-
-    [ObservableProperty]
-    public partial bool IsSymbolValid { get; private set; }
-
-    [ObservableProperty]
     public partial bool IsRx { get; set; } = true;
 
     [ObservableProperty]
@@ -118,8 +92,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     [ObservableProperty]
     public partial DynamicBeaconMode? SelectedBeaconMode { get; set; }
 
-    [ObservableProperty]
-    public partial bool UseDefaultBeaconMode { get; set; } = true;
+    public bool IsSymbolValid => TryCreateSymbol(out _);
 
     public ObservableCollection<BluetoothLeAdvertisement> BleDevices { get; } = new();
 
@@ -127,45 +100,38 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 
     public string Title => string.IsNullOrEmpty(Name) ? "Add Port" : $"Edit {Name}";
 
-    public PortType[] PortTypes { get; } = [PortType.AprsIs, PortType.Kiss];
+    public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings)];
 
-    public IReadOnlyList<KissTransportKind> AvailableKissTransportKinds { get; }
+    public IReadOnlyList<Type> AvailableKissTransportTypes { get; }
 
     public DynamicBeaconMode?[] BeaconModes { get; } = [null, DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
 
     public AddEditPortDialogViewModel(
         string globalCallsign,
         int nextPortNumber,
-        IAprsSymbolBitmapProvider symbolBitmapProvider,
         IKissStreamFactory kissStreamFactory,
         IBluetoothLeScanner bleScanner,
         IBluetoothClassicDeviceProvider classicDeviceProvider,
-        Func<SKBitmap, Bitmap?>? previewFactory = null,
         string defaultSymbolTableCharacter = "/",
-        string defaultSymbolCodeCharacter = "[",
-        DynamicBeaconMode defaultBeaconMode = DynamicBeaconMode.Walk)
+        string defaultSymbolCodeCharacter = "[")
     {
         ArgumentNullException.ThrowIfNull(kissStreamFactory);
-        _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
         _bleScanner = bleScanner ?? throw new ArgumentNullException(nameof(bleScanner));
         _classicDeviceProvider = classicDeviceProvider ?? throw new ArgumentNullException(nameof(classicDeviceProvider));
-        _previewFactory = previewFactory ?? CreatePreviewBitmap;
 
         var supported = kissStreamFactory.SupportedTransports;
-        AvailableKissTransportKinds = supported.Count > 0
+        AvailableKissTransportTypes = supported.Count > 0
             ? supported.ToArray()
-            : [KissTransportKind.Tcp];
-        SelectedKissTransportKind = AvailableKissTransportKinds.Contains(KissTransportKind.Tcp)
-            ? KissTransportKind.Tcp
-            : AvailableKissTransportKinds[0];
+            : [typeof(TcpKissTransportSettings)];
+        SelectedKissTransportType = AvailableKissTransportTypes.Contains(typeof(TcpKissTransportSettings))
+            ? typeof(TcpKissTransportSettings)
+            : AvailableKissTransportTypes[0];
 
         Name = $"APRS-IS Port {nextPortNumber}";
         Passcode = AprsPasscode.Compute(globalCallsign);
         SymbolTableCharacter = defaultSymbolTableCharacter;
         SymbolCodeCharacter = defaultSymbolCodeCharacter;
-        SelectedBeaconMode = defaultBeaconMode;
-        UpdateSelectedSymbolOption();
-        UpdateSymbolPreview();
+        SelectedBeaconMode = null;
     }
 
     [RelayCommand]
@@ -284,49 +250,30 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 
     partial void OnSymbolTableCharacterChanged(string value)
     {
-        UpdateSelectedSymbolOption();
-        UpdateSymbolPreview();
+        OnPropertyChanged(nameof(IsSymbolValid));
         SaveCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSymbolCodeCharacterChanged(string value)
     {
-        UpdateSelectedSymbolOption();
-        UpdateSymbolPreview();
+        OnPropertyChanged(nameof(IsSymbolValid));
         SaveCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnSelectedSymbolOptionChanged(AprsSymbolOption? value)
+    partial void OnSelectedKissTransportTypeChanged(Type value)
     {
-        if (value is null)
-        {
-            return;
-        }
-
-        SymbolTableCharacter = value.TableCharacter;
-        SymbolCodeCharacter = value.CodeCharacter;
-    }
-
-    partial void OnSelectedKissTransportKindChanged(KissTransportKind value)
-    {
-        if (value != KissTransportKind.BluetoothLe)
+        if (value != typeof(BluetoothLeKissTransportSettings))
         {
             StopBleScan();
         }
     }
 
-    partial void OnSelectedPortTypeChanged(PortType value)
+    partial void OnSelectedPortSettingsTypeChanged(Type value)
     {
-        if (value != PortType.Kiss)
+        if (value != typeof(KissSettings))
         {
             StopBleScan();
         }
-    }
-
-    [RelayCommand]
-    private void SelectSymbol(AprsSymbolOption option)
-    {
-        SelectedSymbolOption = option;
     }
 
     public void PopulateFrom(PortItemViewModel item)
@@ -340,7 +287,11 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(config);
 
         Name = config.Name;
-        SelectedPortType = config.Type;
+        SelectedPortSettingsType = config.TypeSettings switch
+        {
+            KissSettings => typeof(KissSettings),
+            _ => typeof(AprsIsSettings)
+        };
         IsRx = config.IsRx;
         IsTx = config.IsTx;
         ShowOnMap = config.ShowOnMap;
@@ -353,11 +304,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             SymbolCodeCharacter = config.SymbolCodeCharacter!;
         }
 
-        UseDefaultBeaconMode = config.DynamicBeaconMode is null;
-        if (!UseDefaultBeaconMode)
-        {
-            SelectedBeaconMode = config.DynamicBeaconMode;
-        }
+        SelectedBeaconMode = config.DynamicBeaconMode;
 
         if (config.TypeSettings is AprsIsSettings aprsIs)
         {
@@ -369,9 +316,10 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 
         if (config.TypeSettings is KissSettings kiss)
         {
-            if (AvailableKissTransportKinds.Contains(kiss.TransportKind))
+            var transportType = kiss.Transport?.GetType();
+            if (transportType is not null && AvailableKissTransportTypes.Contains(transportType))
             {
-                SelectedKissTransportKind = kiss.TransportKind;
+                SelectedKissTransportType = transportType;
             }
 
             switch (kiss.Transport)
@@ -417,7 +365,6 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 
         var config = new PortConfig
         {
-            Type = SelectedPortType,
             Name = Name,
             Ssid = Ssid,
             SymbolTableCharacter = UseDefaultSymbol ? null : SymbolTableCharacter,
@@ -425,10 +372,10 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             IsRx = IsRx,
             IsTx = IsTx,
             ShowOnMap = ShowOnMap,
-            DynamicBeaconMode = UseDefaultBeaconMode ? null : SelectedBeaconMode
+            DynamicBeaconMode = SelectedBeaconMode
         };
 
-        if (SelectedPortType == PortType.AprsIs)
+        if (SelectedPortSettingsType == typeof(AprsIsSettings))
         {
             config.TypeSettings = new AprsIsSettings
             {
@@ -438,11 +385,10 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
                 Filter = Filter
             };
         }
-        else if (SelectedPortType == PortType.Kiss)
+        else if (SelectedPortSettingsType == typeof(KissSettings))
         {
             config.TypeSettings = new KissSettings
             {
-                TransportKind = SelectedKissTransportKind,
                 Transport = BuildKissTransportSettings()
             };
         }
@@ -452,56 +398,34 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 
     private IKissTransportSettings BuildKissTransportSettings()
     {
-        return SelectedKissTransportKind switch
+        if (SelectedKissTransportType == typeof(TcpKissTransportSettings))
         {
-            KissTransportKind.Tcp => new TcpKissTransportSettings
+            return new TcpKissTransportSettings
             {
                 Host = string.IsNullOrWhiteSpace(TcpHost) ? TcpKissTransportSettings.DefaultHost : TcpHost,
                 Port = TcpPort
-            },
-            KissTransportKind.BluetoothLe => new BluetoothLeKissTransportSettings
+            };
+        }
+
+        if (SelectedKissTransportType == typeof(BluetoothLeKissTransportSettings))
+        {
+            return new BluetoothLeKissTransportSettings
             {
                 DeviceAddress = SelectedBleDevice?.Address ?? string.Empty,
                 DeviceName = SelectedBleDevice?.Name
-            },
-            KissTransportKind.BluetoothClassic => new BluetoothClassicKissTransportSettings
+            };
+        }
+
+        if (SelectedKissTransportType == typeof(BluetoothClassicKissTransportSettings))
+        {
+            return new BluetoothClassicKissTransportSettings
             {
                 DeviceAddress = SelectedSppDevice?.Address ?? string.Empty,
                 DeviceName = SelectedSppDevice?.Name
-            },
-            _ => throw new InvalidOperationException($"Unsupported KISS transport kind '{SelectedKissTransportKind}'.")
-        };
-    }
-
-    private void UpdateSymbolPreview()
-    {
-        SymbolPreview?.Dispose();
-        SymbolPreview = null;
-        IsSymbolValid = false;
-
-        if (!TryCreateSymbol(out var symbol))
-        {
-            return;
+            };
         }
 
-        var symbolBitmap = _symbolBitmapProvider.GetSymbolBitmap(symbol);
-        SymbolPreview = _previewFactory(symbolBitmap);
-        IsSymbolValid = true;
-    }
-
-    private void UpdateSelectedSymbolOption()
-    {
-        SelectedSymbolOption = SymbolOptions.FirstOrDefault(option =>
-            option.TableCharacter == SymbolTableCharacter &&
-            option.CodeCharacter == SymbolCodeCharacter);
-    }
-
-    private static Bitmap CreatePreviewBitmap(SKBitmap bitmap)
-    {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = new MemoryStream(data.ToArray());
-        return new Bitmap(stream);
+        throw new InvalidOperationException($"Unsupported KISS transport type '{SelectedKissTransportType.Name}'.");
     }
 
     private bool TryCreateSymbol(out Symbol symbol)

@@ -6,6 +6,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using AetherAprs.Configuration;
+using AetherAprs.Models;
 
 namespace AetherAprs.Converters;
 
@@ -13,25 +14,42 @@ public class EnumDisplayConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is PortType portType)
+        if (value is null)
         {
-            return portType switch
-            {
-                PortType.AprsIs => "APRS-IS",
-                PortType.Kiss => "KISS",
-                _ => value.ToString()
-            };
+            return "Default";
         }
 
-        if (value is KissTransportKind kissTransportKind)
+        if (value is Type type)
         {
-            return kissTransportKind switch
+            if (type == typeof(AprsIsSettings))
             {
-                KissTransportKind.Tcp => "TCP",
-                KissTransportKind.BluetoothClassic => "Bluetooth Classic (SPP)",
-                KissTransportKind.BluetoothLe => "Bluetooth LE",
-                _ => value.ToString()
-            };
+                return "APRS-IS";
+            }
+
+            if (type == typeof(KissSettings))
+            {
+                return "KISS";
+            }
+
+            if (type == typeof(TcpKissTransportSettings))
+            {
+                return "TCP";
+            }
+
+            if (type == typeof(BluetoothClassicKissTransportSettings))
+            {
+                return "Bluetooth Classic (SPP)";
+            }
+
+            if (type == typeof(BluetoothLeKissTransportSettings))
+            {
+                return "Bluetooth LE";
+            }
+        }
+
+        if (value is DynamicBeaconMode mode)
+        {
+            return mode.ToString();
         }
 
         return value;
@@ -43,11 +61,11 @@ public class EnumDisplayConverter : IValueConverter
         {
             return str switch
             {
-                "APRS-IS" => PortType.AprsIs,
-                "KISS" => PortType.Kiss,
-                "TCP" => KissTransportKind.Tcp,
-                "Bluetooth Classic (SPP)" => KissTransportKind.BluetoothClassic,
-                "Bluetooth LE" => KissTransportKind.BluetoothLe,
+                "APRS-IS" => typeof(AprsIsSettings),
+                "KISS" => typeof(KissSettings),
+                "TCP" => typeof(TcpKissTransportSettings),
+                "Bluetooth Classic (SPP)" => typeof(BluetoothClassicKissTransportSettings),
+                "Bluetooth LE" => typeof(BluetoothLeKissTransportSettings),
                 _ => null
             };
         }

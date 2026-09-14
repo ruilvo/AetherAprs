@@ -24,11 +24,11 @@ public sealed class TcpKissStreamConnectorTests
     }
 
     [Fact]
-    public void Kind_IsTcpAndSupported()
+    public void SettingsType_IsTcpAndSupported()
     {
         var connector = new TcpKissStreamConnector();
 
-        Assert.Equal(KissTransportKind.Tcp, connector.Kind);
+        Assert.Equal(typeof(TcpKissTransportSettings), connector.SettingsType);
         Assert.True(connector.IsSupported);
     }
 }

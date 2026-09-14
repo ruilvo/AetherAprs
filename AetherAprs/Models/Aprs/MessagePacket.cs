@@ -11,9 +11,6 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public sealed record MessagePacket : AprsPacket
 {
-    /// <inheritdoc />
-    public override PacketType Type => PacketType.Message;
-
     /// <summary>
     /// Gets the addressee callsign.
     /// </summary>

@@ -185,7 +185,6 @@ public sealed class HomeViewModelTests
         {
             Id = Guid.NewGuid(),
             Name = "Test port",
-            Type = PortType.AprsIs,
             IsEnabled = isEnabled,
             IsRx = true,
             IsTx = isTx,

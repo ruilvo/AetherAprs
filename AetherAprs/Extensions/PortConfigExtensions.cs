@@ -72,11 +72,7 @@ public static class PortConfigExtensions
     {
         if (port.TypeSettings is not KissSettings settings)
         {
-            settings = new KissSettings
-            {
-                TransportKind = KissTransportKind.Tcp,
-                Transport = new TcpKissTransportSettings()
-            };
+            settings = new KissSettings { Transport = new TcpKissTransportSettings() };
             port.TypeSettings = settings;
         }
         return settings;

@@ -96,7 +96,7 @@ public partial class PortsViewModel : ViewModelBase
     public int GetNextPortNumber()
     {
         var aprsIsPorts = _portService.Ports
-            .Where(p => p.Type == PortType.AprsIs)
+            .Where(p => p.TypeSettings is AprsIsSettings)
             .ToList();
         return aprsIsPorts.Count + 1;
     }

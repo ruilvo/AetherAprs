@@ -21,7 +21,7 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
 {
     private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB")!;
 
-    public KissTransportKind Kind => KissTransportKind.BluetoothClassic;
+    public Type SettingsType => typeof(BluetoothClassicKissTransportSettings);
 
     public bool IsSupported => true;
 

@@ -5,23 +5,14 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using AetherAprs.Configuration;
 
 namespace AetherAprs.Converters;
 
-public class KissTransportKindToIsVisibleConverter : IValueConverter
+public class TypeNameToIsVisibleConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is KissTransportKind transportKind && parameter is string paramStr)
-        {
-            if (Enum.TryParse<KissTransportKind>(paramStr, out var targetKind))
-            {
-                return transportKind == targetKind;
-            }
-        }
-
-        return false;
+        return value is Type t && parameter is string name && t.Name == name;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

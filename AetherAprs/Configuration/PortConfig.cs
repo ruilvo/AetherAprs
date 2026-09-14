@@ -8,12 +8,6 @@ using AetherAprs.Models;
 
 namespace AetherAprs.Configuration;
 
-public enum PortType
-{
-    AprsIs,
-    Kiss
-}
-
 /// <summary>
 /// Base configuration for all port types.
 /// </summary>
@@ -22,8 +16,6 @@ public class PortConfig
     private int? _ssid;
 
     public Guid Id { get; set; } = Guid.NewGuid();
-
-    public PortType Type { get; set; }
 
     public string Name { get; set; } = string.Empty;
 
@@ -173,7 +165,5 @@ public class AprsIsSettings : IPortTypeSettings
 /// </summary>
 public class KissSettings : IPortTypeSettings
 {
-    public KissTransportKind TransportKind { get; set; } = KissTransportKind.Tcp;
-
     public IKissTransportSettings? Transport { get; set; }
 }

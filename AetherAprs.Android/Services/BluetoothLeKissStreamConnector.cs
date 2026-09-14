@@ -17,7 +17,7 @@ namespace AetherAprs.Android.Services;
 /// </summary>
 public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
 {
-    public KissTransportKind Kind => KissTransportKind.BluetoothLe;
+    public Type SettingsType => typeof(BluetoothLeKissTransportSettings);
 
     public bool IsSupported => true;
 

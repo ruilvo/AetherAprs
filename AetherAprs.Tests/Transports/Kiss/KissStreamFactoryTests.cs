@@ -20,26 +20,25 @@ public sealed class KissStreamFactoryTests
     {
         var factory = new KissStreamFactory(
         [
-            new StubConnector(KissTransportKind.Tcp, isSupported: false),
-            new StubConnector(KissTransportKind.Tcp, isSupported: true),
+            new StubConnector(typeof(TcpKissTransportSettings), isSupported: false),
+            new StubConnector(typeof(TcpKissTransportSettings), isSupported: true),
             new UnsupportedBluetoothClassicKissStreamConnector()
         ]);
 
-        Assert.Contains(KissTransportKind.Tcp, factory.SupportedTransports);
-        Assert.DoesNotContain(KissTransportKind.BluetoothClassic, factory.SupportedTransports);
+        Assert.Contains(typeof(TcpKissTransportSettings), factory.SupportedTransports);
+        Assert.DoesNotContain(typeof(BluetoothClassicKissTransportSettings), factory.SupportedTransports);
     }
 
     [Fact]
     public async Task OpenAsync_UsesSupportedConnectorWhenKindsCollide()
     {
-        var supported = new StubConnector(KissTransportKind.Tcp, isSupported: true);
-        var unsupported = new StubConnector(KissTransportKind.Tcp, isSupported: false);
+        var supported = new StubConnector(typeof(TcpKissTransportSettings), isSupported: true);
+        var unsupported = new StubConnector(typeof(TcpKissTransportSettings), isSupported: false);
         var factory = new KissStreamFactory([unsupported, supported]);
 
         await using var stream = await factory.OpenAsync(
             new KissSettings
             {
-                TransportKind = KissTransportKind.Tcp,
                 Transport = new TcpKissTransportSettings()
             },
             TestContext.Current.CancellationToken);
@@ -50,14 +49,13 @@ public sealed class KissStreamFactoryTests
     }
 
     [Fact]
-    public async Task OpenAsync_MismatchedKindAndTransport_ThrowsInvalidOperationException()
+    public async Task OpenAsync_UnsupportedTransportType_ThrowsNotSupportedException()
     {
         var factory = new KissStreamFactory([new TcpKissStreamConnector()]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => factory.OpenAsync(
+        await Assert.ThrowsAsync<NotSupportedException>(() => factory.OpenAsync(
             new KissSettings
             {
-                TransportKind = KissTransportKind.Tcp,
                 Transport = new BluetoothLeKissTransportSettings()
             },
             TestContext.Current.CancellationToken));
@@ -71,7 +69,6 @@ public sealed class KissStreamFactoryTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => factory.OpenAsync(
             new KissSettings
             {
-                TransportKind = KissTransportKind.Tcp,
                 Transport = null
             },
             TestContext.Current.CancellationToken));
@@ -79,13 +76,13 @@ public sealed class KissStreamFactoryTests
 
     private sealed class StubConnector : IKissStreamConnector
     {
-        public StubConnector(KissTransportKind kind, bool isSupported)
+        public StubConnector(Type settingsType, bool isSupported)
         {
-            Kind = kind;
+            SettingsType = settingsType;
             IsSupported = isSupported;
         }
 
-        public KissTransportKind Kind { get; }
+        public Type SettingsType { get; }
 
         public bool IsSupported { get; }
 

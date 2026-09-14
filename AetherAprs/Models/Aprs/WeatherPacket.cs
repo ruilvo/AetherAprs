@@ -9,9 +9,6 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public sealed record WeatherPacket : AprsPacket
 {
-    /// <inheritdoc />
-    public override PacketType Type => PacketType.Weather;
-
     /// <summary>Wind direction in degrees (0-359), if available.</summary>
     public double? WindDirection { get; init; }
 

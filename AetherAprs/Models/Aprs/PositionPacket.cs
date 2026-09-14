@@ -9,9 +9,6 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public sealed record PositionPacket : AprsPacket
 {
-    /// <inheritdoc />
-    public override PacketType Type => PacketType.Position;
-
     /// <summary>
     /// Gets the latitude in decimal degrees.
     /// </summary>

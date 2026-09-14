@@ -17,7 +17,7 @@ namespace AetherAprs.Transports.Kiss;
 public sealed class TcpKissStreamConnector : IKissStreamConnector
 {
     /// <inheritdoc />
-    public KissTransportKind Kind => KissTransportKind.Tcp;
+    public Type SettingsType => typeof(TcpKissTransportSettings);
 
     /// <inheritdoc />
     public bool IsSupported => true;

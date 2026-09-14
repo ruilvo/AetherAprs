@@ -27,7 +27,7 @@ public class PacketTests
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
         };
 
-        Assert.Equal(PacketType.Position, pkt.Type);
+        Assert.IsType<PositionPacket>(pkt);
         Assert.Equal(0, pkt.Precision);
         Assert.Null(pkt.Comment);
         Assert.Null(pkt.Course);
@@ -64,7 +64,7 @@ public class PacketTests
             Text = "Hello there"
         };
 
-        Assert.Equal(PacketType.Message, pkt.Type);
+        Assert.IsType<MessagePacket>(pkt);
         Assert.Equal(new Callsign("N0CALL"), pkt.Addressee);
         Assert.Equal("Hello there", pkt.Text);
         Assert.Null(pkt.MessageNumber);
@@ -98,7 +98,7 @@ public class PacketTests
             Text = "Online via APRS"
         };
 
-        Assert.Equal(PacketType.Status, pkt.Type);
+        Assert.IsType<StatusPacket>(pkt);
         Assert.Equal("Online via APRS", pkt.Text);
     }
 
@@ -112,7 +112,7 @@ public class PacketTests
             Raw = "_"
         };
 
-        Assert.Equal(PacketType.Weather, pkt.Type);
+        Assert.IsType<WeatherPacket>(pkt);
         Assert.Null(pkt.WindDirection);
         Assert.Null(pkt.WindSpeed);
         Assert.Null(pkt.Temperature);
@@ -154,7 +154,7 @@ public class PacketTests
             Raw = "some unknown data"
         };
 
-        Assert.Equal(PacketType.Unknown, pkt.Type);
+        Assert.IsType<UnknownPacket>(pkt);
         Assert.Equal("some unknown data", pkt.Raw);
     }
 

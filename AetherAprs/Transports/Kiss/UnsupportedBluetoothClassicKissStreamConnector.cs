@@ -16,7 +16,7 @@ namespace AetherAprs.Transports.Kiss;
 public sealed class UnsupportedBluetoothClassicKissStreamConnector : IKissStreamConnector
 {
     /// <inheritdoc />
-    public KissTransportKind Kind => KissTransportKind.BluetoothClassic;
+    public Type SettingsType => typeof(BluetoothClassicKissTransportSettings);
 
     /// <inheritdoc />
     public bool IsSupported => false;

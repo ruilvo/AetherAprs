@@ -96,11 +96,9 @@ public sealed class ConfigurationServiceTests
 
             service.Settings.Ports.Add(new PortConfig
             {
-                Type = PortType.Kiss,
                 Name = "KISS TCP",
                 TypeSettings = new KissSettings
                 {
-                    TransportKind = KissTransportKind.Tcp,
                     Transport = new TcpKissTransportSettings
                     {
                         Host = "10.0.0.5",
@@ -122,9 +120,7 @@ public sealed class ConfigurationServiceTests
 
             var reloaded = new ConfigurationService(provider);
             var port = Assert.Single(reloaded.Settings.Ports);
-            Assert.Equal(PortType.Kiss, port.Type);
             var kissSettings = Assert.IsType<KissSettings>(port.TypeSettings);
-            Assert.Equal(KissTransportKind.Tcp, kissSettings.TransportKind);
             var tcp = Assert.IsType<TcpKissTransportSettings>(kissSettings.Transport);
             Assert.Equal("10.0.0.5", tcp.Host);
             Assert.Equal(8001, tcp.Port);

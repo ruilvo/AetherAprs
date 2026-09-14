@@ -30,9 +30,6 @@ public partial class AprsSymbolPickerView : UserControl
     public static readonly StyledProperty<bool> ShowInheritOptionProperty =
         AvaloniaProperty.Register<AprsSymbolPickerView, bool>(nameof(ShowInheritOption));
 
-    public static readonly StyledProperty<bool> IsEditableProperty =
-        AvaloniaProperty.Register<AprsSymbolPickerView, bool>(nameof(IsEditable), true);
-
     public static readonly StyledProperty<Bitmap?> SymbolPreviewProperty =
         AvaloniaProperty.Register<AprsSymbolPickerView, Bitmap?>(nameof(SymbolPreview));
 
@@ -65,12 +62,6 @@ public partial class AprsSymbolPickerView : UserControl
     {
         get => GetValue(ShowInheritOptionProperty);
         set => SetValue(ShowInheritOptionProperty, value);
-    }
-
-    public bool IsEditable
-    {
-        get => GetValue(IsEditableProperty);
-        private set => SetValue(IsEditableProperty, value);
     }
 
     public Bitmap? SymbolPreview
@@ -111,18 +102,11 @@ public partial class AprsSymbolPickerView : UserControl
         }
 
         PropertyChanged += OnPickerPropertyChanged;
-        IsEditable = !UseDefault;
         UpdateSelectionAndPreview();
     }
 
     private void OnPickerPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs change)
     {
-        if (change.Property == UseDefaultProperty)
-        {
-            IsEditable = !(bool)change.NewValue!;
-            return;
-        }
-
         if (change.Property == SelectedSymbolOptionProperty &&
             !_updatingSelection &&
             change.NewValue is AprsSymbolOption option)

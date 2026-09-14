@@ -8,16 +8,6 @@ using System.Text.Json.Serialization;
 namespace AetherAprs.Configuration;
 
 /// <summary>
-/// Identifies the byte-stream transport used by a KISS port.
-/// </summary>
-public enum KissTransportKind
-{
-    Tcp,
-    BluetoothClassic,
-    BluetoothLe
-}
-
-/// <summary>
 /// Marker interface for KISS transport-specific settings.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]

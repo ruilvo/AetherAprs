@@ -9,9 +9,6 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public sealed record StatusPacket : AprsPacket
 {
-    /// <inheritdoc />
-    public override PacketType Type => PacketType.Status;
-
     /// <summary>
     /// Gets the status text.
     /// </summary>

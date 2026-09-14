@@ -28,7 +28,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly WritableLayer _beaconsLayer;
     private readonly Dictionary<(Guid PortId, string Callsign), BeaconHistoryEntry> _history = new();
-    private readonly Dictionary<string, PointFeature> _visibleFeaturesByCallsign = new();
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
     private bool _disposed;
 
@@ -120,12 +119,10 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             .ToList();
 
         _beaconsLayer.Clear();
-        _visibleFeaturesByCallsign.Clear();
 
         foreach (var entry in latestByCallsign)
         {
             var feature = CreateFeature(entry.Packet, entry.Callsign);
-            _visibleFeaturesByCallsign[entry.Callsign] = feature;
             _beaconsLayer.Add(feature);
         }
 
@@ -177,7 +174,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         _portService.PortsChanged -= OnPortsChanged;
         _beaconsLayer.Clear();
         _history.Clear();
-        _visibleFeaturesByCallsign.Clear();
         _symbolStyleCache.Clear();
         _symbolConverter.Dispose();
     }

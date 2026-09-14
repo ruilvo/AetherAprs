@@ -26,7 +26,6 @@ public sealed class ReceivedBeaconsViewModelTests
         {
             Id = Guid.NewGuid(),
             Name = "IS",
-            Type = PortType.AprsIs,
             ShowOnMap = true,
             TypeSettings = new AprsIsSettings()
         };
@@ -53,7 +52,6 @@ public sealed class ReceivedBeaconsViewModelTests
         {
             Id = Guid.NewGuid(),
             Name = "IS",
-            Type = PortType.AprsIs,
             ShowOnMap = false,
             TypeSettings = new AprsIsSettings()
         };

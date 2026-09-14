@@ -8,7 +8,6 @@ using Avalonia.Interactivity;
 using DialogHostAvalonia;
 using AetherAprs.ViewModels;
 using AetherAprs.Views.Components;
-using AetherAprs.Imaging;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
 
@@ -123,12 +122,10 @@ public partial class PortsView : UserControl
         return new AddEditPortDialogViewModel(
             globalCallsign,
             nextPortNumber,
-            App.GetService<IAprsSymbolBitmapProvider>(),
             App.GetService<IKissStreamFactory>(),
             App.GetService<IBluetoothLeScanner>(),
             App.GetService<IBluetoothClassicDeviceProvider>(),
             defaultSymbolTableCharacter: configService.Settings.Aprs.DefaultSymbolTableCharacter,
-            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter,
-            defaultBeaconMode: configService.Settings.Aprs.DefaultBeaconMode);
+            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter);
     }
 }

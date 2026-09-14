@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.Extensions;
 using AetherAprs.Helpers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
@@ -125,7 +124,7 @@ public class PortService : IPortService
         var port = FindPortById(id);
         var portName = port?.Name ?? id.ToString();
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var rawPacket = port?.Type == PortType.AprsIs
+        var rawPacket = port?.TypeSettings is AprsIsSettings
             ? $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}"
             : $"{packet.Source}>{packet.Destination}:{infoField}";
 
@@ -151,7 +150,7 @@ public class PortService : IPortService
                 "Transmitted APRS packet on port {PortName} ({PortId}), Type={PacketType}, RawPacket={RawPacket}",
                 portName,
                 id,
-                packet.Type,
+                packet.GetType().Name,
                 rawPacket);
         }
     }
@@ -184,7 +183,6 @@ public class PortService : IPortService
 
     private static void CopyPortProperties(PortConfig source, PortConfig target)
     {
-        target.Type = source.Type;
         target.Name = source.Name;
         target.IsEnabled = source.IsEnabled;
         target.IsRx = source.IsRx;
@@ -207,54 +205,55 @@ public class PortService : IPortService
 
         try
         {
-            if (port.Type == PortType.AprsIs)
+            switch (port.TypeSettings)
             {
-                var aprsIsSettings = port.GetAprsIsSettingsOrThrow();
-                var callsign = _configurationService.Settings.Aprs.Callsign;
-                var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
-                var fullCallsign = new Callsign(callsign, ssid);
-
-                var modem = new AprsIsModem(
-                    aprsIsSettings.Server,
-                    aprsIsSettings.ServerPort,
-                    fullCallsign,
-                    aprsIsSettings.Passcode,
-                    aprsIsSettings.Filter,
-                    _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
-
-                EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                modem.PacketReceived += packetHandler;
-                modem.ReceiveError += OnModemReceiveError;
-                modem.Start();
-
-                _activeSessions[port.Id] = new ActivePortSession
+                case AprsIsSettings aprsIsSettings:
                 {
-                    PortId = port.Id,
-                    Modem = modem,
-                    PacketHandler = packetHandler
-                };
-                _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
-            }
-            else if (port.Type == PortType.Kiss)
-            {
-                var kissSettings = port.GetKissSettingsOrThrow();
-                var stream = await _kissStreamFactory.OpenAsync(kissSettings).ConfigureAwait(false);
-                var kissModem = new KissModem(stream);
-                var modem = new AprsRfModem(kissModem);
+                    var callsign = _configurationService.Settings.Aprs.Callsign;
+                    var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
+                    var fullCallsign = new Callsign(callsign, ssid);
 
-                EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                modem.PacketReceived += packetHandler;
-                modem.ReceiveError += OnModemReceiveError;
-                modem.Start();
+                    var modem = new AprsIsModem(
+                        aprsIsSettings.Server,
+                        aprsIsSettings.ServerPort,
+                        fullCallsign,
+                        aprsIsSettings.Passcode,
+                        aprsIsSettings.Filter,
+                        _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
 
-                _activeSessions[port.Id] = new ActivePortSession
+                    EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                    modem.PacketReceived += packetHandler;
+                    modem.ReceiveError += OnModemReceiveError;
+                    modem.Start();
+
+                    _activeSessions[port.Id] = new ActivePortSession
+                    {
+                        Modem = modem,
+                        PacketHandler = packetHandler
+                    };
+                    _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
+                    break;
+                }
+                case KissSettings kiss:
                 {
-                    PortId = port.Id,
-                    Modem = modem,
-                    KissModem = kissModem,
-                    PacketHandler = packetHandler
-                };
-                _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
+                    var stream = await _kissStreamFactory.OpenAsync(kiss).ConfigureAwait(false);
+                    var kissModem = new KissModem(stream);
+                    var modem = new AprsRfModem(kissModem);
+
+                    EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                    modem.PacketReceived += packetHandler;
+                    modem.ReceiveError += OnModemReceiveError;
+                    modem.Start();
+
+                    _activeSessions[port.Id] = new ActivePortSession
+                    {
+                        Modem = modem,
+                        KissModem = kissModem,
+                        PacketHandler = packetHandler
+                    };
+                    _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
+                    break;
+                }
             }
         }
         catch (Exception ex)
@@ -309,8 +308,6 @@ public class PortService : IPortService
 
     private sealed class ActivePortSession : IAsyncDisposable
     {
-        public required Guid PortId { get; init; }
-
         public required IAprsModem Modem { get; init; }
 
         /// <summary>

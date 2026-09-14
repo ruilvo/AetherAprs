@@ -7,12 +7,9 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.Imaging;
-using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
-using SkiaSharp;
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
@@ -20,16 +17,13 @@ namespace AetherAprs.Tests.ViewModels;
 public sealed class AddEditPortDialogViewModelTests
 {
     [Fact]
-    public void DefaultsUseHumanSymbolAndCreatePreview()
+    public void DefaultsUseHumanSymbol()
     {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
+        var viewModel = CreateViewModel();
 
         Assert.Equal("/", viewModel.SymbolTableCharacter);
         Assert.Equal("[", viewModel.SymbolCodeCharacter);
         Assert.True(viewModel.IsSymbolValid);
-        Assert.Null(viewModel.SymbolPreview);
-        Assert.Equal(1, provider.RequestCount);
 
         var config = viewModel.BuildConfig();
         Assert.Null(config.SymbolTableCharacter);
@@ -37,42 +31,24 @@ public sealed class AddEditPortDialogViewModelTests
     }
 
     [Fact]
-    public void ChangingSymbolCharactersUpdatesPreviewAndConfig()
+    public void ChangingSymbolCharactersUpdatesConfig()
     {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
+        var viewModel = CreateViewModel();
 
         viewModel.SymbolTableCharacter = "\\";
         viewModel.SymbolCodeCharacter = ">";
         viewModel.UseDefaultSymbol = false;
 
         Assert.True(viewModel.IsSymbolValid);
-        Assert.Null(viewModel.SymbolPreview);
-        Assert.Equal(3, provider.RequestCount);
         var config = viewModel.BuildConfig();
         Assert.Equal("\\", config.SymbolTableCharacter);
         Assert.Equal(">", config.SymbolCodeCharacter);
     }
 
     [Fact]
-    public void SelectingSymbolOptionUpdatesBothCharacters()
-    {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
-        var ambulance = Assert.Single(viewModel.SymbolOptions, option => option.Name == "Ambulance");
-
-        viewModel.SelectedSymbolOption = ambulance;
-
-        Assert.Equal("/", viewModel.SymbolTableCharacter);
-        Assert.Equal("a", viewModel.SymbolCodeCharacter);
-        Assert.Same(ambulance, viewModel.SelectedSymbolOption);
-    }
-
-    [Fact]
     public void BuildConfigCanInheritDefaultSymbolAndBeaconMode()
     {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
+        var viewModel = CreateViewModel();
 
         var config = viewModel.BuildConfig();
 
@@ -81,92 +57,57 @@ public sealed class AddEditPortDialogViewModelTests
         Assert.Null(config.DynamicBeaconMode);
     }
 
-    [Fact]
-    public void ManuallyEditingSymbolClearsPresetSelection()
-    {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
-
-        viewModel.SymbolCodeCharacter = "#";
-
-        Assert.Null(viewModel.SelectedSymbolOption);
-        Assert.True(viewModel.IsSymbolValid);
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData("/")]
     [InlineData("x")]
     public void InvalidTableCharacterDisablesSymbolAndRejectsConfig(string tableCharacter)
     {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
+        var viewModel = CreateViewModel();
         viewModel.SymbolTableCharacter = tableCharacter;
 
         if (tableCharacter == "/")
         {
             Assert.True(viewModel.IsSymbolValid);
-            Assert.Equal(1, provider.RequestCount);
             return;
         }
 
         Assert.False(viewModel.IsSymbolValid);
-        Assert.Null(viewModel.SymbolPreview);
         Assert.Throws<InvalidOperationException>(() => viewModel.BuildConfig());
     }
 
     [Fact]
     public void InvalidCodeCharacterDisablesSymbolAndRejectsConfig()
     {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
+        var viewModel = CreateViewModel();
         viewModel.SymbolCodeCharacter = "\x1F";
 
         Assert.False(viewModel.IsSymbolValid);
-        Assert.Null(viewModel.SymbolPreview);
         Assert.Throws<InvalidOperationException>(() => viewModel.BuildConfig());
     }
 
     [Fact]
     public void BuildConfigForKissTcpProducesKissSettings()
     {
-        using var provider = new TestSymbolBitmapProvider();
-        var viewModel = CreateViewModel(provider);
+        var viewModel = CreateViewModel();
 
-        viewModel.SelectedPortType = PortType.Kiss;
-        viewModel.SelectedKissTransportKind = KissTransportKind.Tcp;
+        viewModel.SelectedPortSettingsType = typeof(KissSettings);
+        viewModel.SelectedKissTransportType = typeof(TcpKissTransportSettings);
         viewModel.TcpHost = "10.0.0.5";
         viewModel.TcpPort = 8001;
         viewModel.Name = "KISS TCP";
 
         var config = viewModel.BuildConfig();
 
-        Assert.Equal(PortType.Kiss, config.Type);
         var kiss = Assert.IsType<KissSettings>(config.TypeSettings);
-        Assert.Equal(KissTransportKind.Tcp, kiss.TransportKind);
         var tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
         Assert.Equal("10.0.0.5", tcp.Host);
         Assert.Equal(8001, tcp.Port);
     }
 
-    private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDisposable
-    {
-        public int RequestCount { get; private set; }
-
-        public SKBitmap GetSymbolBitmap(Symbol symbol)
-        {
-            RequestCount++;
-            return new SKBitmap(8, 8);
-        }
-
-        public void Dispose()
-        {
-        }
-    }
-
     private sealed class FakeKissStreamFactory : IKissStreamFactory
     {
-        public IReadOnlyCollection<KissTransportKind> SupportedTransports { get; } = [KissTransportKind.Tcp];
+        public IReadOnlyCollection<Type> SupportedTransports { get; } = [typeof(TcpKissTransportSettings)];
 
         public Task<System.IO.Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
@@ -194,13 +135,11 @@ public sealed class AddEditPortDialogViewModelTests
             throw new PlatformNotSupportedException();
     }
 
-    private static AddEditPortDialogViewModel CreateViewModel(TestSymbolBitmapProvider provider) =>
+    private static AddEditPortDialogViewModel CreateViewModel() =>
         new(
             "CT7ALW",
             1,
-            provider,
             new FakeKissStreamFactory(),
             new FakeBluetoothLeScanner(),
-            new FakeBluetoothClassicDeviceProvider(),
-            _ => null);
+            new FakeBluetoothClassicDeviceProvider());
 }

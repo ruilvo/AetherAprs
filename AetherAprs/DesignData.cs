@@ -136,7 +136,6 @@ public static class DesignData
             return new AddEditPortDialogViewModel(
                 callsign,
                 1,
-                _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>(),
                 _serviceProvider.GetRequiredService<IKissStreamFactory>(),
                 _serviceProvider.GetRequiredService<IBluetoothLeScanner>(),
                 _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());

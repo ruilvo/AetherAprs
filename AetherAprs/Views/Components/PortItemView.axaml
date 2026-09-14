@@ -42,7 +42,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               CornerRadius="4"
               Padding="8,4"
               VerticalAlignment="Top">
-        <TextBlock Text="{Binding Type}"
+        <TextBlock Text="{Binding TypeName}"
                    Classes="Caption"
                    Foreground="White"
                    TextAlignment="Center" />

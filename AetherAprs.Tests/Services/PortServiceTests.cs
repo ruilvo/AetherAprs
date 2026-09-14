@@ -24,7 +24,6 @@ public sealed class PortServiceTests
         var existingPort = new PortConfig
         {
             Id = Guid.NewGuid(),
-            Type = PortType.AprsIs,
             Name = "Old name",
             TypeSettings = new AprsIsSettings
             {
@@ -42,7 +41,6 @@ public sealed class PortServiceTests
         var updatedPort = new PortConfig
         {
             Id = existingPort.Id,
-            Type = PortType.Kiss,
             Name = "Updated name",
             IsEnabled = true,
             TypeSettings = new AprsIsSettings
@@ -65,7 +63,6 @@ public sealed class PortServiceTests
 
         var aprsIsSettings = existingPort.GetAprsIsSettings();
         Assert.Equal("Updated name", existingPort.Name);
-        Assert.Equal(PortType.Kiss, existingPort.Type);
         Assert.True(existingPort.IsEnabled);
         Assert.NotNull(aprsIsSettings);
         Assert.Equal("new.example", aprsIsSettings.Server);

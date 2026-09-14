@@ -22,8 +22,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <UserControl.Resources>
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
-    <converters:PortTypeToIsVisibleConverter x:Key="PortTypeToIsVisibleConverter" />
-    <converters:KissTransportKindToIsVisibleConverter x:Key="KissTransportKindToIsVisibleConverter" />
+    <converters:TypeNameToIsVisibleConverter x:Key="TypeNameToIsVisibleConverter" />
   </UserControl.Resources>
 
   <UserControl.Styles>
@@ -86,7 +85,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="8">
           <ComboBox ItemsSource="{Binding BeaconModes}"
                     SelectedItem="{Binding SelectedBeaconMode}"
-                    IsEnabled="{Binding UseDefaultBeaconMode, Converter={StaticResource InverseBooleanConverter}}"
                     wpf:ComboBoxAssist.Label="Dynamic Beaconing Mode">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:Object">
@@ -94,10 +92,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-          <CheckBox Content="Use default beacon mode"
-                    IsChecked="{Binding UseDefaultBeaconMode}"
-                    MinHeight="40"
-                    VerticalContentAlignment="Center" />
         </StackPanel>
 
         <components:AprsSymbolPickerView
@@ -117,7 +111,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Port Type Section -->
         <StackPanel Spacing="8">
           <ComboBox ItemsSource="{Binding PortTypes}"
-                    SelectedItem="{Binding SelectedPortType}"
+                    SelectedItem="{Binding SelectedPortSettingsType}"
                     wpf:ComboBoxAssist.Label="Select a port type">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:Object">
@@ -129,7 +123,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <!-- APRS-IS Settings Section -->
         <StackPanel Spacing="12"
-                    IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=AprsIs}">
+                    IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=AprsIsSettings}">
           <TextBlock Classes="Subtitle2"
                      Text="APRS-IS Settings"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
@@ -159,13 +153,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <!-- KISS Settings Section -->
         <StackPanel Spacing="12"
-                    IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=Kiss}">
+                    IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=KissSettings}">
           <TextBlock Classes="Subtitle2"
                      Text="KISS Settings"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
-          <ComboBox ItemsSource="{Binding AvailableKissTransportKinds}"
-                    SelectedItem="{Binding SelectedKissTransportKind}"
+          <ComboBox ItemsSource="{Binding AvailableKissTransportTypes}"
+                    SelectedItem="{Binding SelectedKissTransportType}"
                     wpf:ComboBoxAssist.Label="Transport">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:Object">
@@ -176,7 +170,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
           <!-- TCP -->
           <StackPanel Spacing="12"
-                      IsVisible="{Binding SelectedKissTransportKind, Converter={StaticResource KissTransportKindToIsVisibleConverter}, ConverterParameter=Tcp}">
+                      IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=TcpKissTransportSettings}">
             <TextBox Text="{Binding TcpHost}"
                      PlaceholderText="127.0.0.1"
                      wpf:TextFieldAssist.Label="Host"
@@ -189,7 +183,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
           <!-- Bluetooth LE -->
           <StackPanel Spacing="12"
-                      IsVisible="{Binding SelectedKissTransportKind, Converter={StaticResource KissTransportKindToIsVisibleConverter}, ConverterParameter=BluetoothLe}">
+                      IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=BluetoothLeKissTransportSettings}">
             <StackPanel Orientation="Horizontal" Spacing="8">
               <Button MinHeight="36"
                       Padding="12,0"
@@ -236,7 +230,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
           <!-- Bluetooth Classic SPP -->
           <StackPanel Spacing="12"
-                      IsVisible="{Binding SelectedKissTransportKind, Converter={StaticResource KissTransportKindToIsVisibleConverter}, ConverterParameter=BluetoothClassic}">
+                      IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=BluetoothClassicKissTransportSettings}">
             <Button MinHeight="36"
                     Padding="12,0"
                     HorizontalAlignment="Left"

@@ -27,11 +27,6 @@ public abstract record AprsPacket
     public DateTimeOffset? Timestamp { get; init; }
 
     /// <summary>
-    /// Gets the packet type.
-    /// </summary>
-    public abstract PacketType Type { get; }
-
-    /// <summary>
     /// Gets the raw APRS info field as a string.
     /// </summary>
     public string Raw { get; init; } = string.Empty;

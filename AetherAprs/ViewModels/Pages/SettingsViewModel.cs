@@ -18,12 +18,6 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly INavigationService _navigationService;
 
     [ObservableProperty]
-    public partial string Title { get; set; } = "Settings";
-
-    [ObservableProperty]
-    public partial string Description { get; set; } = "Configure your AetherAprs preferences";
-
-    [ObservableProperty]
     public partial string Callsign { get; set; } = "N0CALL";
 
     [ObservableProperty]

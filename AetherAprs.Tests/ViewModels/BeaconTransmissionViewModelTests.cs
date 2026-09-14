@@ -234,7 +234,6 @@ public class BeaconTransmissionViewModelTests
         {
             Id = Guid.NewGuid(),
             Name = "Test Port",
-            Type = PortType.AprsIs,
             IsEnabled = true,
             IsRx = true,
             IsTx = isTx,

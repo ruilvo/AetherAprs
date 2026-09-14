@@ -18,8 +18,8 @@ public sealed class PortsViewModelTests
     [Fact]
     public void ConstructorLoadsPortItemsAndCalculatesNextAprsIsNumber()
     {
-        var first = CreatePort(PortType.AprsIs, "First");
-        var second = CreatePort(PortType.Kiss, "Second");
+        var first = CreatePort(new AprsIsSettings(), "First");
+        var second = CreatePort(new KissSettings { Transport = new TcpKissTransportSettings() }, "Second");
         var portService = new TestPortService(first, second);
         var viewModel = new PortsViewModel(portService, new TestConfigurationService());
 
@@ -33,8 +33,8 @@ public sealed class PortsViewModelTests
     [Fact]
     public void PortsChangedReloadsPortItems()
     {
-        var original = CreatePort(PortType.AprsIs, "Original");
-        var replacement = CreatePort(PortType.AprsIs, "Replacement");
+        var original = CreatePort(new AprsIsSettings(), "Original");
+        var replacement = CreatePort(new AprsIsSettings(), "Replacement");
         var portService = new TestPortService(original);
         var viewModel = new PortsViewModel(portService, new TestConfigurationService());
 
@@ -47,7 +47,7 @@ public sealed class PortsViewModelTests
     [Fact]
     public async Task TogglingPortForwardsEnabledState()
     {
-        var port = CreatePort(PortType.AprsIs, "Port");
+        var port = CreatePort(new AprsIsSettings(), "Port");
         var portService = new TestPortService(port);
         var viewModel = new PortsViewModel(portService, new TestConfigurationService());
         var item = Assert.Single(viewModel.PortItems);
@@ -59,11 +59,11 @@ public sealed class PortsViewModelTests
         Assert.True(portService.LastEnabled);
     }
 
-    private static PortConfig CreatePort(PortType type, string name) => new()
+    private static PortConfig CreatePort(IPortTypeSettings typeSettings, string name) => new()
     {
         Id = Guid.NewGuid(),
-        Type = type,
         Name = name,
+        TypeSettings = typeSettings,
         SymbolTableCharacter = "\\",
         SymbolCodeCharacter = ">"
     };

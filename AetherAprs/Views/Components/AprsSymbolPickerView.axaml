@@ -26,7 +26,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               VerticalAlignment="Center">
             <TextBox Grid.Column="0"
                      Text="{Binding TableCharacter, ElementName=Root, Mode=TwoWay}"
-                     IsEnabled="{Binding IsEditable, ElementName=Root}"
+                     IsEnabled="{Binding UseDefault, ElementName=Root, Converter={x:Static BoolConverters.Not}}"
                      MaxLength="1"
                      HorizontalContentAlignment="Center"
                      PlaceholderText="/"
@@ -34,7 +34,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      UseFloatingPlaceholder="True" />
             <TextBox Grid.Column="1"
                      Text="{Binding CodeCharacter, ElementName=Root, Mode=TwoWay}"
-                     IsEnabled="{Binding IsEditable, ElementName=Root}"
+                     IsEnabled="{Binding UseDefault, ElementName=Root, Converter={x:Static BoolConverters.Not}}"
                      MaxLength="1"
                      HorizontalContentAlignment="Center"
                      PlaceholderText="["
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <ComboBox ItemsSource="{Binding SymbolOptions, ElementName=Root}"
                   SelectedItem="{Binding SelectedSymbolOption, ElementName=Root, Mode=TwoWay}"
-                  IsEnabled="{Binding IsEditable, ElementName=Root}"
+                  IsEnabled="{Binding UseDefault, ElementName=Root, Converter={x:Static BoolConverters.Not}}"
                   Theme="{StaticResource MaterialOutlineComboBox}"
                   wpf:ComboBoxAssist.Label="Choose a symbol">
             <ComboBox.ItemTemplate>
