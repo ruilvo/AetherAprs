@@ -55,7 +55,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              Margin="0,0,16,16"
                              x:Name="AddPortButton"
                              MinHeight="56"
-                             MinWidth="56">
+                             MinWidth="56"
+                             Click="OnAddPortClick">
       <Viewbox Width="24" Height="24">
         <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
       </Viewbox>

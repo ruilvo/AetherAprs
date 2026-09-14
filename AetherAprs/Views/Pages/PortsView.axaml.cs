@@ -17,7 +17,6 @@ public partial class PortsView : UserControl
     public PortsView()
     {
         InitializeComponent();
-        AddPortButton.Click += OnAddPortClick;
         DataContextChanged += OnDataContextChanged;
     }
 

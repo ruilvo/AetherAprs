@@ -101,7 +101,11 @@ public partial class AddEditPortViewModel : ViewModelBase
 
     public ObservableCollection<BluetoothClassicDevice> SppDevices { get; } = new();
 
-    public string Title => string.IsNullOrEmpty(Name) ? "Add Port" : $"Edit {Name}";
+    public bool IsEditing => _existingConfig is not null;
+
+    public string Title => IsEditing
+        ? (string.IsNullOrEmpty(Name) ? "Edit Port" : $"Edit {Name}")
+        : "Add Port";
 
     public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings)];
 
@@ -138,6 +142,7 @@ public partial class AddEditPortViewModel : ViewModelBase
     public void Initialize(string globalCallsign, int nextPortNumber, string defaultSymbolTableCharacter, string defaultSymbolCodeCharacter, PortConfig? existingConfig = null)
     {
         _existingConfig = existingConfig;
+        OnPropertyChanged(nameof(IsEditing));
         SymbolTableCharacter = defaultSymbolTableCharacter;
         SymbolCodeCharacter = defaultSymbolCodeCharacter;
 
@@ -150,6 +155,8 @@ public partial class AddEditPortViewModel : ViewModelBase
             Name = $"APRS-IS Port {nextPortNumber}";
             Passcode = AprsPasscode.Compute(globalCallsign);
         }
+
+        OnPropertyChanged(nameof(Title));
     }
 
     [RelayCommand]

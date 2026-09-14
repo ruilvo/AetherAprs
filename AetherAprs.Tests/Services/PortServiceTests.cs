@@ -140,6 +140,53 @@ public sealed class PortServiceTests
         Assert.Equal(1, changeCount);
     }
 
+    [Fact]
+    public async Task SendPacketAsyncOnEnabledPortWithNullTypeSettingsThrowsNotRunning()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "Broken port",
+            IsEnabled = true,
+            TypeSettings = null
+        };
+        var configuration = new TestConfigurationService(port);
+        var service = CreateService(configuration);
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL", 1),
+            Destination = new Callsign("APRS"),
+            Latitude = 0,
+            Longitude = 0
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.SendPacketAsync(port.Id, packet));
+
+        Assert.Contains("is not running", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SetPortEnabledAsyncWithNullTypeSettingsLeavesIsEnabledFalse()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "Broken port",
+            IsEnabled = false,
+            TypeSettings = null
+        };
+        var configuration = new TestConfigurationService(port);
+        var service = CreateService(configuration);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.SetPortEnabledAsync(port.Id, true));
+
+        Assert.Contains("Failed to start port", ex.Message, StringComparison.Ordinal);
+        Assert.False(port.IsEnabled);
+        Assert.Equal(2, configuration.SaveCount);
+    }
+
     private static PortService CreateService(TestConfigurationService configuration)
     {
         var services = new ServiceCollection().BuildServiceProvider();

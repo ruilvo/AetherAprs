@@ -144,7 +144,36 @@ public sealed class AddEditPortViewModelTests
         Assert.Equal(8001, viewModel.TcpPort);
     }
 
-    private static AddEditPortViewModel CreateViewModel()
+    [Fact]
+    public void InitializeWithoutExistingConfigKeepsAddPortTitle()
+    {
+        var viewModel = CreateViewModel(initialize: false);
+
+        viewModel.Initialize("N0CALL", 1, "/", "[");
+
+        Assert.False(viewModel.IsEditing);
+        Assert.Equal("APRS-IS Port 1", viewModel.Name);
+        Assert.Equal("Add Port", viewModel.Title);
+    }
+
+    [Fact]
+    public void InitializeWithExistingConfigUsesEditTitle()
+    {
+        var viewModel = CreateViewModel(initialize: false);
+        var existing = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "Existing Port",
+            TypeSettings = new AprsIsSettings()
+        };
+
+        viewModel.Initialize("N0CALL", 1, "/", "[", existing);
+
+        Assert.True(viewModel.IsEditing);
+        Assert.Equal("Edit Existing Port", viewModel.Title);
+    }
+
+    private static AddEditPortViewModel CreateViewModel(bool initialize = true)
     {
         var nav = Substitute.For<INavigationService>();
         var portService = Substitute.For<IPortService>();
@@ -153,7 +182,10 @@ public sealed class AddEditPortViewModelTests
         var btClassic = Substitute.For<IBluetoothClassicDeviceProvider>();
         
         var vm = new AddEditPortViewModel(nav, portService, kissFactory, bleScanner, btClassic);
-        vm.Initialize("N0CALL", 1, "/", "[");
+        if (initialize)
+        {
+            vm.Initialize("N0CALL", 1, "/", "[");
+        }
         return vm;
     }
 }

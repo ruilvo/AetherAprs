@@ -55,8 +55,19 @@ public class PortService : IPortService
         var port = FindPortById(updatedPort.Id);
         if (port is not null)
         {
+            var wasRunning = _activeSessions.ContainsKey(updatedPort.Id);
             CopyPortProperties(updatedPort, port);
             await _configurationService.SaveSettingsAsync();
+
+            if (wasRunning || port.IsEnabled)
+            {
+                await StopModemAsync(port.Id);
+                if (port.IsEnabled)
+                {
+                    await StartModemAsync(port);
+                }
+            }
+
             PortsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -88,7 +99,14 @@ public class PortService : IPortService
 
         if (enabled)
         {
-            await StartModemAsync(port);
+            var started = await StartModemAsync(port);
+            if (!started)
+            {
+                port.IsEnabled = false;
+                await _configurationService.SaveSettingsAsync();
+                PortsChanged?.Invoke(this, EventArgs.Empty);
+                throw new InvalidOperationException($"Failed to start port '{port.Name}'.");
+            }
         }
         else
         {
@@ -118,7 +136,17 @@ public class PortService : IPortService
 
         if (!_activeSessions.TryGetValue(id, out var session))
         {
-            throw new InvalidOperationException($"Port {id} is not running.");
+            var portToStart = FindPortById(id);
+            if (portToStart is null || !portToStart.IsEnabled)
+            {
+                throw new InvalidOperationException($"Port {id} is not running.");
+            }
+
+            if (!await StartModemAsync(portToStart) ||
+                !_activeSessions.TryGetValue(id, out session))
+            {
+                throw new InvalidOperationException($"Port {id} is not running.");
+            }
         }
 
         var port = FindPortById(id);
@@ -195,12 +223,12 @@ public class PortService : IPortService
         target.TypeSettings = source.TypeSettings;
     }
 
-    private async Task StartModemAsync(PortConfig port)
+    private async Task<bool> StartModemAsync(PortConfig port)
     {
         if (_activeSessions.ContainsKey(port.Id))
         {
             _logger.LogDebug("Port {PortId} ({PortName}) is already running.", port.Id, port.Name);
-            return;
+            return true;
         }
 
         try
@@ -255,10 +283,22 @@ public class PortService : IPortService
                     break;
                 }
             }
+
+            if (!_activeSessions.ContainsKey(port.Id))
+            {
+                _logger.LogWarning(
+                    "Failed to start modem for port {PortName} ({PortId}): unknown or missing TypeSettings.",
+                    port.Name,
+                    port.Id);
+                return false;
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start modem for port {PortName} ({PortId}).", port.Name, port.Id);
+            return false;
         }
     }
 

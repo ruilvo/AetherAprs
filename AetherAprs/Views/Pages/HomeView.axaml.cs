@@ -12,11 +12,18 @@ using Mapsui.Styles;
 using Mapsui.Tiling;
 using System;
 using System.ComponentModel;
+using System.IO;
+using AetherAprs.Services;
+using BruTile.Cache;
 
 namespace AetherAprs.Views.Pages;
 
 public partial class HomeView : UserControl
 {
+    // OSM requires an identifiable User-Agent; generic defaults get blocked.
+    private const string OsmUserAgent =
+        "AetherAprs/1.0 (+https://github.com/ruilvo/AetherAprs)";
+
     private WritableLayer? _userLocationLayer;
     private PointFeature? _userLocationFeature;
     private MPoint? _lastUserMapPoint;
@@ -33,7 +40,8 @@ public partial class HomeView : UserControl
     {
         // Initialize the map with default OpenStreetMap tiles
         MapControl.Map = new Map();
-        MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer(), group: -1);
+        EnsureOsmTileCache();
+        MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer(OsmUserAgent), group: -1);
 
         // Create user location layer
         _userLocationLayer = new WritableLayer
@@ -162,5 +170,17 @@ public partial class HomeView : UserControl
             navigator.ZoomTo(2000);
         }
 
+    }
+
+    private static void EnsureOsmTileCache()
+    {
+        if (Design.IsDesignMode || OpenStreetMap.DefaultCache is not null)
+        {
+            return;
+        }
+
+        var appDataDir = App.GetService<IAppDataDirProviderService>().GetAppDataDirectory();
+        var cacheDir = Path.Combine(appDataDir, "osm-tile-cache");
+        OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
     }
 }
