@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services;
@@ -88,6 +88,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<PortsViewModel>(); // Main page state
         services.AddSingleton<SettingsViewModel>(); // Main page state
         services.AddTransient<DynamicBeaconingViewModel>(); // Dialog/sub-view, should be fresh each time
+        services.AddTransient<ViewModels.Pages.AddEditPortViewModel>(); // Page, should be fresh each time
 
         // Allow overriding core services for testing or platform-specific
         // implementations

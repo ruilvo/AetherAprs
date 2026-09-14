@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -8,9 +8,9 @@ using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
-using DialogHostAvalonia;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,13 +18,16 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.ViewModels.Pages;
 
-public partial class AddEditPortDialogViewModel : ViewModelBase
+public partial class AddEditPortViewModel : ViewModelBase
 {
+    private readonly INavigationService _navigationService;
+    private readonly IPortService _portService;
     private readonly IBluetoothLeScanner _bleScanner;
     private readonly IBluetoothClassicDeviceProvider _classicDeviceProvider;
     private CancellationTokenSource? _bleScanCts;
+    private PortConfig? _existingConfig;
 
     [ObservableProperty]
     public partial string Name { get; set; }
@@ -106,15 +109,15 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
 
     public DynamicBeaconMode?[] BeaconModes { get; } = [null, DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
 
-    public AddEditPortDialogViewModel(
-        string globalCallsign,
-        int nextPortNumber,
+    public AddEditPortViewModel(
+        INavigationService navigationService,
+        IPortService portService,
         IKissStreamFactory kissStreamFactory,
         IBluetoothLeScanner bleScanner,
-        IBluetoothClassicDeviceProvider classicDeviceProvider,
-        string defaultSymbolTableCharacter = "/",
-        string defaultSymbolCodeCharacter = "[")
+        IBluetoothClassicDeviceProvider classicDeviceProvider)
     {
+        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _portService = portService ?? throw new ArgumentNullException(nameof(portService));
         ArgumentNullException.ThrowIfNull(kissStreamFactory);
         _bleScanner = bleScanner ?? throw new ArgumentNullException(nameof(bleScanner));
         _classicDeviceProvider = classicDeviceProvider ?? throw new ArgumentNullException(nameof(classicDeviceProvider));
@@ -127,25 +130,54 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             ? typeof(TcpKissTransportSettings)
             : AvailableKissTransportTypes[0];
 
-        Name = $"APRS-IS Port {nextPortNumber}";
-        Passcode = AprsPasscode.Compute(globalCallsign);
+        Name = string.Empty;
+        Passcode = AprsIsSettings.DefaultPasscode;
+        SelectedBeaconMode = null;
+    }
+
+    public void Initialize(string globalCallsign, int nextPortNumber, string defaultSymbolTableCharacter, string defaultSymbolCodeCharacter, PortConfig? existingConfig = null)
+    {
+        _existingConfig = existingConfig;
         SymbolTableCharacter = defaultSymbolTableCharacter;
         SymbolCodeCharacter = defaultSymbolCodeCharacter;
-        SelectedBeaconMode = null;
+
+        if (existingConfig != null)
+        {
+            PopulateFrom(existingConfig);
+        }
+        else
+        {
+            Name = $"APRS-IS Port {nextPortNumber}";
+            Passcode = AprsPasscode.Compute(globalCallsign);
+        }
     }
 
     [RelayCommand]
     private void Cancel()
     {
         StopBleScan();
-        DialogHost.Close("MainDialogHost", "CANCEL");
+        _navigationService.GoBack();
     }
 
     [RelayCommand(CanExecute = nameof(IsSymbolValid))]
-    private void Save()
+    private async Task SaveAsync()
     {
         StopBleScan();
-        DialogHost.Close("MainDialogHost", "OK");
+
+        var config = BuildConfig();
+        
+        if (_existingConfig != null)
+        {
+            config.Id = _existingConfig.Id;
+            config.IsEnabled = _existingConfig.IsEnabled;
+            await _portService.UpdatePortAsync(config);
+        }
+        else
+        {
+            await _portService.AddPortAsync(config);
+        }
+
+        _navigationService.GoBack();
     }
 
     [RelayCommand]
@@ -199,7 +231,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Expected when the user stops scanning or the dialog closes.
+            // Expected when the user stops scanning or navigates away.
         }
         catch (Exception ex)
         {
@@ -281,13 +313,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         }
     }
 
-    public void PopulateFrom(PortItemViewModel item)
-    {
-        ArgumentNullException.ThrowIfNull(item);
-        PopulateFrom(item.BuildConfig());
-    }
-
-    public void PopulateFrom(PortConfig config)
+    internal void PopulateFrom(PortConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -361,7 +387,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         }
     }
 
-    public PortConfig BuildConfig()
+    internal PortConfig BuildConfig()
     {
         if (!TryCreateSymbol(out _))
         {

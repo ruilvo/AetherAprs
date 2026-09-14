@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 This file is part of AetherAprs
 SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 SPDX-License-Identifier: GPL-3.0-or-later
@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:pages="using:AetherAprs.ViewModels.Pages"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              x:Class="AetherAprs.Views.Components.AprsSymbolPickerView"
@@ -65,7 +66,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   Theme="{StaticResource MaterialOutlineComboBox}"
                   wpf:ComboBoxAssist.Label="Choose a symbol">
             <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="vm:AprsSymbolOption">
+                <DataTemplate x:DataType="pages:AprsSymbolOption">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="{Binding Name}" />
                         <TextBlock Text="(" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />

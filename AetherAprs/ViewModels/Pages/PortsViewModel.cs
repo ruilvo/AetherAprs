@@ -1,11 +1,10 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
@@ -17,6 +16,7 @@ public partial class PortsViewModel : ViewModelBase
 {
     private readonly IPortService _portService;
     private readonly IConfigurationService _configurationService;
+    private readonly INavigationService _navigationService;
 
     [ObservableProperty]
     public partial string Title { get; set; } = "Ports";
@@ -25,10 +25,12 @@ public partial class PortsViewModel : ViewModelBase
 
     public PortsViewModel(
         IPortService portService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        INavigationService navigationService)
     {
         _portService = portService;
         _configurationService = configurationService;
+        _navigationService = navigationService;
         _portService.PortsChanged += OnPortsChanged;
         LoadPorts();
     }
@@ -63,34 +65,35 @@ public partial class PortsViewModel : ViewModelBase
         _ = _portService.RemovePortAsync(item.Id);
     }
 
-    private void OnEditPort(PortItemViewModel item)
+    public void OnEditPort(PortItemViewModel item)
     {
-        // This will be handled from the view code-behind
-        EditPortCommand.Execute(item);
+        var vm = App.GetService<Pages.AddEditPortViewModel>();
+        var config = item.BuildConfig();
+        vm.Initialize(
+            _configurationService.Settings.Aprs.Callsign,
+            GetNextPortNumber(),
+            _configurationService.Settings.Aprs.DefaultSymbolTableCharacter,
+            _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter,
+            config);
+        _navigationService.NavigateTo<Pages.AddEditPortViewModel>();
     }
 
     [RelayCommand]
-    public async Task EditPort(PortItemViewModel item)
+    public void AddPort()
     {
-        // The view will handle showing the dialog and calling UpdatePortAsync
-        await Task.CompletedTask;
+        var vm = App.GetService<Pages.AddEditPortViewModel>();
+        vm.Initialize(
+            _configurationService.Settings.Aprs.Callsign,
+            GetNextPortNumber(),
+            _configurationService.Settings.Aprs.DefaultSymbolTableCharacter,
+            _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter);
+        _navigationService.NavigateTo<Pages.AddEditPortViewModel>();
     }
 
     [RelayCommand]
     private void DeletePort(PortItemViewModel item)
     {
         _ = _portService.RemovePortAsync(item.Id);
-    }
-
-    [RelayCommand]
-    private void AddPort(PortConfig config)
-    {
-        _ = _portService.AddPortAsync(config);
-    }
-
-    public async Task UpdatePortAsync(PortConfig config)
-    {
-        await _portService.UpdatePortAsync(config);
     }
 
     public int GetNextPortNumber()

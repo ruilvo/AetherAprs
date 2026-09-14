@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:local="using:AetherAprs"
              xmlns:converters="using:AetherAprs.Converters"
              xmlns:bt="using:AetherAprs.Services.Bluetooth"
@@ -17,8 +17,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="900"
              x:Class="AetherAprs.Views.Pages.AddEditPortView"
-             x:DataType="vm:AddEditPortDialogViewModel"
-             d:DataContext="{x:Static local:DesignData.AddEditPortDialogViewModel}">
+             x:DataType="vm:AddEditPortViewModel"
+             d:DataContext="{x:Static local:DesignData.AddEditPortViewModel}">
 
   <UserControl.Resources>
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />

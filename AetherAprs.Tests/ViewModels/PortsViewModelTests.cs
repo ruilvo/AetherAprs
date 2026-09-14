@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -9,6 +9,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using NSubstitute;
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
@@ -21,7 +22,7 @@ public sealed class PortsViewModelTests
         var first = CreatePort(new AprsIsSettings(), "First");
         var second = CreatePort(new KissSettings { Transport = new TcpKissTransportSettings() }, "Second");
         var portService = new TestPortService(first, second);
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService());
+        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService);
 
         Assert.Collection(
             viewModel.PortItems,
@@ -36,7 +37,7 @@ public sealed class PortsViewModelTests
         var original = CreatePort(new AprsIsSettings(), "Original");
         var replacement = CreatePort(new AprsIsSettings(), "Replacement");
         var portService = new TestPortService(original);
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService());
+        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService);
 
         portService.ReplacePorts(replacement);
 
@@ -49,7 +50,7 @@ public sealed class PortsViewModelTests
     {
         var port = CreatePort(new AprsIsSettings(), "Port");
         var portService = new TestPortService(port);
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService());
+        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService);
         var item = Assert.Single(viewModel.PortItems);
 
         item.IsEnabled = true;

@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
@@ -127,18 +127,13 @@ public static class DesignData
         }
     }
 
-    public static AddEditPortDialogViewModel AddEditPortDialogViewModel
+    public static AddEditPortViewModel AddEditPortViewModel
     {
         get
         {
             var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
             var callsign = configService.Settings.Aprs.Callsign;
-            return new AddEditPortDialogViewModel(
-                callsign,
-                1,
-                _serviceProvider.GetRequiredService<IKissStreamFactory>(),
-                _serviceProvider.GetRequiredService<IBluetoothLeScanner>(),
-                _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());
+            var vm = new AddEditPortViewModel(_serviceProvider.GetRequiredService<INavigationService>(),_serviceProvider.GetRequiredService<IPortService>(),_serviceProvider.GetRequiredService<IKissStreamFactory>(),_serviceProvider.GetRequiredService<IBluetoothLeScanner>(),_serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());vm.Initialize(callsign, 1, "/", "[");return vm;
         }
     }
 }
