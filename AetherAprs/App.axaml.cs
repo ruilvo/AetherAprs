@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Factories;
 using AetherAprs.Services;
+using AetherAprs.Services.Bluetooth;
+using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
 using AetherAprs.Views.Windows;
@@ -37,6 +39,12 @@ public partial class App : Application
     {
         // Register default implementation of IAppDataDirProviderService for desktop/core platforms
         services.AddSingleton<Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+
+        // Desktop has no BLE/SPP stack yet — register unsupported placeholders.
+        services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
+        services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothLeKissStreamConnector>();
+        services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
+        services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
     }
 
     /// <summary>

@@ -52,4 +52,33 @@ public static class PortConfigExtensions
     {
         return port.TypeSettings as KissSettings;
     }
+
+    /// <summary>
+    /// Gets the KISS settings for this port, throwing if not a KISS port.
+    /// </summary>
+    public static KissSettings GetKissSettingsOrThrow(this PortConfig port)
+    {
+        if (port.TypeSettings is not KissSettings settings)
+        {
+            throw new InvalidOperationException($"Port {port.Name} is not a KISS port");
+        }
+        return settings;
+    }
+
+    /// <summary>
+    /// Ensures the port has KISS settings, creating default TCP transport settings if needed.
+    /// </summary>
+    public static KissSettings EnsureKissSettings(this PortConfig port)
+    {
+        if (port.TypeSettings is not KissSettings settings)
+        {
+            settings = new KissSettings
+            {
+                TransportKind = KissTransportKind.Tcp,
+                Transport = new TcpKissTransportSettings()
+            };
+            port.TypeSettings = settings;
+        }
+        return settings;
+    }
 }

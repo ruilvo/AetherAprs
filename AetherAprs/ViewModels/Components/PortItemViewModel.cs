@@ -58,6 +58,11 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     [ObservableProperty]
     public partial string StatusText { get; set; } = config.IsEnabled ? "Running" : "Stopped";
 
+    /// <summary>
+    /// Type-specific settings retained for edit/populate flows.
+    /// </summary>
+    public IPortTypeSettings? TypeSettings { get; private set; } = config.TypeSettings;
+
     partial void OnIsEnabledChanged(bool value)
     {
         StatusText = value ? "Running" : "Stopped";
@@ -76,7 +81,7 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
 
     public PortConfig BuildConfig()
     {
-        var config = new PortConfig
+        var built = new PortConfig
         {
             Id = Id,
             Name = Name,
@@ -90,10 +95,9 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             Ssid = Ssid
         };
 
-        // Set type-specific settings
         if (Type == PortType.AprsIs)
         {
-            config.TypeSettings = new AprsIsSettings
+            built.TypeSettings = new AprsIsSettings
             {
                 Server = Server ?? AprsIsSettings.DefaultServer,
                 ServerPort = ServerPort,
@@ -101,7 +105,16 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
                 Filter = Filter ?? AprsIsSettings.DefaultFilter
             };
         }
+        else if (Type == PortType.Kiss)
+        {
+            built.TypeSettings = TypeSettings as KissSettings
+                ?? new KissSettings
+                {
+                    TransportKind = KissTransportKind.Tcp,
+                    Transport = new TcpKissTransportSettings()
+                };
+        }
 
-        return config;
+        return built;
     }
 }

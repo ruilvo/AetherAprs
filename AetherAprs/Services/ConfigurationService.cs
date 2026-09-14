@@ -4,8 +4,10 @@
 using AetherAprs.Configuration;
 using Microsoft.Extensions.Configuration;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services;
@@ -19,7 +21,9 @@ public class ConfigurationService : IConfigurationService
 
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     /// <summary>
@@ -54,6 +58,10 @@ public class ConfigurationService : IConfigurationService
 
         Settings = new AppSettings();
         configuration.Bind(Settings);
+
+        // ConfigurationBinder cannot materialize JsonPolymorphic TypeSettings/Transport.
+        // Re-load Ports with System.Text.Json when a config file contains a Ports array.
+        RepairPortsFromJson(configDirectory);
     }
 
     public async Task SaveSettingsAsync()
@@ -88,5 +96,55 @@ public class ConfigurationService : IConfigurationService
         
         updateAction(Settings);
         await SaveSettingsAsync();
+    }
+
+    private void RepairPortsFromJson(string configDirectory)
+    {
+#if DEBUG
+        string[] candidates = [_appSettingsDevelopmentFileName, _appSettingsFileName];
+#else
+        string[] candidates = [_appSettingsFileName];
+#endif
+
+        foreach (var fileName in candidates)
+        {
+            var path = Path.Combine(configDirectory, fileName);
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!TryGetPortsProperty(document.RootElement, out var portsElement))
+            {
+                continue;
+            }
+
+            var ports = JsonSerializer.Deserialize<List<PortConfig>>(
+                portsElement.GetRawText(),
+                _jsonSerializerOptions);
+
+            if (ports is not null)
+            {
+                Settings.Ports = ports;
+            }
+
+            return;
+        }
+    }
+
+    private static bool TryGetPortsProperty(JsonElement root, out JsonElement portsElement)
+    {
+        foreach (var property in root.EnumerateObject())
+        {
+            if (string.Equals(property.Name, "Ports", StringComparison.OrdinalIgnoreCase))
+            {
+                portsElement = property.Value;
+                return true;
+            }
+        }
+
+        portsElement = default;
+        return false;
     }
 }

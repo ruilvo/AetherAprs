@@ -9,6 +9,8 @@ using DialogHostAvalonia;
 using AetherAprs.ViewModels;
 using AetherAprs.Views.Components;
 using AetherAprs.Imaging;
+using AetherAprs.Services.Bluetooth;
+using AetherAprs.Transports.Kiss;
 
 namespace AetherAprs.Views.Pages;
 
@@ -47,7 +49,7 @@ public partial class PortsView : UserControl
 
     private void OnDeleteClicked(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is PortItemView portItemView && 
+        if (e.Source is PortItemView portItemView &&
             portItemView.DataContext is PortItemViewModel item &&
             DataContext is PortsViewModel viewModel)
         {
@@ -62,20 +64,15 @@ public partial class PortsView : UserControl
             return;
         }
 
-        // Get global callsign
         var configService = App.GetService<AetherAprs.Services.IConfigurationService>();
         var globalCallsign = configService.Settings.Aprs.Callsign;
         var nextNumber = viewModel.GetNextPortNumber();
 
-        // Create dialog content
         var dialogContent = new AddEditPortView();
-        var dialogVm = new AddEditPortDialogViewModel(
+        var dialogVm = CreateDialogViewModel(
             globalCallsign,
             nextNumber,
-            App.GetService<IAprsSymbolBitmapProvider>(),
-            defaultSymbolTableCharacter: configService.Settings.Aprs.DefaultSymbolTableCharacter,
-            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter,
-            defaultBeaconMode: configService.Settings.Aprs.DefaultBeaconMode);
+            configService);
         dialogContent.DataContext = dialogVm;
 
         var result = await DialogHost.Show(dialogContent, "MainDialogHost");
@@ -94,42 +91,16 @@ public partial class PortsView : UserControl
             return;
         }
 
-        // Get global callsign
         var configService = App.GetService<AetherAprs.Services.IConfigurationService>();
         var globalCallsign = configService.Settings.Aprs.Callsign;
 
-        // Create dialog content for editing
         var dialogContent = new AddEditPortView();
-        var dialogVm = new AddEditPortDialogViewModel(
+        var dialogVm = CreateDialogViewModel(
             globalCallsign,
             viewModel.GetNextPortNumber(),
-            App.GetService<IAprsSymbolBitmapProvider>(),
-            defaultSymbolTableCharacter: configService.Settings.Aprs.DefaultSymbolTableCharacter,
-            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter,
-            defaultBeaconMode: configService.Settings.Aprs.DefaultBeaconMode);
+            configService);
 
-        // Populate with existing values
-        dialogVm.Name = item.Name;
-        dialogVm.IsRx = item.IsRx;
-        dialogVm.IsTx = item.IsTx;
-        dialogVm.UseDefaultSymbol = item.SymbolTableCharacter is null || item.SymbolCodeCharacter is null;
-        if (!dialogVm.UseDefaultSymbol)
-        {
-            dialogVm.SymbolTableCharacter = item.SymbolTableCharacter!;
-            dialogVm.SymbolCodeCharacter = item.SymbolCodeCharacter!;
-        }
-        dialogVm.UseDefaultBeaconMode = item.DynamicBeaconMode is null;
-        if (!dialogVm.UseDefaultBeaconMode)
-        {
-            dialogVm.SelectedBeaconMode = item.DynamicBeaconMode;
-        }
-
-        // Populate APRS-IS fields
-        dialogVm.Server = item.Server ?? "euro.aprs2.net";
-        dialogVm.ServerPort = item.ServerPort;
-        dialogVm.Passcode = item.Passcode ?? string.Empty;
-        dialogVm.Filter = item.Filter ?? "m/50";
-        dialogVm.Ssid = item.Ssid;
+        dialogVm.PopulateFrom(item);
 
         dialogContent.DataContext = dialogVm;
 
@@ -139,9 +110,25 @@ public partial class PortsView : UserControl
         {
             var updatedConfig = dialogVm.BuildConfig();
             updatedConfig.Id = item.Id;
-            updatedConfig.Type = item.Type;
             updatedConfig.IsEnabled = item.IsEnabled;
             await viewModel.UpdatePortAsync(updatedConfig);
         }
+    }
+
+    private static AddEditPortDialogViewModel CreateDialogViewModel(
+        string globalCallsign,
+        int nextPortNumber,
+        AetherAprs.Services.IConfigurationService configService)
+    {
+        return new AddEditPortDialogViewModel(
+            globalCallsign,
+            nextPortNumber,
+            App.GetService<IAprsSymbolBitmapProvider>(),
+            App.GetService<IKissStreamFactory>(),
+            App.GetService<IBluetoothLeScanner>(),
+            App.GetService<IBluetoothClassicDeviceProvider>(),
+            defaultSymbolTableCharacter: configService.Settings.Aprs.DefaultSymbolTableCharacter,
+            defaultSymbolCodeCharacter: configService.Settings.Aprs.DefaultSymbolCodeCharacter,
+            defaultBeaconMode: configService.Settings.Aprs.DefaultBeaconMode);
     }
 }

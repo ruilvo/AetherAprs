@@ -10,11 +10,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:converters="using:AetherAprs.Converters"
+             xmlns:bt="using:AetherAprs.Services.Bluetooth"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
-             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="900"
              x:Class="AetherAprs.Views.Pages.AddEditPortView"
              x:DataType="vm:AddEditPortDialogViewModel"
              d:DataContext="{x:Static local:DesignData.AddEditPortDialogViewModel}">
@@ -22,6 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <UserControl.Resources>
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
     <converters:PortTypeToIsVisibleConverter x:Key="PortTypeToIsVisibleConverter" />
+    <converters:KissTransportKindToIsVisibleConverter x:Key="KissTransportKindToIsVisibleConverter" />
   </UserControl.Resources>
 
   <UserControl.Styles>
@@ -100,6 +102,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
           UseDefault="{Binding UseDefaultSymbol, Mode=TwoWay}"
             ShowInheritOption="True" />
 
+        <!-- Shared SSID -->
+        <StackPanel Spacing="8">
+          <TextBox Text="{Binding Ssid}"
+                   PlaceholderText="Leave empty for default"
+                   wpf:TextFieldAssist.Label="SSID"
+                   UseFloatingPlaceholder="True" />
+        </StackPanel>
+
         <!-- Port Type Section -->
         <StackPanel Spacing="8">
           <ComboBox ItemsSource="{Binding PortTypes}"
@@ -121,35 +131,137 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <StackPanel Spacing="12">
-            <!-- Server -->
             <TextBox Text="{Binding Server}"
                      PlaceholderText="e.g. euro.aprs2.net"
                      wpf:TextFieldAssist.Label="Server"
                      UseFloatingPlaceholder="True" />
 
-            <!-- Port -->
             <TextBox Text="{Binding ServerPort}"
                      PlaceholderText="14580"
                      wpf:TextFieldAssist.Label="Port"
                      UseFloatingPlaceholder="True" />
 
-            <!-- Passcode -->
             <TextBox Text="{Binding Passcode}"
                      PlaceholderText="Auto-filled from callsign"
                      wpf:TextFieldAssist.Label="Passcode"
                      UseFloatingPlaceholder="True" />
 
-            <!-- Filter -->
             <TextBox Text="{Binding Filter}"
                      PlaceholderText="e.g. m/50"
                      wpf:TextFieldAssist.Label="Filter (optional)"
                      UseFloatingPlaceholder="True" />
+          </StackPanel>
+        </StackPanel>
 
-            <!-- SSID (optional) -->
-            <TextBox Text="{Binding Ssid}"
-                     PlaceholderText="Leave empty for default"
-                     wpf:TextFieldAssist.Label="SSID"
+        <!-- KISS Settings Section -->
+        <StackPanel Spacing="12"
+                    IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=Kiss}">
+          <TextBlock Classes="Subtitle2"
+                     Text="KISS Settings"
+                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+
+          <ComboBox ItemsSource="{Binding AvailableKissTransportKinds}"
+                    SelectedItem="{Binding SelectedKissTransportKind}"
+                    wpf:ComboBoxAssist.Label="Transport">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="x:Object">
+                <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+
+          <!-- TCP -->
+          <StackPanel Spacing="12"
+                      IsVisible="{Binding SelectedKissTransportKind, Converter={StaticResource KissTransportKindToIsVisibleConverter}, ConverterParameter=Tcp}">
+            <TextBox Text="{Binding TcpHost}"
+                     PlaceholderText="127.0.0.1"
+                     wpf:TextFieldAssist.Label="Host"
                      UseFloatingPlaceholder="True" />
+            <TextBox Text="{Binding TcpPort}"
+                     PlaceholderText="8001"
+                     wpf:TextFieldAssist.Label="Port"
+                     UseFloatingPlaceholder="True" />
+          </StackPanel>
+
+          <!-- Bluetooth LE -->
+          <StackPanel Spacing="12"
+                      IsVisible="{Binding SelectedKissTransportKind, Converter={StaticResource KissTransportKindToIsVisibleConverter}, ConverterParameter=BluetoothLe}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button MinHeight="36"
+                      Padding="12,0"
+                      Command="{Binding StartBleScanCommand}"
+                      IsEnabled="{Binding !IsBleScanning}"
+                      Classes="Outline">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <avalonia:MaterialIcon Kind="Bluetooth" Width="18" Height="18" />
+                  <TextBlock Text="Scan" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+              <Button MinHeight="36"
+                      Padding="12,0"
+                      Command="{Binding StopBleScanCommand}"
+                      IsEnabled="{Binding IsBleScanning}"
+                      Classes="Outline">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <avalonia:MaterialIcon Kind="Stop" Width="18" Height="18" />
+                  <TextBlock Text="Stop" VerticalAlignment="Center" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <TextBlock Text="{Binding BleStatusText}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding BleStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource MaterialErrorBrush}" />
+            <controls:Card Padding="0" Margin="0">
+              <ListBox ItemsSource="{Binding BleDevices}"
+                       SelectedItem="{Binding SelectedBleDevice}"
+                       MaxHeight="180"
+                       Background="Transparent">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="bt:BluetoothLeAdvertisement">
+                    <StackPanel Spacing="2" Margin="0,4">
+                      <TextBlock Text="{Binding Name, TargetNullValue='(unnamed)'}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
+                      <TextBlock Text="{Binding Rssi, StringFormat='RSSI: {0} dBm'}" Opacity="0.7" FontSize="12" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </controls:Card>
+          </StackPanel>
+
+          <!-- Bluetooth Classic SPP -->
+          <StackPanel Spacing="12"
+                      IsVisible="{Binding SelectedKissTransportKind, Converter={StaticResource KissTransportKindToIsVisibleConverter}, ConverterParameter=BluetoothClassic}">
+            <Button MinHeight="36"
+                    Padding="12,0"
+                    HorizontalAlignment="Left"
+                    Command="{Binding RefreshSppDevicesCommand}"
+                    Classes="Outline">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <avalonia:MaterialIcon Kind="Refresh" Width="18" Height="18" />
+                <TextBlock Text="Refresh" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <TextBlock Text="{Binding SppStatusText}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding SppStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource MaterialErrorBrush}" />
+            <controls:Card Padding="0" Margin="0">
+              <ListBox ItemsSource="{Binding SppDevices}"
+                       SelectedItem="{Binding SelectedSppDevice}"
+                       MaxHeight="180"
+                       Background="Transparent">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="bt:BluetoothClassicDevice">
+                    <StackPanel Spacing="2" Margin="0,4">
+                      <TextBlock Text="{Binding Name, TargetNullValue='(unnamed)'}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </controls:Card>
           </StackPanel>
         </StackPanel>
       </StackPanel>

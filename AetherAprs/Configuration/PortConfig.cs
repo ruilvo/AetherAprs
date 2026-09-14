@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using AetherAprs.Models;
 
 namespace AetherAprs.Configuration;
@@ -74,6 +74,9 @@ public class PortConfig
 /// <summary>
 /// Marker interface for port type-specific settings.
 /// </summary>
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(AprsIsSettings), "aprs-is")]
+[JsonDerivedType(typeof(KissSettings), "kiss")]
 public interface IPortTypeSettings
 {
 }
@@ -159,13 +162,11 @@ public class AprsIsSettings : IPortTypeSettings
 }
 
 /// <summary>
-/// KISS TNC specific port configuration (placeholder for future implementation).
+/// KISS TNC specific port configuration.
 /// </summary>
 public class KissSettings : IPortTypeSettings
 {
-    public string SerialPort { get; set; } = "COM1";
+    public KissTransportKind TransportKind { get; set; } = KissTransportKind.Tcp;
 
-    public int BaudRate { get; set; } = 9600;
-
-    // Add other KISS-specific settings as needed
+    public IKissTransportSettings? Transport { get; set; }
 }

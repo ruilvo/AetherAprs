@@ -6,6 +6,8 @@ using AetherAprs.ViewModels.Pages;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Services;
+using AetherAprs.Services.Bluetooth;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -29,6 +31,12 @@ public static class DesignData
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
+        services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
+        services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothLeKissStreamConnector>();
+        services.AddSingleton<IKissStreamFactory, KissStreamFactory>();
+        services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
+        services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
         services.AddSingleton<IPortService, PortService>();
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
         services.AddSingleton<IBeaconService, BeaconService>();
@@ -125,7 +133,13 @@ public static class DesignData
         {
             var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
             var callsign = configService.Settings.Aprs.Callsign;
-            return new AddEditPortDialogViewModel(callsign, 1, _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>());
+            return new AddEditPortDialogViewModel(
+                callsign,
+                1,
+                _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>(),
+                _serviceProvider.GetRequiredService<IKissStreamFactory>(),
+                _serviceProvider.GetRequiredService<IBluetoothLeScanner>(),
+                _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());
         }
     }
 }

@@ -1,10 +1,12 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using Android.App;
 using Android.Runtime;
 using Avalonia;
 using Avalonia.Android;
+using AetherAprs.Services.Bluetooth;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 
@@ -19,6 +21,12 @@ namespace AetherAprs.Android
             
             // Register Android-specific implementation of ILocationService
             services.AddSingleton<AetherAprs.Services.ILocationService, Services.LocationService>();
+
+            // Bluetooth Classic SPP + BLE KISS transports and device discovery
+            services.AddSingleton<IKissStreamConnector, Services.BluetoothClassicKissStreamConnector>();
+            services.AddSingleton<IKissStreamConnector, Services.BluetoothLeKissStreamConnector>();
+            services.AddSingleton<IBluetoothLeScanner, Services.AndroidBluetoothLeScanner>();
+            services.AddSingleton<IBluetoothClassicDeviceProvider, Services.AndroidBluetoothClassicDeviceProvider>();
         }
 
         protected override void OverrideCoreServices(IServiceCollection services)

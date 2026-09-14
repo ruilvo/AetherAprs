@@ -5,6 +5,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using AetherAprs.Configuration;
 using AetherAprs.Services;
 using Xunit;
 
@@ -74,6 +75,59 @@ public sealed class ConfigurationServiceTests
             Assert.Equal("/", service.Settings.Aprs.DefaultSymbolTableCharacter);
             Assert.Equal("[", service.Settings.Aprs.DefaultSymbolCodeCharacter);
             Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Walk, service.Settings.Aprs.DefaultBeaconMode);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SettingsRoundTripPersistsKissTcpTransportWithTypeDiscriminators()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directory, "appsettings.json"),
+                "{\"Aprs\":{\"Callsign\":\"N0CALL\"},\"Ports\":[]}");
+            var provider = new TestAppDataDirProvider(directory);
+            var service = new ConfigurationService(provider);
+
+            service.Settings.Ports.Add(new PortConfig
+            {
+                Type = PortType.Kiss,
+                Name = "KISS TCP",
+                TypeSettings = new KissSettings
+                {
+                    TransportKind = KissTransportKind.Tcp,
+                    Transport = new TcpKissTransportSettings
+                    {
+                        Host = "10.0.0.5",
+                        Port = 8001
+                    }
+                }
+            });
+
+            await service.SaveSettingsAsync();
+
+#if DEBUG
+            var savedPath = Path.Combine(directory, "appsettings.Development.json");
+#else
+            var savedPath = Path.Combine(directory, "appsettings.json");
+#endif
+            var savedJson = await File.ReadAllTextAsync(savedPath, TestContext.Current.CancellationToken);
+            Assert.Contains("\"$type\": \"kiss\"", savedJson);
+            Assert.Contains("\"$type\": \"tcp\"", savedJson);
+
+            var reloaded = new ConfigurationService(provider);
+            var port = Assert.Single(reloaded.Settings.Ports);
+            Assert.Equal(PortType.Kiss, port.Type);
+            var kissSettings = Assert.IsType<KissSettings>(port.TypeSettings);
+            Assert.Equal(KissTransportKind.Tcp, kissSettings.TransportKind);
+            var tcp = Assert.IsType<TcpKissTransportSettings>(kissSettings.Transport);
+            Assert.Equal("10.0.0.5", tcp.Host);
+            Assert.Equal(8001, tcp.Port);
         }
         finally
         {

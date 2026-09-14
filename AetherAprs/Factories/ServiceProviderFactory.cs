@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services;
+using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Imaging;
@@ -35,6 +36,10 @@ public static class ServiceProviderFactory
 
         // Register navigation service
         services.AddSingleton<INavigationService, NavigationService>();
+
+        // Register KISS transport (TCP is always available; BLE/SPP come from platform)
+        services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
+        services.AddSingleton<IKissStreamFactory, KissStreamFactory>();
 
         // Register port service
         services.AddSingleton<IPortService, PortService>();

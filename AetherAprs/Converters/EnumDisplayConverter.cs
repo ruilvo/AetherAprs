@@ -23,6 +23,17 @@ public class EnumDisplayConverter : IValueConverter
             };
         }
 
+        if (value is KissTransportKind kissTransportKind)
+        {
+            return kissTransportKind switch
+            {
+                KissTransportKind.Tcp => "TCP",
+                KissTransportKind.BluetoothClassic => "Bluetooth Classic (SPP)",
+                KissTransportKind.BluetoothLe => "Bluetooth LE",
+                _ => value.ToString()
+            };
+        }
+
         return value;
     }
 
@@ -34,6 +45,9 @@ public class EnumDisplayConverter : IValueConverter
             {
                 "APRS-IS" => PortType.AprsIs,
                 "KISS" => PortType.Kiss,
+                "TCP" => KissTransportKind.Tcp,
+                "Bluetooth Classic (SPP)" => KissTransportKind.BluetoothClassic,
+                "Bluetooth LE" => KissTransportKind.BluetoothLe,
                 _ => null
             };
         }

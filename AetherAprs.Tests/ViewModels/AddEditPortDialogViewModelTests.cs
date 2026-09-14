@@ -3,8 +3,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using AetherAprs.Configuration;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Bluetooth;
+using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using SkiaSharp;
 using Xunit;
@@ -121,6 +127,28 @@ public sealed class AddEditPortDialogViewModelTests
         Assert.Throws<InvalidOperationException>(() => viewModel.BuildConfig());
     }
 
+    [Fact]
+    public void BuildConfigForKissTcpProducesKissSettings()
+    {
+        using var provider = new TestSymbolBitmapProvider();
+        var viewModel = CreateViewModel(provider);
+
+        viewModel.SelectedPortType = PortType.Kiss;
+        viewModel.SelectedKissTransportKind = KissTransportKind.Tcp;
+        viewModel.TcpHost = "10.0.0.5";
+        viewModel.TcpPort = 8001;
+        viewModel.Name = "KISS TCP";
+
+        var config = viewModel.BuildConfig();
+
+        Assert.Equal(PortType.Kiss, config.Type);
+        var kiss = Assert.IsType<KissSettings>(config.TypeSettings);
+        Assert.Equal(KissTransportKind.Tcp, kiss.TransportKind);
+        var tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
+        Assert.Equal("10.0.0.5", tcp.Host);
+        Assert.Equal(8001, tcp.Port);
+    }
+
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider, IDisposable
     {
         public int RequestCount { get; private set; }
@@ -136,6 +164,43 @@ public sealed class AddEditPortDialogViewModelTests
         }
     }
 
+    private sealed class FakeKissStreamFactory : IKissStreamFactory
+    {
+        public IReadOnlyCollection<KissTransportKind> SupportedTransports { get; } = [KissTransportKind.Tcp];
+
+        public Task<System.IO.Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
+    private sealed class FakeBluetoothLeScanner : IBluetoothLeScanner
+    {
+        public bool IsSupported => false;
+
+        public Task EnsurePermissionAsync(CancellationToken cancellationToken = default) =>
+            throw new PlatformNotSupportedException();
+
+        public IAsyncEnumerable<BluetoothLeAdvertisement> ScanAsync(CancellationToken cancellationToken = default) =>
+            throw new PlatformNotSupportedException();
+    }
+
+    private sealed class FakeBluetoothClassicDeviceProvider : IBluetoothClassicDeviceProvider
+    {
+        public bool IsSupported => false;
+
+        public Task EnsurePermissionAsync(CancellationToken cancellationToken = default) =>
+            throw new PlatformNotSupportedException();
+
+        public Task<IReadOnlyList<BluetoothClassicDevice>> GetBondedDevicesAsync(CancellationToken cancellationToken = default) =>
+            throw new PlatformNotSupportedException();
+    }
+
     private static AddEditPortDialogViewModel CreateViewModel(TestSymbolBitmapProvider provider) =>
-        new("CT7ALW", 1, provider, _ => null);
+        new(
+            "CT7ALW",
+            1,
+            provider,
+            new FakeKissStreamFactory(),
+            new FakeBluetoothLeScanner(),
+            new FakeBluetoothClassicDeviceProvider(),
+            _ => null);
 }

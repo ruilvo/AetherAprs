@@ -11,6 +11,8 @@ using AetherAprs.Extensions;
 using AetherAprs.Helpers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using AetherAprs.Modems.Kiss;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -21,16 +23,19 @@ public class PortService : IPortService
     private readonly IConfigurationService _configurationService;
     private readonly ILogger<PortService> _logger;
     private readonly IServiceProvider _serviceProvider;
-    private readonly Dictionary<Guid, AprsIsModem> _activeModems = new();
+    private readonly IKissStreamFactory _kissStreamFactory;
+    private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
 
     public PortService(
         IConfigurationService configurationService,
         ILogger<PortService> logger,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        IKissStreamFactory kissStreamFactory)
     {
         _configurationService = configurationService;
         _logger = logger;
         _serviceProvider = serviceProvider;
+        _kissStreamFactory = kissStreamFactory;
     }
 
     public IReadOnlyList<PortConfig> Ports => _configurationService.Settings.Ports;
@@ -98,16 +103,19 @@ public class PortService : IPortService
     {
         ArgumentNullException.ThrowIfNull(packet);
 
-        if (!_activeModems.TryGetValue(id, out var modem))
+        if (!_activeSessions.TryGetValue(id, out var session))
         {
             throw new InvalidOperationException($"Port {id} is not running.");
         }
 
-        var portName = FindPortById(id)?.Name ?? id.ToString();
+        var port = FindPortById(id);
+        var portName = port?.Name ?? id.ToString();
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var rawPacket = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
+        var rawPacket = port?.Type == PortType.AprsIs
+            ? $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}"
+            : $"{packet.Source}>{packet.Destination}:{infoField}";
 
-        await modem.SendAsync(packet);
+        await session.Modem.SendAsync(packet);
 
         if (packet is PositionPacket position)
         {
@@ -148,7 +156,7 @@ public class PortService : IPortService
     public async Task StopAllPortsAsync()
     {
         // Create a copy to avoid collection modification during iteration
-        var idsToStop = _activeModems.Keys.ToArray();
+        var idsToStop = _activeSessions.Keys.ToArray();
         foreach (var id in idsToStop)
         {
             await StopModemAsync(id);
@@ -176,7 +184,7 @@ public class PortService : IPortService
 
     private async Task StartModemAsync(PortConfig port)
     {
-        if (_activeModems.ContainsKey(port.Id))
+        if (_activeSessions.ContainsKey(port.Id))
         {
             _logger.LogDebug("Port {PortId} ({PortName}) is already running.", port.Id, port.Name);
             return;
@@ -184,8 +192,6 @@ public class PortService : IPortService
 
         try
         {
-            AprsIsModem modem;
-
             if (port.Type == PortType.AprsIs)
             {
                 var aprsIsSettings = port.GetAprsIsSettingsOrThrow();
@@ -193,7 +199,7 @@ public class PortService : IPortService
                 var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
                 var fullCallsign = new Callsign(callsign, ssid);
 
-                modem = new AprsIsModem(
+                var modem = new AprsIsModem(
                     aprsIsSettings.Server,
                     aprsIsSettings.ServerPort,
                     fullCallsign,
@@ -205,8 +211,29 @@ public class PortService : IPortService
                 modem.ReceiveError += OnModemReceiveError;
                 modem.Start();
 
-                _activeModems[port.Id] = modem;
+                _activeSessions[port.Id] = new ActivePortSession
+                {
+                    Modem = modem
+                };
                 _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
+            }
+            else if (port.Type == PortType.Kiss)
+            {
+                var kissSettings = port.GetKissSettingsOrThrow();
+                var stream = await _kissStreamFactory.OpenAsync(kissSettings).ConfigureAwait(false);
+                var kissModem = new KissModem(stream);
+                var modem = new AprsRfModem(kissModem);
+
+                modem.PacketReceived += OnModemPacketReceived;
+                modem.ReceiveError += OnModemReceiveError;
+                modem.Start();
+
+                _activeSessions[port.Id] = new ActivePortSession
+                {
+                    Modem = modem,
+                    KissModem = kissModem
+                };
+                _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
             }
         }
         catch (Exception ex)
@@ -217,15 +244,27 @@ public class PortService : IPortService
 
     private async Task StopModemAsync(Guid id)
     {
-        if (_activeModems.TryGetValue(id, out var modem))
+        if (!_activeSessions.TryGetValue(id, out var session))
         {
-            modem.PacketReceived -= OnModemPacketReceived;
-            modem.ReceiveError -= OnModemReceiveError;
-            await modem.StopAsync();
-            await modem.DisposeAsync();
-            _activeModems.Remove(id);
-            _logger.LogInformation("Stopped modem for port {PortId}.", id);
+            return;
         }
+
+        session.Modem.PacketReceived -= OnModemPacketReceived;
+        session.Modem.ReceiveError -= OnModemReceiveError;
+        await session.Modem.StopAsync();
+
+        if (session.Modem is IAsyncDisposable modemDisposable)
+        {
+            await modemDisposable.DisposeAsync();
+        }
+
+        if (session.KissModem is not null)
+        {
+            await session.KissModem.DisposeAsync();
+        }
+
+        _activeSessions.Remove(id);
+        _logger.LogInformation("Stopped modem for port {PortId}.", id);
     }
 
     private void OnModemPacketReceived(object? sender, AprsPacket packet)
@@ -237,5 +276,30 @@ public class PortService : IPortService
     private void OnModemReceiveError(object? sender, Exception exception)
     {
         _logger.LogWarning(exception, "Receive error on modem.");
+    }
+
+    private sealed class ActivePortSession : IAsyncDisposable
+    {
+        public required IAprsModem Modem { get; init; }
+
+        /// <summary>
+        /// Owned KISS modem when the session wraps an <see cref="AprsRfModem"/>.
+        /// </summary>
+        public KissModem? KissModem { get; init; }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Modem.StopAsync();
+
+            if (Modem is IAsyncDisposable modemDisposable)
+            {
+                await modemDisposable.DisposeAsync();
+            }
+
+            if (KissModem is not null)
+            {
+                await KissModem.DisposeAsync();
+            }
+        }
     }
 }

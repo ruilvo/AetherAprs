@@ -9,6 +9,7 @@ using AetherAprs.Extensions;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -143,7 +144,8 @@ public sealed class PortServiceTests
     private static PortService CreateService(TestConfigurationService configuration)
     {
         var services = new ServiceCollection().BuildServiceProvider();
-        return new PortService(configuration, NullLogger<PortService>.Instance, services);
+        var kissStreamFactory = new KissStreamFactory([new TcpKissStreamConnector()]);
+        return new PortService(configuration, NullLogger<PortService>.Instance, services, kissStreamFactory);
     }
 
     private sealed class TestConfigurationService : IConfigurationService
