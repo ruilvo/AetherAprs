@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Avalonia;
 using Avalonia.Threading;
 using Mapsui;
 using Mapsui.Layers;
@@ -17,15 +19,16 @@ namespace AetherAprs.ViewModels;
 
 /// <summary>
 /// Manages the display of received APRS beacons on a Mapsui map layer.
-/// Subscribes to PortService PacketReceived events and updates features
-/// with correct APRS symbols and positions.
+/// Subscribes to PortService packet events and updates features with APRS symbols.
+/// Port ShowOnMap is a visual filter only; history is retained while a port is hidden.
 /// </summary>
 public sealed class ReceivedBeaconsViewModel : IDisposable
 {
     private readonly IPortService _portService;
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly WritableLayer _beaconsLayer;
-    private readonly Dictionary<string, PointFeature> _beaconsByCallsign = new();
+    private readonly Dictionary<(Guid PortId, string Callsign), BeaconHistoryEntry> _history = new();
+    private readonly Dictionary<string, PointFeature> _visibleFeaturesByCallsign = new();
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
     private bool _disposed;
 
@@ -48,36 +51,94 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             Name = "Received Beacons"
         };
 
-        // Subscribe to received packets
         _portService.PacketReceived += OnPortServicePacketReceived;
+        _portService.PortsChanged += OnPortsChanged;
     }
 
-    private void OnPortServicePacketReceived(object? sender, AprsPacket packet)
+    private void OnPortServicePacketReceived(object? sender, PortPacketReceivedEventArgs e)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Only display position packets on the map
-        if (packet is not PositionPacket positionPacket)
+        if (e.Packet is not PositionPacket positionPacket)
         {
             return;
         }
 
-        // Marshal to UI thread since this event may be raised from a background thread
-        Dispatcher.UIThread.Post(() => UpdateBeaconOnMap(positionPacket));
+        RunOnUi(() => UpsertHistoryAndRefresh(e.PortId, positionPacket));
     }
 
-    private void UpdateBeaconOnMap(PositionPacket positionPacket)
+    private void OnPortsChanged(object? sender, EventArgs e)
     {
-        // Create a unique key for this beacon (callsign + SSID)
-        var beaconKey = positionPacket.Source.ToString();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        RunOnUi(RebuildVisibleLayer);
+    }
 
-        // Convert geographic coordinates to Spherical Mercator projection
+    private static void RunOnUi(Action action)
+    {
+        // Unit tests have no Avalonia application; apply immediately.
+        if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+            return;
+        }
+
+        Dispatcher.UIThread.Post(action);
+    }
+
+    private void UpsertHistoryAndRefresh(Guid portId, PositionPacket positionPacket)
+    {
+        var callsign = positionPacket.Source.ToString();
+        _history[(portId, callsign)] = new BeaconHistoryEntry
+        {
+            PortId = portId,
+            Callsign = callsign,
+            Packet = positionPacket,
+            ReceivedAt = DateTimeOffset.UtcNow
+        };
+
+        RebuildVisibleLayer();
+    }
+
+    private void RebuildVisibleLayer()
+    {
+        var visiblePortIds = _portService.Ports
+            .Where(p => p.ShowOnMap)
+            .Select(p => p.Id)
+            .ToHashSet();
+
+        // Drop history for ports that no longer exist.
+        var knownPortIds = _portService.Ports.Select(p => p.Id).ToHashSet();
+        foreach (var key in _history.Keys.Where(k => !knownPortIds.Contains(k.PortId)).ToArray())
+        {
+            _history.Remove(key);
+        }
+
+        var latestByCallsign = _history.Values
+            .Where(entry => visiblePortIds.Contains(entry.PortId))
+            .GroupBy(entry => entry.Callsign)
+            .Select(group => group.OrderByDescending(entry => entry.ReceivedAt).First())
+            .ToList();
+
+        _beaconsLayer.Clear();
+        _visibleFeaturesByCallsign.Clear();
+
+        foreach (var entry in latestByCallsign)
+        {
+            var feature = CreateFeature(entry.Packet, entry.Callsign);
+            _visibleFeaturesByCallsign[entry.Callsign] = feature;
+            _beaconsLayer.Add(feature);
+        }
+
+        _beaconsLayer.DataHasChanged();
+    }
+
+    private PointFeature CreateFeature(PositionPacket positionPacket, string beaconKey)
+    {
         var mercatorCoordinate = SphericalMercator.FromLonLat(
             positionPacket.Longitude,
             positionPacket.Latitude);
         var mapPoint = new MPoint(mercatorCoordinate.x, mercatorCoordinate.y);
 
-        // Get or create cached ImageStyle for this symbol
         var symbolKey = $"{positionPacket.Symbol.TableChar}{positionPacket.Symbol.CodeChar}";
         if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
             cachedStyle.symbol != positionPacket.Symbol)
@@ -87,36 +148,20 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             _symbolStyleCache[symbolKey] = cachedStyle;
         }
 
-        // Create a text label style for the callsign (no background)
         var labelStyle = new LabelStyle
         {
             Text = beaconKey,
-            Offset = new Offset(35, 0), // Offset to the right of the icon
+            Offset = new Offset(35, 0),
             Font = new Mapsui.Styles.Font { FontFamily = "Arial", Size = 10 },
             ForeColor = Color.Black,
-            BackColor = null, // Transparent background
-            Halo = null // No halo effect
+            BackColor = null,
+            Halo = null
         };
 
-        // Create new feature for this beacon at the position
-        // Only use ImageStyle and LabelStyle - no SymbolStyle to avoid white circle background
-        var feature = new PointFeature(mapPoint)
+        return new PointFeature(mapPoint)
         {
             Styles = [cachedStyle.imageStyle, labelStyle]
         };
-
-        // Update or add beacon
-        if (_beaconsByCallsign.TryGetValue(beaconKey, out var existingFeature))
-        {
-            // Remove old feature
-            _beaconsLayer.TryRemove(existingFeature);
-        }
-
-        _beaconsByCallsign[beaconKey] = feature;
-        _beaconsLayer.Add(feature);
-
-        // Notify the map that the layer has changed
-        _beaconsLayer.DataHasChanged();
     }
 
     /// <inheritdoc />
@@ -129,10 +174,22 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
         _disposed = true;
         _portService.PacketReceived -= OnPortServicePacketReceived;
+        _portService.PortsChanged -= OnPortsChanged;
         _beaconsLayer.Clear();
-        _beaconsByCallsign.Clear();
+        _history.Clear();
+        _visibleFeaturesByCallsign.Clear();
         _symbolStyleCache.Clear();
         _symbolConverter.Dispose();
     }
-}
 
+    private sealed class BeaconHistoryEntry
+    {
+        public required Guid PortId { get; init; }
+
+        public required string Callsign { get; init; }
+
+        public required PositionPacket Packet { get; set; }
+
+        public required DateTimeOffset ReceivedAt { get; set; }
+    }
+}

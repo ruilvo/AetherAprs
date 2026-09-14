@@ -4,6 +4,7 @@
 using AetherAprs.Models;
 using AetherAprs.ViewModels;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Projections;
@@ -18,6 +19,7 @@ public partial class HomeView : UserControl
 {
     private WritableLayer? _userLocationLayer;
     private PointFeature? _userLocationFeature;
+    private MPoint? _lastUserMapPoint;
 
     public HomeView()
     {
@@ -57,7 +59,7 @@ public partial class HomeView : UserControl
             {
                 viewModel.LocationTracking.PropertyChanged += OnLocationTrackingPropertyChanged;
             }
-            
+
             // Only start location tracking at runtime, not in designer
             if (!Design.IsDesignMode)
             {
@@ -78,6 +80,25 @@ public partial class HomeView : UserControl
         }
     }
 
+    private void OnCenterOnUserClick(object? sender, RoutedEventArgs e)
+    {
+        if (_lastUserMapPoint is not null)
+        {
+            CenterOnUser(_lastUserMapPoint);
+            return;
+        }
+
+        if (DataContext is HomeViewModel viewModel &&
+            viewModel.LocationTracking?.CurrentLocation is { } location)
+        {
+            UpdateUserLocationOnMap(location);
+            if (_lastUserMapPoint is not null)
+            {
+                CenterOnUser(_lastUserMapPoint);
+            }
+        }
+    }
+
     private void UpdateUserLocationOnMap(LocationData? locationData)
     {
         if (_userLocationLayer == null || locationData == null)
@@ -86,6 +107,7 @@ public partial class HomeView : UserControl
         // Convert lat/lon to map coordinates (Web Mercator)
         var sphericalMercatorCoordinate = SphericalMercator.FromLonLat(locationData.Longitude, locationData.Latitude);
         var mapPoint = new MPoint(sphericalMercatorCoordinate.x, sphericalMercatorCoordinate.y);
+        _lastUserMapPoint = mapPoint;
 
         // Create style for user location marker
         var locationStyle = new SymbolStyle
@@ -105,8 +127,7 @@ public partial class HomeView : UserControl
             _userLocationLayer.Add(_userLocationFeature);
 
             // Center map on first location
-            MapControl.Map?.Navigator?.CenterOn(mapPoint);
-            MapControl.Map?.Navigator?.ZoomTo(2000); // Zoom to ~2km scale
+            CenterOnUser(mapPoint);
         }
         else
         {
@@ -120,5 +141,26 @@ public partial class HomeView : UserControl
             _userLocationLayer.Add(_userLocationFeature);
             _userLocationLayer.DataHasChanged();
         }
+    }
+
+    private void CenterOnUser(MPoint mapPoint)
+    {
+        var navigator = MapControl.Map?.Navigator;
+        if (navigator is null)
+        {
+            return;
+        }
+
+        // Prefer CenterOnAndZoomTo when resolutions are available (Mapsui sample style).
+        if (navigator.Resolutions.Count > 9)
+        {
+            navigator.CenterOnAndZoomTo(mapPoint, navigator.Resolutions[9]);
+        }
+        else
+        {
+            navigator.CenterOn(mapPoint);
+            navigator.ZoomTo(2000);
+        }
+
     }
 }

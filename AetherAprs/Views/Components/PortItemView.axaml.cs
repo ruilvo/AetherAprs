@@ -30,6 +30,14 @@ public partial class PortItemView : UserControl
         RaiseEvent(args);
     }
 
+    private void OnShowOnMapClicked(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PortItemViewModel item)
+        {
+            item.ShowOnMap = !item.ShowOnMap;
+        }
+    }
+
     // Define routed events for parent to handle
     public static readonly RoutedEvent<RoutedEventArgs> PortClickedEvent =
         RoutedEvent.Register<PortItemView, RoutedEventArgs>(nameof(PortClicked), RoutingStrategies.Bubble);

@@ -34,6 +34,13 @@ public class PortConfig
     public bool IsTx { get; set; } = false;
 
     /// <summary>
+    /// When true, position packets received on this port are shown on the map.
+    /// History is retained while hidden and restored when re-enabled.
+    /// </summary>
+    public bool ShowOnMap { get; set; } = true;
+
+
+    /// <summary>
     /// Gets or sets the SSID (0-15). Null means use the global default SSID.
     /// </summary>
     public int? Ssid

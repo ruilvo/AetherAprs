@@ -38,7 +38,7 @@ public partial class PortsViewModel : ViewModelBase
         PortItems.Clear();
         foreach (var port in _portService.Ports)
         {
-            var item = new PortItemViewModel(port, OnTogglePort, OnDeletePort, OnEditPort);
+            var item = new PortItemViewModel(port, OnTogglePort, OnToggleShowOnMap, OnDeletePort, OnEditPort);
             PortItems.Add(item);
         }
     }
@@ -51,6 +51,11 @@ public partial class PortsViewModel : ViewModelBase
     private void OnTogglePort(PortItemViewModel item)
     {
         _ = _portService.SetPortEnabledAsync(item.Id, item.IsEnabled);
+    }
+
+    private void OnToggleShowOnMap(PortItemViewModel item)
+    {
+        _ = _portService.SetPortShowOnMapAsync(item.Id, item.ShowOnMap);
     }
 
     private void OnDeletePort(PortItemViewModel item)

@@ -340,7 +340,7 @@ public class BeaconTransmissionViewModelTests
 
 #pragma warning disable CS0067 // Events are never used - this is a test stub
         public event EventHandler? PortsChanged;
-        public event EventHandler<AprsPacket>? PacketReceived;
+        public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
 #pragma warning restore CS0067
 
         public int SendCount { get; private set; }
@@ -349,6 +349,8 @@ public class BeaconTransmissionViewModelTests
         public Task UpdatePortAsync(PortConfig port) => Task.CompletedTask;
         public Task RemovePortAsync(Guid id) => Task.CompletedTask;
         public Task SetPortEnabledAsync(Guid id, bool enabled) => Task.CompletedTask;
+
+        public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
 
         public Task SendPacketAsync(Guid id, AprsPacket packet)
         {

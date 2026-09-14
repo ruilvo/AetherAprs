@@ -294,7 +294,7 @@ public sealed class HomeViewModelTests
         public event EventHandler? PortsChanged;
 
 #pragma warning disable CS0067 // Event is never used - this is a test stub
-        public event EventHandler<AprsPacket>? PacketReceived;
+        public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
 #pragma warning restore CS0067
 
         public TaskCompletionSource<PositionPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -312,6 +312,8 @@ public sealed class HomeViewModelTests
         public Task RemovePortAsync(Guid id) => Task.CompletedTask;
 
         public Task SetPortEnabledAsync(Guid id, bool enabled) => Task.CompletedTask;
+
+        public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
 
         public Task SendPacketAsync(Guid id, AprsPacket packet)
         {

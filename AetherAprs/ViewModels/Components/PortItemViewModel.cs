@@ -10,7 +10,7 @@ using AetherAprs.Models;
 
 namespace AetherAprs.ViewModels;
 
-public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onDelete, Action<PortItemViewModel> onEdit) : ViewModelBase
+public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onShowOnMapToggle, Action<PortItemViewModel> onDelete, Action<PortItemViewModel> onEdit) : ViewModelBase
 {
 
     [ObservableProperty]
@@ -30,6 +30,9 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
 
     [ObservableProperty]
     public partial bool IsTx { get; set; } = config.IsTx;
+
+    [ObservableProperty]
+    public partial bool ShowOnMap { get; set; } = config.ShowOnMap;
 
     [ObservableProperty]
     public partial string? SymbolTableCharacter { get; set; } = config.SymbolTableCharacter;
@@ -69,6 +72,11 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
         onToggle(this);
     }
 
+    partial void OnShowOnMapChanged(bool value)
+    {
+        onShowOnMapToggle(this);
+    }
+
     public void Delete()
     {
         onDelete(this);
@@ -89,6 +97,7 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             IsEnabled = IsEnabled,
             IsRx = IsRx,
             IsTx = IsTx,
+            ShowOnMap = ShowOnMap,
             SymbolTableCharacter = SymbolTableCharacter,
             SymbolCodeCharacter = SymbolCodeCharacter,
             DynamicBeaconMode = DynamicBeaconMode,

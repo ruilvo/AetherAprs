@@ -77,7 +77,7 @@ public sealed class PortsViewModelTests
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged;
 #pragma warning disable CS0067 // Event is never used - this is a test stub
-        public event EventHandler<AprsPacket>? PacketReceived;
+        public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
 #pragma warning restore CS0067
         public Guid? LastPortId { get; private set; }
         public bool LastEnabled { get; private set; }
@@ -97,6 +97,8 @@ public sealed class PortsViewModelTests
             _operation.TrySetResult(true);
             return Task.CompletedTask;
         }
+
+        public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
 
         public Task AddPortAsync(PortConfig port) => Task.CompletedTask;
         public Task UpdatePortAsync(PortConfig port) => Task.CompletedTask;

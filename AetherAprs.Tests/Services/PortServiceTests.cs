@@ -57,7 +57,8 @@ public sealed class PortServiceTests
             IsTx = true,
             SymbolTableCharacter = "\\",
             SymbolCodeCharacter = ">",
-            DynamicBeaconMode = DynamicBeaconMode.Drive
+            DynamicBeaconMode = DynamicBeaconMode.Drive,
+            ShowOnMap = false
         };
 
         await service.UpdatePortAsync(updatedPort);
@@ -77,6 +78,7 @@ public sealed class PortServiceTests
         Assert.Equal("\\", existingPort.SymbolTableCharacter);
         Assert.Equal(">", existingPort.SymbolCodeCharacter);
         Assert.Equal(DynamicBeaconMode.Drive, existingPort.DynamicBeaconMode);
+        Assert.False(existingPort.ShowOnMap);
         Assert.Equal(1, configuration.SaveCount);
     }
 

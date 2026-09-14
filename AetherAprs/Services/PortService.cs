@@ -42,7 +42,7 @@ public class PortService : IPortService
 
     public event EventHandler? PortsChanged;
 
-    public event EventHandler<AprsPacket>? PacketReceived;
+    public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
 
     public async Task AddPortAsync(PortConfig port)
     {
@@ -96,6 +96,20 @@ public class PortService : IPortService
             await StopModemAsync(id);
         }
 
+        PortsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+
+    public async Task SetPortShowOnMapAsync(Guid id, bool showOnMap)
+    {
+        var port = FindPortById(id);
+        if (port is null || port.ShowOnMap == showOnMap)
+        {
+            return;
+        }
+
+        port.ShowOnMap = showOnMap;
+        await _configurationService.SaveSettingsAsync();
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -175,6 +189,7 @@ public class PortService : IPortService
         target.IsEnabled = source.IsEnabled;
         target.IsRx = source.IsRx;
         target.IsTx = source.IsTx;
+        target.ShowOnMap = source.ShowOnMap;
         target.Ssid = source.Ssid;
         target.SymbolTableCharacter = source.SymbolTableCharacter;
         target.SymbolCodeCharacter = source.SymbolCodeCharacter;
@@ -207,13 +222,16 @@ public class PortService : IPortService
                     aprsIsSettings.Filter,
                     _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
 
-                modem.PacketReceived += OnModemPacketReceived;
+                EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                modem.PacketReceived += packetHandler;
                 modem.ReceiveError += OnModemReceiveError;
                 modem.Start();
 
                 _activeSessions[port.Id] = new ActivePortSession
                 {
-                    Modem = modem
+                    PortId = port.Id,
+                    Modem = modem,
+                    PacketHandler = packetHandler
                 };
                 _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
             }
@@ -224,14 +242,17 @@ public class PortService : IPortService
                 var kissModem = new KissModem(stream);
                 var modem = new AprsRfModem(kissModem);
 
-                modem.PacketReceived += OnModemPacketReceived;
+                EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                modem.PacketReceived += packetHandler;
                 modem.ReceiveError += OnModemReceiveError;
                 modem.Start();
 
                 _activeSessions[port.Id] = new ActivePortSession
                 {
+                    PortId = port.Id,
                     Modem = modem,
-                    KissModem = kissModem
+                    KissModem = kissModem,
+                    PacketHandler = packetHandler
                 };
                 _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
             }
@@ -249,7 +270,7 @@ public class PortService : IPortService
             return;
         }
 
-        session.Modem.PacketReceived -= OnModemPacketReceived;
+        session.Modem.PacketReceived -= session.PacketHandler;
         session.Modem.ReceiveError -= OnModemReceiveError;
         await session.Modem.StopAsync();
 
@@ -267,10 +288,18 @@ public class PortService : IPortService
         _logger.LogInformation("Stopped modem for port {PortId}.", id);
     }
 
-    private void OnModemPacketReceived(object? sender, AprsPacket packet)
+    private void RaisePacketReceived(Guid portId, AprsPacket packet)
     {
-        _logger.LogInformation("Packet received from {Source}: {Raw}", packet.Source, packet.Raw);
-        PacketReceived?.Invoke(this, packet);
+        _logger.LogInformation(
+            "Packet received on port {PortId} from {Source}: {Raw}",
+            portId,
+            packet.Source,
+            packet.Raw);
+        PacketReceived?.Invoke(this, new PortPacketReceivedEventArgs
+        {
+            PortId = portId,
+            Packet = packet
+        });
     }
 
     private void OnModemReceiveError(object? sender, Exception exception)
@@ -280,6 +309,8 @@ public class PortService : IPortService
 
     private sealed class ActivePortSession : IAsyncDisposable
     {
+        public required Guid PortId { get; init; }
+
         public required IAprsModem Modem { get; init; }
 
         /// <summary>
@@ -287,8 +318,11 @@ public class PortService : IPortService
         /// </summary>
         public KissModem? KissModem { get; init; }
 
+        public required EventHandler<AprsPacket> PacketHandler { get; init; }
+
         public async ValueTask DisposeAsync()
         {
+            Modem.PacketReceived -= PacketHandler;
             await Modem.StopAsync();
 
             if (Modem is IAsyncDisposable modemDisposable)

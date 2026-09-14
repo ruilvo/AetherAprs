@@ -16,7 +16,7 @@ public interface IPortService
 
     event EventHandler? PortsChanged;
 
-    event EventHandler<AprsPacket>? PacketReceived;
+    event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
 
     Task AddPortAsync(PortConfig port);
 
@@ -25,6 +25,8 @@ public interface IPortService
     Task RemovePortAsync(Guid id);
 
     Task SetPortEnabledAsync(Guid id, bool enabled);
+
+    Task SetPortShowOnMapAsync(Guid id, bool showOnMap);
 
     Task SendPacketAsync(Guid id, AprsPacket packet);
 

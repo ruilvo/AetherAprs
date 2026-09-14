@@ -75,6 +75,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       IsChecked="{Binding IsTx}"
                       MinHeight="40"
                       VerticalContentAlignment="Center" />
+            <CheckBox Content="Show on map"
+                      IsChecked="{Binding ShowOnMap}"
+                      MinHeight="40"
+                      VerticalContentAlignment="Center" />
           </StackPanel>
         </StackPanel>
 

@@ -113,6 +113,9 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial bool IsTx { get; set; } = false;
 
     [ObservableProperty]
+    public partial bool ShowOnMap { get; set; } = true;
+
+    [ObservableProperty]
     public partial DynamicBeaconMode? SelectedBeaconMode { get; set; }
 
     [ObservableProperty]
@@ -340,6 +343,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         SelectedPortType = config.Type;
         IsRx = config.IsRx;
         IsTx = config.IsTx;
+        ShowOnMap = config.ShowOnMap;
         Ssid = config.Ssid;
 
         UseDefaultSymbol = config.SymbolTableCharacter is null || config.SymbolCodeCharacter is null;
@@ -420,6 +424,7 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             SymbolCodeCharacter = UseDefaultSymbol ? null : SymbolCodeCharacter,
             IsRx = IsRx,
             IsTx = IsTx,
+            ShowOnMap = ShowOnMap,
             DynamicBeaconMode = UseDefaultBeaconMode ? null : SelectedBeaconMode
         };
 
