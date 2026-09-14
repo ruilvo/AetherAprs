@@ -10,7 +10,7 @@ namespace AetherAprs.ViewModels;
 
 public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onShowOnMapToggle, Action<PortItemViewModel> onDelete, Action<PortItemViewModel> onEdit) : ViewModelBase
 {
-    private readonly PortConfig _config = config;
+    private readonly PortConfig _config = config ?? throw new ArgumentNullException(nameof(config));
 
     public Guid Id => _config.Id;
 

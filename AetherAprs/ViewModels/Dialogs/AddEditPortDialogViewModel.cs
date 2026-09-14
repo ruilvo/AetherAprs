@@ -248,6 +248,11 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
         }
     }
 
+    partial void OnNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(Title));
+    }
+
     partial void OnSymbolTableCharacterChanged(string value)
     {
         OnPropertyChanged(nameof(IsSymbolValid));

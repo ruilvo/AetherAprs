@@ -89,8 +89,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         var callsign = positionPacket.Source.ToString();
         _history[(portId, callsign)] = new BeaconHistoryEntry
         {
-            PortId = portId,
-            Callsign = callsign,
             Packet = positionPacket,
             ReceivedAt = DateTimeOffset.UtcNow
         };
@@ -112,17 +110,17 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             _history.Remove(key);
         }
 
-        var latestByCallsign = _history.Values
-            .Where(entry => visiblePortIds.Contains(entry.PortId))
-            .GroupBy(entry => entry.Callsign)
-            .Select(group => group.OrderByDescending(entry => entry.ReceivedAt).First())
+        var latestByCallsign = _history
+            .Where(pair => visiblePortIds.Contains(pair.Key.PortId))
+            .GroupBy(pair => pair.Key.Callsign)
+            .Select(group => group.OrderByDescending(pair => pair.Value.ReceivedAt).First())
             .ToList();
 
         _beaconsLayer.Clear();
 
-        foreach (var entry in latestByCallsign)
+        foreach (var pair in latestByCallsign)
         {
-            var feature = CreateFeature(entry.Packet, entry.Callsign);
+            var feature = CreateFeature(pair.Value.Packet, pair.Key.Callsign);
             _beaconsLayer.Add(feature);
         }
 
@@ -180,10 +178,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
     private sealed class BeaconHistoryEntry
     {
-        public required Guid PortId { get; init; }
-
-        public required string Callsign { get; init; }
-
         public required PositionPacket Packet { get; set; }
 
         public required DateTimeOffset ReceivedAt { get; set; }
