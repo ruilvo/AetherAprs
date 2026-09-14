@@ -52,7 +52,11 @@ public partial class HomeView : UserControl
                 MapControl.Map.Layers.Add(viewModel.ReceivedBeacons.BeaconsLayer, group: 1);
             }
 
-            viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            // Subscribe to LocationTracking property changes
+            if (viewModel.LocationTracking != null)
+            {
+                viewModel.LocationTracking.PropertyChanged += OnLocationTrackingPropertyChanged;
+            }
             
             // Only start location tracking at runtime, not in designer
             if (!Design.IsDesignMode)
@@ -62,15 +66,15 @@ public partial class HomeView : UserControl
         }
     }
 
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnLocationTrackingPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is not HomeViewModel viewModel)
+        if (sender is not LocationTrackingViewModel locationTracking)
             return;
 
         // Update map when location changes
-        if (e.PropertyName == nameof(HomeViewModel.UserLocation))
+        if (e.PropertyName == nameof(LocationTrackingViewModel.CurrentLocation))
         {
-            UpdateUserLocationOnMap(viewModel.UserLocation);
+            UpdateUserLocationOnMap(locationTracking.CurrentLocation);
         }
     }
 

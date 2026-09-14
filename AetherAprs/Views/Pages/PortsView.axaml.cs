@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using DialogHostAvalonia;
 using AetherAprs.ViewModels;
-using AetherAprs.Views.Dialogs;
+using AetherAprs.Views.Components;
 using AetherAprs.Imaging;
 
 namespace AetherAprs.Views.Pages;
@@ -39,9 +39,19 @@ public partial class PortsView : UserControl
 
     private void OnPortClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button button && button.DataContext is PortItemViewModel item)
+        if (e.Source is PortItemView portItemView && portItemView.DataContext is PortItemViewModel item)
         {
             OnEditPort(item);
+        }
+    }
+
+    private void OnDeleteClicked(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is PortItemView portItemView && 
+            portItemView.DataContext is PortItemViewModel item &&
+            DataContext is PortsViewModel viewModel)
+        {
+            viewModel.DeletePortCommand.Execute(item);
         }
     }
 
@@ -58,7 +68,7 @@ public partial class PortsView : UserControl
         var nextNumber = viewModel.GetNextPortNumber();
 
         // Create dialog content
-        var dialogContent = new AddEditPortDialogView();
+        var dialogContent = new AddEditPortView();
         var dialogVm = new AddEditPortDialogViewModel(
             globalCallsign,
             nextNumber,
@@ -89,7 +99,7 @@ public partial class PortsView : UserControl
         var globalCallsign = configService.Settings.Aprs.Callsign;
 
         // Create dialog content for editing
-        var dialogContent = new AddEditPortDialogView();
+        var dialogContent = new AddEditPortView();
         var dialogVm = new AddEditPortDialogViewModel(
             globalCallsign,
             viewModel.GetNextPortNumber(),

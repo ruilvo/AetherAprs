@@ -4,6 +4,7 @@
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views;
+using AetherAprs.Views.Components;
 using AetherAprs.Views.Pages;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -24,6 +25,8 @@ public class ViewLocator: IDataTemplate
             PortsViewModel => new PortsView(),
             SettingsViewModel => new SettingsView(),
             DynamicBeaconingViewModel => new DynamicBeaconingView(),
+            AddEditPortDialogViewModel => new AddEditPortView(),
+            PortItemViewModel => new PortItemView(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

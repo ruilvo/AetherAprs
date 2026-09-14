@@ -5,6 +5,7 @@
 using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Configuration;
+using AetherAprs.Extensions;
 using AetherAprs.Models;
 
 namespace AetherAprs.ViewModels;
@@ -40,16 +41,16 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
     public partial DynamicBeaconMode? DynamicBeaconMode { get; set; } = config.DynamicBeaconMode;
 
     [ObservableProperty]
-    public partial string? Server { get; set; } = config.Server;
+    public partial string? Server { get; set; } = config.GetAprsIsSettings()?.Server;
 
     [ObservableProperty]
-    public partial int ServerPort { get; set; } = config.ServerPort;
+    public partial int ServerPort { get; set; } = config.GetAprsIsSettings()?.ServerPort ?? 14580;
 
     [ObservableProperty]
-    public partial string? Passcode { get; set; } = config.Passcode;
+    public partial string? Passcode { get; set; } = config.GetAprsIsSettings()?.Passcode;
 
     [ObservableProperty]
-    public partial string? Filter { get; set; } = config.Filter;
+    public partial string? Filter { get; set; } = config.GetAprsIsSettings()?.Filter;
 
     [ObservableProperty]
     public partial int? Ssid { get; set; } = config.Ssid;
@@ -73,9 +74,9 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
         onEdit(this);
     }
 
-    public PortConfig ToConfig()
+    public PortConfig BuildConfig()
     {
-        return new PortConfig
+        var config = new PortConfig
         {
             Id = Id,
             Name = Name,
@@ -86,11 +87,21 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
             SymbolTableCharacter = SymbolTableCharacter,
             SymbolCodeCharacter = SymbolCodeCharacter,
             DynamicBeaconMode = DynamicBeaconMode,
-            Server = Server,
-            ServerPort = ServerPort,
-            Passcode = Passcode,
-            Filter = Filter,
             Ssid = Ssid
         };
+
+        // Set type-specific settings
+        if (Type == PortType.AprsIs)
+        {
+            config.TypeSettings = new AprsIsSettings
+            {
+                Server = Server ?? AprsIsSettings.DefaultServer,
+                ServerPort = ServerPort,
+                Passcode = Passcode ?? AprsIsSettings.DefaultPasscode,
+                Filter = Filter ?? AprsIsSettings.DefaultFilter
+            };
+        }
+
+        return config;
     }
 }

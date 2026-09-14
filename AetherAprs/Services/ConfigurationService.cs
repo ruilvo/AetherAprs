@@ -22,6 +22,12 @@ public class ConfigurationService : IConfigurationService
         WriteIndented = true
     };
 
+    /// <summary>
+    /// Gets the application settings.
+    /// WARNING: Direct mutation of Settings properties requires calling SaveSettingsAsync() 
+    /// to persist changes. Consider using UpdateSettingsAsync for automatic persistence.
+    /// This property is NOT thread-safe for concurrent modifications.
+    /// </summary>
     public AppSettings Settings { get; }
 
     public ConfigurationService(IAppDataDirProviderService appDataDirProvider)
@@ -69,5 +75,18 @@ public class ConfigurationService : IConfigurationService
             _jsonSerializerOptions);
 
         await File.WriteAllTextAsync(filePath, json);
+    }
+
+    /// <summary>
+    /// Updates settings using the provided action and saves them atomically.
+    /// This method is preferred over direct Settings mutation for ensuring changes are persisted.
+    /// </summary>
+    /// <param name="updateAction">Action that modifies the settings.</param>
+    public async Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+    {
+        ArgumentNullException.ThrowIfNull(updateAction);
+        
+        updateAction(Settings);
+        await SaveSettingsAsync();
     }
 }

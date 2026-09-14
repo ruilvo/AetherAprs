@@ -10,6 +10,7 @@ using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using Avalonia.Media.Imaging;
+using DialogHostAvalonia;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -41,16 +42,16 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     public partial PortType SelectedPortType { get; set; } = PortType.AprsIs;
 
     [ObservableProperty]
-    public partial string Server { get; set; } = "euro.aprs2.net";
+    public partial string Server { get; set; } = AprsIsSettings.DefaultServer;
 
     [ObservableProperty]
-    public partial int ServerPort { get; set; } = 14580;
+    public partial int ServerPort { get; set; } = AprsIsSettings.DefaultServerPort;
 
     [ObservableProperty]
-    public partial string Passcode { get; set; }
+    public partial string Passcode { get; set; } = AprsIsSettings.DefaultPasscode;
 
     [ObservableProperty]
-    public partial string Filter { get; set; } = "m/50";
+    public partial string Filter { get; set; } = AprsIsSettings.DefaultFilter;
 
     [ObservableProperty]
     public partial int? Ssid { get; set; }
@@ -85,9 +86,23 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool UseDefaultBeaconMode { get; set; } = true;
 
+    public string Title => string.IsNullOrEmpty(Name) ? "Add Port" : $"Edit {Name}";
+
     public PortType[] PortTypes { get; } = [PortType.AprsIs];
 
     public DynamicBeaconMode?[] BeaconModes { get; } = [null, DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
+
+    [RelayCommand]
+    private void Cancel()
+    {
+        DialogHost.Close("MainDialogHost", "CANCEL");
+    }
+
+    [RelayCommand(CanExecute = nameof(IsSymbolValid))]
+    private void Save()
+    {
+        DialogHost.Close("MainDialogHost", "OK");
+    }
 
     public AddEditPortDialogViewModel(
         string globalCallsign,
@@ -113,12 +128,14 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
     {
         UpdateSelectedSymbolOption();
         UpdateSymbolPreview();
+        SaveCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSymbolCodeCharacterChanged(string value)
     {
         UpdateSelectedSymbolOption();
         UpdateSymbolPreview();
+        SaveCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedSymbolOptionChanged(AprsSymbolOption? value)
@@ -145,14 +162,10 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             throw new InvalidOperationException("The APRS symbol table and code must each contain one valid character.");
         }
 
-        return new PortConfig
+        var config = new PortConfig
         {
             Type = SelectedPortType,
             Name = Name,
-            Server = Server,
-            ServerPort = ServerPort,
-            Passcode = Passcode,
-            Filter = Filter,
             Ssid = Ssid,
             SymbolTableCharacter = UseDefaultSymbol ? null : SymbolTableCharacter,
             SymbolCodeCharacter = UseDefaultSymbol ? null : SymbolCodeCharacter,
@@ -160,6 +173,20 @@ public partial class AddEditPortDialogViewModel : ViewModelBase
             IsTx = IsTx,
             DynamicBeaconMode = UseDefaultBeaconMode ? null : SelectedBeaconMode
         };
+
+        // Set type-specific settings
+        if (SelectedPortType == PortType.AprsIs)
+        {
+            config.TypeSettings = new AprsIsSettings
+            {
+                Server = Server,
+                ServerPort = ServerPort,
+                Passcode = Passcode,
+                Filter = Filter
+            };
+        }
+
+        return config;
     }
 
     private void UpdateSymbolPreview()

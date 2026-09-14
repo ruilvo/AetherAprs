@@ -24,10 +24,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <controls:SnackbarHost x:Name="SettingsSnackbarHost" HostName="{Binding $self.Name}">
-    <Grid RowDefinitions="*,Auto">
-      <ScrollViewer Grid.Row="0">
-        <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
 
         <!-- Station Section -->
         <StackPanel Spacing="16">
@@ -88,7 +87,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   x:Name="ConfigureBeaconingButton"
                   MinWidth="120"
                   MinHeight="40"
-                  Classes="Outlined" />
+                  Classes="Outline" />
         </StackPanel>
 
       </StackPanel>
@@ -110,6 +109,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 Classes="Filled" />
       </StackPanel>
     </Border>
-    </Grid>
-  </controls:SnackbarHost>
+  </Grid>
 </UserControl>

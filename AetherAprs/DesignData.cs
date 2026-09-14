@@ -30,6 +30,7 @@ public static class DesignData
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IPortService, PortService>();
+        services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
@@ -45,10 +46,12 @@ public static class DesignData
 
         // Register view models
         services.AddSingleton<MainViewModel>();
+        services.AddTransient<LocationTrackingViewModel>();
+        services.AddTransient<BeaconTransmissionViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<DynamicBeaconingViewModel>();
+        services.AddTransient<DynamicBeaconingViewModel>();
 
         return services.BuildServiceProvider();
     }

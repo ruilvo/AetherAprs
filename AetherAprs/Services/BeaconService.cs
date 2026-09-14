@@ -102,33 +102,59 @@ public sealed record BeaconTransmitDecision
 
 /// <summary>
 /// Implementation of dynamic beacon service with smart transmit intervals.
+/// This service is thread-safe for concurrent calls to EvaluateLocationUpdate.
 /// </summary>
 public sealed class BeaconService : IBeaconService
 {
+    private readonly object _lock = new();
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private readonly BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
     private readonly BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
     private DateTime _lastTransmitTime = DateTime.UtcNow;
     private double? _lastCourseDegrees;
+    
+    // Physical constants
     private const double EarthRadiusMeters = 6371000.0;
+    private const double MetersPerSecondToKilometersPerHour = 3.6;
+    private const double MetersToFeet = 3.28084;
 
-    public BeaconConfig CurrentConfiguration =>
-        _activeMode switch
+    public BeaconConfig CurrentConfiguration
+    {
+        get
         {
-            DynamicBeaconMode.Walk => _walkConfig,
-            DynamicBeaconMode.Drive => _driveConfig,
-            DynamicBeaconMode.Custom => _customConfig,
-            _ => _walkConfig
-        };
+            lock (_lock)
+            {
+                return _activeMode switch
+                {
+                    DynamicBeaconMode.Walk => _walkConfig,
+                    DynamicBeaconMode.Drive => _driveConfig,
+                    DynamicBeaconMode.Custom => _customConfig,
+                    _ => _walkConfig
+                };
+            }
+        }
+    }
 
-    public IReadOnlyList<BeaconConfig> AllConfigurations =>
-        [_walkConfig, _driveConfig, _customConfig];
+    public IReadOnlyList<BeaconConfig> AllConfigurations
+    {
+        get
+        {
+            lock (_lock)
+            {
+                // Return copies to prevent external modification of internal state
+                return [_walkConfig, _driveConfig, _customConfig];
+            }
+        }
+    }
 
     public void SetActiveMode(DynamicBeaconMode mode)
     {
-        _activeMode = mode;
-        _lastTransmitTime = DateTime.UtcNow;
+        lock (_lock)
+        {
+            _activeMode = mode;
+            _lastTransmitTime = DateTime.UtcNow;
+        }
     }
 
     public void UpdateCustomConfiguration(BeaconConfig configuration)
@@ -136,13 +162,30 @@ public sealed class BeaconService : IBeaconService
         if (configuration.Mode != DynamicBeaconMode.Custom)
             throw new ArgumentException("Configuration must be for Custom mode.", nameof(configuration));
 
-        _customConfig = configuration;
+        lock (_lock)
+        {
+            _customConfig = configuration;
+        }
     }
 
     public BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation)
     {
+        lock (_lock)
+        {
+            return EvaluateLocationUpdateInternal(currentLocation, previousLocation);
+        }
+    }
+
+    private BeaconTransmitDecision EvaluateLocationUpdateInternal(LocationData currentLocation, LocationData? previousLocation)
+    {
         var timeSinceLastTransmit = DateTime.UtcNow - _lastTransmitTime;
-        var config = CurrentConfiguration;
+        var config = _activeMode switch
+        {
+            DynamicBeaconMode.Walk => _walkConfig,
+            DynamicBeaconMode.Drive => _driveConfig,
+            DynamicBeaconMode.Custom => _customConfig,
+            _ => _walkConfig
+        };
 
         // No previous location - can't calculate speed/course, use time-based decision
         if (previousLocation == null)
@@ -174,7 +217,7 @@ public sealed class BeaconService : IBeaconService
 
         // Calculate speed (time delta in seconds from location timestamps)
         var timeDelta = (currentLocation.Timestamp - previousLocation.Timestamp).TotalSeconds;
-        var speedKmh = timeDelta > 0 ? (distanceMeters / timeDelta) * 3.6 : 0; // Convert m/s to km/h
+        var speedKmh = timeDelta > 0 ? (distanceMeters / timeDelta) * MetersPerSecondToKilometersPerHour : 0;
 
         // Calculate course if possible
         var courseDegrees = CalculateCourse(previousLocation, currentLocation);
@@ -239,7 +282,10 @@ public sealed class BeaconService : IBeaconService
 
     public void ResetTransmissionTimer()
     {
-        _lastTransmitTime = DateTime.UtcNow;
+        lock (_lock)
+        {
+            _lastTransmitTime = DateTime.UtcNow;
+        }
     }
 
     public PositionPacket CreatePositionPacket(
@@ -248,7 +294,21 @@ public sealed class BeaconService : IBeaconService
         string symbolTableCharacter = "/",
         string symbolCodeCharacter = "[")
     {
-        var config = CurrentConfiguration;
+        BeaconConfig config;
+        double? lastCourse;
+        
+        lock (_lock)
+        {
+            config = _activeMode switch
+            {
+                DynamicBeaconMode.Walk => _walkConfig,
+                DynamicBeaconMode.Drive => _driveConfig,
+                DynamicBeaconMode.Custom => _customConfig,
+                _ => _walkConfig
+            };
+            lastCourse = _lastCourseDegrees;
+        }
+        
         var callsignParts = callsign.Split('-');
         var callsignBase = callsignParts[0];
         var ssid = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssidValue) ? ssidValue : (int?)null;
@@ -259,8 +319,8 @@ public sealed class BeaconService : IBeaconService
             Destination = new Callsign("APRS"),
             Latitude = location.Latitude,
             Longitude = location.Longitude,
-            Altitude = location.Altitude.HasValue ? location.Altitude.Value * 3.28084 : null, // Convert meters to feet
-            Course = _lastCourseDegrees.HasValue ? _lastCourseDegrees.Value : null,
+            Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
+            Course = lastCourse,
             Symbol = CreateSymbol(symbolTableCharacter, symbolCodeCharacter),
             Comment = config.BeaconComment,
             Precision = 2

@@ -76,7 +76,9 @@ public sealed class PortsViewModelTests
         public TestPortService(params PortConfig[] ports) => _ports = [.. ports];
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged;
+#pragma warning disable CS0067 // Event is never used - this is a test stub
         public event EventHandler<AprsPacket>? PacketReceived;
+#pragma warning restore CS0067
         public Guid? LastPortId { get; private set; }
         public bool LastEnabled { get; private set; }
         public Task LastOperation => _operation.Task;

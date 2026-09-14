@@ -5,6 +5,7 @@
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Extensions;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
@@ -24,10 +25,13 @@ public sealed class PortServiceTests
             Id = Guid.NewGuid(),
             Type = PortType.AprsIs,
             Name = "Old name",
-            Server = "old.example",
-            ServerPort = 14580,
-            Passcode = "old-passcode",
-            Filter = "m/10",
+            TypeSettings = new AprsIsSettings
+            {
+                Server = "old.example",
+                ServerPort = 14580,
+                Passcode = "old-passcode",
+                Filter = "m/10"
+            },
             Ssid = 1,
             IsRx = true,
             IsTx = false
@@ -40,10 +44,13 @@ public sealed class PortServiceTests
             Type = PortType.Kiss,
             Name = "Updated name",
             IsEnabled = true,
-            Server = "new.example",
-            ServerPort = 14501,
-            Passcode = "new-passcode",
-            Filter = "m/50",
+            TypeSettings = new AprsIsSettings
+            {
+                Server = "new.example",
+                ServerPort = 14501,
+                Passcode = "new-passcode",
+                Filter = "m/50"
+            },
             Ssid = 2,
             IsRx = false,
             IsTx = true,
@@ -54,13 +61,15 @@ public sealed class PortServiceTests
 
         await service.UpdatePortAsync(updatedPort);
 
+        var aprsIsSettings = existingPort.GetAprsIsSettings();
         Assert.Equal("Updated name", existingPort.Name);
         Assert.Equal(PortType.Kiss, existingPort.Type);
         Assert.True(existingPort.IsEnabled);
-        Assert.Equal("new.example", existingPort.Server);
-        Assert.Equal(14501, existingPort.ServerPort);
-        Assert.Equal("new-passcode", existingPort.Passcode);
-        Assert.Equal("m/50", existingPort.Filter);
+        Assert.NotNull(aprsIsSettings);
+        Assert.Equal("new.example", aprsIsSettings.Server);
+        Assert.Equal(14501, aprsIsSettings.ServerPort);
+        Assert.Equal("new-passcode", aprsIsSettings.Passcode);
+        Assert.Equal("m/50", aprsIsSettings.Filter);
         Assert.Equal(2, existingPort.Ssid);
         Assert.False(existingPort.IsRx);
         Assert.True(existingPort.IsTx);

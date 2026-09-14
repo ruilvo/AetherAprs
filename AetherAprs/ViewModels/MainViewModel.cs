@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Services;
 
@@ -10,6 +12,19 @@ namespace AetherAprs.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly INavigationService _navigationService;
+    private static readonly Dictionary<int, Type> TabIndexToViewModelType = new()
+    {
+        [0] = typeof(HomeViewModel),
+        [1] = typeof(PortsViewModel),
+        [2] = typeof(SettingsViewModel)
+    };
+
+    private static readonly Dictionary<Type, int> ViewModelTypeToTabIndex = new()
+    {
+        [typeof(HomeViewModel)] = 0,
+        [typeof(PortsViewModel)] = 1,
+        [typeof(SettingsViewModel)] = 2
+    };
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; } = 0;
@@ -39,34 +54,23 @@ public partial class MainViewModel : ViewModelBase
     partial void OnSelectedTabIndexChanged(int value)
     {
         // When user clicks tabs, update navigation service
-        if (value == 0)
+        if (TabIndexToViewModelType.TryGetValue(value, out var viewModelType))
         {
-            _navigationService.NavigateTo<HomeViewModel>();
-        }
-        else if (value == 1)
-        {
-            _navigationService.NavigateTo<PortsViewModel>();
-        }
-        else if (value == 2)
-        {
-            _navigationService.NavigateTo<SettingsViewModel>();
+            if (viewModelType == typeof(HomeViewModel))
+                _navigationService.NavigateTo<HomeViewModel>();
+            else if (viewModelType == typeof(PortsViewModel))
+                _navigationService.NavigateTo<PortsViewModel>();
+            else if (viewModelType == typeof(SettingsViewModel))
+                _navigationService.NavigateTo<SettingsViewModel>();
         }
     }
 
     private void OnCurrentViewModelChanged(object? sender, ViewModelBase? viewModel)
     {
         // When navigation service changes, update tab index
-        if (viewModel is HomeViewModel)
+        if (viewModel != null && ViewModelTypeToTabIndex.TryGetValue(viewModel.GetType(), out var tabIndex))
         {
-            SelectedTabIndex = 0;
-        }
-        else if (viewModel is PortsViewModel)
-        {
-            SelectedTabIndex = 1;
-        }
-        else if (viewModel is SettingsViewModel)
-        {
-            SelectedTabIndex = 2;
+            SelectedTabIndex = tabIndex;
         }
     }
 }

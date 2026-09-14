@@ -14,8 +14,13 @@ public enum PortType
     Kiss
 }
 
+/// <summary>
+/// Base configuration for all port types.
+/// </summary>
 public class PortConfig
 {
+    private int? _ssid;
+
     public Guid Id { get; set; } = Guid.NewGuid();
 
     public PortType Type { get; set; }
@@ -28,24 +33,29 @@ public class PortConfig
 
     public bool IsTx { get; set; } = false;
 
-    // APRS-IS fields
-    public string? Server { get; set; }
-
-    public int ServerPort { get; set; } = 14580;
-
-    public string? Passcode { get; set; }
-
-    public string? Filter { get; set; }
-
-    public int? Ssid { get; set; }
+    /// <summary>
+    /// Gets or sets the SSID (0-15). Null means use the global default SSID.
+    /// </summary>
+    public int? Ssid
+    {
+        get => _ssid;
+        set
+        {
+            if (value.HasValue && (value.Value < 0 || value.Value > 15))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "SSID must be between 0 and 15.");
+            }
+            _ssid = value;
+        }
+    }
 
     /// <summary>
-    /// APRS symbol table character, normally '/' or '\'.
+    /// APRS symbol table character, normally '/' or '\'. Null means use the global default.
     /// </summary>
     public string? SymbolTableCharacter { get; set; }
 
     /// <summary>
-    /// APRS symbol code character.
+    /// APRS symbol code character. Null means use the global default.
     /// </summary>
     public string? SymbolCodeCharacter { get; set; }
 
@@ -54,4 +64,108 @@ public class PortConfig
     /// Null means that the global APRS default beacon mode is used.
     /// </summary>
     public DynamicBeaconMode? DynamicBeaconMode { get; set; }
+
+    /// <summary>
+    /// Type-specific configuration. Use AprsIsSettings for APRS-IS ports, KissSettings for KISS ports.
+    /// </summary>
+    public IPortTypeSettings? TypeSettings { get; set; }
+}
+
+/// <summary>
+/// Marker interface for port type-specific settings.
+/// </summary>
+public interface IPortTypeSettings
+{
+}
+
+/// <summary>
+/// APRS-IS specific port configuration.
+/// </summary>
+public class AprsIsSettings : IPortTypeSettings
+{
+    public const string DefaultServer = "rotate.aprs2.net";
+    public const int DefaultServerPort = 14580;
+    public const string DefaultPasscode = "-1";
+    public const string DefaultFilter = "m/50";
+
+    private string _server = DefaultServer;
+    private int _serverPort = DefaultServerPort;
+    private string _passcode = DefaultPasscode;
+    private string _filter = DefaultFilter;
+
+    /// <summary>
+    /// Gets or sets the APRS-IS server hostname.
+    /// </summary>
+    public string Server
+    {
+        get => _server;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Server cannot be empty.", nameof(value));
+            }
+            _server = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the APRS-IS server port (1-65535).
+    /// </summary>
+    public int ServerPort
+    {
+        get => _serverPort;
+        set
+        {
+            if (value < 1 || value > 65535)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Server port must be between 1 and 65535.");
+            }
+            _serverPort = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the APRS-IS passcode. Use "-1" for read-only access.
+    /// </summary>
+    public string Passcode
+    {
+        get => _passcode;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Passcode cannot be empty. Use \"-1\" for read-only access.", nameof(value));
+            }
+            _passcode = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
+    /// </summary>
+    public string Filter
+    {
+        get => _filter;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("Filter cannot be empty.", nameof(value));
+            }
+            _filter = value;
+        }
+    }
+}
+
+/// <summary>
+/// KISS TNC specific port configuration (placeholder for future implementation).
+/// </summary>
+public class KissSettings : IPortTypeSettings
+{
+    public string SerialPort { get; set; } = "COM1";
+
+    public int BaudRate { get; set; } = 9600;
+
+    // Add other KISS-specific settings as needed
 }

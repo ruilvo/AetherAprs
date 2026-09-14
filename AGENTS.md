@@ -15,7 +15,7 @@ AetherAprs is a cross-platform ham radio APRS application built with Avalonia UI
 |---|---|---|
 | Core library | `AetherAprs/` | net10.0 |
 | Android app | `AetherAprs.Android/` | net10.0-android |
-| Test project | `tests/AetherAprs.Tests/` | net10.0 |
+| Test project | `AetherAprs.Tests/` | net10.0 |
 
 ## Build Commands
 
@@ -31,13 +31,13 @@ dotnet build AetherAprs.Android/AetherAprs.Android.csproj
 dotnet run --project AetherAprs/AetherAprs.csproj
 
 # Build only the test project
-dotnet build tests/AetherAprs.Tests/AetherAprs.Tests.csproj
+dotnet build AetherAprs.Tests/AetherAprs.Tests.csproj
 
 # Run all tests
-dotnet test tests/AetherAprs.Tests/AetherAprs.Tests.csproj
+dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 
 # Run tests without rebuilding (after a successful build)
-dotnet test tests/AetherAprs.Tests/AetherAprs.Tests.csproj --no-build
+dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj --no-build
 ```
 
 ## Critical Requirements
@@ -104,8 +104,8 @@ No mocking library is currently referenced. When adding one, follow the central 
 
 ### Where to place tests
 
-Mirror the source namespace structure under `tests/AetherAprs.Tests/`:
-- Source: `AetherAprs/Modems/Kiss/KissSerializer.cs` → Tests: `tests/AetherAprs.Tests/Kiss/KissSerializerTests.cs`
+Mirror the source namespace structure under `AetherAprs.Tests/`:
+- Source: `AetherAprs/Modems/Kiss/KissSerializer.cs` → Tests: `AetherAprs.Tests/Kiss/KissSerializerTests.cs`
 - Namespace for tests: `AetherAprs.Tests.<Subnamespace>` (e.g. `AetherAprs.Tests.Kiss`)
 
 ## Architecture Notes

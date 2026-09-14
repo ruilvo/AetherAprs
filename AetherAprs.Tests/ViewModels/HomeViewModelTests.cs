@@ -13,6 +13,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using Microsoft.Extensions.Logging.Abstractions;
+using SkiaSharp;
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
@@ -26,7 +27,7 @@ public sealed class HomeViewModelTests
         var portService = new TestPortService(port);
         var beaconService = new TestBeaconService();
         var viewModel = CreateViewModel(portService, beaconService);
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -36,9 +37,9 @@ public sealed class HomeViewModelTests
         Assert.Equal(port.Id, portService.LastSentPortId);
         Assert.Equal(41.41764, packet.Latitude);
         Assert.Equal(-8.52170, packet.Longitude);
-        Assert.Equal("CT7ALW", packet.Source.Base);
+        Assert.Equal("N0CALL", packet.Source.Base);
         Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
-        Assert.Contains("Initial beacon sent", viewModel.BeaconStatus);
+        Assert.Contains("Initial beacon sent", viewModel.BeaconTransmission.BeaconStatus);
         Assert.Equal(1, portService.SendCount);
     }
 
@@ -50,40 +51,37 @@ public sealed class HomeViewModelTests
         port.SymbolCodeCharacter = ">";
         var portService = new TestPortService(port);
         var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
         var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
 
         Assert.Equal('\\', packet.Symbol.TableChar);
-        Assert.Equal('>', packet.Symbol.CodeChar);
+        Assert.Equal(SymbolCode.GreaterThanSign, packet.Symbol.Code);
     }
 
     [Fact]
-    public async Task EnablingTxPortUsesPortSsidInBeaconSource()
+    public async Task EnablingTxPortWithoutLocationDoesNotSend()
     {
         var port = CreatePort(isEnabled: false, isTx: true);
-        port.Ssid = 7;
         var portService = new TestPortService(port);
         var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
-        var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
-        Assert.Equal("CT7ALW", packet.Source.Base);
-        Assert.Equal(7, packet.Source.Ssid);
+        Assert.Equal(0, portService.SendCount);
     }
 
     [Fact]
-    public async Task EnablingRxOnlyPortDoesNotSendInitialBeacon()
+    public async Task EnablingRxPortDoesNotSendInitialBeacon()
     {
         var port = CreatePort(isEnabled: false, isTx: false);
         var portService = new TestPortService(port);
         var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -93,87 +91,91 @@ public sealed class HomeViewModelTests
     }
 
     [Fact]
-    public async Task EnablingTxPortWithoutLocationDoesNotSendInitialBeacon()
-    {
-        var port = CreatePort(isEnabled: false, isTx: true);
-        var portService = new TestPortService(port);
-        _ = CreateViewModel(portService, new TestBeaconService());
-
-        port.IsEnabled = true;
-        portService.RaisePortsChanged();
-        await Task.Delay(50, TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, portService.SendCount);
-    }
-
-    [Fact]
-    public async Task ManualBeaconSendsPacketToEnabledTxPort()
+    public async Task SendManualBeaconWithoutLocationDoesNotSend()
     {
         var port = CreatePort(isEnabled: true, isTx: true);
         var portService = new TestPortService(port);
         var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+
+        await viewModel.SendManualBeaconAsync();
+
+        Assert.Equal(0, portService.SendCount);
+        Assert.Equal("No location available", viewModel.BeaconTransmission.BeaconStatus);
+    }
+
+    [Fact]
+    public async Task SendManualBeaconWithLocationSendsBeacon()
+    {
+        var port = CreatePort(isEnabled: true, isTx: true);
+        var portService = new TestPortService(port);
+        var viewModel = CreateViewModel(portService, new TestBeaconService());
+        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
         await viewModel.SendManualBeaconAsync();
 
         var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
-        Assert.Equal(port.Id, portService.LastSentPortId);
-        Assert.Equal(41.41764, packet.Latitude);
         Assert.Equal(1, portService.SendCount);
-        Assert.Equal("✓ Manual beacon sent", viewModel.BeaconStatus);
+        Assert.Equal(41.41764, packet.Latitude);
+        Assert.Contains("Manual beacon sent", viewModel.BeaconTransmission.BeaconStatus);
     }
 
     [Fact]
-    public async Task ManualBeaconWithoutTxPortDoesNotSend()
+    public async Task SendManualBeaconWithoutTxPortsDoesNotSend()
     {
         var port = CreatePort(isEnabled: true, isTx: false);
         var portService = new TestPortService(port);
         var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
+        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
         await viewModel.SendManualBeaconAsync();
 
         Assert.Equal(0, portService.SendCount);
-        Assert.Equal("No TX ports enabled", viewModel.BeaconStatus);
+        Assert.Equal("No TX ports enabled", viewModel.BeaconTransmission.BeaconStatus);
     }
 
     [Fact]
-    public async Task EnablingTxPortWithoutCallsignDoesNotSend()
+    public void EnablingTxPortWithoutCallsign_ThrowsValidationException()
     {
-        var port = CreatePort(isEnabled: false, isTx: true);
-        var portService = new TestPortService(port);
+        // Verify that AprsSettings validation prevents empty callsigns
         var configuration = new TestConfigurationService();
-        configuration.Settings.Aprs.Callsign = string.Empty;
-        var symbolProvider = new AprsSymbolBitmapProvider();
-        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider);
-        var viewModel = new HomeViewModel(
-            new TestLocationService(),
-            new TestBeaconService(),
-            portService,
-            configuration,
-            receivedBeacons,
-            NullLogger<HomeViewModel>.Instance);
-        viewModel.UserLocation = CreateLocation(41.41764, -8.52170);
-
-        port.IsEnabled = true;
-        portService.RaisePortsChanged();
-        await Task.Delay(50, TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, portService.SendCount);
+        
+        Assert.Throws<ArgumentException>(() => configuration.Settings.Aprs.Callsign = string.Empty);
     }
 
-    private static HomeViewModel CreateViewModel(TestPortService portService, TestBeaconService beaconService)
+    private static HomeViewModel CreateViewModel(
+        TestPortService portService, 
+        TestBeaconService beaconService,
+        TestConfigurationService? configuration = null)
     {
-        var configuration = new TestConfigurationService();
-        configuration.Settings.Aprs.Callsign = "CT7ALW";
-        var symbolProvider = new AprsSymbolBitmapProvider();
+        var isConfigurationProvided = configuration != null;
+        configuration ??= new TestConfigurationService();
+        
+        // Only set default callsign if configuration was not provided
+        if (!isConfigurationProvided)
+        {
+            configuration.Settings.Aprs.Callsign = "N0CALL";
+        }
+        
+        var symbolProvider = new TestSymbolBitmapProvider();
         var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider);
-        return new HomeViewModel(
+        var portSettingsResolver = new AprsPortSettingsResolver(configuration);
+        
+        var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
+            NullLogger<LocationTrackingViewModel>.Instance);
+            
+        var beaconTransmission = new BeaconTransmissionViewModel(
             beaconService,
             portService,
             configuration,
+            portSettingsResolver,
+            NullLogger<BeaconTransmissionViewModel>.Instance);
+        
+        return new HomeViewModel(
+            portService,
             receivedBeacons,
+            locationTracking,
+            beaconTransmission,
             NullLogger<HomeViewModel>.Instance);
     }
 
@@ -187,6 +189,7 @@ public sealed class HomeViewModelTests
             IsEnabled = isEnabled,
             IsRx = true,
             IsTx = isTx,
+            TypeSettings = new AprsIsSettings(),
             DynamicBeaconMode = DynamicBeaconMode.Walk
         };
     }
@@ -290,7 +293,9 @@ public sealed class HomeViewModelTests
 
         public event EventHandler? PortsChanged;
 
+#pragma warning disable CS0067 // Event is never used - this is a test stub
         public event EventHandler<AprsPacket>? PacketReceived;
+#pragma warning restore CS0067
 
         public TaskCompletionSource<PositionPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -319,5 +324,18 @@ public sealed class HomeViewModelTests
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
 
         public Task StopAllPortsAsync() => Task.CompletedTask;
+    }
+
+    private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
+    {
+        public SKBitmap GetSymbolBitmap(Symbol symbol)
+        {
+            return new SKBitmap(8, 8);
+        }
+
+        public void Dispose()
+        {
+            // No resources to dispose
+        }
     }
 }

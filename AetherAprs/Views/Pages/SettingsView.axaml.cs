@@ -43,7 +43,7 @@ public partial class SettingsView : UserControl
                     new SnackbarModel(
                         "✓ Settings saved!",
                         TimeSpan.FromSeconds(3)),
-                    SettingsSnackbarHost.HostName,
+                    "MainSnackbarHost",
                     DispatcherPriority.Normal);
 
                 viewModel.IsSaved = false;

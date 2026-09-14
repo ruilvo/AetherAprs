@@ -39,6 +39,9 @@ public static class ServiceProviderFactory
         // Register port service
         services.AddSingleton<IPortService, PortService>();
 
+        // Register APRS port settings resolver
+        services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
+
         // Register beacon service
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
@@ -73,11 +76,13 @@ public static class ServiceProviderFactory
             });
 
         // Register ViewModels
-        services.AddSingleton<MainViewModel>();
-        services.AddSingleton<HomeViewModel>();
-        services.AddSingleton<PortsViewModel>();
-        services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<DynamicBeaconingViewModel>();
+        services.AddSingleton<MainViewModel>(); // Application-wide navigation state
+        services.AddTransient<LocationTrackingViewModel>(); // Sub-component, created per HomeViewModel
+        services.AddTransient<BeaconTransmissionViewModel>(); // Sub-component, created per HomeViewModel
+        services.AddSingleton<HomeViewModel>(); // Main page state
+        services.AddSingleton<PortsViewModel>(); // Main page state
+        services.AddSingleton<SettingsViewModel>(); // Main page state
+        services.AddTransient<DynamicBeaconingViewModel>(); // Dialog/sub-view, should be fresh each time
 
         // Allow overriding core services for testing or platform-specific
         // implementations

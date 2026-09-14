@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Extensions;
 using AetherAprs.Helpers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
@@ -47,22 +48,10 @@ public class PortService : IPortService
 
     public async Task UpdatePortAsync(PortConfig updatedPort)
     {
-        var port = _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == updatedPort.Id);
+        var port = FindPortById(updatedPort.Id);
         if (port is not null)
         {
-            port.Type = updatedPort.Type;
-            port.Name = updatedPort.Name;
-            port.IsEnabled = updatedPort.IsEnabled;
-            port.IsRx = updatedPort.IsRx;
-            port.IsTx = updatedPort.IsTx;
-            port.Server = updatedPort.Server;
-            port.ServerPort = updatedPort.ServerPort;
-            port.Passcode = updatedPort.Passcode;
-            port.Filter = updatedPort.Filter;
-            port.Ssid = updatedPort.Ssid;
-            port.SymbolTableCharacter = updatedPort.SymbolTableCharacter;
-            port.SymbolCodeCharacter = updatedPort.SymbolCodeCharacter;
-            port.DynamicBeaconMode = updatedPort.DynamicBeaconMode;
+            CopyPortProperties(updatedPort, port);
             await _configurationService.SaveSettingsAsync();
             PortsChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -73,7 +62,7 @@ public class PortService : IPortService
         // Stop if running
         await StopModemAsync(id);
 
-        var port = _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == id);
+        var port = FindPortById(id);
         if (port is not null)
         {
             _configurationService.Settings.Ports.Remove(port);
@@ -84,7 +73,7 @@ public class PortService : IPortService
 
     public async Task SetPortEnabledAsync(Guid id, bool enabled)
     {
-        var port = _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == id);
+        var port = FindPortById(id);
         if (port is null)
         {
             return;
@@ -114,7 +103,7 @@ public class PortService : IPortService
             throw new InvalidOperationException($"Port {id} is not running.");
         }
 
-        var portName = Ports.FirstOrDefault(port => port.Id == id)?.Name ?? id.ToString();
+        var portName = FindPortById(id)?.Name ?? id.ToString();
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         var rawPacket = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
 
@@ -158,10 +147,31 @@ public class PortService : IPortService
 
     public async Task StopAllPortsAsync()
     {
-        foreach (var id in _activeModems.Keys.ToList())
+        // Create a copy to avoid collection modification during iteration
+        var idsToStop = _activeModems.Keys.ToArray();
+        foreach (var id in idsToStop)
         {
             await StopModemAsync(id);
         }
+    }
+
+    private PortConfig? FindPortById(Guid id)
+    {
+        return _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == id);
+    }
+
+    private static void CopyPortProperties(PortConfig source, PortConfig target)
+    {
+        target.Type = source.Type;
+        target.Name = source.Name;
+        target.IsEnabled = source.IsEnabled;
+        target.IsRx = source.IsRx;
+        target.IsTx = source.IsTx;
+        target.Ssid = source.Ssid;
+        target.SymbolTableCharacter = source.SymbolTableCharacter;
+        target.SymbolCodeCharacter = source.SymbolCodeCharacter;
+        target.DynamicBeaconMode = source.DynamicBeaconMode;
+        target.TypeSettings = source.TypeSettings;
     }
 
     private async Task StartModemAsync(PortConfig port)
@@ -178,16 +188,17 @@ public class PortService : IPortService
 
             if (port.Type == PortType.AprsIs)
             {
+                var aprsIsSettings = port.GetAprsIsSettingsOrThrow();
                 var callsign = _configurationService.Settings.Aprs.Callsign;
                 var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
                 var fullCallsign = new Callsign(callsign, ssid);
 
                 modem = new AprsIsModem(
-                    port.Server!,
-                    port.ServerPort,
+                    aprsIsSettings.Server,
+                    aprsIsSettings.ServerPort,
                     fullCallsign,
-                    port.Passcode!,
-                    port.Filter ?? string.Empty,
+                    aprsIsSettings.Passcode,
+                    aprsIsSettings.Filter,
                     _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
 
                 modem.PacketReceived += OnModemPacketReceived;

@@ -5,6 +5,7 @@
 using System;
 using System.Reflection;
 using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
 using Xunit;
 
 namespace AetherAprs.Tests.Imaging;
@@ -24,7 +25,8 @@ public sealed class AprsSymbolBitmapProviderTests
             BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.NotNull(method);
-        var result = ((int row, int col))method!.Invoke(null, [(int)code])!;
+        var symbolCode = code.ToSymbolCode();
+        var result = ((int row, int col))method!.Invoke(null, [symbolCode])!;
 
         Assert.Equal(expectedRow, result.row);
         Assert.Equal(expectedColumn, result.col);
@@ -38,8 +40,48 @@ public sealed class AprsSymbolBitmapProviderTests
             BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.NotNull(method);
-        var exception = Assert.Throws<TargetInvocationException>(() => method!.Invoke(null, [' ']));
+        var symbolCode = SymbolCode.Space;
+        var exception = Assert.Throws<TargetInvocationException>(() => method!.Invoke(null, [symbolCode]));
 
         Assert.IsType<ArgumentOutOfRangeException>(exception.InnerException);
+    }
+
+    [Fact]
+    public void GetCellPositionCalculatesCorrectPositionForOverlayCharacters()
+    {
+        // Test that overlay characters (like '0'-'9', 'A'-'Z') map to correct cells
+        var method = typeof(AprsSymbolBitmapProvider).GetMethod(
+            "GetCellPosition",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+
+        // Test digit '5' which should map to a specific cell
+        var symbolCode = '5'.ToSymbolCode();
+        var result = ((int row, int col))method!.Invoke(null, [symbolCode])!;
+        
+        // '5' is ASCII 0x35 (53), offset by 0x21 (33) = index 20
+        // index 20 / 16 columns = row 1, 20 % 16 = column 4
+        Assert.Equal(1, result.row);
+        Assert.Equal(4, result.col);
+    }
+
+    [Fact]
+    public void GetCellPositionCalculatesCorrectPositionForLetterOverlays()
+    {
+        var method = typeof(AprsSymbolBitmapProvider).GetMethod(
+            "GetCellPosition",
+            BindingFlags.NonPublic | BindingFlags.Static);
+
+        Assert.NotNull(method);
+
+        // Test 'A' which is a common overlay character
+        var symbolCode = 'A'.ToSymbolCode();
+        var result = ((int row, int col))method!.Invoke(null, [symbolCode])!;
+        
+        // 'A' is ASCII 0x41 (65), offset by 0x21 (33) = index 32
+        // index 32 / 16 columns = row 2, 32 % 16 = column 0
+        Assert.Equal(2, result.row);
+        Assert.Equal(0, result.col);
     }
 }

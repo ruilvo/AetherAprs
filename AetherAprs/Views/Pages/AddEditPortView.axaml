@@ -10,13 +10,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:converters="using:AetherAprs.Converters"
-             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Dialogs.AddEditPortDialogView"
+             x:Class="AetherAprs.Views.Pages.AddEditPortView"
              x:DataType="vm:AddEditPortDialogViewModel"
              d:DataContext="{x:Static local:DesignData.AddEditPortDialogViewModel}">
 
@@ -36,10 +35,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="*,Auto" MinWidth="360">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}"
+                 Classes="Headline5"
+                 FontWeight="Bold" />
+      <TextBlock Text="Configure your APRS port settings"
+                 Classes="Body2"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+    </StackPanel>
+
     <!-- Scrollable content -->
-    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-      <StackPanel Spacing="20" Margin="16" MaxWidth="500">
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+      <StackPanel Spacing="20" Margin="16" MaxWidth="600">
 
         <!-- Port Name Section -->
         <StackPanel Spacing="8">
@@ -51,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <!-- Port Direction Section -->
         <StackPanel Spacing="12">
-          <TextBlock Classes="Subheading"
+          <TextBlock Classes="Subtitle2"
                      Text="Port Direction"
                      Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
           <StackPanel Spacing="8" Margin="0,4,0,0">
@@ -106,7 +116,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- APRS-IS Settings Section -->
         <StackPanel Spacing="12"
                     IsVisible="{Binding SelectedPortType, Converter={StaticResource PortTypeToIsVisibleConverter}, ConverterParameter=AprsIs}">
-          <TextBlock Classes="Subheading"
+          <TextBlock Classes="Subtitle2"
                      Text="APRS-IS Settings"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
@@ -145,8 +155,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
       </StackPanel>
     </ScrollViewer>
 
-    <!-- Dialog buttons (sticky at bottom) -->
-    <Border Grid.Row="1"
+    <!-- Action buttons (sticky at bottom) -->
+    <Border Grid.Row="2"
             Background="{DynamicResource MaterialBackgroundBrush}"
             BorderThickness="0,1,0,0"
             BorderBrush="{DynamicResource MaterialDividerBrush}"
@@ -157,15 +167,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <Button Content="Cancel"
                 MinWidth="80"
                 MinHeight="36"
-                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
-                CommandParameter="CANCEL"
+                Command="{Binding CancelCommand}"
                 Classes="Outline" />
         <Button Content="Save"
                 MinWidth="80"
                 MinHeight="36"
-          IsEnabled="{Binding IsSymbolValid}"
-                Command="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType=dialogHost:DialogHost}, Path=CloseDialogCommand}"
-                CommandParameter="OK"
+                IsEnabled="{Binding IsSymbolValid}"
+                Command="{Binding SaveCommand}"
                 Classes="Filled" />
       </StackPanel>
     </Border>

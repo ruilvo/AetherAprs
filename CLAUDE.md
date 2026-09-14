@@ -106,7 +106,7 @@ When adding packages:
 Tests use **xUnit v3** (`xunit.v3`, not `xunit` v2). Run them with:
 
 ```powershell
-dotnet test tests/AetherAprs.Tests/AetherAprs.Tests.csproj
+dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 ```
 
 Key differences from xUnit v2:

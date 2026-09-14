@@ -1,0 +1,52 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="150"
+             x:Class="AetherAprs.Views.Components.LocationTrackingView"
+             x:DataType="vm:LocationTrackingViewModel"
+             d:DataContext="{x:Static local:DesignData.LocationTrackingViewModel}">
+    
+    <controls:Card Padding="16" Margin="0">
+        <StackPanel Spacing="12">
+            <TextBlock Text="Location Tracking" 
+                       Classes="Subtitle1"
+                       Foreground="{DynamicResource MaterialPrimaryBrush}" />
+            
+            <StackPanel Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Status:" Classes="Body2" />
+                    <TextBlock Text="{Binding IsTracking, Converter={StaticResource BoolToTrackingStatusConverter}}" 
+                               Classes="Body2"
+                               FontWeight="SemiBold" />
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLocationAvailable}">
+                    <TextBlock Text="Position:" Classes="Body2" />
+                    <TextBlock Classes="Body2">
+                        <Run Text="{Binding CurrentLocation.Latitude, StringFormat={}{0:F5}}" />
+                        <Run Text="," />
+                        <Run Text="{Binding CurrentLocation.Longitude, StringFormat={}{0:F5}}" />
+                    </TextBlock>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Spacing="8" 
+                           IsVisible="{Binding CurrentLocation.Altitude, Converter={StaticResource NullableToVisibilityConverter}}">
+                    <TextBlock Text="Altitude:" Classes="Body2" />
+                    <TextBlock Classes="Body2">
+                        <Run Text="{Binding CurrentLocation.Altitude, StringFormat={}{0:F1}}" />
+                        <Run Text="m" />
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </controls:Card>
+</UserControl>

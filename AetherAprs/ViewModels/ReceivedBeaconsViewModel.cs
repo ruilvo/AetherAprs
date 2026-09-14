@@ -26,12 +26,14 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly WritableLayer _beaconsLayer;
     private readonly Dictionary<string, PointFeature> _beaconsByCallsign = new();
+    private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
     private bool _disposed;
 
     /// <summary>
     /// Gets the layer containing all received beacon features.
+    /// Returns ILayer to prevent external modification of the internal WritableLayer.
     /// </summary>
-    public WritableLayer BeaconsLayer => _beaconsLayer;
+    public ILayer BeaconsLayer => _beaconsLayer;
 
     public ReceivedBeaconsViewModel(
         IPortService portService,
@@ -75,8 +77,15 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             positionPacket.Latitude);
         var mapPoint = new MPoint(mercatorCoordinate.x, mercatorCoordinate.y);
 
-        // Create the ImageStyle with the correct APRS symbol (smaller scale)
-        var imageStyle = _symbolConverter.CreateImageStyle(positionPacket.Symbol, scale: 0.15);
+        // Get or create cached ImageStyle for this symbol
+        var symbolKey = $"{positionPacket.Symbol.TableChar}{positionPacket.Symbol.CodeChar}";
+        if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
+            cachedStyle.symbol != positionPacket.Symbol)
+        {
+            var imageStyle = _symbolConverter.CreateImageStyle(positionPacket.Symbol, scale: 0.15);
+            cachedStyle = (positionPacket.Symbol, imageStyle);
+            _symbolStyleCache[symbolKey] = cachedStyle;
+        }
 
         // Create a text label style for the callsign (no background)
         var labelStyle = new LabelStyle
@@ -89,17 +98,11 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             Halo = null // No halo effect
         };
 
-        // Create a transparent symbol style to override any default backgrounds
-        var transparentSymbolStyle = new SymbolStyle
-        {
-            Fill = null,
-            Outline = null
-        };
-
         // Create new feature for this beacon at the position
+        // Only use ImageStyle and LabelStyle - no SymbolStyle to avoid white circle background
         var feature = new PointFeature(mapPoint)
         {
-            Styles = [transparentSymbolStyle, imageStyle, labelStyle]
+            Styles = [cachedStyle.imageStyle, labelStyle]
         };
 
         // Update or add beacon
@@ -128,6 +131,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         _portService.PacketReceived -= OnPortServicePacketReceived;
         _beaconsLayer.Clear();
         _beaconsByCallsign.Clear();
+        _symbolStyleCache.Clear();
         _symbolConverter.Dispose();
     }
 }

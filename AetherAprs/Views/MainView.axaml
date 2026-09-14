@@ -18,37 +18,39 @@ SPDX-License-Identifier: GPL-3.0-or-later
              d:DataContext="{x:Static local:DesignData.MainViewModel}">
 
   <dialogHost:DialogHost Name="MainDialogHost" Identifier="MainDialogHost">
-    <TabbedPage x:Name="MainTabbedPage"
-                TabPlacement="Bottom"
-                SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch">
+    <controls:SnackbarHost x:Name="MainSnackbarHost" HostName="MainSnackbarHost">
+      <TabbedPage x:Name="MainTabbedPage"
+                  TabPlacement="Bottom"
+                  SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch">
 
-      <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
-        <ContentControl Content="{Binding HomeViewModel}" 
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch" />
-      </ContentPage>
+        <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
+          <ContentControl Content="{Binding HomeViewModel}" 
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+        </ContentPage>
 
-      <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
-        <ContentControl Content="{Binding PortsViewModel}"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch" />
-      </ContentPage>
+        <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
+          <ContentControl Content="{Binding PortsViewModel}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+        </ContentPage>
 
-      <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
-        <ContentControl Content="{Binding SettingsViewModel}"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch" />
-      </ContentPage>
+        <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
+          <ContentControl Content="{Binding SettingsViewModel}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+        </ContentPage>
 
-    </TabbedPage>
+      </TabbedPage>
+    </controls:SnackbarHost>
   </dialogHost:DialogHost>
 
 </UserControl>

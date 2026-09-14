@@ -28,6 +28,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private readonly string _passcode;
     private readonly string _filter;
     private readonly ILogger<AprsIsModem> _logger;
+    private readonly object _connectionLock = new();
     private TcpClient? _tcpClient;
     private StreamReader? _reader;
     private StreamWriter? _writer;
@@ -35,6 +36,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private CancellationTokenSource? _readCts;
     private Task? _readTask;
     private TaskCompletionSource<bool> _connectionReady = CreateConnectionReadySource();
+    private int _connectionVersion;
     private bool _started;
     private bool _disposed;
 
@@ -144,14 +146,40 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         // APRS-IS client-originated packets must identify the TCP connection in the path.
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        if (_writer is null)
+        
+        // Capture writer and connection version atomically under lock
+        StreamWriter? writer;
+        int connectionVersion;
+        lock (_connectionLock)
+        {
+            writer = _writer;
+            connectionVersion = _connectionVersion;
+        }
+
+        if (writer is null)
         {
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
         }
 
-        var line = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
-        await _writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
-        await _writer.FlushAsync().ConfigureAwait(false);
+        try
+        {
+            var line = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
+            await writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (!IsCurrentConnection(connectionVersion))
+        {
+            // Connection changed while we were sending - throw a more specific exception
+            throw new InvalidOperationException("Connection was reset during send operation. Retry with a new connection.");
+        }
+    }
+
+    private bool IsCurrentConnection(int expectedVersion)
+    {
+        lock (_connectionLock)
+        {
+            return _connectionVersion == expectedVersion;
+        }
     }
 
     /// <inheritdoc />
@@ -206,17 +234,28 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
     {
         _connectionReady = CreateConnectionReadySource();
-        _tcpClient?.Dispose();
-        _reader?.Dispose();
-        _writer?.Dispose();
-        _stream?.Dispose();
+        
+        // Increment connection version and dispose old resources under lock
+        lock (_connectionLock)
+        {
+            _connectionVersion++;
+            _tcpClient?.Dispose();
+            _reader?.Dispose();
+            _writer?.Dispose();
+            _stream?.Dispose();
+            
+            _tcpClient = null;
+            _reader = null;
+            _writer = null;
+            _stream = null;
+        }
 
-        _tcpClient = new TcpClient();
-        await _tcpClient.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
+        var tcpClient = new TcpClient();
+        await tcpClient.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
 
-        _stream = _tcpClient.GetStream();
-        _reader = new StreamReader(_stream, Encoding.ASCII, leaveOpen: true);
-        _writer = new StreamWriter(_stream, Encoding.ASCII, leaveOpen: true)
+        var stream = tcpClient.GetStream();
+        var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
@@ -234,13 +273,22 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             _port,
             string.IsNullOrEmpty(_filter) ? "<none>" : _filter);
 
-        await _writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
-        await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+        // Assign to fields under lock only after successful connection
+        lock (_connectionLock)
+        {
+            _tcpClient = tcpClient;
+            _stream = stream;
+            _reader = reader;
+            _writer = writer;
+        }
 
         // Read lines from the server
         while (!cancellationToken.IsCancellationRequested)
         {
-            var line = await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
             if (line is null)
              {

@@ -199,7 +199,8 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider
         var baseSymbol = GetOrCreateSymbolBitmap(skey);
         var result = DeepCopy(baseSymbol);
 
-        var (overlayRow, overlayCol) = GetCellPosition(symbol.Code);
+        var overlayCode = symbol.Overlay!.Value.ToSymbolCode();
+        var (overlayRow, overlayCol) = GetCellPosition(overlayCode);
         var overlayBitmap = ExtractSubBitmap(_spriteSheets[SpriteSheet.Overlay], overlayCol, overlayRow);
 
         // Composite the overlay glyph onto the top-left corner of the base symbol
