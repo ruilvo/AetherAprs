@@ -55,12 +55,15 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
                     break;
             }
         }
+
+        ActiveMode = beaconService.CurrentConfiguration.Mode;
     }
 
 
     [RelayCommand]
     private void Close()
     {
+        SaveAllConfigurations();
         _navigationService.GoBack();
     }
 
@@ -79,12 +82,14 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public void SaveCustomConfiguration()
+    public void SaveAllConfigurations()
     {
-        if (CustomConfiguration?.Configuration == null)
-            return;
-
-        _beaconService.UpdateCustomConfiguration(CustomConfiguration.Configuration);
+        if (WalkConfiguration?.Configuration is { } walk)
+            _beaconService.UpdateConfiguration(walk);
+        if (DriveConfiguration?.Configuration is { } drive)
+            _beaconService.UpdateConfiguration(drive);
+        if (CustomConfiguration?.Configuration is { } custom)
+            _beaconService.UpdateConfiguration(custom);
     }
 
     [RelayCommand]

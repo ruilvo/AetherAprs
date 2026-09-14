@@ -17,7 +17,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                    Width="20"
                                    Height="20"
                                    Foreground="{DynamicResource MaterialPrimaryBrush}" />
-            <TextBlock Classes="Subheading"
+            <TextBlock Classes="Headline6"
                        Text="APRS Symbol"
                        Foreground="{DynamicResource MaterialPrimaryBrush}" />
         </StackPanel>
@@ -57,7 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <CheckBox Content="Use default station symbol"
                   IsVisible="{Binding ShowInheritOption, ElementName=Root}"
                   IsChecked="{Binding UseDefault, ElementName=Root, Mode=TwoWay}"
-                  MinHeight="40"
+                  MinHeight="48"
                   VerticalContentAlignment="Center" />
 
         <ComboBox ItemsSource="{Binding SymbolOptions, ElementName=Root}"

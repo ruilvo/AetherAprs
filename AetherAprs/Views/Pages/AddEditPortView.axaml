@@ -28,11 +28,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <UserControl.Styles>
     <Style Selector="TextBox">
       <Setter Property="Margin" Value="0,8,0,0" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="48" />
     </Style>
     <Style Selector="ComboBox">
       <Setter Property="Margin" Value="0,8,0,0" />
-      <Setter Property="MinHeight" Value="40" />
+      <Setter Property="MinHeight" Value="48" />
     </Style>
   </UserControl.Styles>
 
@@ -50,7 +50,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <!-- Scrollable content -->
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
-      <StackPanel Spacing="20" Margin="16" MaxWidth="600">
+      <StackPanel Spacing="16" Margin="16" MaxWidth="600">
 
         <!-- Port Name Section -->
         <StackPanel Spacing="8">
@@ -68,15 +68,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <StackPanel Spacing="8" Margin="0,4,0,0">
             <CheckBox Content="Receive (Rx)"
                       IsChecked="{Binding IsRx}"
-                      MinHeight="40"
+                      MinHeight="48"
                       VerticalContentAlignment="Center" />
             <CheckBox Content="Transmit (Tx)"
                       IsChecked="{Binding IsTx}"
-                      MinHeight="40"
+                      MinHeight="48"
                       VerticalContentAlignment="Center" />
             <CheckBox Content="Show on map"
                       IsChecked="{Binding ShowOnMap}"
-                      MinHeight="40"
+                      MinHeight="48"
                       VerticalContentAlignment="Center" />
           </StackPanel>
         </StackPanel>
@@ -185,23 +185,23 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <StackPanel Spacing="12"
                       IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=BluetoothLeKissTransportSettings}">
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button MinHeight="36"
-                      Padding="12,0"
+              <Button MinHeight="48"
+                      Padding="16,0"
                       Command="{Binding StartBleScanCommand}"
                       IsEnabled="{Binding !IsBleScanning}"
                       Classes="Outline">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                  <avalonia:MaterialIcon Kind="Bluetooth" Width="18" Height="18" />
+                  <avalonia:MaterialIcon Kind="Bluetooth" Width="20" Height="20" />
                   <TextBlock Text="Scan" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
-              <Button MinHeight="36"
-                      Padding="12,0"
+              <Button MinHeight="48"
+                      Padding="16,0"
                       Command="{Binding StopBleScanCommand}"
                       IsEnabled="{Binding IsBleScanning}"
                       Classes="Outline">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                  <avalonia:MaterialIcon Kind="Stop" Width="18" Height="18" />
+                  <avalonia:MaterialIcon Kind="Stop" Width="20" Height="20" />
                   <TextBlock Text="Stop" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
@@ -217,7 +217,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                        Background="Transparent">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="bt:BluetoothLeAdvertisement">
-                    <StackPanel Spacing="2" Margin="0,4">
+                    <StackPanel Spacing="4" Margin="0,4">
                       <TextBlock Text="{Binding Name, TargetNullValue='(unnamed)'}" FontWeight="SemiBold" />
                       <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
                       <TextBlock Text="{Binding Rssi, StringFormat='RSSI: {0} dBm'}" Opacity="0.7" FontSize="12" />
@@ -231,13 +231,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <!-- Bluetooth Classic SPP -->
           <StackPanel Spacing="12"
                       IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=BluetoothClassicKissTransportSettings}">
-            <Button MinHeight="36"
-                    Padding="12,0"
+            <Button MinHeight="48"
+                    Padding="16,0"
                     HorizontalAlignment="Left"
                     Command="{Binding RefreshSppDevicesCommand}"
                     Classes="Outline">
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <avalonia:MaterialIcon Kind="Refresh" Width="18" Height="18" />
+                <avalonia:MaterialIcon Kind="Refresh" Width="20" Height="20" />
                 <TextBlock Text="Refresh" VerticalAlignment="Center" />
               </StackPanel>
             </Button>
@@ -252,7 +252,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                        Background="Transparent">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="bt:BluetoothClassicDevice">
-                    <StackPanel Spacing="2" Margin="0,4">
+                    <StackPanel Spacing="4" Margin="0,4">
                       <TextBlock Text="{Binding Name, TargetNullValue='(unnamed)'}" FontWeight="SemiBold" />
                       <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
                     </StackPanel>
@@ -276,15 +276,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   Spacing="8">
         <Button Content="Cancel"
                 MinWidth="80"
-                MinHeight="36"
+                MinHeight="48"
                 Command="{Binding CancelCommand}"
                 Classes="Outline" />
         <Button Content="Save"
                 MinWidth="80"
-                MinHeight="36"
+                MinHeight="48"
                 IsEnabled="{Binding IsSymbolValid}"
-                Command="{Binding SaveCommand}"
-                Classes="Filled" />
+                Command="{Binding SaveCommand}" />
       </StackPanel>
     </Border>
   </Grid>

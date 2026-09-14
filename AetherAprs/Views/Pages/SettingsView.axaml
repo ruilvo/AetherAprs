@@ -86,7 +86,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   Command="{Binding OpenBeaconingSettingsCommand}"
                   x:Name="ConfigureBeaconingButton"
                   MinWidth="120"
-                  MinHeight="40"
+                  MinHeight="48"
                   Classes="Outline" />
         </StackPanel>
 
@@ -105,8 +105,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <Button Content="Save"
                 Command="{Binding SaveCommand}"
                 MinWidth="80"
-                MinHeight="36"
-                Classes="Filled" />
+                MinHeight="48" />
       </StackPanel>
     </Border>
   </Grid>

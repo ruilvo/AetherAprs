@@ -1,9 +1,10 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -46,6 +47,7 @@ public partial class ConversationViewModel : ViewModelBase
 
     public void InitializeNew()
     {
+        DetachThread();
         _isNewConversation = true;
         _thread = null;
         Title = "New Message";
@@ -59,22 +61,18 @@ public partial class ConversationViewModel : ViewModelBase
     public void Initialize(Callsign peer)
     {
         _isNewConversation = false;
-        _thread = _messageService.GetOrCreateConversation(peer);
         Title = peer.ToString();
         DestinationCallsign = peer.ToString();
         MessageText = string.Empty;
         ErrorMessage = null;
         IsDestinationEditable = false;
-        Messages.Clear();
-        foreach (var message in _thread.Messages)
-        {
-            Messages.Add(message);
-        }
+        AttachThread(_messageService.GetOrCreateConversation(peer));
     }
 
     [RelayCommand]
     private void GoBack()
     {
+        DetachThread();
         _navigationService.GoBack();
     }
 
@@ -98,19 +96,22 @@ public partial class ConversationViewModel : ViewModelBase
         try
         {
             await _messageService.SendAsync(addressee, MessageText);
-            _thread = _messageService.GetOrCreateConversation(addressee);
+            var thread = _messageService.GetOrCreateConversation(addressee);
             if (_isNewConversation)
             {
                 _isNewConversation = false;
                 IsDestinationEditable = false;
                 Title = addressee.ToString();
                 DestinationCallsign = addressee.ToString();
+                AttachThread(thread);
             }
-
-            Messages.Clear();
-            foreach (var message in _thread.Messages)
+            else if (!ReferenceEquals(_thread, thread))
             {
-                Messages.Add(message);
+                AttachThread(thread);
+            }
+            else
+            {
+                SyncMessages();
             }
 
             MessageText = string.Empty;
@@ -118,6 +119,37 @@ public partial class ConversationViewModel : ViewModelBase
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
+        }
+    }
+
+    private void AttachThread(ConversationThread thread)
+    {
+        DetachThread();
+        _thread = thread;
+        _thread.Messages.CollectionChanged += OnThreadMessagesChanged;
+        SyncMessages();
+    }
+
+    private void DetachThread()
+    {
+        if (_thread != null)
+        {
+            _thread.Messages.CollectionChanged -= OnThreadMessagesChanged;
+        }
+    }
+
+    private void OnThreadMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        SyncMessages();
+
+    private void SyncMessages()
+    {
+        Messages.Clear();
+        if (_thread == null)
+            return;
+
+        foreach (var message in _thread.Messages)
+        {
+            Messages.Add(message);
         }
     }
 }

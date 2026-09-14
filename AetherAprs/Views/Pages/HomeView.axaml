@@ -31,9 +31,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  MinWidth="56"
                                  ToolTip.Tip="Center on my location"
                                  Click="OnCenterOnUserClick">
-            <Viewbox Stretch="Fill"
-                     HorizontalAlignment="Stretch"
-                     VerticalAlignment="Stretch">
+            <Viewbox Width="24" Height="24">
                 <avalonia:MaterialIcon Kind="CrosshairsGps" Width="24" Height="24" />
             </Viewbox>
         </controls:FloatingButton>

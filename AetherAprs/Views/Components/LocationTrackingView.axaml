@@ -10,10 +10,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:converters="using:AetherAprs.Converters"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="150"
              x:Class="AetherAprs.Views.Components.LocationTrackingView"
              x:DataType="vm:LocationTrackingViewModel"
              d:DataContext="{x:Static local:DesignData.LocationTrackingViewModel}">
+    <UserControl.Resources>
+        <converters:BoolToTrackingStatusConverter x:Key="BoolToTrackingStatusConverter" />
+    </UserControl.Resources>
     
     <controls:Card Padding="16" Margin="0">
         <StackPanel Spacing="12">
@@ -39,7 +43,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 </StackPanel>
                 
                 <StackPanel Orientation="Horizontal" Spacing="8" 
-                           IsVisible="{Binding CurrentLocation.Altitude, Converter={StaticResource NullableToVisibilityConverter}}">
+                           IsVisible="{Binding CurrentLocation.Altitude, Converter={x:Static ObjectConverters.IsNotNull}}">
                     <TextBlock Text="Altitude:" Classes="Body2" />
                     <TextBlock Classes="Body2">
                         <Run Text="{Binding CurrentLocation.Altitude, StringFormat={}{0:F1}}" />

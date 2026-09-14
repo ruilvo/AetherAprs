@@ -33,10 +33,10 @@ public interface IBeaconService
     void SetActiveMode(DynamicBeaconMode mode);
 
     /// <summary>
-    /// Updates the custom beacon configuration.
+    /// Updates the beacon configuration for the mode specified by <see cref="BeaconConfig.Mode"/>.
     /// </summary>
-    /// <param name="configuration">The new custom configuration.</param>
-    void UpdateCustomConfiguration(BeaconConfig configuration);
+    /// <param name="configuration">The configuration to store for its mode.</param>
+    void UpdateConfiguration(BeaconConfig configuration);
 
     /// <summary>
     /// Processes a location update and determines if a beacon should be transmitted.
@@ -108,8 +108,8 @@ public sealed class BeaconService : IBeaconService
 {
     private readonly object _lock = new();
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
-    private readonly BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
-    private readonly BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
+    private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
+    private BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
     private DateTime _lastTransmitTime = DateTime.UtcNow;
     private double? _lastCourseDegrees;
@@ -152,19 +152,32 @@ public sealed class BeaconService : IBeaconService
     {
         lock (_lock)
         {
+            if (_activeMode == mode)
+                return;
+
             _activeMode = mode;
             _lastTransmitTime = DateTime.UtcNow;
         }
     }
 
-    public void UpdateCustomConfiguration(BeaconConfig configuration)
+    public void UpdateConfiguration(BeaconConfig configuration)
     {
-        if (configuration.Mode != DynamicBeaconMode.Custom)
-            throw new ArgumentException("Configuration must be for Custom mode.", nameof(configuration));
-
         lock (_lock)
         {
-            _customConfig = configuration;
+            switch (configuration.Mode)
+            {
+                case DynamicBeaconMode.Walk:
+                    _walkConfig = configuration;
+                    break;
+                case DynamicBeaconMode.Drive:
+                    _driveConfig = configuration;
+                    break;
+                case DynamicBeaconMode.Custom:
+                    _customConfig = configuration;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(configuration), configuration.Mode, "Unknown beacon mode.");
+            }
         }
     }
 
@@ -230,7 +243,6 @@ public sealed class BeaconService : IBeaconService
             if (courseDelta >= courseChangeThreshold)
             {
                 _lastCourseDegrees = courseDegrees;
-                _lastTransmitTime = DateTime.UtcNow;
                 var activeInterval = GetActiveInterval(config, speedKmh);
 
                 return new BeaconTransmitDecision
@@ -255,7 +267,6 @@ public sealed class BeaconService : IBeaconService
 
         if (isTimeExpired2)
         {
-            _lastTransmitTime = DateTime.UtcNow;
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = true,

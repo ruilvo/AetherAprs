@@ -41,7 +41,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               <Button Classes="Flat"
                       HorizontalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
-                      Padding="12"
+                      Padding="16"
                       Tag="{Binding}"
                       Click="OnConversationClick">
                 <StackPanel Spacing="4">
@@ -68,9 +68,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              MinHeight="56"
                              MinWidth="56"
                              x:Name="NewMessageButton">
-      <Viewbox Stretch="Fill"
-               HorizontalAlignment="Stretch"
-               VerticalAlignment="Stretch">
+      <Viewbox Width="24" Height="24">
         <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
       </Viewbox>
     </controls:FloatingButton>

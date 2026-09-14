@@ -11,7 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:models="using:AetherAprs.Models"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
-             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:assists="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="1000"
              x:Class="AetherAprs.Views.Pages.DynamicBeaconingView"
@@ -50,7 +50,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <ComboBox Theme="{StaticResource MaterialOutlineComboBox}"
-                    wpf:ComboBoxAssist.Label="Mode"
+                    assists:ComboBoxAssist.Label="Mode"
                     x:CompileBindings="False"
                     SelectedValue="{Binding ActiveMode, Mode=TwoWay}"
                     SelectedValueBinding="{Binding Tag}">
@@ -64,21 +64,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </StackPanel>
 
         <!-- Walk Configuration -->
-        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
-                CornerRadius="8"
-                Padding="16"
-                BorderThickness="1"
-                BorderBrush="{DynamicResource MaterialDividerBrush}">
+        <controls:Card Padding="16">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
                     <TextBlock Classes="Subtitle1" Text="Walk Mode" VerticalAlignment="Center" />
               <Button Content="Reset to Default"
                       Command="{Binding ResetWalkToDefaultCommand}"
                       Padding="8,4"
-                      MinHeight="32"
-                      FontSize="12"
+                      MinHeight="48"
                       VerticalAlignment="Center"
-                      Classes="Outlined" />
+                      Theme="{StaticResource MaterialOutlineButton}"
+                      Classes="Outline" />
             </StackPanel>
 
             <TextBlock Classes="Caption"
@@ -175,28 +171,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
               <TextBox Text="{Binding WalkConfiguration.BeaconComment}"
                        PlaceholderText="Optional beacon comment"
-                       wpf:TextFieldAssist.Label="Beacon Comment"
+                       assists:TextFieldAssist.Label="Beacon Comment"
                        UseFloatingPlaceholder="True" />
             </StackPanel>
           </StackPanel>
-        </Border>
+        </controls:Card>
 
         <!-- Drive Configuration -->
-        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
-                CornerRadius="8"
-                Padding="16"
-                BorderThickness="1"
-                BorderBrush="{DynamicResource MaterialDividerBrush}">
+        <controls:Card Padding="16">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
                     <TextBlock Classes="Subtitle1" Text="Drive Mode" VerticalAlignment="Center" />
               <Button Content="Reset to Default"
                       Command="{Binding ResetDriveToDefaultCommand}"
                       Padding="8,4"
-                      MinHeight="32"
-                      FontSize="12"
+                      MinHeight="48"
                       VerticalAlignment="Center"
-                      Classes="Outlined" />
+                      Theme="{StaticResource MaterialOutlineButton}"
+                      Classes="Outline" />
             </StackPanel>
 
             <TextBlock Classes="Caption"
@@ -293,28 +285,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
               <TextBox Text="{Binding DriveConfiguration.BeaconComment}"
                        PlaceholderText="Optional beacon comment"
-                       wpf:TextFieldAssist.Label="Beacon Comment"
+                       assists:TextFieldAssist.Label="Beacon Comment"
                        UseFloatingPlaceholder="True" />
             </StackPanel>
           </StackPanel>
-        </Border>
+        </controls:Card>
 
         <!-- Custom Configuration -->
-        <Border Background="{DynamicResource MaterialCardBackgroundBrush}"
-                CornerRadius="8"
-                Padding="16"
-                BorderThickness="1"
-                BorderBrush="{DynamicResource MaterialDividerBrush}">
+        <controls:Card Padding="16">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
                     <TextBlock Classes="Subtitle1" Text="Custom Mode" VerticalAlignment="Center" />
               <Button Content="Reset to Default"
                       Command="{Binding ResetCustomToDefaultCommand}"
                       Padding="8,4"
-                      MinHeight="32"
-                      FontSize="12"
+                      MinHeight="48"
                       VerticalAlignment="Center"
-                      Classes="Outlined" />
+                      Theme="{StaticResource MaterialOutlineButton}"
+                      Classes="Outline" />
             </StackPanel>
 
             <TextBlock Classes="Caption"
@@ -411,11 +399,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
               <TextBox Text="{Binding CustomConfiguration.BeaconComment}"
                        PlaceholderText="Optional beacon comment"
-                       wpf:TextFieldAssist.Label="Beacon Comment"
+                       assists:TextFieldAssist.Label="Beacon Comment"
                        UseFloatingPlaceholder="True" />
             </StackPanel>
           </StackPanel>
-        </Border>
+        </controls:Card>
 
       </StackPanel>
     </ScrollViewer>
@@ -429,11 +417,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <StackPanel Orientation="Horizontal"
                   HorizontalAlignment="Right"
                   Spacing="8">
-        <Button Content="Close"
+        <Button Content="CLOSE"
                 Command="{Binding CloseCommand}"
                 MinWidth="80"
-                MinHeight="36"
-                Classes="Filled" />
+                MinHeight="48" />
       </StackPanel>
     </Border>
   </Grid>

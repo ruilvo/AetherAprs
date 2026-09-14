@@ -244,7 +244,7 @@ public sealed class HomeViewModelTests
             };
         }
 
-        public void UpdateCustomConfiguration(BeaconConfig configuration)
+        public void UpdateConfiguration(BeaconConfig configuration)
         {
         }
 

@@ -284,7 +284,7 @@ public class BeaconTransmissionViewModelTests
             };
         }
 
-        public void UpdateCustomConfiguration(BeaconConfig configuration) { }
+        public void UpdateConfiguration(BeaconConfig configuration) { }
 
         public BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation)
         {

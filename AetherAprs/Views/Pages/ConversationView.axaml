@@ -22,9 +22,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <Button DockPanel.Dock="Left"
                 Content="Back"
                 Classes="Outline"
-                MinHeight="36"
+                MinHeight="48"
                 Command="{Binding GoBackCommand}"
-                Margin="0,0,12,0" />
+                Margin="0,0,8,0" />
         <TextBlock Text="{Binding Title}"
                    Classes="Headline5"
                    FontWeight="Bold"
@@ -47,7 +47,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="messaging:StoredMessage">
-            <Border Padding="12"
+            <Border Padding="8"
                     CornerRadius="8"
                     Background="{DynamicResource MaterialCardBackgroundBrush}">
               <StackPanel Spacing="4">
@@ -88,9 +88,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                  MaxLength="67" />
         <Button Grid.Column="1"
                 Content="Send"
-                Classes="Filled"
                 MinWidth="80"
-                MinHeight="36"
+                MinHeight="48"
                 Command="{Binding SendCommand}" />
       </Grid>
     </Border>

@@ -76,12 +76,14 @@ public sealed class NavigationServiceTests
         configuration.Settings.Returns(new AetherAprs.Configuration.AppSettings());
         services.AddSingleton(configuration);
         var beaconService = Substitute.For<IBeaconService>();
+        var walk = AetherAprs.Models.BeaconConfig.CreateWalkPreset();
         beaconService.AllConfigurations.Returns(new[]
         {
-            AetherAprs.Models.BeaconConfig.CreateWalkPreset(),
+            walk,
             AetherAprs.Models.BeaconConfig.CreateDrivePreset(),
             AetherAprs.Models.BeaconConfig.CreateCustomPreset()
         });
+        beaconService.CurrentConfiguration.Returns(walk);
         services.AddSingleton(beaconService);
         services.AddSingleton(Substitute.For<IMessageService>());
         services.AddSingleton(Substitute.For<ILocationService>());

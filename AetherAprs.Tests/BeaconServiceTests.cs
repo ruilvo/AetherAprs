@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Reflection;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
@@ -63,13 +64,13 @@ public class BeaconServiceTests
     }
 
     [Fact]
-    public void UpdateCustomConfigurationModifiesCustomMode()
+    public void UpdateConfigurationModifiesCustomMode()
     {
         var service = new BeaconService();
         var customConfig = BeaconConfig.CreateCustomPreset();
         var modifiedConfig = customConfig with { SlowIntervalSeconds = 3600 };
 
-        service.UpdateCustomConfiguration(modifiedConfig);
+        service.UpdateConfiguration(modifiedConfig);
 
         service.SetActiveMode(DynamicBeaconMode.Custom);
         Assert.Equal(3600, service.CurrentConfiguration.SlowIntervalSeconds);
@@ -268,7 +269,7 @@ public class BeaconServiceTests
     {
         var config = BeaconConfig.CreateCustomPreset() with { CourseChangeThresholdDegrees = 0 };
         var service = new BeaconService();
-        service.UpdateCustomConfiguration(config);
+        service.UpdateConfiguration(config);
         service.SetActiveMode(DynamicBeaconMode.Custom);
 
         var time1 = DateTimeOffset.UtcNow;
@@ -308,4 +309,70 @@ public class BeaconServiceTests
         Assert.True(decision1.ActiveIntervalSeconds > 0);
         Assert.True(decision1.SecondsUntilNextBeacon >= 0);
     }
+
+    [Fact]
+    public void EvaluateDoesNotAdvanceTimerUntilReset()
+    {
+        var service = new BeaconService();
+        var lastTransmitField = typeof(BeaconService).GetField("_lastTransmitTime", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(lastTransmitField);
+        lastTransmitField!.SetValue(service, DateTime.UtcNow.AddHours(-1));
+
+        var location = CreateLocation(38.7223, -9.1393);
+        var decision1 = service.EvaluateLocationUpdate(location, null);
+        Assert.True(decision1.ShouldTransmit);
+
+        // Without ResetTransmissionTimer, a second evaluation still sees the interval as expired.
+        var decision2 = service.EvaluateLocationUpdate(location, null);
+        Assert.True(decision2.ShouldTransmit);
+
+        service.ResetTransmissionTimer();
+        var decision3 = service.EvaluateLocationUpdate(location, null);
+        Assert.False(decision3.ShouldTransmit);
+    }
+
+    [Fact]
+    public void UpdateConfigurationPersistsWalkAndDriveModes()
+    {
+        var service = new BeaconService();
+        var walk = BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 };
+        var drive = BeaconConfig.CreateDrivePreset() with { FastIntervalSeconds = 33 };
+
+        service.UpdateConfiguration(walk);
+        service.UpdateConfiguration(drive);
+
+        service.SetActiveMode(DynamicBeaconMode.Walk);
+        Assert.Equal(1111, service.CurrentConfiguration.SlowIntervalSeconds);
+
+        service.SetActiveMode(DynamicBeaconMode.Drive);
+        Assert.Equal(33, service.CurrentConfiguration.FastIntervalSeconds);
+    }
+
+    [Fact]
+    public void SetActiveMode_SameMode_DoesNotResetTimer()
+    {
+        var service = new BeaconService();
+        var custom = BeaconConfig.CreateCustomPreset() with
+        {
+            SlowIntervalSeconds = 60,
+            NormalIntervalSeconds = 60,
+            FastIntervalSeconds = 60,
+            CourseChangeThresholdDegrees = 0,
+            MinimumDistanceMeters = 1
+        };
+        service.UpdateConfiguration(custom);
+        service.SetActiveMode(DynamicBeaconMode.Custom);
+        service.ResetTransmissionTimer();
+
+        var time1 = DateTimeOffset.UtcNow.AddSeconds(-5);
+        var time2 = time1.AddSeconds(1);
+        var location1 = CreateLocation(38.7223, -9.1393, timestamp: time1);
+        var location2 = CreateLocation(38.7233, -9.1393, timestamp: time2);
+
+        Assert.False(service.EvaluateLocationUpdate(location2, location1).ShouldTransmit);
+
+        service.SetActiveMode(DynamicBeaconMode.Custom);
+        Assert.False(service.EvaluateLocationUpdate(location2, location1).ShouldTransmit);
+    }
+
 }

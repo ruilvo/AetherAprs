@@ -56,9 +56,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              x:Name="AddPortButton"
                              MinHeight="56"
                              MinWidth="56">
-      <Viewbox Stretch="Fill"
-               HorizontalAlignment="Stretch"
-               VerticalAlignment="Stretch">
+      <Viewbox Width="24" Height="24">
         <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
       </Viewbox>
     </controls:FloatingButton>

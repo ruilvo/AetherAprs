@@ -26,7 +26,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                        TextWrapping="Wrap" />
             
             <StackPanel Spacing="8" 
-                       IsVisible="{Binding LastBeaconDecision, Converter={StaticResource NullableToVisibilityConverter}}">
+                       IsVisible="{Binding LastBeaconDecision, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <TextBlock Text="Last Decision:" 
                            Classes="Subtitle2"
                            Foreground="{DynamicResource MaterialPrimaryBrush}" />
@@ -40,7 +40,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     </StackPanel>
                     
                     <StackPanel Orientation="Horizontal" Spacing="8" 
-                               IsVisible="{Binding LastBeaconDecision.CurrentCourseDegrees, Converter={StaticResource NullableToVisibilityConverter}}">
+                               IsVisible="{Binding LastBeaconDecision.CurrentCourseDegrees, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <TextBlock Text="Course:" Classes="Caption" />
                         <TextBlock Text="{Binding LastBeaconDecision.CurrentCourseDegrees, StringFormat={}{0:F0}°}" 
                                    Classes="Caption"

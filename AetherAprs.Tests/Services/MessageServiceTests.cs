@@ -85,6 +85,68 @@ public sealed class MessageServiceTests
         Assert.Equal("Ping", stored.Text);
     }
 
+
+    [Fact]
+    public async Task SendAsync_ThrowsWhenNoTxPorts()
+    {
+        var portService = new FakePortService();
+        var service = new MessageService(
+            portService,
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            Substitute.For<ILogger<MessageService>>());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.SendAsync(new Callsign("K0OTH"), "Hello"));
+    }
+
+    [Fact]
+    public async Task SendAsync_ThrowsWhenTextTooLong()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "TX",
+            IsEnabled = true,
+            IsTx = true,
+            TypeSettings = new AprsIsSettings()
+        };
+        var service = new MessageService(
+            new FakePortService(port),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            Substitute.For<ILogger<MessageService>>());
+
+        var longText = new string('A', 68);
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => service.SendAsync(new Callsign("K0OTH"), longText));
+    }
+
+    [Fact]
+    public void PacketReceived_IgnoresMessagesNotAddressedToUs()
+    {
+        var portService = new FakePortService();
+        var service = new MessageService(
+            portService,
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            Substitute.For<ILogger<MessageService>>());
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = new Callsign("K0PEER"),
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("OTHER"),
+                Text = "Nope"
+            }
+        });
+
+        Assert.Empty(service.Conversations);
+    }
+
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
     {
         var configuration = Substitute.For<IConfigurationService>();
