@@ -40,6 +40,7 @@ public static class DesignData
         services.AddSingleton<IPortService, PortService>();
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
         services.AddSingleton<IBeaconService, BeaconService>();
+        services.AddSingleton<IMessageService, MessageService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
@@ -57,9 +58,11 @@ public static class DesignData
         services.AddTransient<LocationTrackingViewModel>();
         services.AddTransient<BeaconTransmissionViewModel>();
         services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<MessagesViewModel>();
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
+        services.AddTransient<ConversationViewModel>();
 
         return services.BuildServiceProvider();
     }
@@ -87,45 +90,21 @@ public static class DesignData
         }
     }
 
-    public static MainViewModel MainViewModel
-    {
-        get
-        {
-            return _serviceProvider.GetRequiredService<MainViewModel>();
-        }
-    }
+    public static MainViewModel MainViewModel => _serviceProvider.GetRequiredService<MainViewModel>();
 
-    public static HomeViewModel HomeViewModel
-    {
-        get
-        {
-            return _serviceProvider.GetRequiredService<HomeViewModel>();
-        }
-    }
+    public static HomeViewModel HomeViewModel => _serviceProvider.GetRequiredService<HomeViewModel>();
 
-    public static SettingsViewModel SettingsViewModel
-    {
-        get
-        {
-            return _serviceProvider.GetRequiredService<SettingsViewModel>();
-        }
-    }
+    public static MessagesViewModel MessagesViewModel => _serviceProvider.GetRequiredService<MessagesViewModel>();
 
-    public static PortsViewModel PortsViewModel
-    {
-        get
-        {
-            return _serviceProvider.GetRequiredService<PortsViewModel>();
-        }
-    }
+    public static SettingsViewModel SettingsViewModel => _serviceProvider.GetRequiredService<SettingsViewModel>();
 
-    public static DynamicBeaconingViewModel DynamicBeaconingViewModel
-    {
-        get
-        {
-            return _serviceProvider.GetRequiredService<DynamicBeaconingViewModel>();
-        }
-    }
+    public static PortsViewModel PortsViewModel => _serviceProvider.GetRequiredService<PortsViewModel>();
+
+    public static DynamicBeaconingViewModel DynamicBeaconingViewModel =>
+        _serviceProvider.GetRequiredService<DynamicBeaconingViewModel>();
+
+    public static ConversationViewModel ConversationViewModel =>
+        _serviceProvider.GetRequiredService<ConversationViewModel>();
 
     public static AddEditPortViewModel AddEditPortViewModel
     {
@@ -133,7 +112,14 @@ public static class DesignData
         {
             var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
             var callsign = configService.Settings.Aprs.Callsign;
-            var vm = new AddEditPortViewModel(_serviceProvider.GetRequiredService<INavigationService>(),_serviceProvider.GetRequiredService<IPortService>(),_serviceProvider.GetRequiredService<IKissStreamFactory>(),_serviceProvider.GetRequiredService<IBluetoothLeScanner>(),_serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());vm.Initialize(callsign, 1, "/", "[");return vm;
+            var vm = new AddEditPortViewModel(
+                _serviceProvider.GetRequiredService<INavigationService>(),
+                _serviceProvider.GetRequiredService<IPortService>(),
+                _serviceProvider.GetRequiredService<IKissStreamFactory>(),
+                _serviceProvider.GetRequiredService<IBluetoothLeScanner>(),
+                _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());
+            vm.Initialize(callsign, 1, "/", "[");
+            return vm;
         }
     }
 }

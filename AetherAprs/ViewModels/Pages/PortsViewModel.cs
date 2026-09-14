@@ -75,7 +75,7 @@ public partial class PortsViewModel : ViewModelBase
             _configurationService.Settings.Aprs.DefaultSymbolTableCharacter,
             _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter,
             config);
-        _navigationService.NavigateTo<Pages.AddEditPortViewModel>();
+        _navigationService.NavigateTo(vm);
     }
 
     [RelayCommand]
@@ -87,7 +87,7 @@ public partial class PortsViewModel : ViewModelBase
             GetNextPortNumber(),
             _configurationService.Settings.Aprs.DefaultSymbolTableCharacter,
             _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter);
-        _navigationService.NavigateTo<Pages.AddEditPortViewModel>();
+        _navigationService.NavigateTo(vm);
     }
 
     [RelayCommand]

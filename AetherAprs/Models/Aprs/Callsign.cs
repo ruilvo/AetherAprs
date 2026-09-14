@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -53,6 +53,55 @@ public readonly record struct Callsign
 
         Base = callsignBase;
         Ssid = ssid;
+    }
+
+    /// <summary>
+    /// Tries to parse a callsign string such as "N0CALL" or "N0CALL-1".
+    /// </summary>
+    public static bool TryParse(string? value, out Callsign callsign)
+    {
+        callsign = default;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        value = value.Trim().ToUpperInvariant();
+        string callsignBase;
+        int? ssid = null;
+
+        var dashIndex = value.IndexOf('-');
+        if (dashIndex >= 0)
+        {
+            callsignBase = value[..dashIndex];
+            var ssidPart = value[(dashIndex + 1)..];
+            if (!int.TryParse(ssidPart, out var ssidValue) || ssidValue is < 0 or > 15)
+            {
+                return false;
+            }
+
+            ssid = ssidValue;
+        }
+        else
+        {
+            callsignBase = value;
+        }
+
+        if (callsignBase.Length < 2 || callsignBase.Length > 6)
+        {
+            return false;
+        }
+
+        foreach (var character in callsignBase)
+        {
+            if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')))
+            {
+                return false;
+            }
+        }
+
+        callsign = new Callsign(callsignBase, ssid);
+        return true;
     }
 
     /// <summary>

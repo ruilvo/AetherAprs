@@ -130,4 +130,28 @@ public class CallsignTests
         var b = new Callsign("N1CALL");
         Assert.NotEqual(a, b);
     }
+
+    [Theory]
+    [InlineData("N0CALL", "N0CALL", null)]
+    [InlineData("n0call-1", "N0CALL", 1)]
+    [InlineData("  K0ABC-15 ", "K0ABC", 15)]
+    public void TryParse_ValidCallsign_ReturnsTrue(string input, string expectedBase, int? expectedSsid)
+    {
+        Assert.True(Callsign.TryParse(input, out var callsign));
+        Assert.Equal(expectedBase, callsign.Base);
+        Assert.Equal(expectedSsid, callsign.Ssid);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("A")]
+    [InlineData("TOOLONG")]
+    [InlineData("N0CALL-99")]
+    [InlineData("N0CALL-X")]
+    public void TryParse_InvalidCallsign_ReturnsFalse(string? input)
+    {
+        Assert.False(Callsign.TryParse(input, out _));
+    }
 }

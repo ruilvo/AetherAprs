@@ -1,0 +1,98 @@
+﻿<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:messaging="using:AetherAprs.Models.Messaging"
+             xmlns:local="using:AetherAprs"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.ConversationView"
+             x:DataType="vm:ConversationViewModel"
+             d:DataContext="{x:Static local:DesignData.ConversationViewModel}">
+
+  <Grid RowDefinitions="Auto,*,Auto,Auto">
+    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
+      <DockPanel>
+        <Button DockPanel.Dock="Left"
+                Content="Back"
+                Classes="Outline"
+                MinHeight="36"
+                Command="{Binding GoBackCommand}"
+                Margin="0,0,12,0" />
+        <TextBlock Text="{Binding Title}"
+                   Classes="Headline5"
+                   FontWeight="Bold"
+                   VerticalAlignment="Center" />
+      </DockPanel>
+
+      <TextBox Text="{Binding DestinationCallsign}"
+               IsEnabled="{Binding IsDestinationEditable}"
+               PlaceholderText="Destination callsign (e.g. N0CALL-1)"
+               wpf:TextFieldAssist.Label="To"
+               UseFloatingPlaceholder="True" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Margin="16">
+      <ItemsControl ItemsSource="{Binding Messages}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Spacing="8" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="messaging:StoredMessage">
+            <Border Padding="12"
+                    CornerRadius="8"
+                    Background="{DynamicResource MaterialCardBackgroundBrush}">
+              <StackPanel Spacing="4">
+                <TextBlock Classes="Caption"
+                           Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                           Text="You"
+                           IsVisible="{Binding IsOutbound}" />
+                <TextBlock Classes="Caption"
+                           Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                           Text="Received"
+                           IsVisible="{Binding !IsOutbound}" />
+                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <TextBlock Grid.Row="2"
+               Margin="16,0,16,8"
+               Classes="Caption"
+               Foreground="{DynamicResource MaterialValidationErrorBrush}"
+               Text="{Binding ErrorMessage}"
+               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+               TextWrapping="Wrap" />
+
+    <Border Grid.Row="3"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+        <TextBox Grid.Column="0"
+                 Text="{Binding MessageText}"
+                 PlaceholderText="Message text"
+                 AcceptsReturn="False"
+                 MaxLength="67" />
+        <Button Grid.Column="1"
+                Content="Send"
+                Classes="Filled"
+                MinWidth="80"
+                MinHeight="36"
+                Command="{Binding SendCommand}" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

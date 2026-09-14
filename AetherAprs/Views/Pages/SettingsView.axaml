@@ -83,7 +83,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
           <Button Content="Configure Beaconing Modes"
-                  Click="OnConfigureBeaconingClick"
+                  Command="{Binding OpenBeaconingSettingsCommand}"
                   x:Name="ConfigureBeaconingButton"
                   MinWidth="120"
                   MinHeight="40"

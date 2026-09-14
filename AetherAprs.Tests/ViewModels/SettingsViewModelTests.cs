@@ -79,6 +79,7 @@ public sealed class SettingsViewModelTests
         public Type? LastNavigatedType { get; private set; }
         public bool CanGoBack => false;
         public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase => LastNavigatedType = typeof(TViewModel);
+        public void NavigateTo(ViewModelBase viewModel) => LastNavigatedType = viewModel.GetType();
         public void GoBack() { }
     }
 }

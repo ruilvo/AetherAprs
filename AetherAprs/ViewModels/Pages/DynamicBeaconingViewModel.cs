@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Models;
 using AetherAprs.Services;
+using AetherAprs.ViewModels;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -17,6 +18,7 @@ namespace AetherAprs.ViewModels.Pages;
 public partial class DynamicBeaconingViewModel : ViewModelBase
 {
     private readonly IBeaconService _beaconService;
+    private readonly INavigationService _navigationService;
 
     [ObservableProperty]
     public partial DynamicBeaconMode ActiveMode { get; set; } = DynamicBeaconMode.Walk;
@@ -30,9 +32,10 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     [ObservableProperty]
     public partial BeaconConfigurationItemViewModel? CustomConfiguration { get; set; }
 
-    public DynamicBeaconingViewModel(IBeaconService beaconService)
+    public DynamicBeaconingViewModel(IBeaconService beaconService, INavigationService navigationService)
     {
         _beaconService = beaconService ?? throw new ArgumentNullException(nameof(beaconService));
+        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
         // Initialize configuration view models
         var configs = beaconService.AllConfigurations;
@@ -52,6 +55,13 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
                     break;
             }
         }
+    }
+
+
+    [RelayCommand]
+    private void Close()
+    {
+        _navigationService.GoBack();
     }
 
     [RelayCommand]

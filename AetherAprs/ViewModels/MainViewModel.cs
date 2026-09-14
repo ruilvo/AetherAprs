@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -15,49 +15,67 @@ public partial class MainViewModel : ViewModelBase
     private static readonly Dictionary<int, Type> TabIndexToViewModelType = new()
     {
         [0] = typeof(HomeViewModel),
-        [1] = typeof(PortsViewModel),
-        [2] = typeof(SettingsViewModel)
+        [1] = typeof(MessagesViewModel),
+        [2] = typeof(PortsViewModel),
+        [3] = typeof(SettingsViewModel)
     };
 
     private static readonly Dictionary<Type, int> ViewModelTypeToTabIndex = new()
     {
         [typeof(HomeViewModel)] = 0,
-        [typeof(PortsViewModel)] = 1,
-        [typeof(SettingsViewModel)] = 2
+        [typeof(MessagesViewModel)] = 1,
+        [typeof(PortsViewModel)] = 2,
+        [typeof(SettingsViewModel)] = 3
     };
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; } = 0;
 
+    [ObservableProperty]
+    public partial ViewModelBase? OverlayViewModel { get; set; }
+
+    public bool IsOverlayVisible => OverlayViewModel != null;
+
     public HomeViewModel HomeViewModel { get; }
+    public MessagesViewModel MessagesViewModel { get; }
     public PortsViewModel PortsViewModel { get; }
     public SettingsViewModel SettingsViewModel { get; }
 
     public MainViewModel(
         INavigationService navService,
         HomeViewModel homeViewModel,
+        MessagesViewModel messagesViewModel,
         PortsViewModel portsViewModel,
         SettingsViewModel settingsViewModel)
     {
         _navigationService = navService;
         HomeViewModel = homeViewModel;
+        MessagesViewModel = messagesViewModel;
         PortsViewModel = portsViewModel;
         SettingsViewModel = settingsViewModel;
 
-        // Subscribe to navigation changes to update tab index
         _navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
-
-        // Navigate to home on startup
         _navigationService.NavigateTo<HomeViewModel>();
+    }
+
+    partial void OnOverlayViewModelChanged(ViewModelBase? value)
+    {
+        OnPropertyChanged(nameof(IsOverlayVisible));
     }
 
     partial void OnSelectedTabIndexChanged(int value)
     {
-        // When user clicks tabs, update navigation service
+        if (IsOverlayVisible)
+        {
+            return;
+        }
+
         if (TabIndexToViewModelType.TryGetValue(value, out var viewModelType))
         {
             if (viewModelType == typeof(HomeViewModel))
                 _navigationService.NavigateTo<HomeViewModel>();
+            else if (viewModelType == typeof(MessagesViewModel))
+                _navigationService.NavigateTo<MessagesViewModel>();
             else if (viewModelType == typeof(PortsViewModel))
                 _navigationService.NavigateTo<PortsViewModel>();
             else if (viewModelType == typeof(SettingsViewModel))
@@ -67,10 +85,13 @@ public partial class MainViewModel : ViewModelBase
 
     private void OnCurrentViewModelChanged(object? sender, ViewModelBase? viewModel)
     {
-        // When navigation service changes, update tab index
         if (viewModel != null && ViewModelTypeToTabIndex.TryGetValue(viewModel.GetType(), out var tabIndex))
         {
+            OverlayViewModel = null;
             SelectedTabIndex = tabIndex;
+            return;
         }
+
+        OverlayViewModel = viewModel;
     }
 }

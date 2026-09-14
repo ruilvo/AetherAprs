@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -11,9 +11,16 @@ namespace AetherAprs.Services;
 
 public class NavigationService(IServiceProvider serviceProvider) : INavigationService
 {
+    private static readonly HashSet<Type> RootTabTypes =
+    [
+        typeof(HomeViewModel),
+        typeof(PortsViewModel),
+        typeof(MessagesViewModel),
+        typeof(SettingsViewModel)
+    ];
+
     private ViewModelBase? _currentViewModel;
-    private readonly Stack<Type> _navigationStack = new();
-    private static readonly Type _homeViewModelType = typeof(HomeViewModel);
+    private readonly Stack<ViewModelBase> _navigationStack = new();
 
     public ViewModelBase? CurrentViewModel
     {
@@ -33,47 +40,56 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
 
     public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase
     {
-        var viewModelType = typeof(TViewModel);
+        NavigateTo(serviceProvider.GetRequiredService<TViewModel>());
+    }
 
-        // Clear stack if navigating to home
-        if (viewModelType == _homeViewModelType)
+    public void NavigateTo(ViewModelBase viewModel)
+    {
+        ArgumentNullException.ThrowIfNull(viewModel);
+
+        if (IsRootTab(viewModel))
         {
             _navigationStack.Clear();
-        }
-        else
-        {
-            // Add current page to stack before navigating away
-            if (_currentViewModel != null && _currentViewModel.GetType() != viewModelType)
-            {
-                _navigationStack.Push(_currentViewModel.GetType());
-            }
+            CurrentViewModel = viewModel;
+            return;
         }
 
-        var viewModel = serviceProvider.GetRequiredService<TViewModel>();
+        if (_currentViewModel != null && !ReferenceEquals(_currentViewModel, viewModel))
+        {
+            _navigationStack.Push(_currentViewModel);
+        }
+
         CurrentViewModel = viewModel;
     }
 
-    public bool CanGoBack => _navigationStack.Count > 0 || (_currentViewModel?.GetType() != _homeViewModelType);
+    public bool CanGoBack =>
+        _navigationStack.Count > 0
+        || (_currentViewModel != null && !IsRootTab(_currentViewModel))
+        || (_currentViewModel != null && _currentViewModel.GetType() != typeof(HomeViewModel));
 
     public void GoBack()
     {
         if (_navigationStack.Count > 0)
         {
-            // Navigate to previous page
-            var previousType = _navigationStack.Pop();
-            var viewModel = (ViewModelBase)serviceProvider.GetRequiredService(previousType);
-            CurrentViewModel = viewModel;
+            CurrentViewModel = _navigationStack.Pop();
+            return;
         }
-        else if (_currentViewModel?.GetType() != _homeViewModelType)
+
+        if (_currentViewModel != null && !IsRootTab(_currentViewModel))
         {
-            // Not on home page and no history - go to home
-            var homeViewModel = serviceProvider.GetRequiredService<HomeViewModel>();
-            CurrentViewModel = homeViewModel;
+            CurrentViewModel = serviceProvider.GetRequiredService<HomeViewModel>();
+            return;
         }
-        else
+
+        if (_currentViewModel?.GetType() != typeof(HomeViewModel))
         {
-            // On home page with no history - request app exit
-            RequestAppExit?.Invoke(this, EventArgs.Empty);
+            CurrentViewModel = serviceProvider.GetRequiredService<HomeViewModel>();
+            return;
         }
+
+        RequestAppExit?.Invoke(this, EventArgs.Empty);
     }
+
+    private static bool IsRootTab(ViewModelBase viewModel) =>
+        RootTabTypes.Contains(viewModel.GetType());
 }

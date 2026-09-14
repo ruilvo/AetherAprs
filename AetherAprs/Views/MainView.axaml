@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 This file is part of AetherAprs
 SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 SPDX-License-Identifier: GPL-3.0-or-later
@@ -19,37 +19,56 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <dialogHost:DialogHost Name="MainDialogHost" Identifier="MainDialogHost">
     <controls:SnackbarHost x:Name="MainSnackbarHost" HostName="MainSnackbarHost">
-      <TabbedPage x:Name="MainTabbedPage"
-                  TabPlacement="Bottom"
-                  SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
-                  HorizontalAlignment="Stretch"
-                  VerticalAlignment="Stretch">
+      <Grid>
+        <TabbedPage x:Name="MainTabbedPage"
+                    TabPlacement="Bottom"
+                    SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}"
+                    IsVisible="{Binding !IsOverlayVisible}"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch">
 
-        <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
-          <ContentControl Content="{Binding HomeViewModel}" 
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          HorizontalContentAlignment="Stretch"
-                          VerticalContentAlignment="Stretch" />
-        </ContentPage>
+          <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
+            <ContentControl Content="{Binding HomeViewModel}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+          </ContentPage>
 
-        <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
-          <ContentControl Content="{Binding PortsViewModel}"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          HorizontalContentAlignment="Stretch"
-                          VerticalContentAlignment="Stretch" />
-        </ContentPage>
+          <ContentPage Header="Messages" Icon="{ext:MaterialIconGeometryExt Message}">
+            <ContentControl Content="{Binding MessagesViewModel}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+          </ContentPage>
 
-        <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
-          <ContentControl Content="{Binding SettingsViewModel}"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          HorizontalContentAlignment="Stretch"
-                          VerticalContentAlignment="Stretch" />
-        </ContentPage>
+          <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
+            <ContentControl Content="{Binding PortsViewModel}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+          </ContentPage>
 
-      </TabbedPage>
+          <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
+            <ContentControl Content="{Binding SettingsViewModel}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+          </ContentPage>
+
+        </TabbedPage>
+
+        <ContentControl Content="{Binding OverlayViewModel}"
+                        IsVisible="{Binding IsOverlayVisible}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        Background="{DynamicResource MaterialBackgroundBrush}" />
+      </Grid>
     </controls:SnackbarHost>
   </dialogHost:DialogHost>
 

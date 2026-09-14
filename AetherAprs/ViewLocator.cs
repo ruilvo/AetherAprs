@@ -22,10 +22,12 @@ public class ViewLocator: IDataTemplate
         {
             MainViewModel => new MainView(),
             HomeViewModel => new HomeView(),
+            MessagesViewModel => new MessagesView(),
             PortsViewModel => new PortsView(),
             SettingsViewModel => new SettingsView(),
             DynamicBeaconingViewModel => new DynamicBeaconingView(),
             AddEditPortViewModel => new AddEditPortView(),
+            ConversationViewModel => new ConversationView(),
             PortItemViewModel => new PortItemView(),
             _ => param is null
                 ? null
