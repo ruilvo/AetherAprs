@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Kiss;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Modems.Aprs;
 
@@ -21,17 +23,20 @@ namespace AetherAprs.Modems.Aprs;
 public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
 {
     private readonly KissModem _kissModem;
+    private readonly ILogger<AprsRfModem> _logger;
     private bool _started;
 
     /// <summary>
     /// Initializes a new instance of <see cref="AprsRfModem"/>.
     /// </summary>
     /// <param name="kissModem">The underlying KISS modem. Must not be null.</param>
+    /// <param name="loggerFactory">Optional logger factory.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="kissModem"/> is null.</exception>
-    public AprsRfModem(KissModem kissModem)
+    public AprsRfModem(KissModem kissModem, ILoggerFactory? loggerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(kissModem);
         _kissModem = kissModem;
+        _logger = loggerFactory?.CreateLogger<AprsRfModem>() ?? NullLogger<AprsRfModem>.Instance;
     }
 
     /// <summary>
@@ -64,6 +69,7 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
         _kissModem.Start();
 
         _started = true;
+        _logger.LogInformation("APRS RF modem started.");
     }
 
     /// <summary>
@@ -83,6 +89,7 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
         await _kissModem.StopAsync();
 
         _started = false;
+        _logger.LogInformation("APRS RF modem stopped.");
     }
 
     /// <summary>
@@ -99,6 +106,10 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
 
         var ax25Data = Ax25Serializer.Serialize(packet);
         var kissFrame = new KissFrame(0x00, ax25Data);
+        _logger.LogDebug(
+            "Sending APRS packet via RF: Type={PacketType}, Source={Source}",
+            packet.GetType().Name,
+            packet.Source);
         return _kissModem.SendAsync(kissFrame, cancellationToken);
     }
 
@@ -120,6 +131,20 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
         try
         {
             var packet = Ax25Parser.ParseFrame(frame.Data);
+            if (packet is UnknownPacket unknown)
+            {
+                _logger.LogWarning(
+                    "Parsed unknown APRS packet from {Source}: {Raw}",
+                    unknown.Source,
+                    unknown.Raw);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Parsed APRS packet Type={PacketType} from {Source}",
+                    packet.GetType().Name,
+                    packet.Source);
+            }
             PacketReceived?.Invoke(this, packet);
         }
         catch (Exception ex)

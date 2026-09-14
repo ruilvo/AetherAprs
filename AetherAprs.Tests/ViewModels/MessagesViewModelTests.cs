@@ -86,6 +86,7 @@ public sealed class MessagesViewModelTests
         var services = new ServiceCollection();
         services.AddSingleton(messageService);
         services.AddSingleton(navigation);
+        services.AddLogging();
         services.AddTransient<ConversationViewModel>();
         var provider = services.BuildServiceProvider();
         return new MessagesViewModel(messageService, navigation, provider);

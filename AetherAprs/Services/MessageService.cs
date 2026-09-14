@@ -60,6 +60,14 @@ public sealed class MessageService : IMessageService, IDisposable
         var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
         if (txPorts.Count == 0)
         {
+            var totalPorts = _portService.Ports.Count;
+            var enabledPorts = _portService.Ports.Count(p => p.IsEnabled);
+            var isTxPorts = _portService.Ports.Count(p => p.IsTx);
+            _logger.LogWarning(
+                "No enabled TX ports available to send message. Ports={TotalPorts}, Enabled={EnabledPorts}, IsTx={IsTxPorts}",
+                totalPorts,
+                enabledPorts,
+                isTxPorts);
             throw new InvalidOperationException("No enabled TX ports are available to send the message.");
         }
 
@@ -87,6 +95,11 @@ public sealed class MessageService : IMessageService, IDisposable
 
                 await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
                 sent++;
+                _logger.LogInformation(
+                    "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber})",
+                    addressee,
+                    port.Name,
+                    messageNumber);
             }
             catch (Exception ex)
             {
@@ -145,6 +158,12 @@ public sealed class MessageService : IMessageService, IDisposable
             MessageNumber = message.MessageNumber,
             PortId = e.PortId
         };
+
+        _logger.LogInformation(
+            "Stored inbound APRS message from {Peer} on port {PortId}: {Text}",
+            peer,
+            e.PortId,
+            message.Text);
 
         RunOnUi(() =>
         {

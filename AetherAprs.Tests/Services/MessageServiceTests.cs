@@ -86,6 +86,29 @@ public sealed class MessageServiceTests
     }
 
 
+
+    [Fact]
+    public async Task SendAsync_EnabledPortWithIsTxFalse_ThrowsNoTxPorts()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "RX-only",
+            IsEnabled = true,
+            IsTx = false,
+            IsRx = true,
+            TypeSettings = new AprsIsSettings()
+        };
+        var service = new MessageService(
+            new FakePortService(port),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            Substitute.For<ILogger<MessageService>>());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.SendAsync(new Callsign("K0OTH"), "Hello"));
+    }
+
     [Fact]
     public async Task SendAsync_ThrowsWhenNoTxPorts()
     {

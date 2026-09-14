@@ -12,6 +12,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -19,6 +20,7 @@ public partial class ConversationViewModel : ViewModelBase
 {
     private readonly IMessageService _messageService;
     private readonly INavigationService _navigationService;
+    private readonly ILogger<ConversationViewModel> _logger;
     private ConversationThread? _thread;
     private bool _isNewConversation;
 
@@ -39,10 +41,14 @@ public partial class ConversationViewModel : ViewModelBase
 
     public ObservableCollection<StoredMessage> Messages { get; } = new();
 
-    public ConversationViewModel(IMessageService messageService, INavigationService navigationService)
+    public ConversationViewModel(
+        IMessageService messageService,
+        INavigationService navigationService,
+        ILogger<ConversationViewModel> logger)
     {
         _messageService = messageService;
         _navigationService = navigationService;
+        _logger = logger;
     }
 
     public void InitializeNew()
@@ -96,6 +102,7 @@ public partial class ConversationViewModel : ViewModelBase
         try
         {
             await _messageService.SendAsync(addressee, MessageText);
+            _logger.LogInformation("Message sent to {Addressee}", addressee);
             var thread = _messageService.GetOrCreateConversation(addressee);
             if (_isNewConversation)
             {
@@ -118,6 +125,7 @@ public partial class ConversationViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
             ErrorMessage = ex.Message;
         }
     }

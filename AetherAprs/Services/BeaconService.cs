@@ -8,6 +8,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Services;
 
@@ -106,6 +108,7 @@ public sealed record BeaconTransmitDecision
 /// </summary>
 public sealed class BeaconService : IBeaconService
 {
+    private readonly ILogger<BeaconService> _logger;
     private readonly object _lock = new();
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
@@ -118,6 +121,11 @@ public sealed class BeaconService : IBeaconService
     private const double EarthRadiusMeters = 6371000.0;
     private const double MetersPerSecondToKilometersPerHour = 3.6;
     private const double MetersToFeet = 3.28084;
+
+    public BeaconService(ILogger<BeaconService>? logger = null)
+    {
+        _logger = logger ?? NullLogger<BeaconService>.Instance;
+    }
 
     public BeaconConfig CurrentConfiguration
     {
@@ -155,6 +163,7 @@ public sealed class BeaconService : IBeaconService
             if (_activeMode == mode)
                 return;
 
+            _logger.LogInformation("Beacon mode changed from {PreviousMode} to {NewMode}", _activeMode, mode);
             _activeMode = mode;
             _lastTransmitTime = DateTime.UtcNow;
         }
@@ -185,7 +194,13 @@ public sealed class BeaconService : IBeaconService
     {
         lock (_lock)
         {
-            return EvaluateLocationUpdateInternal(currentLocation, previousLocation);
+            var decision = EvaluateLocationUpdateInternal(currentLocation, previousLocation);
+            _logger.LogDebug(
+                "Beacon evaluate: ShouldTransmit={ShouldTransmit}, Reason={Reason}, Interval={Interval}s",
+                decision.ShouldTransmit,
+                decision.Reason,
+                decision.ActiveIntervalSeconds);
+            return decision;
         }
     }
 
@@ -324,7 +339,7 @@ public sealed class BeaconService : IBeaconService
         var callsignBase = callsignParts[0];
         var ssid = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssidValue) ? ssidValue : (int?)null;
 
-        return new PositionPacket
+        var packet = new PositionPacket
         {
             Source = new Callsign(callsignBase, ssid),
             Destination = new Callsign("APRS"),
@@ -336,6 +351,12 @@ public sealed class BeaconService : IBeaconService
             Comment = config.BeaconComment,
             Precision = 2
         };
+        _logger.LogDebug(
+            "Created position packet for {Callsign}: Lat={Latitude:F5}, Lon={Longitude:F5}",
+            callsign,
+            packet.Latitude,
+            packet.Longitude);
+        return packet;
     }
 
     private static Symbol CreateSymbol(string tableCharacter, string codeCharacter)

@@ -14,6 +14,7 @@ using Mapsui.Styles;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.ViewModels;
 
@@ -26,6 +27,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 {
     private readonly IPortService _portService;
     private readonly AprsSymbolMapConverter _symbolConverter;
+    private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly WritableLayer _beaconsLayer;
     private readonly Dictionary<(Guid PortId, string Callsign), BeaconHistoryEntry> _history = new();
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
@@ -39,11 +41,13 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
     public ReceivedBeaconsViewModel(
         IPortService portService,
-        IAprsSymbolBitmapProvider symbolBitmapProvider)
+        IAprsSymbolBitmapProvider symbolBitmapProvider,
+        ILogger<ReceivedBeaconsViewModel> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
         _symbolConverter = new AprsSymbolMapConverter(
             symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _beaconsLayer = new WritableLayer
         {
@@ -60,6 +64,10 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
         if (e.Packet is not PositionPacket positionPacket)
         {
+            _logger.LogDebug(
+                "Ignoring non-position packet Type={PacketType} Raw={Raw}",
+                e.Packet.GetType().Name,
+                e.Packet.Raw);
             return;
         }
 
@@ -92,6 +100,23 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             Packet = positionPacket,
             ReceivedAt = DateTimeOffset.UtcNow
         };
+
+        var port = _portService.Ports.FirstOrDefault(p => p.Id == portId);
+        if (port is { ShowOnMap: false })
+        {
+            _logger.LogDebug(
+                "ShowOnMap hides beacon for {Callsign} on port {PortId}; buffering in history.",
+                callsign,
+                portId);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Adding/updating map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
+                callsign,
+                positionPacket.Latitude,
+                positionPacket.Longitude);
+        }
 
         RebuildVisibleLayer();
     }

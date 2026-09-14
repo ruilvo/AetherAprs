@@ -95,11 +95,12 @@ public sealed class MainViewModelTests
         var services = new ServiceCollection();
         services.AddSingleton<IMessageService>(messageService);
         services.AddSingleton<INavigationService>(navigation);
+        services.AddLogging();
         services.AddTransient<ConversationViewModel>();
         var provider = services.BuildServiceProvider();
 
         var symbolProvider = new TestSymbolBitmapProvider();
-        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider);
+        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
             NullLogger<LocationTrackingViewModel>.Instance);
@@ -117,7 +118,7 @@ public sealed class MainViewModelTests
             beaconTransmission,
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, provider);
-        var ports = new PortsViewModel(portService, configuration, navigation);
+        var ports = new PortsViewModel(portService, configuration, navigation, NullLogger<PortsViewModel>.Instance);
         var settings = new SettingsViewModel(configuration, navigation);
 
         return new MainViewModel(navigation, home, messages, ports, settings);

@@ -23,7 +23,7 @@ public class PortConfig
 
     public bool IsRx { get; set; } = true;
 
-    public bool IsTx { get; set; } = false;
+    public bool IsTx { get; set; } = true;
 
     /// <summary>
     /// When true, position packets received on this port are shown on the map.

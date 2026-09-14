@@ -26,10 +26,12 @@ public sealed class AddEditPortViewModelTests
         Assert.Equal("/", viewModel.SymbolTableCharacter);
         Assert.Equal("[", viewModel.SymbolCodeCharacter);
         Assert.True(viewModel.IsSymbolValid);
+        Assert.True(viewModel.IsTx);
 
         var config = viewModel.BuildConfig();
         Assert.Null(config.SymbolTableCharacter);
         Assert.Null(config.SymbolCodeCharacter);
+        Assert.True(config.IsTx);
     }
 
     [Fact]

@@ -87,7 +87,7 @@ public partial class AddEditPortViewModel : ViewModelBase
     public partial bool IsRx { get; set; } = true;
 
     [ObservableProperty]
-    public partial bool IsTx { get; set; } = false;
+    public partial bool IsTx { get; set; } = true;
 
     [ObservableProperty]
     public partial bool ShowOnMap { get; set; } = true;

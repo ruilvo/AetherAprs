@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
 using AetherAprs.Services;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.ViewModels;
 
@@ -17,6 +18,7 @@ public partial class PortsViewModel : ViewModelBase
     private readonly IPortService _portService;
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
+    private readonly ILogger<PortsViewModel> _logger;
 
     [ObservableProperty]
     public partial string Title { get; set; } = "Ports";
@@ -26,11 +28,13 @@ public partial class PortsViewModel : ViewModelBase
     public PortsViewModel(
         IPortService portService,
         IConfigurationService configurationService,
-        INavigationService navigationService)
+        INavigationService navigationService,
+        ILogger<PortsViewModel> logger)
     {
         _portService = portService;
         _configurationService = configurationService;
         _navigationService = navigationService;
+        _logger = logger;
         _portService.PortsChanged += OnPortsChanged;
         LoadPorts();
     }
@@ -52,21 +56,25 @@ public partial class PortsViewModel : ViewModelBase
 
     private void OnTogglePort(PortItemViewModel item)
     {
+        _logger.LogInformation("Toggle port {PortName} ({PortId}) Enabled={IsEnabled}", item.Name, item.Id, item.IsEnabled);
         _ = _portService.SetPortEnabledAsync(item.Id, item.IsEnabled);
     }
 
     private void OnToggleShowOnMap(PortItemViewModel item)
     {
+        _logger.LogInformation("Toggle ShowOnMap for port {PortName} ({PortId}) ShowOnMap={ShowOnMap}", item.Name, item.Id, item.ShowOnMap);
         _ = _portService.SetPortShowOnMapAsync(item.Id, item.ShowOnMap);
     }
 
     private void OnDeletePort(PortItemViewModel item)
     {
+        _logger.LogInformation("Remove port {PortName} ({PortId})", item.Name, item.Id);
         _ = _portService.RemovePortAsync(item.Id);
     }
 
     public void OnEditPort(PortItemViewModel item)
     {
+        _logger.LogInformation("Edit port {PortName} ({PortId})", item.Name, item.Id);
         var vm = App.GetService<Pages.AddEditPortViewModel>();
         var config = item.BuildConfig();
         vm.Initialize(
@@ -81,6 +89,7 @@ public partial class PortsViewModel : ViewModelBase
     [RelayCommand]
     public void AddPort()
     {
+        _logger.LogInformation("Add port requested");
         var vm = App.GetService<Pages.AddEditPortViewModel>();
         vm.Initialize(
             _configurationService.Settings.Aprs.Callsign,
@@ -93,6 +102,7 @@ public partial class PortsViewModel : ViewModelBase
     [RelayCommand]
     private void DeletePort(PortItemViewModel item)
     {
+        _logger.LogInformation("Remove port {PortName} ({PortId})", item.Name, item.Id);
         _ = _portService.RemovePortAsync(item.Id);
     }
 

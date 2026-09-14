@@ -75,6 +75,12 @@ public static class AprsInfoFieldParser
             pos += 7; // skip DDHHMMz or DDHHMM/ (7 chars)
         }
 
+        // Prefer compressed position (aprslib-style) before uncompressed.
+        if (TryParseCompressedPosition(info, pos, source, dest, out var compressed))
+        {
+            return compressed;
+        }
+
         // Parse latitude: DDMM.mmX (variable length, find direction char)
         int latEnd = pos;
         while (latEnd < info.Length && info[latEnd] != 'N' && info[latEnd] != 'S')
@@ -203,6 +209,170 @@ public static class AprsInfoFieldParser
         };
     }
 
+
+    private static bool TryParseCompressedPosition(
+        string info,
+        int pos,
+        Callsign source,
+        Callsign dest,
+        out PositionPacket packet)
+    {
+        packet = null!;
+
+        if (info.Length - pos < 13)
+        {
+            return false;
+        }
+
+        // Uncompressed DDMM.mmN/S can collide with overlay+base91; prefer uncompressed.
+        if (LooksLikeUncompressedPosition(info, pos))
+        {
+            return false;
+        }
+
+        var span = info.AsSpan(pos, 13);
+
+        // Compressed shape: table/overlay + 8 base91 + symbol + csT (aprslib-style).
+        char tableOrOverlay = span[0];
+        bool isPrimary = tableOrOverlay == '/';
+        bool isAlternate = tableOrOverlay == '\\';
+        bool isOverlay = IsCompressedOverlayChar(tableOrOverlay);
+        if (!isPrimary && !isAlternate && !isOverlay)
+        {
+            return false;
+        }
+
+        for (int i = 1; i <= 8; i++)
+        {
+            if (span[i] is < '!' or > '|')
+            {
+                return false;
+            }
+        }
+
+        if (span[9] is < '!' or > '{')
+        {
+            return false;
+        }
+
+        for (int i = 10; i <= 12; i++)
+        {
+            if (span[i] is < ' ' or > '|')
+            {
+                return false;
+            }
+        }
+
+        if (!TryDecodeBase91(span.Slice(1, 4), out int latN) ||
+            !TryDecodeBase91(span.Slice(5, 4), out int lonN))
+        {
+            return false;
+        }
+
+        double latitude = 90.0 - latN / 380926.0;
+        double longitude = -180.0 + lonN / 190463.0;
+
+        SymbolTable symbolTable;
+        char? overlay = null;
+        if (isPrimary)
+        {
+            symbolTable = SymbolTable.Primary;
+        }
+        else if (isAlternate)
+        {
+            symbolTable = SymbolTable.Alternate;
+        }
+        else
+        {
+            symbolTable = SymbolTable.Alternate;
+            overlay = tableOrOverlay;
+        }
+
+        SymbolCode symbolCode = span[9].ToSymbolCode();
+
+        double? course = null;
+        double? speed = null;
+        double? altitude = null;
+
+        int c1 = span[10] - 33;
+        int s1 = span[11] - 33;
+        int ctype = span[12] - 33;
+
+        // Space char yields -1; skip course/speed/altitude when either is missing.
+        if (c1 != -1 && s1 != -1)
+        {
+            if ((ctype & 0x18) == 0x10)
+            {
+                altitude = Math.Pow(1.002, c1 * 91 + s1);
+            }
+            else if (c1 is >= 0 and <= 89)
+            {
+                course = c1 == 0 ? 360 : c1 * 4.0;
+                speed = Math.Pow(1.08, s1) - 1.0;
+            }
+        }
+
+        string? comment = null;
+        if (info.Length > pos + 13)
+        {
+            var remaining = info[(pos + 13)..];
+            if (remaining.Length > 0)
+            {
+                comment = remaining;
+            }
+        }
+
+        packet = new PositionPacket
+        {
+            Source = source,
+            Destination = dest,
+            Raw = info,
+            Latitude = latitude,
+            Longitude = longitude,
+            Symbol = new Symbol(symbolTable, symbolCode, overlay),
+            Comment = comment,
+            Precision = 3,
+            Course = course,
+            Speed = speed,
+            Altitude = altitude,
+            Timestamp = null
+        };
+        return true;
+    }
+
+
+    private static bool LooksLikeUncompressedPosition(string info, int pos)
+    {
+        if (info.Length - pos < 8 || !char.IsDigit(info[pos]) || !char.IsDigit(info[pos + 1]))
+        {
+            return false;
+        }
+
+        int limit = Math.Min(info.Length, pos + 12);
+        for (int i = pos + 4; i < limit; i++)
+        {
+            if (info[i] is not ('N' or 'S'))
+            {
+                continue;
+            }
+
+            for (int j = pos + 2; j < i; j++)
+            {
+                if (info[j] == '.')
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool IsCompressedOverlayChar(char c) =>
+        c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'j');
+
     private static AprsPacket ParseObjectPosition(string info, Callsign source, Callsign destination)
     {
         // Object format: ;objectnam*DDHHMMz<position> (or '_' for a killed object).
@@ -329,6 +499,24 @@ public static class AprsInfoFieldParser
         double minuteDec = min + decValue / Math.Pow(10, precision);
         longitude = deg + minuteDec / 60.0;
         if (dir == 'W') { longitude = -longitude; }
+
+        return true;
+    }
+
+
+    private static bool TryDecodeBase91(ReadOnlySpan<char> chars, out int value)
+    {
+        value = 0;
+        foreach (char c in chars)
+        {
+            if (c is < '!' or > '|')
+            {
+                value = 0;
+                return false;
+            }
+
+            value = value * 91 + (c - 33);
+        }
 
         return true;
     }

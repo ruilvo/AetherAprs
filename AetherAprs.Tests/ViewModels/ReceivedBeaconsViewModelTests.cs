@@ -8,10 +8,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Imaging;
+using AetherAprs.Modems.Aprs;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using Mapsui.Layers;
+using Microsoft.Extensions.Logging.Abstractions;
 using SkiaSharp;
 using Xunit;
 
@@ -31,7 +33,7 @@ public sealed class ReceivedBeaconsViewModelTests
         };
         var portService = new TestPortService(port);
         using var symbols = new TestSymbolBitmapProvider();
-        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols);
+        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols, NullLogger<ReceivedBeaconsViewModel>.Instance);
 
         portService.RaisePacket(port.Id, CreatePosition("N0CALL-1", 38.7, -9.1));
         await WaitForAsync(() => CountFeatures(viewModel) == 1);
@@ -57,7 +59,7 @@ public sealed class ReceivedBeaconsViewModelTests
         };
         var portService = new TestPortService(port);
         using var symbols = new TestSymbolBitmapProvider();
-        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols);
+        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols, NullLogger<ReceivedBeaconsViewModel>.Instance);
 
         portService.RaisePacket(port.Id, CreatePosition("N0CALL-2", 40.0, -8.0));
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -66,6 +68,56 @@ public sealed class ReceivedBeaconsViewModelTests
         port.ShowOnMap = true;
         portService.RaisePortsChanged();
         await WaitForAsync(() => CountFeatures(viewModel) == 1);
+    }
+
+
+    [Fact]
+    public async Task CompressedPosition_ParsedAndShownOnMap()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "IS",
+            ShowOnMap = true,
+            TypeSettings = new AprsIsSettings()
+        };
+        var portService = new TestPortService(port);
+        using var symbols = new TestSymbolBitmapProvider();
+        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols, NullLogger<ReceivedBeaconsViewModel>.Instance);
+
+        var packet = AprsInfoFieldParser.ParseInfoField(
+            "!/9-pFL>:4uBkQ",
+            new Callsign("N0CALL", 1),
+            new Callsign("APRS"));
+        var position = Assert.IsType<PositionPacket>(packet);
+
+        portService.RaisePacket(port.Id, position);
+        await WaitForAsync(() => CountFeatures(viewModel) == 1);
+        Assert.Equal(1, CountFeatures(viewModel));
+    }
+
+    [Fact]
+    public async Task UnknownPacket_DoesNotAddMapFeatures()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "IS",
+            ShowOnMap = true,
+            TypeSettings = new AprsIsSettings()
+        };
+        var portService = new TestPortService(port);
+        using var symbols = new TestSymbolBitmapProvider();
+        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols, NullLogger<ReceivedBeaconsViewModel>.Instance);
+
+        portService.RaisePacket(port.Id, new UnknownPacket
+        {
+            Source = new Callsign("N0CALL", 1),
+            Destination = new Callsign("APRS"),
+            Raw = "$garbage"
+        });
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.Equal(0, CountFeatures(viewModel));
     }
 
     private static int CountFeatures(ReceivedBeaconsViewModel viewModel)

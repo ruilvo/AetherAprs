@@ -67,6 +67,7 @@ public sealed class NavigationServiceTests
     private static INavigationService CreateNavigation(out ServiceProvider provider)
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddSingleton<INavigationService, NavigationService>();
 
         var portService = Substitute.For<IPortService>();

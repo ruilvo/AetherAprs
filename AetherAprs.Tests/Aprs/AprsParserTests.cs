@@ -90,6 +90,57 @@ public class AprsParserTests
         Assert.Equal(9.1, pos.Longitude, 6);
     }
 
+
+    [Fact]
+    public void ParseInfoField_CompressedPosition_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("!/9-pFL>:4uBkQ",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(42.2419, pos.Latitude, 4);
+        Assert.Equal(-8.59665, pos.Longitude, 5);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal('u'.ToSymbolCode(), pos.Symbol.Code);
+        Assert.Null(pos.Symbol.Overlay);
+        Assert.Equal(3, pos.Precision);
+        Assert.NotNull(pos.Altitude);
+        Assert.Equal(467.71, pos.Altitude.Value, 2);
+        Assert.Null(pos.Course);
+        Assert.Null(pos.Speed);
+        Assert.Null(pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_CompressedPositionWithCourseSpeed_ReturnsCourseAndSpeed()
+    {
+        // Same lat/lon/symbol as known vector; csT encodes course=180, speed~1.16 kn
+        var result = AprsInfoFieldParser.ParseInfoField("!/9-pFL>:4uN+!",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(42.2419, pos.Latitude, 4);
+        Assert.Equal(-8.59665, pos.Longitude, 5);
+        Assert.Equal(180, pos.Course);
+        Assert.NotNull(pos.Speed);
+        Assert.Equal(1.1589, pos.Speed.Value, 3);
+        Assert.Null(pos.Altitude);
+    }
+
+    [Fact]
+    public void ParseInfoField_CompressedObjectPosition_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(";TESTOBJ  *123456z/9-pFL>:4uBkQ",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(42.2419, pos.Latitude, 4);
+        Assert.Equal(-8.59665, pos.Longitude, 5);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal('u'.ToSymbolCode(), pos.Symbol.Code);
+        Assert.Equal(";TESTOBJ  *123456z/9-pFL>:4uBkQ", pos.Raw);
+    }
+
     // ---------------------------------------------------------------
     // Message parsing
     // ---------------------------------------------------------------

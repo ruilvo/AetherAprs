@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Modems.Kiss;
 
@@ -18,6 +20,7 @@ namespace AetherAprs.Modems.Kiss;
 public sealed class KissModem : IAsyncDisposable
 {
     private readonly Stream _stream;
+    private readonly ILogger<KissModem> _logger;
     private readonly CancellationTokenSource _readCts = new();
     private readonly List<byte> _accumulator = [];
     private Task? _readTask;
@@ -27,9 +30,10 @@ public sealed class KissModem : IAsyncDisposable
     /// Initializes a new instance of <see cref="KissModem"/>.
     /// </summary>
     /// <param name="stream">The duplex stream to communicate over. Must be readable and writable.</param>
+    /// <param name="loggerFactory">Optional logger factory.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="stream"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="stream"/> does not support both read and write.</exception>
-    public KissModem(Stream stream)
+    public KissModem(Stream stream, ILoggerFactory? loggerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
 
@@ -39,6 +43,7 @@ public sealed class KissModem : IAsyncDisposable
         }
 
         _stream = stream;
+        _logger = loggerFactory?.CreateLogger<KissModem>() ?? NullLogger<KissModem>.Instance;
     }
 
     /// <summary>
@@ -66,6 +71,7 @@ public sealed class KissModem : IAsyncDisposable
         }
 
         _readTask = ReadLoopAsync(_readCts.Token);
+        _logger.LogInformation("KISS modem started.");
     }
 
     /// <summary>
@@ -91,6 +97,7 @@ public sealed class KissModem : IAsyncDisposable
         }
 
         _readTask = null;
+        _logger.LogInformation("KISS modem stopped.");
     }
 
     /// <summary>
@@ -200,6 +207,11 @@ public sealed class KissModem : IAsyncDisposable
         {
             var unescaped = KissSerializer.UnescapeData([.. _accumulator]);
             var frame = KissSerializer.DecodeFrame(unescaped);
+            _logger.LogDebug(
+                "KISS frame received: Command={Command}, Port={Port}, DataLength={Length}",
+                frame.CommandType,
+                frame.Port,
+                frame.Data.Length);
             FrameReceived?.Invoke(this, frame);
         }
         catch (Exception ex)
@@ -210,6 +222,7 @@ public sealed class KissModem : IAsyncDisposable
 
     private void OnReceiveError(Exception exception)
     {
+        _logger.LogWarning(exception, "KISS modem receive error.");
         ReceiveError?.Invoke(this, exception);
     }
 }

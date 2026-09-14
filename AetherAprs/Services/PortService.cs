@@ -61,6 +61,14 @@ public class PortService : IPortService
 
             if (wasRunning || port.IsEnabled)
             {
+                if (wasRunning)
+                {
+                    _logger.LogDebug(
+                        "Restarting running port {PortName} ({PortId}) after settings update.",
+                        port.Name,
+                        port.Id);
+                }
+
                 await StopModemAsync(port.Id);
                 if (port.IsEnabled)
                 {
@@ -265,8 +273,9 @@ public class PortService : IPortService
                 case KissSettings kiss:
                 {
                     var stream = await _kissStreamFactory.OpenAsync(kiss).ConfigureAwait(false);
-                    var kissModem = new KissModem(stream);
-                    var modem = new AprsRfModem(kissModem);
+                    var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+                    var kissModem = new KissModem(stream, loggerFactory);
+                    var modem = new AprsRfModem(kissModem, loggerFactory);
 
                     EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
                     modem.PacketReceived += packetHandler;
@@ -334,6 +343,14 @@ public class PortService : IPortService
             portId,
             packet.Source,
             packet.Raw);
+        if (packet is UnknownPacket)
+        {
+            _logger.LogWarning(
+                "Unknown APRS packet on port {PortId} from {Source}: {Raw}",
+                portId,
+                packet.Source,
+                packet.Raw);
+        }
         PacketReceived?.Invoke(this, new PortPacketReceivedEventArgs
         {
             PortId = portId,

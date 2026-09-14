@@ -9,6 +9,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -22,7 +23,7 @@ public sealed class PortsViewModelTests
         var first = CreatePort(new AprsIsSettings(), "First");
         var second = CreatePort(new KissSettings { Transport = new TcpKissTransportSettings() }, "Second");
         var portService = new TestPortService(first, second);
-        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService);
+        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, NullLogger<PortsViewModel>.Instance);
 
         Assert.Collection(
             viewModel.PortItems,
@@ -37,7 +38,7 @@ public sealed class PortsViewModelTests
         var original = CreatePort(new AprsIsSettings(), "Original");
         var replacement = CreatePort(new AprsIsSettings(), "Replacement");
         var portService = new TestPortService(original);
-        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService);
+        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, NullLogger<PortsViewModel>.Instance);
 
         portService.ReplacePorts(replacement);
 
@@ -50,7 +51,7 @@ public sealed class PortsViewModelTests
     {
         var port = CreatePort(new AprsIsSettings(), "Port");
         var portService = new TestPortService(port);
-        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService);
+        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, NullLogger<PortsViewModel>.Instance);
         var item = Assert.Single(viewModel.PortItems);
 
         item.IsEnabled = true;

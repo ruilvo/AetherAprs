@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Extensions;
@@ -187,11 +190,89 @@ public sealed class PortServiceTests
         Assert.Equal(2, configuration.SaveCount);
     }
 
-    private static PortService CreateService(TestConfigurationService configuration)
+
+    [Fact]
+    public async Task UpdatePortAsync_WhenSessionActive_RestartsModemWithNewSettings()
     {
-        var services = new ServiceCollection().BuildServiceProvider();
-        var kissStreamFactory = new KissStreamFactory([new TcpKissStreamConnector()]);
+        var portId = Guid.NewGuid();
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "KISS",
+            IsEnabled = false,
+            IsTx = true,
+            TypeSettings = new KissSettings
+            {
+                Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
+            }
+        };
+        var configuration = new TestConfigurationService(port);
+        var factory = new CountingKissStreamFactory();
+        var service = CreateService(configuration, factory);
+
+        await service.SetPortEnabledAsync(portId, true);
+        Assert.Equal(1, factory.OpenCount);
+
+        var updated = new PortConfig
+        {
+            Id = portId,
+            Name = "KISS-updated",
+            IsEnabled = true,
+            IsTx = true,
+            TypeSettings = new KissSettings
+            {
+                Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8002 }
+            }
+        };
+
+        await service.UpdatePortAsync(updated);
+
+        Assert.Equal(2, factory.OpenCount);
+        Assert.Equal("KISS-updated", port.Name);
+        var kiss = Assert.IsType<KissSettings>(port.TypeSettings);
+        var tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
+        Assert.Equal(8002, tcp.Port);
+    }
+
+    private static PortService CreateService(
+        TestConfigurationService configuration,
+        IKissStreamFactory? kissStreamFactory = null)
+    {
+        var services = new ServiceCollection().AddLogging().BuildServiceProvider();
+        kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         return new PortService(configuration, NullLogger<PortService>.Instance, services, kissStreamFactory);
+    }
+
+    private sealed class CountingKissStreamFactory : IKissStreamFactory
+    {
+        public int OpenCount { get; private set; }
+
+        public IReadOnlyCollection<Type> SupportedTransports { get; } =
+            [typeof(TcpKissTransportSettings)];
+
+        public Task<Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default)
+        {
+            OpenCount++;
+            // Never-EOF duplex stub so KissModem.Start does not exit immediately.
+            return Task.FromResult<Stream>(new NeverEofMemoryStream());
+        }
+    }
+
+    private sealed class NeverEofMemoryStream : MemoryStream
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return 0;
+            }
+
+            return 0;
+        }
     }
 
     private sealed class TestConfigurationService : IConfigurationService
