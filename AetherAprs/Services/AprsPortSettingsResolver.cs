@@ -13,10 +13,12 @@ namespace AetherAprs.Services;
 public class AprsPortSettingsResolver : IAprsPortSettingsResolver
 {
     private readonly IConfigurationService _configurationService;
+    private readonly IBeaconService _beaconService;
 
-    public AprsPortSettingsResolver(IConfigurationService configurationService)
+    public AprsPortSettingsResolver(IConfigurationService configurationService, IBeaconService beaconService)
     {
         _configurationService = configurationService;
+        _beaconService = beaconService;
     }
 
     public int? GetPortSsid(PortConfig port)
@@ -32,7 +34,7 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
     }
 
     public DynamicBeaconMode GetPortBeaconMode(PortConfig port) =>
-        port.DynamicBeaconMode ?? _configurationService.Settings.Aprs.DefaultBeaconMode;
+        port.DynamicBeaconMode ?? _beaconService.CurrentConfiguration.Mode;
 
     public string GetPortSymbolTableCharacter(PortConfig port) =>
         port.SymbolTableCharacter ?? _configurationService.Settings.Aprs.DefaultSymbolTableCharacter;
@@ -58,7 +60,7 @@ public interface IAprsPortSettingsResolver
     string GetPortCallsign(PortConfig port, string baseCallsign);
 
     /// <summary>
-    /// Gets the beacon mode for a port, falling back to the default from settings.
+    /// Gets the beacon mode for a port, falling back to the active dynamic beaconing mode.
     /// </summary>
     DynamicBeaconMode GetPortBeaconMode(PortConfig port);
 

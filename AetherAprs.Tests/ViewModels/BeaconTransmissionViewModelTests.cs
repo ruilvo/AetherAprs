@@ -218,7 +218,7 @@ public class BeaconTransmissionViewModelTests
         }
         
         beaconService ??= new TestBeaconService();
-        var portSettingsResolver = new AprsPortSettingsResolver(config);
+        var portSettingsResolver = new AprsPortSettingsResolver(config, beaconService);
 
         return new BeaconTransmissionViewModel(
             beaconService,

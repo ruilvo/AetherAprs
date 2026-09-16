@@ -104,11 +104,12 @@ public sealed class MainViewModelTests
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
             NullLogger<LocationTrackingViewModel>.Instance);
+        var beaconService = new TestBeaconService();
         var beaconTransmission = new BeaconTransmissionViewModel(
-            new TestBeaconService(),
+            beaconService,
             portService,
             configuration,
-            new AprsPortSettingsResolver(configuration),
+            new AprsPortSettingsResolver(configuration, beaconService),
             NullLogger<BeaconTransmissionViewModel>.Instance);
 
         var home = new HomeViewModel(

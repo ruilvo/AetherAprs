@@ -5,7 +5,6 @@
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.Models;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
@@ -26,7 +25,6 @@ public sealed class SettingsViewModelTests
             DefaultSsid = 7,
             DefaultSymbolTableCharacter = "\\",
             DefaultSymbolCodeCharacter = ">",
-            DefaultBeaconMode = DynamicBeaconMode.Drive
         };
 
         await viewModel.SaveCommand.ExecuteAsync(null);
@@ -35,7 +33,6 @@ public sealed class SettingsViewModelTests
         Assert.Equal(7, configuration.Settings.Aprs.DefaultSsid);
         Assert.Equal("\\", configuration.Settings.Aprs.DefaultSymbolTableCharacter);
         Assert.Equal(">", configuration.Settings.Aprs.DefaultSymbolCodeCharacter);
-        Assert.Equal(DynamicBeaconMode.Drive, configuration.Settings.Aprs.DefaultBeaconMode);
         Assert.True(viewModel.IsSaved);
         Assert.Equal(1, configuration.SaveCount);
     }

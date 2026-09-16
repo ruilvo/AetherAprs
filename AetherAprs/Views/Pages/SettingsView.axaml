@@ -58,16 +58,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
               TableCharacter="{Binding DefaultSymbolTableCharacter, Mode=TwoWay}"
               CodeCharacter="{Binding DefaultSymbolCodeCharacter, Mode=TwoWay}"
               ShowInheritOption="False" />
-
-            <ComboBox ItemsSource="{Binding BeaconModes}"
-                      SelectedItem="{Binding DefaultBeaconMode}"
-                      wpf:ComboBoxAssist.Label="Default beacon mode">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="x:Object">
-                  <TextBlock Text="{Binding}" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
           </StackPanel>
         </StackPanel>
 

@@ -27,7 +27,6 @@ public sealed class ConfigurationServiceTests
             service.Settings.Aprs.Callsign = "CT7ALW";
             service.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
             service.Settings.Aprs.DefaultSymbolCodeCharacter = ">";
-            service.Settings.Aprs.DefaultBeaconMode = AetherAprs.Models.DynamicBeaconMode.Drive;
             await service.SaveSettingsAsync();
 
 #if DEBUG
@@ -40,7 +39,6 @@ public sealed class ConfigurationServiceTests
             Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
             Assert.Equal("\\", reloaded.Settings.Aprs.DefaultSymbolTableCharacter);
             Assert.Equal(">", reloaded.Settings.Aprs.DefaultSymbolCodeCharacter);
-            Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, reloaded.Settings.Aprs.DefaultBeaconMode);
         }
         finally
         {
@@ -61,7 +59,6 @@ public sealed class ConfigurationServiceTests
 
             Assert.Equal("/", service.Settings.Aprs.DefaultSymbolTableCharacter);
             Assert.Equal("[", service.Settings.Aprs.DefaultSymbolCodeCharacter);
-            Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Walk, service.Settings.Aprs.DefaultBeaconMode);
         }
         finally
         {

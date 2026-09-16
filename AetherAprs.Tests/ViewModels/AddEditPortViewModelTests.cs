@@ -54,7 +54,7 @@ public sealed class AddEditPortViewModelTests
     {
         var viewModel = CreateViewModel();
         viewModel.UseDefaultSymbol = true;
-        viewModel.SelectedBeaconMode = null;
+        viewModel.SelectedBeaconMode = BeaconModeOption.UseDefault;
 
         var config = viewModel.BuildConfig();
 
@@ -70,7 +70,7 @@ public sealed class AddEditPortViewModelTests
         viewModel.UseDefaultSymbol = false;
         viewModel.SymbolTableCharacter = "/";
         viewModel.SymbolCodeCharacter = ">";
-        viewModel.SelectedBeaconMode = AetherAprs.Models.DynamicBeaconMode.Walk;
+        viewModel.SelectedBeaconMode = BeaconModeOption.FromMode(AetherAprs.Models.DynamicBeaconMode.Walk);
 
         var config = viewModel.BuildConfig();
 
@@ -117,7 +117,7 @@ public sealed class AddEditPortViewModelTests
         Assert.False(viewModel.UseDefaultSymbol);
         Assert.Equal("/", viewModel.SymbolTableCharacter);
         Assert.Equal(">", viewModel.SymbolCodeCharacter);
-        Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, viewModel.SelectedBeaconMode);
+        Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, viewModel.SelectedBeaconMode.Mode);
     }
 
     [Fact]
@@ -156,6 +156,15 @@ public sealed class AddEditPortViewModelTests
         Assert.False(viewModel.IsEditing);
         Assert.Equal("APRS-IS Port 1", viewModel.Name);
         Assert.Equal("Add Port", viewModel.Title);
+    }
+
+    [Fact]
+    public void BeaconModesIncludeUseDefaultOption()
+    {
+        var viewModel = CreateViewModel();
+
+        Assert.Contains(viewModel.BeaconModes, option => option.Mode is null && option.DisplayName == "<Use default>");
+        Assert.Equal(BeaconModeOption.UseDefault, viewModel.SelectedBeaconMode);
     }
 
     [Fact]

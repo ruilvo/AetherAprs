@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using AetherAprs.Models;
 
 namespace AetherAprs.Configuration;
 
@@ -106,6 +105,4 @@ public class AprsSettings
             _defaultSymbolCodeCharacter = value;
         }
     }
-
-    public DynamicBeaconMode DefaultBeaconMode { get; set; } = DynamicBeaconMode.Walk;
 }

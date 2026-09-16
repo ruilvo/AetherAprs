@@ -6,6 +6,7 @@ using System;
 using AetherAprs.Configuration;
 using AetherAprs.Models;
 using AetherAprs.Services;
+using NSubstitute;
 using Xunit;
 
 namespace AetherAprs.Tests.Services;
@@ -16,7 +17,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortSsid_ReturnsPortSsidWhenSet()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = 5;
 
@@ -30,7 +31,7 @@ public class AprsPortSettingsResolverTests
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSsid = 3;
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = null;
 
@@ -43,7 +44,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortSsid_ReturnsNullWhenSsidIsZero()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = 0;
 
@@ -56,7 +57,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortSsid_ReturnsNullWhenSsidIsNegative()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         
         // Negative SSID should throw ArgumentOutOfRangeException due to validation
@@ -67,7 +68,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortCallsign_ReturnsCallsignWithSsidWhenSsidIsSet()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = 7;
 
@@ -80,7 +81,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortCallsign_ReturnsCallsignWithoutSsidWhenSsidIsNull()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = null;
 
@@ -93,7 +94,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortCallsign_ReturnsCallsignWithoutSsidWhenSsidIsZero()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = 0;
 
@@ -107,7 +108,7 @@ public class AprsPortSettingsResolverTests
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSsid = 9;
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.Ssid = null;
 
@@ -120,7 +121,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortBeaconMode_ReturnsPortModeWhenSet()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.DynamicBeaconMode = DynamicBeaconMode.Drive;
 
@@ -130,11 +131,9 @@ public class AprsPortSettingsResolverTests
     }
 
     [Fact]
-    public void GetPortBeaconMode_ReturnsDefaultModeWhenPortModeIsNull()
+    public void GetPortBeaconMode_ReturnsActiveModeWhenPortModeIsNull()
     {
-        var config = CreateConfiguration();
-        config.Settings.Aprs.DefaultBeaconMode = DynamicBeaconMode.Custom;
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(activeMode: DynamicBeaconMode.Custom);
         var port = CreatePort();
         port.DynamicBeaconMode = null;
 
@@ -147,7 +146,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortSymbolTableCharacter_ReturnsPortSymbolWhenSet()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.SymbolTableCharacter = "\\";
 
@@ -161,7 +160,7 @@ public class AprsPortSettingsResolverTests
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.SymbolTableCharacter = null;
 
@@ -174,7 +173,7 @@ public class AprsPortSettingsResolverTests
     public void GetPortSymbolCodeCharacter_ReturnsPortSymbolWhenSet()
     {
         var config = CreateConfiguration();
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.SymbolCodeCharacter = ">";
 
@@ -188,7 +187,7 @@ public class AprsPortSettingsResolverTests
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSymbolCodeCharacter = "k";
-        var resolver = new AprsPortSettingsResolver(config);
+        var resolver = CreateResolver(config);
         var port = CreatePort();
         port.SymbolCodeCharacter = null;
 
@@ -200,6 +199,21 @@ public class AprsPortSettingsResolverTests
     private static TestConfigurationService CreateConfiguration()
     {
         return new TestConfigurationService();
+    }
+
+    private static AprsPortSettingsResolver CreateResolver(
+        IConfigurationService? config = null,
+        DynamicBeaconMode activeMode = DynamicBeaconMode.Walk)
+    {
+        var beacon = Substitute.For<IBeaconService>();
+        beacon.CurrentConfiguration.Returns(activeMode switch
+        {
+            DynamicBeaconMode.Drive => BeaconConfig.CreateDrivePreset(),
+            DynamicBeaconMode.Custom => BeaconConfig.CreateCustomPreset(),
+            _ => BeaconConfig.CreateWalkPreset()
+        });
+
+        return new AprsPortSettingsResolver(config ?? CreateConfiguration(), beacon);
     }
 
     private static PortConfig CreatePort()

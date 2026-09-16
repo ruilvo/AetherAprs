@@ -51,7 +51,9 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
         _beaconsLayer = new WritableLayer
         {
-            Name = "Received Beacons"
+            Name = "Received Beacons",
+            // Mapsui layers default to a white VectorStyle with a grey outline.
+            Style = null
         };
 
         _portService.PacketReceived += OnPortServicePacketReceived;

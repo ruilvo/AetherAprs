@@ -158,7 +158,7 @@ public sealed class HomeViewModelTests
         
         var symbolProvider = new TestSymbolBitmapProvider();
         var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
-        var portSettingsResolver = new AprsPortSettingsResolver(configuration);
+        var portSettingsResolver = new AprsPortSettingsResolver(configuration, beaconService);
         
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),

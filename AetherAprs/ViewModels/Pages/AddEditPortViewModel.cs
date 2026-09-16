@@ -93,7 +93,7 @@ public partial class AddEditPortViewModel : ViewModelBase
     public partial bool ShowOnMap { get; set; } = true;
 
     [ObservableProperty]
-    public partial DynamicBeaconMode? SelectedBeaconMode { get; set; }
+    public partial BeaconModeOption SelectedBeaconMode { get; set; } = BeaconModeOption.UseDefault;
 
     public bool IsSymbolValid => TryCreateSymbol(out _);
 
@@ -111,7 +111,7 @@ public partial class AddEditPortViewModel : ViewModelBase
 
     public IReadOnlyList<Type> AvailableKissTransportTypes { get; }
 
-    public DynamicBeaconMode?[] BeaconModes { get; } = [null, DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
+    public IReadOnlyList<BeaconModeOption> BeaconModes { get; } = BeaconModeOption.All;
 
     public AddEditPortViewModel(
         INavigationService navigationService,
@@ -136,7 +136,7 @@ public partial class AddEditPortViewModel : ViewModelBase
 
         Name = string.Empty;
         Passcode = AprsIsSettings.DefaultPasscode;
-        SelectedBeaconMode = null;
+        SelectedBeaconMode = BeaconModeOption.UseDefault;
     }
 
     public void Initialize(string globalCallsign, int nextPortNumber, string defaultSymbolTableCharacter, string defaultSymbolCodeCharacter, PortConfig? existingConfig = null)
@@ -342,7 +342,7 @@ public partial class AddEditPortViewModel : ViewModelBase
             SymbolCodeCharacter = config.SymbolCodeCharacter!;
         }
 
-        SelectedBeaconMode = config.DynamicBeaconMode;
+        SelectedBeaconMode = BeaconModeOption.FromMode(config.DynamicBeaconMode);
 
         if (config.TypeSettings is AprsIsSettings aprsIs)
         {
@@ -410,7 +410,7 @@ public partial class AddEditPortViewModel : ViewModelBase
             IsRx = IsRx,
             IsTx = IsTx,
             ShowOnMap = ShowOnMap,
-            DynamicBeaconMode = SelectedBeaconMode
+            DynamicBeaconMode = SelectedBeaconMode.Mode
         };
 
         if (SelectedPortSettingsType == typeof(AprsIsSettings))

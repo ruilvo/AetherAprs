@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
-using AetherAprs.Models;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Pages;
 
@@ -30,11 +29,6 @@ public partial class SettingsViewModel : ViewModelBase
     public partial string DefaultSymbolCodeCharacter { get; set; } = "[";
 
     [ObservableProperty]
-    public partial DynamicBeaconMode DefaultBeaconMode { get; set; } = DynamicBeaconMode.Walk;
-
-    public DynamicBeaconMode[] BeaconModes { get; } = [DynamicBeaconMode.Walk, DynamicBeaconMode.Drive, DynamicBeaconMode.Custom];
-
-    [ObservableProperty]
     public partial bool IsSaved { get; set; }
 
     public SettingsViewModel(IConfigurationService configurationService, INavigationService navigationService)
@@ -47,7 +41,6 @@ public partial class SettingsViewModel : ViewModelBase
         DefaultSsid = aprs.DefaultSsid;
         DefaultSymbolTableCharacter = aprs.DefaultSymbolTableCharacter;
         DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
-        DefaultBeaconMode = aprs.DefaultBeaconMode;
     }
 
     [RelayCommand]
@@ -57,7 +50,6 @@ public partial class SettingsViewModel : ViewModelBase
         _configurationService.Settings.Aprs.DefaultSsid = DefaultSsid;
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
-        _configurationService.Settings.Aprs.DefaultBeaconMode = DefaultBeaconMode;
         await _configurationService.SaveSettingsAsync();
         IsSaved = true;
     }

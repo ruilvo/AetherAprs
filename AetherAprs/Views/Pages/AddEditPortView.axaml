@@ -87,8 +87,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     SelectedItem="{Binding SelectedBeaconMode}"
                     wpf:ComboBoxAssist.Label="Dynamic Beaconing Mode">
             <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="x:Object">
-                <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
+              <DataTemplate x:DataType="vm:BeaconModeOption">
+                <TextBlock Text="{Binding DisplayName}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>

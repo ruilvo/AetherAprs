@@ -22,6 +22,22 @@ namespace AetherAprs.Tests.ViewModels;
 public sealed class ReceivedBeaconsViewModelTests
 {
     [Fact]
+    public void BeaconsLayerDoesNotUseDefaultVectorStyle()
+    {
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "IS",
+            TypeSettings = new AprsIsSettings()
+        };
+        var portService = new TestPortService(port);
+        using var symbols = new TestSymbolBitmapProvider();
+        using var viewModel = new ReceivedBeaconsViewModel(portService, symbols, NullLogger<ReceivedBeaconsViewModel>.Instance);
+
+        Assert.Null(viewModel.BeaconsLayer.Style);
+    }
+
+    [Fact]
     public async Task HiddenPortKeepsHistoryAndRestoresOnShow()
     {
         var port = new PortConfig
