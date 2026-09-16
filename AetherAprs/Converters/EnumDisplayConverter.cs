@@ -7,6 +7,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using AetherAprs.Configuration;
 using AetherAprs.Models;
+using AetherAprs.Localization;
 
 namespace AetherAprs.Converters;
 
@@ -16,40 +17,46 @@ public class EnumDisplayConverter : IValueConverter
     {
         if (value is null)
         {
-            return "Default";
+            return Strings.Get("Default");
         }
 
         if (value is Type type)
         {
             if (type == typeof(AprsIsSettings))
             {
-                return "APRS-IS";
+                return Strings.Get("PortTypeAprsIs");
             }
 
             if (type == typeof(KissSettings))
             {
-                return "KISS";
+                return Strings.Get("PortTypeKiss");
             }
 
             if (type == typeof(TcpKissTransportSettings))
             {
-                return "TCP";
+                return Strings.Get("TransportTcp");
             }
 
             if (type == typeof(BluetoothClassicKissTransportSettings))
             {
-                return "Bluetooth Classic (SPP)";
+                return Strings.Get("TransportBluetoothClassicSpp");
             }
 
             if (type == typeof(BluetoothLeKissTransportSettings))
             {
-                return "Bluetooth LE";
+                return Strings.Get("TransportBluetoothLe");
             }
         }
 
         if (value is DynamicBeaconMode mode)
         {
-            return mode.ToString();
+            return mode switch
+            {
+                DynamicBeaconMode.Walk => Strings.Get("BeaconModeWalk"),
+                DynamicBeaconMode.Drive => Strings.Get("BeaconModeDrive"),
+                DynamicBeaconMode.Custom => Strings.Get("BeaconModeCustom"),
+                _ => mode.ToString()
+            };
         }
 
         return value;
@@ -61,11 +68,11 @@ public class EnumDisplayConverter : IValueConverter
         {
             return str switch
             {
-                "APRS-IS" => typeof(AprsIsSettings),
-                "KISS" => typeof(KissSettings),
-                "TCP" => typeof(TcpKissTransportSettings),
-                "Bluetooth Classic (SPP)" => typeof(BluetoothClassicKissTransportSettings),
-                "Bluetooth LE" => typeof(BluetoothLeKissTransportSettings),
+                _ when str == Strings.Get("PortTypeAprsIs") || str == "APRS-IS" => typeof(AprsIsSettings),
+                _ when str == Strings.Get("PortTypeKiss") || str == "KISS" => typeof(KissSettings),
+                _ when str == Strings.Get("TransportTcp") || str == "TCP" => typeof(TcpKissTransportSettings),
+                _ when str == Strings.Get("TransportBluetoothClassicSpp") || str == "Bluetooth Classic (SPP)" => typeof(BluetoothClassicKissTransportSettings),
+                _ when str == Strings.Get("TransportBluetoothLe") || str == "Bluetooth LE" => typeof(BluetoothLeKissTransportSettings),
                 _ => null
             };
         }

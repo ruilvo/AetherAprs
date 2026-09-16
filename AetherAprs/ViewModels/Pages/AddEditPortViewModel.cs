@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Models;
+using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
@@ -104,8 +105,8 @@ public partial class AddEditPortViewModel : ViewModelBase
     public bool IsEditing => _existingConfig is not null;
 
     public string Title => IsEditing
-        ? (string.IsNullOrEmpty(Name) ? "Edit Port" : $"Edit {Name}")
-        : "Add Port";
+        ? (string.IsNullOrEmpty(Name) ? Strings.Get("EditPort") : Strings.Format("EditPortNamed", Name))
+        : Strings.Get("AddPort");
 
     public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings)];
 
@@ -152,7 +153,7 @@ public partial class AddEditPortViewModel : ViewModelBase
         }
         else
         {
-            Name = $"APRS-IS Port {nextPortNumber}";
+            Name = Strings.Format("DefaultAprsIsPortName", nextPortNumber);
             Passcode = AprsPasscode.Compute(globalCallsign);
         }
 

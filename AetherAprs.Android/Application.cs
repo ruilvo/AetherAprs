@@ -21,6 +21,7 @@ namespace AetherAprs.Android
             
             // Register Android-specific implementation of ILocationService
             services.AddSingleton<AetherAprs.Services.ILocationService, Services.LocationService>();
+            services.AddSingleton<AetherAprs.Services.IUiCultureProvider, Services.AndroidUiCultureProvider>();
 
             // Bluetooth Classic SPP + BLE KISS transports and device discovery
             services.AddSingleton<IKissStreamConnector, Services.BluetoothClassicKissStreamConnector>();
@@ -49,6 +50,8 @@ namespace AetherAprs.Android
         public override void OnCreate()
         {
             base.OnCreate();
+
+            AetherAprs.Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
 
             // Ensure configuration files exist before Avalonia initializes
             EnsureConfigurationFiles();

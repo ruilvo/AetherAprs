@@ -31,6 +31,7 @@ public static class DesignData
 
         // Register services required by ViewModels
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
         services.AddDbContextFactory<AppDbContext>((sp, options) =>
         {
             var directory = sp.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
@@ -75,6 +76,7 @@ public static class DesignData
         services.AddTransient<ConversationViewModel>();
 
         var provider = services.BuildServiceProvider();
+        Localization.UiCulture.Apply(provider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
         provider.GetRequiredService<AppSavedDataInitializer>().Initialize();
         return provider;
     }

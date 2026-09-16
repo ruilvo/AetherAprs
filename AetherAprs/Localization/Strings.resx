@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Home" xml:space="preserve"><value>Home</value></data>
+  <data name="Messages" xml:space="preserve"><value>Messages</value></data>
+  <data name="Ports" xml:space="preserve"><value>Ports</value></data>
+  <data name="Settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="CenterOnMyLocation" xml:space="preserve"><value>Center on my location</value></data>
+  <data name="ManageYourAprsPorts" xml:space="preserve"><value>Manage your APRS ports</value></data>
+  <data name="ShowOnMap" xml:space="preserve"><value>Show on map</value></data>
+  <data name="DeletePort" xml:space="preserve"><value>Delete port</value></data>
+  <data name="Running" xml:space="preserve"><value>Running</value></data>
+  <data name="Stopped" xml:space="preserve"><value>Stopped</value></data>
+  <data name="PortTypeAprsIs" xml:space="preserve"><value>APRS-IS</value></data>
+  <data name="PortTypeKiss" xml:space="preserve"><value>KISS</value></data>
+  <data name="PortTypeUnknown" xml:space="preserve"><value>Unknown</value></data>
+  <data name="AddPort" xml:space="preserve"><value>Add Port</value></data>
+  <data name="EditPort" xml:space="preserve"><value>Edit Port</value></data>
+  <data name="EditPortNamed" xml:space="preserve"><value>Edit {0}</value></data>
+  <data name="ConfigureAprsPortSettings" xml:space="preserve"><value>Configure your APRS port settings</value></data>
+  <data name="PortName" xml:space="preserve"><value>Port Name</value></data>
+  <data name="PortNamePlaceholder" xml:space="preserve"><value>e.g. APRS-IS Port 1</value></data>
+  <data name="PortDirection" xml:space="preserve"><value>Port Direction</value></data>
+  <data name="ReceiveRx" xml:space="preserve"><value>Receive (Rx)</value></data>
+  <data name="TransmitTx" xml:space="preserve"><value>Transmit (Tx)</value></data>
+  <data name="DynamicBeaconingMode" xml:space="preserve"><value>Dynamic Beaconing Mode</value></data>
+  <data name="UseDefaultBeaconMode" xml:space="preserve"><value>&lt;Use default&gt;</value></data>
+  <data name="BeaconModeWalk" xml:space="preserve"><value>Walk</value></data>
+  <data name="BeaconModeDrive" xml:space="preserve"><value>Drive</value></data>
+  <data name="BeaconModeCustom" xml:space="preserve"><value>Custom</value></data>
+  <data name="Ssid" xml:space="preserve"><value>SSID</value></data>
+  <data name="SsidPlaceholder" xml:space="preserve"><value>Leave empty for default</value></data>
+  <data name="SelectPortType" xml:space="preserve"><value>Select a port type</value></data>
+  <data name="AprsIsSettings" xml:space="preserve"><value>APRS-IS Settings</value></data>
+  <data name="Server" xml:space="preserve"><value>Server</value></data>
+  <data name="ServerPlaceholder" xml:space="preserve"><value>e.g. euro.aprs2.net</value></data>
+  <data name="Port" xml:space="preserve"><value>Port</value></data>
+  <data name="Passcode" xml:space="preserve"><value>Passcode</value></data>
+  <data name="PasscodePlaceholder" xml:space="preserve"><value>Auto-filled from callsign</value></data>
+  <data name="FilterOptional" xml:space="preserve"><value>Filter (optional)</value></data>
+  <data name="FilterPlaceholder" xml:space="preserve"><value>e.g. m/50</value></data>
+  <data name="KissSettings" xml:space="preserve"><value>KISS Settings</value></data>
+  <data name="Transport" xml:space="preserve"><value>Transport</value></data>
+  <data name="Host" xml:space="preserve"><value>Host</value></data>
+  <data name="Scan" xml:space="preserve"><value>Scan</value></data>
+  <data name="Stop" xml:space="preserve"><value>Stop</value></data>
+  <data name="Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="UnnamedDevice" xml:space="preserve"><value>(unnamed)</value></data>
+  <data name="TransportTcp" xml:space="preserve"><value>TCP</value></data>
+  <data name="TransportBluetoothClassicSpp" xml:space="preserve"><value>Bluetooth Classic (SPP)</value></data>
+  <data name="TransportBluetoothLe" xml:space="preserve"><value>Bluetooth LE</value></data>
+  <data name="DefaultAprsIsPortName" xml:space="preserve"><value>APRS-IS Port {0}</value></data>
+  <data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Save" xml:space="preserve"><value>Save</value></data>
+  <data name="StationSettings" xml:space="preserve"><value>Station Settings</value></data>
+  <data name="StationSettingsDescription" xml:space="preserve"><value>Configure your station identity used for APRS.</value></data>
+  <data name="Callsign" xml:space="preserve"><value>Callsign</value></data>
+  <data name="CallsignPlaceholder" xml:space="preserve"><value>e.g. N0CALL</value></data>
+  <data name="DefaultSsid" xml:space="preserve"><value>Default SSID</value></data>
+  <data name="DynamicBeaconing" xml:space="preserve"><value>Dynamic Beaconing</value></data>
+  <data name="DynamicBeaconingDescription" xml:space="preserve"><value>Configure intelligent position beaconing with smart transmit intervals.</value></data>
+  <data name="ConfigureBeaconingModes" xml:space="preserve"><value>Configure Beaconing Modes</value></data>
+  <data name="DynamicBeaconingDescriptionLong" xml:space="preserve"><value>Configure intelligent position beaconing with smart transmit intervals based on your movement speed and direction.</value></data>
+  <data name="ActiveBeaconMode" xml:space="preserve"><value>Active Beacon Mode</value></data>
+  <data name="Mode" xml:space="preserve"><value>Mode</value></data>
+  <data name="WalkPedestrian" xml:space="preserve"><value>Walk (Pedestrian)</value></data>
+  <data name="DriveVehicular" xml:space="preserve"><value>Drive (Vehicular)</value></data>
+  <data name="Custom" xml:space="preserve"><value>Custom</value></data>
+  <data name="WalkMode" xml:space="preserve"><value>Walk Mode</value></data>
+  <data name="DriveMode" xml:space="preserve"><value>Drive Mode</value></data>
+  <data name="CustomMode" xml:space="preserve"><value>Custom Mode</value></data>
+  <data name="ResetToDefault" xml:space="preserve"><value>Reset to Default</value></data>
+  <data name="WalkModeDescription" xml:space="preserve"><value>Optimized for pedestrian movement with longer intervals and sensitive to direction changes.</value></data>
+  <data name="DriveModeDescription" xml:space="preserve"><value>Optimized for vehicular movement with shorter intervals for real-time tracking.</value></data>
+  <data name="CustomModeDescription" xml:space="preserve"><value>Fully customizable beacon configuration for advanced users.</value></data>
+  <data name="SlowSpeedIntervalStationary" xml:space="preserve"><value>Slow Speed Interval (stationary or very slow)</value></data>
+  <data name="NormalSpeedInterval" xml:space="preserve"><value>Normal Speed Interval</value></data>
+  <data name="FastSpeedIntervalMovingQuickly" xml:space="preserve"><value>Fast Speed Interval (moving quickly)</value></data>
+  <data name="FastSpeedIntervalHighway" xml:space="preserve"><value>Fast Speed Interval (highway speeds)</value></data>
+  <data name="FastSpeedInterval" xml:space="preserve"><value>Fast Speed Interval</value></data>
+  <data name="SlowSpeedThreshold" xml:space="preserve"><value>Slow Speed Threshold</value></data>
+  <data name="FastSpeedThreshold" xml:space="preserve"><value>Fast Speed Threshold</value></data>
+  <data name="CourseChangeThreshold" xml:space="preserve"><value>Course Change Threshold</value></data>
+  <data name="CourseChangeThresholdDisabled" xml:space="preserve"><value>Course Change Threshold (0 = disabled)</value></data>
+  <data name="MinimumDistance" xml:space="preserve"><value>Minimum Distance</value></data>
+  <data name="Seconds" xml:space="preserve"><value>seconds</value></data>
+  <data name="KilometersPerHour" xml:space="preserve"><value>km/h</value></data>
+  <data name="Degrees" xml:space="preserve"><value>degrees</value></data>
+  <data name="Meters" xml:space="preserve"><value>meters</value></data>
+  <data name="BeaconComment" xml:space="preserve"><value>Beacon Comment</value></data>
+  <data name="OptionalBeaconComment" xml:space="preserve"><value>Optional beacon comment</value></data>
+  <data name="Close" xml:space="preserve"><value>CLOSE</value></data>
+  <data name="AprsMessageConversations" xml:space="preserve"><value>APRS message conversations</value></data>
+  <data name="NewMessage" xml:space="preserve"><value>New Message</value></data>
+  <data name="Back" xml:space="preserve"><value>Back</value></data>
+  <data name="To" xml:space="preserve"><value>To</value></data>
+  <data name="DestinationCallsignPlaceholder" xml:space="preserve"><value>Destination callsign (e.g. N0CALL-1)</value></data>
+  <data name="You" xml:space="preserve"><value>You</value></data>
+  <data name="Received" xml:space="preserve"><value>Received</value></data>
+  <data name="MessageText" xml:space="preserve"><value>Message text</value></data>
+  <data name="Send" xml:space="preserve"><value>Send</value></data>
+  <data name="InvalidDestinationCallsign" xml:space="preserve"><value>Enter a valid destination callsign (e.g. N0CALL or N0CALL-1).</value></data>
+  <data name="MessageTextRequired" xml:space="preserve"><value>Message text is required.</value></data>
+  <data name="LocationTracking" xml:space="preserve"><value>Location Tracking</value></data>
+  <data name="Status" xml:space="preserve"><value>Status:</value></data>
+  <data name="Tracking" xml:space="preserve"><value>Tracking</value></data>
+  <data name="Position" xml:space="preserve"><value>Position:</value></data>
+  <data name="Altitude" xml:space="preserve"><value>Altitude:</value></data>
+  <data name="BeaconTransmission" xml:space="preserve"><value>Beacon Transmission</value></data>
+  <data name="LastDecision" xml:space="preserve"><value>Last Decision:</value></data>
+  <data name="Speed" xml:space="preserve"><value>Speed:</value></data>
+  <data name="Course" xml:space="preserve"><value>Course:</value></data>
+  <data name="Interval" xml:space="preserve"><value>Interval:</value></data>
+  <data name="BeaconSystemReady" xml:space="preserve"><value>Beacon system ready</value></data>
+  <data name="NextBeaconIn" xml:space="preserve"><value>Next beacon in {0}s ({1})</value></data>
+  <data name="NoTxPortsEnabled" xml:space="preserve"><value>No TX ports enabled</value></data>
+  <data name="CallsignNotConfigured" xml:space="preserve"><value>Callsign not configured</value></data>
+  <data name="BeaconTransmissionFailed" xml:space="preserve"><value>Beacon transmission failed</value></data>
+  <data name="BeaconSentStatus" xml:space="preserve"><value>✓ Beacon sent ({0}) - Speed: {1:F1}km/h, Course: {2:F0}°</value></data>
+  <data name="BeaconError" xml:space="preserve"><value>Beacon error: {0}</value></data>
+  <data name="NoLocationAvailable" xml:space="preserve"><value>No location available</value></data>
+  <data name="ManualBeaconSent" xml:space="preserve"><value>✓ Manual beacon sent</value></data>
+  <data name="ManualBeaconTransmissionFailed" xml:space="preserve"><value>Manual beacon transmission failed</value></data>
+  <data name="ErrorPrefix" xml:space="preserve"><value>Error: {0}</value></data>
+  <data name="InitialBeaconSentOnPortActivation" xml:space="preserve"><value>✓ Initial beacon sent on port activation ({0})</value></data>
+  <data name="ReasonInitialOrIntervalExceeded" xml:space="preserve"><value>Initial beacon or time interval exceeded</value></data>
+  <data name="ReasonAwaitingTimeInterval" xml:space="preserve"><value>Awaiting time interval</value></data>
+  <data name="ReasonDistanceBelowMinimum" xml:space="preserve"><value>Distance {0:F0}m below minimum {1}m</value></data>
+  <data name="ReasonCourseChanged" xml:space="preserve"><value>Course changed {0:F0}°</value></data>
+  <data name="ReasonIntervalExceeded" xml:space="preserve"><value>Beacon interval ({0}s) exceeded</value></data>
+  <data name="ReasonWaitingForNextInterval" xml:space="preserve"><value>Waiting for next interval (in {0}s)</value></data>
+  <data name="AprsSymbol" xml:space="preserve"><value>APRS Symbol</value></data>
+  <data name="Table" xml:space="preserve"><value>Table</value></data>
+  <data name="Code" xml:space="preserve"><value>Code</value></data>
+  <data name="UseDefaultStationSymbol" xml:space="preserve"><value>Use default station symbol</value></data>
+  <data name="ChooseASymbol" xml:space="preserve"><value>Choose a symbol</value></data>
+  <data name="EnterAprsTableAndCode" xml:space="preserve"><value>Enter the APRS table and code characters.</value></data>
+  <data name="Default" xml:space="preserve"><value>Default</value></data>
+  <data name="SymbolHuman" xml:space="preserve"><value>Human</value></data>
+  <data name="SymbolAmbulance" xml:space="preserve"><value>Ambulance</value></data>
+  <data name="SymbolCar" xml:space="preserve"><value>Car</value></data>
+  <data name="SymbolTruck" xml:space="preserve"><value>Truck</value></data>
+  <data name="SymbolBoat" xml:space="preserve"><value>Boat</value></data>
+  <data name="SymbolEmergency" xml:space="preserve"><value>Emergency</value></data>
+  <data name="SymbolHospital" xml:space="preserve"><value>Hospital</value></data>
+</root>

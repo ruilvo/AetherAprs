@@ -18,12 +18,14 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
 
     public string TypeName => _config.TypeSettings switch
     {
-        AprsIsSettings => "APRS-IS",
-        KissSettings => "KISS",
-        _ => "Unknown"
+        AprsIsSettings => Localization.Strings.Get("PortTypeAprsIs"),
+        KissSettings => Localization.Strings.Get("PortTypeKiss"),
+        _ => Localization.Strings.Get("PortTypeUnknown")
     };
 
-    public string StatusText => IsEnabled ? "Running" : "Stopped";
+    public string StatusText => IsEnabled
+        ? Localization.Strings.Get("Running")
+        : Localization.Strings.Get("Stopped");
 
     [ObservableProperty]
     public partial bool IsEnabled { get; set; } = config.IsEnabled;

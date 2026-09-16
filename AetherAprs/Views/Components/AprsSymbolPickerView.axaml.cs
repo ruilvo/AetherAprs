@@ -5,6 +5,7 @@
 using AetherAprs.Imaging;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Localization;
 using AetherAprs.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -79,13 +80,13 @@ public partial class AprsSymbolPickerView : UserControl
 
     public IReadOnlyList<AprsSymbolOption> SymbolOptions { get; } =
     [
-        new("Human", "/", "["),
-        new("Ambulance", "/", "a"),
-        new("Car", "/", ">"),
-        new("Truck", "/", "k"),
-        new("Boat", "/", "s"),
-        new("Emergency", "\\", "!"),
-        new("Hospital", "\\", "h")
+        new(Strings.Get("SymbolHuman"), "/", "["),
+        new(Strings.Get("SymbolAmbulance"), "/", "a"),
+        new(Strings.Get("SymbolCar"), "/", ">"),
+        new(Strings.Get("SymbolTruck"), "/", "k"),
+        new(Strings.Get("SymbolBoat"), "/", "s"),
+        new(Strings.Get("SymbolEmergency"), "\\", "!"),
+        new(Strings.Get("SymbolHospital"), "\\", "h")
     ];
 
     public AprsSymbolPickerView()

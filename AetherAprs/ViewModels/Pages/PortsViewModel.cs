@@ -21,7 +21,7 @@ public partial class PortsViewModel : ViewModelBase
     private readonly ILogger<PortsViewModel> _logger;
 
     [ObservableProperty]
-    public partial string Title { get; set; } = "Ports";
+    public partial string Title { get; set; } = Localization.Strings.Get("Ports");
 
     public ObservableCollection<PortItemViewModel> PortItems { get; } = new();
 

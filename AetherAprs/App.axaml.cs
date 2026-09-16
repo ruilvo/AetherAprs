@@ -40,6 +40,7 @@ public partial class App : Application
     {
         // Register default implementation of IAppDataDirProviderService for desktop/core platforms
         services.AddSingleton<Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+        services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
 
         // Desktop has no BLE/SPP stack yet — register unsupported placeholders.
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
@@ -77,6 +78,8 @@ public partial class App : Application
     {
         // Configure dependency injection
         ServiceProvider = ServiceProviderFactory.CreateServiceProvider(RegisterPlatformServices, OverrideCoreServices);
+
+        Localization.UiCulture.Apply(ServiceProvider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
 
         ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
 

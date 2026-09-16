@@ -20,7 +20,7 @@ public partial class MessagesViewModel : ViewModelBase
     private readonly IServiceProvider _serviceProvider;
 
     [ObservableProperty]
-    public partial string Title { get; set; } = "Messages";
+    public partial string Title { get; set; } = Localization.Strings.Get("Messages");
 
     public ObservableCollection<ConversationThread> Conversations => _messageService.Conversations;
 

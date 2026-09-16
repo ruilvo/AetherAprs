@@ -5,6 +5,7 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
+using AetherAprs.Localization;
 
 namespace AetherAprs.Converters;
 
@@ -15,7 +16,7 @@ public sealed class BoolToTrackingStatusConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        return value is true ? "Tracking" : "Stopped";
+        return value is true ? Strings.Get("Tracking") : Strings.Get("Stopped");
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

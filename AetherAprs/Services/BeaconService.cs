@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -305,7 +306,9 @@ public sealed class BeaconService : IBeaconService
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = isTimeExpired,
-                Reason = isTimeExpired ? "Initial beacon or time interval exceeded" : "Awaiting time interval",
+                Reason = isTimeExpired
+                    ? Strings.Get("ReasonInitialOrIntervalExceeded")
+                    : Strings.Get("ReasonAwaitingTimeInterval"),
                 ActiveIntervalSeconds = config.SlowIntervalSeconds,
                 SecondsUntilNextBeacon = Math.Max(0, config.SlowIntervalSeconds - (int)timeSinceLastTransmit.TotalSeconds)
             };
@@ -320,7 +323,7 @@ public sealed class BeaconService : IBeaconService
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = false,
-                Reason = $"Distance {distanceMeters:F0}m below minimum {config.MinimumDistanceMeters}m",
+                Reason = Strings.Format("ReasonDistanceBelowMinimum", distanceMeters, config.MinimumDistanceMeters),
                 ActiveIntervalSeconds = GetActiveInterval(config, 0),
                 SecondsUntilNextBeacon = (int)Math.Max(1, config.SlowIntervalSeconds - timeSinceLastTransmit.TotalSeconds)
             };
@@ -346,7 +349,7 @@ public sealed class BeaconService : IBeaconService
                 return new BeaconTransmitDecision
                 {
                     ShouldTransmit = true,
-                    Reason = $"Course changed {courseDelta:F0}°",
+                    Reason = Strings.Format("ReasonCourseChanged", courseDelta),
                     CurrentSpeedKmh = speedKmh,
                     CurrentCourseDegrees = courseDegrees,
                     ActiveIntervalSeconds = activeInterval,
@@ -368,7 +371,7 @@ public sealed class BeaconService : IBeaconService
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = true,
-                Reason = $"Beacon interval ({activeInterval2}s) exceeded",
+                Reason = Strings.Format("ReasonIntervalExceeded", activeInterval2),
                 CurrentSpeedKmh = speedKmh,
                 CurrentCourseDegrees = courseDegrees,
                 ActiveIntervalSeconds = activeInterval2,
@@ -381,7 +384,7 @@ public sealed class BeaconService : IBeaconService
         return new BeaconTransmitDecision
         {
             ShouldTransmit = false,
-            Reason = $"Waiting for next interval (in {secondsUntilNext}s)",
+            Reason = Strings.Format("ReasonWaitingForNextInterval", secondsUntilNext),
             CurrentSpeedKmh = speedKmh,
             CurrentCourseDegrees = courseDegrees,
             ActiveIntervalSeconds = activeInterval2,

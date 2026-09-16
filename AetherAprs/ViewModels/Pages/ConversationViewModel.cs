@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
+using AetherAprs.Localization;
 using AetherAprs.ViewModels;
 using Microsoft.Extensions.Logging;
 
@@ -25,7 +26,7 @@ public partial class ConversationViewModel : ViewModelBase
     private bool _isNewConversation;
 
     [ObservableProperty]
-    public partial string Title { get; set; } = "New Message";
+    public partial string Title { get; set; } = Strings.Get("NewMessage");
 
     [ObservableProperty]
     public partial string DestinationCallsign { get; set; } = string.Empty;
@@ -56,7 +57,7 @@ public partial class ConversationViewModel : ViewModelBase
         DetachThread();
         _isNewConversation = true;
         _thread = null;
-        Title = "New Message";
+        Title = Strings.Get("NewMessage");
         DestinationCallsign = string.Empty;
         MessageText = string.Empty;
         ErrorMessage = null;
@@ -89,13 +90,13 @@ public partial class ConversationViewModel : ViewModelBase
 
         if (!Callsign.TryParse(DestinationCallsign, out var addressee))
         {
-            ErrorMessage = "Enter a valid destination callsign (e.g. N0CALL or N0CALL-1).";
+            ErrorMessage = Strings.Get("InvalidDestinationCallsign");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(MessageText))
         {
-            ErrorMessage = "Message text is required.";
+            ErrorMessage = Strings.Get("MessageTextRequired");
             return;
         }
 

@@ -37,6 +37,8 @@ public class MainActivity : AvaloniaMainActivity
     {
         base.OnCreate(savedInstanceState);
 
+        AetherAprs.Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
+
         // Store instance for permission requests
         Instance = this;
 
