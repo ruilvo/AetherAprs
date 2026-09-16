@@ -18,6 +18,10 @@
         "xunit-v3": {
             "repository": "xunit/xunit.net",
             "branch": "main"
+        },
+        "bruTile": {
+            "repository": "BruTile/BruTile",
+            "branch": "master"
         }
     },
     "lsp": true,
