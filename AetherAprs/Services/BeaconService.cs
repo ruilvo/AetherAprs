@@ -6,8 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using AetherAprs.Data;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -109,6 +111,7 @@ public sealed record BeaconTransmitDecision
 public sealed class BeaconService : IBeaconService
 {
     private readonly ILogger<BeaconService> _logger;
+    private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
     private readonly object _lock = new();
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
@@ -125,6 +128,13 @@ public sealed class BeaconService : IBeaconService
     public BeaconService(ILogger<BeaconService>? logger = null)
     {
         _logger = logger ?? NullLogger<BeaconService>.Instance;
+    }
+
+    public BeaconService(IDbContextFactory<AppDbContext> dbContextFactory, ILogger<BeaconService> logger)
+    {
+        _dbContextFactory = dbContextFactory;
+        _logger = logger ?? NullLogger<BeaconService>.Instance;
+        LoadFromDatabase();
     }
 
     public BeaconConfig CurrentConfiguration
@@ -166,6 +176,7 @@ public sealed class BeaconService : IBeaconService
             _logger.LogInformation("Beacon mode changed from {PreviousMode} to {NewMode}", _activeMode, mode);
             _activeMode = mode;
             _lastTransmitTime = DateTime.UtcNow;
+            PersistUnlocked();
         }
     }
 
@@ -187,6 +198,78 @@ public sealed class BeaconService : IBeaconService
                 default:
                     throw new ArgumentOutOfRangeException(nameof(configuration), configuration.Mode, "Unknown beacon mode.");
             }
+
+            PersistUnlocked();
+        }
+    }
+
+    private void LoadFromDatabase()
+    {
+        if (_dbContextFactory is null)
+        {
+            return;
+        }
+
+        using var db = _dbContextFactory.CreateDbContext();
+        foreach (var record in db.BeaconConfigs.AsNoTracking())
+        {
+            var config = BeaconConfigMapper.ToConfig(record);
+            switch (config.Mode)
+            {
+                case DynamicBeaconMode.Walk:
+                    _walkConfig = config;
+                    break;
+                case DynamicBeaconMode.Drive:
+                    _driveConfig = config;
+                    break;
+                case DynamicBeaconMode.Custom:
+                    _customConfig = config;
+                    break;
+            }
+        }
+
+        var state = db.BeaconingState.AsNoTracking().FirstOrDefault();
+        if (state is not null)
+        {
+            _activeMode = state.ActiveMode;
+        }
+    }
+
+    private void PersistUnlocked()
+    {
+        if (_dbContextFactory is null)
+        {
+            return;
+        }
+
+        using var db = _dbContextFactory.CreateDbContext();
+        UpsertConfig(db, _walkConfig);
+        UpsertConfig(db, _driveConfig);
+        UpsertConfig(db, _customConfig);
+
+        var state = db.BeaconingState.Find(BeaconingStateRecord.SingletonId);
+        if (state is null)
+        {
+            db.BeaconingState.Add(new BeaconingStateRecord { ActiveMode = _activeMode });
+        }
+        else
+        {
+            state.ActiveMode = _activeMode;
+        }
+
+        db.SaveChanges();
+    }
+
+    private static void UpsertConfig(AppDbContext db, BeaconConfig config)
+    {
+        var existing = db.BeaconConfigs.Find(config.Mode);
+        if (existing is null)
+        {
+            db.BeaconConfigs.Add(BeaconConfigMapper.ToRecord(config));
+        }
+        else
+        {
+            BeaconConfigMapper.CopyTo(existing, config);
         }
     }
 

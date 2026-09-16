@@ -14,6 +14,7 @@ using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Threading.Tasks;
+using AetherAprs.Data;
 
 namespace AetherAprs;
 
@@ -77,7 +78,7 @@ public partial class App : Application
         // Configure dependency injection
         ServiceProvider = ServiceProviderFactory.CreateServiceProvider(RegisterPlatformServices, OverrideCoreServices);
 
-
+        ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

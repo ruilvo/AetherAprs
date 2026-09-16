@@ -1,7 +1,6 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Configuration;
@@ -11,6 +10,4 @@ public class AppSettings
     public LoggerFilterOptions Logging { get; set; } = new();
 
     public AprsSettings Aprs { get; set; } = new();
-
-    public List<PortConfig> Ports { get; set; } = [];
 }

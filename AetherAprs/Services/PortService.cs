@@ -7,11 +7,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Data;
 using AetherAprs.Helpers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
 using AetherAprs.Transports.Kiss;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -19,25 +21,30 @@ namespace AetherAprs.Services;
 
 public class PortService : IPortService
 {
+    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly IConfigurationService _configurationService;
     private readonly ILogger<PortService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IKissStreamFactory _kissStreamFactory;
     private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
+    private readonly List<PortConfig> _ports;
 
     public PortService(
+        IDbContextFactory<AppDbContext> dbContextFactory,
         IConfigurationService configurationService,
         ILogger<PortService> logger,
         IServiceProvider serviceProvider,
         IKissStreamFactory kissStreamFactory)
     {
+        _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
         _logger = logger;
         _serviceProvider = serviceProvider;
         _kissStreamFactory = kissStreamFactory;
+        _ports = LoadPorts();
     }
 
-    public IReadOnlyList<PortConfig> Ports => _configurationService.Settings.Ports;
+    public IReadOnlyList<PortConfig> Ports => _ports;
 
     public event EventHandler? PortsChanged;
 
@@ -45,8 +52,8 @@ public class PortService : IPortService
 
     public async Task AddPortAsync(PortConfig port)
     {
-        _configurationService.Settings.Ports.Add(port);
-        await _configurationService.SaveSettingsAsync();
+        _ports.Add(port);
+        await PersistPortAsync(port).ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -57,7 +64,7 @@ public class PortService : IPortService
         {
             var wasRunning = _activeSessions.ContainsKey(updatedPort.Id);
             CopyPortProperties(updatedPort, port);
-            await _configurationService.SaveSettingsAsync();
+            await PersistPortAsync(port).ConfigureAwait(false);
 
             if (wasRunning || port.IsEnabled)
             {
@@ -88,8 +95,8 @@ public class PortService : IPortService
         var port = FindPortById(id);
         if (port is not null)
         {
-            _configurationService.Settings.Ports.Remove(port);
-            await _configurationService.SaveSettingsAsync();
+            _ports.Remove(port);
+            await DeletePortAsync(id).ConfigureAwait(false);
             PortsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -103,7 +110,7 @@ public class PortService : IPortService
         }
 
         port.IsEnabled = enabled;
-        await _configurationService.SaveSettingsAsync();
+        await PersistPortAsync(port).ConfigureAwait(false);
 
         if (enabled)
         {
@@ -111,7 +118,7 @@ public class PortService : IPortService
             if (!started)
             {
                 port.IsEnabled = false;
-                await _configurationService.SaveSettingsAsync();
+                await PersistPortAsync(port).ConfigureAwait(false);
                 PortsChanged?.Invoke(this, EventArgs.Empty);
                 throw new InvalidOperationException($"Failed to start port '{port.Name}'.");
             }
@@ -134,7 +141,7 @@ public class PortService : IPortService
         }
 
         port.ShowOnMap = showOnMap;
-        await _configurationService.SaveSettingsAsync();
+        await PersistPortAsync(port).ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -193,7 +200,7 @@ public class PortService : IPortService
 
     public async Task StartAllEnabledPortsAsync()
     {
-        foreach (var port in _configurationService.Settings.Ports)
+        foreach (var port in _ports)
         {
             if (port.IsEnabled)
             {
@@ -214,7 +221,40 @@ public class PortService : IPortService
 
     private PortConfig? FindPortById(Guid id)
     {
-        return _configurationService.Settings.Ports.FirstOrDefault(p => p.Id == id);
+        return _ports.FirstOrDefault(p => p.Id == id);
+    }
+
+    private List<PortConfig> LoadPorts()
+    {
+        using var db = _dbContextFactory.CreateDbContext();
+        return [.. db.Ports.AsNoTracking().AsEnumerable().Select(PortRecordMapper.ToConfig)];
+    }
+
+    private async Task PersistPortAsync(PortConfig port)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
+        var existing = await db.Ports.FindAsync(port.Id).ConfigureAwait(false);
+        if (existing is null)
+        {
+            db.Ports.Add(PortRecordMapper.ToRecord(port));
+        }
+        else
+        {
+            PortRecordMapper.CopyTo(existing, port);
+        }
+
+        await db.SaveChangesAsync().ConfigureAwait(false);
+    }
+
+    private async Task DeletePortAsync(Guid id)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
+        var existing = await db.Ports.FindAsync(id).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            db.Ports.Remove(existing);
+            await db.SaveChangesAsync().ConfigureAwait(false);
+        }
     }
 
     private static void CopyPortProperties(PortConfig source, PortConfig target)

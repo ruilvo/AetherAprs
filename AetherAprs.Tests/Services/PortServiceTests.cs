@@ -5,14 +5,18 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Data;
 using AetherAprs.Extensions;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.Transports.Kiss;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -39,8 +43,8 @@ public sealed class PortServiceTests
             IsRx = true,
             IsTx = false
         };
-        var configuration = new TestConfigurationService(existingPort);
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create(existingPort);
+        var service = CreateService(db);
         var updatedPort = new PortConfig
         {
             Id = existingPort.Id,
@@ -64,30 +68,35 @@ public sealed class PortServiceTests
 
         await service.UpdatePortAsync(updatedPort);
 
-        var aprsIsSettings = existingPort.GetAprsIsSettings();
-        Assert.Equal("Updated name", existingPort.Name);
-        Assert.True(existingPort.IsEnabled);
+        var persisted = Assert.Single(service.Ports);
+        var aprsIsSettings = persisted.GetAprsIsSettings();
+        Assert.Equal("Updated name", persisted.Name);
+        Assert.True(persisted.IsEnabled);
         Assert.NotNull(aprsIsSettings);
         Assert.Equal("new.example", aprsIsSettings.Server);
         Assert.Equal(14501, aprsIsSettings.ServerPort);
         Assert.Equal("new-passcode", aprsIsSettings.Passcode);
         Assert.Equal("m/50", aprsIsSettings.Filter);
-        Assert.Equal(2, existingPort.Ssid);
-        Assert.False(existingPort.IsRx);
-        Assert.True(existingPort.IsTx);
-        Assert.Equal("\\", existingPort.SymbolTableCharacter);
-        Assert.Equal(">", existingPort.SymbolCodeCharacter);
-        Assert.Equal(DynamicBeaconMode.Drive, existingPort.DynamicBeaconMode);
-        Assert.False(existingPort.ShowOnMap);
-        Assert.Equal(1, configuration.SaveCount);
+        Assert.Equal(2, persisted.Ssid);
+        Assert.False(persisted.IsRx);
+        Assert.True(persisted.IsTx);
+        Assert.Equal("\\", persisted.SymbolTableCharacter);
+        Assert.Equal(">", persisted.SymbolCodeCharacter);
+        Assert.Equal(DynamicBeaconMode.Drive, persisted.DynamicBeaconMode);
+        Assert.False(persisted.ShowOnMap);
+
+        var reloaded = CreateService(db);
+        var fromDb = Assert.Single(reloaded.Ports);
+        Assert.Equal("Updated name", fromDb.Name);
+        Assert.Equal("new.example", fromDb.GetAprsIsSettings()?.Server);
     }
 
     [Fact]
     public async Task UpdatePortAsyncRaisesPortsChangedAfterSaving()
     {
         var existingPort = new PortConfig { Id = Guid.NewGuid(), Name = "Port" };
-        var configuration = new TestConfigurationService(existingPort);
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create(existingPort);
+        var service = CreateService(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
@@ -100,47 +109,51 @@ public sealed class PortServiceTests
     [Fact]
     public async Task UpdatePortAsyncWithUnknownIdDoesNotSaveOrRaiseEvent()
     {
-        var configuration = new TestConfigurationService();
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create();
+        var service = CreateService(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
         await service.UpdatePortAsync(new PortConfig { Id = Guid.NewGuid() });
 
-        Assert.Equal(0, configuration.SaveCount);
+        Assert.Empty(service.Ports);
         Assert.Equal(0, changeCount);
+        using var context = db.CreateContext();
+        Assert.Empty(context.Ports.AsNoTracking());
     }
 
     [Fact]
     public async Task AddPortAsyncPersistsPortAndRaisesPortsChanged()
     {
-        var configuration = new TestConfigurationService();
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create();
+        var service = CreateService(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
         var port = new PortConfig { Id = Guid.NewGuid(), Name = "New port" };
 
         await service.AddPortAsync(port);
 
-        Assert.Contains(port, configuration.Settings.Ports);
-        Assert.Equal(1, configuration.SaveCount);
+        Assert.Contains(port, service.Ports);
         Assert.Equal(1, changeCount);
+        var reloaded = CreateService(db);
+        Assert.Equal("New port", Assert.Single(reloaded.Ports).Name);
     }
 
     [Fact]
     public async Task RemovePortAsyncRemovesPortAndRaisesPortsChanged()
     {
         var existingPort = new PortConfig { Id = Guid.NewGuid(), Name = "Port" };
-        var configuration = new TestConfigurationService(existingPort);
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create(existingPort);
+        var service = CreateService(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
         await service.RemovePortAsync(existingPort.Id);
 
-        Assert.Empty(configuration.Settings.Ports);
-        Assert.Equal(1, configuration.SaveCount);
+        Assert.Empty(service.Ports);
         Assert.Equal(1, changeCount);
+        var reloaded = CreateService(db);
+        Assert.Empty(reloaded.Ports);
     }
 
     [Fact]
@@ -153,8 +166,8 @@ public sealed class PortServiceTests
             IsEnabled = true,
             TypeSettings = null
         };
-        var configuration = new TestConfigurationService(port);
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create(port);
+        var service = CreateService(db);
         var packet = new PositionPacket
         {
             Source = new Callsign("N0CALL", 1),
@@ -179,17 +192,17 @@ public sealed class PortServiceTests
             IsEnabled = false,
             TypeSettings = null
         };
-        var configuration = new TestConfigurationService(port);
-        var service = CreateService(configuration);
+        using var db = TempAppDatabase.Create(port);
+        var service = CreateService(db);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SetPortEnabledAsync(port.Id, true));
 
         Assert.Contains("Failed to start port", ex.Message, StringComparison.Ordinal);
-        Assert.False(port.IsEnabled);
-        Assert.Equal(2, configuration.SaveCount);
+        Assert.False(Assert.Single(service.Ports).IsEnabled);
+        using var context = db.CreateContext();
+        Assert.False(Assert.Single(context.Ports.AsNoTracking()).IsEnabled);
     }
-
 
     [Fact]
     public async Task UpdatePortAsync_WhenSessionActive_RestartsModemWithNewSettings()
@@ -206,9 +219,9 @@ public sealed class PortServiceTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        var configuration = new TestConfigurationService(port);
+        using var db = TempAppDatabase.Create(port);
         var factory = new CountingKissStreamFactory();
-        var service = CreateService(configuration, factory);
+        var service = CreateService(db, factory);
 
         await service.SetPortEnabledAsync(portId, true);
         Assert.Equal(1, factory.OpenCount);
@@ -228,19 +241,27 @@ public sealed class PortServiceTests
         await service.UpdatePortAsync(updated);
 
         Assert.Equal(2, factory.OpenCount);
-        Assert.Equal("KISS-updated", port.Name);
-        var kiss = Assert.IsType<KissSettings>(port.TypeSettings);
+        var persisted = Assert.Single(service.Ports);
+        Assert.Equal("KISS-updated", persisted.Name);
+        var kiss = Assert.IsType<KissSettings>(persisted.TypeSettings);
         var tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
         Assert.Equal(8002, tcp.Port);
+
+        await service.StopAllPortsAsync();
     }
 
     private static PortService CreateService(
-        TestConfigurationService configuration,
+        TempAppDatabase db,
         IKissStreamFactory? kissStreamFactory = null)
     {
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
-        return new PortService(configuration, NullLogger<PortService>.Instance, services, kissStreamFactory);
+        return new PortService(
+            db.Factory,
+            new TestConfigurationService(),
+            NullLogger<PortService>.Instance,
+            services,
+            kissStreamFactory);
     }
 
     private sealed class CountingKissStreamFactory : IKissStreamFactory
@@ -277,19 +298,8 @@ public sealed class PortServiceTests
 
     private sealed class TestConfigurationService : IConfigurationService
     {
-        public TestConfigurationService(params PortConfig[] ports)
-        {
-            Settings.Ports.AddRange(ports);
-        }
-
         public AppSettings Settings { get; } = new();
 
-        public int SaveCount { get; private set; }
-
-        public Task SaveSettingsAsync()
-        {
-            SaveCount++;
-            return Task.CompletedTask;
-        }
+        public Task SaveSettingsAsync() => Task.CompletedTask;
     }
 }

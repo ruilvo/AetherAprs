@@ -5,7 +5,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using AetherAprs.Configuration;
 using AetherAprs.Services;
 using Xunit;
 
@@ -14,14 +13,14 @@ namespace AetherAprs.Tests.Services;
 public sealed class ConfigurationServiceTests
 {
     [Fact]
-    public async Task SettingsRoundTripPersistsPortSymbolsAndAprsSettings()
+    public async Task SettingsRoundTripPersistsAprsSettings()
     {
         var directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
-                "{\"Aprs\":{\"Callsign\":\"N0CALL\"},\"Ports\":[]}");
+                "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
             var provider = new TestAppDataDirProvider(directory);
             var service = new ConfigurationService(provider);
 
@@ -29,12 +28,6 @@ public sealed class ConfigurationServiceTests
             service.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
             service.Settings.Aprs.DefaultSymbolCodeCharacter = ">";
             service.Settings.Aprs.DefaultBeaconMode = AetherAprs.Models.DynamicBeaconMode.Drive;
-            service.Settings.Ports.Add(new AetherAprs.Configuration.PortConfig
-            {
-                Name = "APRS-IS",
-                SymbolTableCharacter = "\\",
-                SymbolCodeCharacter = ">"
-            });
             await service.SaveSettingsAsync();
 
 #if DEBUG
@@ -48,9 +41,6 @@ public sealed class ConfigurationServiceTests
             Assert.Equal("\\", reloaded.Settings.Aprs.DefaultSymbolTableCharacter);
             Assert.Equal(">", reloaded.Settings.Aprs.DefaultSymbolCodeCharacter);
             Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, reloaded.Settings.Aprs.DefaultBeaconMode);
-            var port = Assert.Single(reloaded.Settings.Ports);
-            Assert.Equal("\\", port.SymbolTableCharacter);
-            Assert.Equal(">", port.SymbolCodeCharacter);
         }
         finally
         {
@@ -59,71 +49,19 @@ public sealed class ConfigurationServiceTests
     }
 
     [Fact]
-    public void ConstructorLoadsDefaultsForMissingPortSymbolFields()
+    public void ConstructorLoadsAprsSymbolDefaults()
     {
         var directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
-                "{\"Aprs\":{\"Callsign\":\"N0CALL\"},\"Ports\":[{\"Name\":\"Legacy\"}]}");
+                "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
             var service = new ConfigurationService(new TestAppDataDirProvider(directory));
 
-            var port = Assert.Single(service.Settings.Ports);
-            Assert.Null(port.SymbolTableCharacter);
-            Assert.Null(port.SymbolCodeCharacter);
             Assert.Equal("/", service.Settings.Aprs.DefaultSymbolTableCharacter);
             Assert.Equal("[", service.Settings.Aprs.DefaultSymbolCodeCharacter);
             Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Walk, service.Settings.Aprs.DefaultBeaconMode);
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task SettingsRoundTripPersistsKissTcpTransportWithTypeDiscriminators()
-    {
-        var directory = CreateTemporaryDirectory();
-        try
-        {
-            File.WriteAllText(
-                Path.Combine(directory, "appsettings.json"),
-                "{\"Aprs\":{\"Callsign\":\"N0CALL\"},\"Ports\":[]}");
-            var provider = new TestAppDataDirProvider(directory);
-            var service = new ConfigurationService(provider);
-
-            service.Settings.Ports.Add(new PortConfig
-            {
-                Name = "KISS TCP",
-                TypeSettings = new KissSettings
-                {
-                    Transport = new TcpKissTransportSettings
-                    {
-                        Host = "10.0.0.5",
-                        Port = 8001
-                    }
-                }
-            });
-
-            await service.SaveSettingsAsync();
-
-#if DEBUG
-            var savedPath = Path.Combine(directory, "appsettings.Development.json");
-#else
-            var savedPath = Path.Combine(directory, "appsettings.json");
-#endif
-            var savedJson = await File.ReadAllTextAsync(savedPath, TestContext.Current.CancellationToken);
-            Assert.Contains("\"$type\": \"kiss\"", savedJson);
-            Assert.Contains("\"$type\": \"tcp\"", savedJson);
-
-            var reloaded = new ConfigurationService(provider);
-            var port = Assert.Single(reloaded.Settings.Ports);
-            var kissSettings = Assert.IsType<KissSettings>(port.TypeSettings);
-            var tcp = Assert.IsType<TcpKissTransportSettings>(kissSettings.Transport);
-            Assert.Equal("10.0.0.5", tcp.Host);
-            Assert.Equal(8001, tcp.Port);
         }
         finally
         {

@@ -11,8 +11,11 @@ using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AetherAprs.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace AetherAprs;
 
@@ -27,9 +30,16 @@ public static class DesignData
         var services = new ServiceCollection();
 
         // Register services required by ViewModels
+        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddDbContextFactory<AppDbContext>((sp, options) =>
+        {
+            var directory = sp.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
+            var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
+            options.UseSqlite($"Data Source={path}");
+        });
+        services.AddSingleton<AppSavedDataInitializer>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
-        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
@@ -64,7 +74,9 @@ public static class DesignData
         services.AddTransient<DynamicBeaconingViewModel>();
         services.AddTransient<ConversationViewModel>();
 
-        return services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<AppSavedDataInitializer>().Initialize();
+        return provider;
     }
 
     /// <summary>

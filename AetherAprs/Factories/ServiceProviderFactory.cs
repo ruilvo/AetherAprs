@@ -6,9 +6,12 @@ using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Imaging;
+using AetherAprs.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
+using Microsoft.EntityFrameworkCore;
 
 namespace AetherAprs.Factories;
 
@@ -30,6 +33,14 @@ public static class ServiceProviderFactory
 
         // Register platform-specific services first
         registerPlatformServices(services);
+
+        services.AddDbContextFactory<AppDbContext>((sp, options) =>
+        {
+            var directory = sp.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
+            var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
+            options.UseSqlite($"Data Source={path}");
+        });
+        services.AddSingleton<AppSavedDataInitializer>();
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();

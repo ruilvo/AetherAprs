@@ -3,13 +3,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Threading;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using AetherAprs.Data;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 
@@ -21,6 +24,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IConfigurationService _configurationService;
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly ILogger<MessageService> _logger;
+    private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
     private readonly object _gate = new();
     private int _nextMessageNumber = 1;
     private bool _disposed;
@@ -31,13 +35,16 @@ public sealed class MessageService : IMessageService, IDisposable
         IPortService portService,
         IConfigurationService configurationService,
         IAprsPortSettingsResolver portSettingsResolver,
-        ILogger<MessageService> logger)
+        ILogger<MessageService> logger,
+        IDbContextFactory<AppDbContext>? dbContextFactory = null)
     {
         _portService = portService;
         _configurationService = configurationService;
         _portSettingsResolver = portSettingsResolver;
         _logger = logger;
+        _dbContextFactory = dbContextFactory;
         _portService.PacketReceived += OnPacketReceived;
+        LoadMessages();
     }
 
     public ConversationThread GetOrCreateConversation(Callsign peer)
@@ -113,19 +120,22 @@ public sealed class MessageService : IMessageService, IDisposable
             throw lastError ?? new InvalidOperationException("Failed to send APRS message.");
         }
 
+        var stored = new StoredMessage
+        {
+            Peer = addressee,
+            Text = text,
+            Timestamp = timestamp,
+            IsOutbound = true,
+            MessageNumber = messageNumber
+        };
+        await PersistMessageAsync(stored, cancellationToken).ConfigureAwait(false);
+
         RunOnUi(() =>
         {
             lock (_gate)
             {
                 var thread = GetOrCreateConversationUnlocked(addressee);
-                thread.Messages.Add(new StoredMessage
-                {
-                    Peer = addressee,
-                    Text = text,
-                    Timestamp = timestamp,
-                    IsOutbound = true,
-                    MessageNumber = messageNumber
-                });
+                thread.Messages.Add(stored);
                 MoveConversationToFront(thread);
             }
         });
@@ -164,6 +174,8 @@ public sealed class MessageService : IMessageService, IDisposable
             peer,
             e.PortId,
             message.Text);
+
+        PersistMessage(stored);
 
         RunOnUi(() =>
         {
@@ -220,6 +232,83 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         Dispatcher.UIThread.Post(action);
+    }
+
+    private void LoadMessages()
+    {
+        if (_dbContextFactory is null)
+        {
+            return;
+        }
+
+        using var db = _dbContextFactory.CreateDbContext();
+        var records = db.Messages
+            .AsNoTracking()
+            .AsEnumerable()
+            .OrderBy(message => message.Timestamp)
+            .ThenBy(message => message.Id)
+            .ToList();
+
+        var threadsByPeer = new Dictionary<string, ConversationThread>();
+        var maxMessageNumber = 1;
+        foreach (var record in records)
+        {
+            var stored = MessageRecordMapper.ToStoredMessage(record);
+            if (stored is null)
+            {
+                continue;
+            }
+
+            if (!threadsByPeer.TryGetValue(stored.Peer.ToString(), out var thread))
+            {
+                thread = new ConversationThread(stored.Peer);
+                threadsByPeer[stored.Peer.ToString()] = thread;
+            }
+
+            thread.Messages.Add(stored);
+            if (stored.MessageNumber is { } number && number > maxMessageNumber)
+            {
+                maxMessageNumber = number;
+            }
+        }
+
+        foreach (var thread in threadsByPeer.Values.OrderByDescending(thread => thread.LastTimestamp))
+        {
+            Conversations.Add(thread);
+        }
+
+        _nextMessageNumber = maxMessageNumber;
+    }
+
+    private void PersistMessage(StoredMessage message)
+    {
+        if (_dbContextFactory is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var db = _dbContextFactory.CreateDbContext();
+            db.Messages.Add(MessageRecordMapper.ToRecord(message));
+            db.SaveChanges();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist APRS message for {Peer}.", message.Peer);
+        }
+    }
+
+    private async Task PersistMessageAsync(StoredMessage message, CancellationToken cancellationToken)
+    {
+        if (_dbContextFactory is null)
+        {
+            return;
+        }
+
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        db.Messages.Add(MessageRecordMapper.ToRecord(message));
+        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()
