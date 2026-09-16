@@ -84,7 +84,11 @@ public sealed class SavedDataPersistenceTests
     private sealed class FakePortService : IPortService
     {
         public IReadOnlyList<PortConfig> Ports { get; } = [];
-        public event EventHandler? PortsChanged;
+        public event EventHandler? PortsChanged
+        {
+            add { }
+            remove { }
+        }
         public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
 
         public void RaisePacketReceived(PortPacketReceivedEventArgs args) =>

@@ -40,7 +40,7 @@ public sealed class MessageServiceTests
             Substitute.For<ILogger<MessageService>>());
 
         var addressee = new Callsign("K0OTH", 7);
-        await service.SendAsync(addressee, "Hello");
+        await service.SendAsync(addressee, "Hello", TestContext.Current.CancellationToken);
 
         var message = Assert.IsType<MessagePacket>(Assert.Single(portService.SentPackets));
         Assert.Equal(new Callsign("N0CALL", 1), message.Source);
@@ -106,7 +106,7 @@ public sealed class MessageServiceTests
             Substitute.For<ILogger<MessageService>>());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SendAsync(new Callsign("K0OTH"), "Hello"));
+            () => service.SendAsync(new Callsign("K0OTH"), "Hello", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class MessageServiceTests
             Substitute.For<ILogger<MessageService>>());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SendAsync(new Callsign("K0OTH"), "Hello"));
+            () => service.SendAsync(new Callsign("K0OTH"), "Hello", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class MessageServiceTests
 
         var longText = new string('A', 68);
         await Assert.ThrowsAsync<ArgumentException>(
-            () => service.SendAsync(new Callsign("K0OTH"), longText));
+            () => service.SendAsync(new Callsign("K0OTH"), longText, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -190,7 +190,11 @@ public sealed class MessageServiceTests
         }
 
         public IReadOnlyList<PortConfig> Ports => _ports;
-        public event EventHandler? PortsChanged;
+        public event EventHandler? PortsChanged
+        {
+            add { }
+            remove { }
+        }
         public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
         public List<AprsPacket> SentPackets { get; } = [];
 
