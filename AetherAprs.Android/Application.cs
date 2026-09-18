@@ -49,12 +49,12 @@ namespace AetherAprs.Android
 
         public override void OnCreate()
         {
-            base.OnCreate();
-
-            AetherAprs.Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
-
             // Ensure configuration files exist before Avalonia initializes
             EnsureConfigurationFiles();
+
+            base.OnCreate();
+
+            Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
         }
 
         private static void EnsureConfigurationFiles()
