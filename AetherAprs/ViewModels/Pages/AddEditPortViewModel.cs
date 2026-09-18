@@ -8,7 +8,6 @@ using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Models;
 using AetherAprs.Localization;
-using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
@@ -49,9 +48,6 @@ public partial class AddEditPortViewModel : ViewModelBase
     public partial string Filter { get; set; } = AprsIsSettings.DefaultFilter;
 
     [ObservableProperty]
-    public partial int? Ssid { get; set; }
-
-    [ObservableProperty]
     public partial Type SelectedKissTransportType { get; set; } = typeof(TcpKissTransportSettings);
 
     [ObservableProperty]
@@ -76,15 +72,6 @@ public partial class AddEditPortViewModel : ViewModelBase
     public partial string SppStatusText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string SymbolTableCharacter { get; set; } = "/";
-
-    [ObservableProperty]
-    public partial string SymbolCodeCharacter { get; set; } = "[";
-
-    [ObservableProperty]
-    public partial bool UseDefaultSymbol { get; set; } = true;
-
-    [ObservableProperty]
     public partial bool IsRx { get; set; } = true;
 
     [ObservableProperty]
@@ -95,8 +82,6 @@ public partial class AddEditPortViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial BeaconModeOption SelectedBeaconMode { get; set; } = BeaconModeOption.UseDefault;
-
-    public bool IsSymbolValid => TryCreateSymbol(out _);
 
     public ObservableCollection<BluetoothLeAdvertisement> BleDevices { get; } = new();
 
@@ -140,12 +125,10 @@ public partial class AddEditPortViewModel : ViewModelBase
         SelectedBeaconMode = BeaconModeOption.UseDefault;
     }
 
-    public void Initialize(string globalCallsign, int nextPortNumber, string defaultSymbolTableCharacter, string defaultSymbolCodeCharacter, PortConfig? existingConfig = null)
+    public void Initialize(string globalCallsign, int nextPortNumber, PortConfig? existingConfig = null)
     {
         _existingConfig = existingConfig;
         OnPropertyChanged(nameof(IsEditing));
-        SymbolTableCharacter = defaultSymbolTableCharacter;
-        SymbolCodeCharacter = defaultSymbolCodeCharacter;
 
         if (existingConfig != null)
         {
@@ -167,7 +150,7 @@ public partial class AddEditPortViewModel : ViewModelBase
         _navigationService.GoBack();
     }
 
-    [RelayCommand(CanExecute = nameof(IsSymbolValid))]
+    [RelayCommand]
     private async Task SaveAsync()
     {
         StopBleScan();
@@ -293,18 +276,6 @@ public partial class AddEditPortViewModel : ViewModelBase
         OnPropertyChanged(nameof(Title));
     }
 
-    partial void OnSymbolTableCharacterChanged(string value)
-    {
-        OnPropertyChanged(nameof(IsSymbolValid));
-        SaveCommand.NotifyCanExecuteChanged();
-    }
-
-    partial void OnSymbolCodeCharacterChanged(string value)
-    {
-        OnPropertyChanged(nameof(IsSymbolValid));
-        SaveCommand.NotifyCanExecuteChanged();
-    }
-
     partial void OnSelectedKissTransportTypeChanged(Type value)
     {
         if (value != typeof(BluetoothLeKissTransportSettings))
@@ -334,15 +305,6 @@ public partial class AddEditPortViewModel : ViewModelBase
         IsRx = config.IsRx;
         IsTx = config.IsTx;
         ShowOnMap = config.ShowOnMap;
-        Ssid = config.Ssid;
-
-        UseDefaultSymbol = config.SymbolTableCharacter is null || config.SymbolCodeCharacter is null;
-        if (!UseDefaultSymbol)
-        {
-            SymbolTableCharacter = config.SymbolTableCharacter!;
-            SymbolCodeCharacter = config.SymbolCodeCharacter!;
-        }
-
         SelectedBeaconMode = BeaconModeOption.FromMode(config.DynamicBeaconMode);
 
         if (config.TypeSettings is AprsIsSettings aprsIs)
@@ -397,17 +359,9 @@ public partial class AddEditPortViewModel : ViewModelBase
 
     internal PortConfig BuildConfig()
     {
-        if (!TryCreateSymbol(out _))
-        {
-            throw new InvalidOperationException("The APRS symbol table and code must each contain one valid character.");
-        }
-
         var config = new PortConfig
         {
             Name = Name,
-            Ssid = Ssid,
-            SymbolTableCharacter = UseDefaultSymbol ? null : SymbolTableCharacter,
-            SymbolCodeCharacter = UseDefaultSymbol ? null : SymbolCodeCharacter,
             IsRx = IsRx,
             IsTx = IsTx,
             ShowOnMap = ShowOnMap,
@@ -467,27 +421,6 @@ public partial class AddEditPortViewModel : ViewModelBase
         throw new InvalidOperationException($"Unsupported KISS transport type '{SelectedKissTransportType.Name}'.");
     }
 
-    private bool TryCreateSymbol(out Symbol symbol)
-    {
-        symbol = default;
-
-        if (SymbolTableCharacter.Length != 1 || SymbolCodeCharacter.Length != 1)
-        {
-            return false;
-        }
-
-        try
-        {
-            symbol = new Symbol(
-                SymbolTableCharacter[0].ToSymbolTable(),
-                SymbolCodeCharacter[0].ToSymbolCode());
-            return true;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            return false;
-        }
-    }
 }
 
 public sealed record AprsSymbolOption(

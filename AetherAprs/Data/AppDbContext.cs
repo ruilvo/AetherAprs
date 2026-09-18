@@ -32,8 +32,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.ToTable("Ports");
             entity.HasKey(port => port.Id);
             entity.Property(port => port.Name).IsRequired().HasMaxLength(200);
-            entity.Property(port => port.SymbolTableCharacter).HasMaxLength(1);
-            entity.Property(port => port.SymbolCodeCharacter).HasMaxLength(1);
             entity.Property(port => port.Type).HasMaxLength(16);
             entity.OwnsOne(port => port.AprsIs, aprsIs =>
             {

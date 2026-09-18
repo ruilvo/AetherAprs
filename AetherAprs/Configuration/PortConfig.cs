@@ -13,8 +13,6 @@ namespace AetherAprs.Configuration;
 /// </summary>
 public class PortConfig
 {
-    private int? _ssid;
-
     public Guid Id { get; set; } = Guid.NewGuid();
 
     public string Name { get; set; } = string.Empty;
@@ -30,33 +28,6 @@ public class PortConfig
     /// History is retained while hidden and restored when re-enabled.
     /// </summary>
     public bool ShowOnMap { get; set; } = true;
-
-
-    /// <summary>
-    /// Gets or sets the SSID (0-15). Null means use the global default SSID.
-    /// </summary>
-    public int? Ssid
-    {
-        get => _ssid;
-        set
-        {
-            if (value.HasValue && (value.Value < 0 || value.Value > 15))
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "SSID must be between 0 and 15.");
-            }
-            _ssid = value;
-        }
-    }
-
-    /// <summary>
-    /// APRS symbol table character, normally '/' or '\'. Null means use the global default.
-    /// </summary>
-    public string? SymbolTableCharacter { get; set; }
-
-    /// <summary>
-    /// APRS symbol code character. Null means use the global default.
-    /// </summary>
-    public string? SymbolCodeCharacter { get; set; }
 
     /// <summary>
     /// Dynamic beaconing mode to use for position transmissions on this port.

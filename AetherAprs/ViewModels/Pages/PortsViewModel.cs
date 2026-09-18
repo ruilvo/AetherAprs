@@ -80,8 +80,6 @@ public partial class PortsViewModel : ViewModelBase
         vm.Initialize(
             _configurationService.Settings.Aprs.Callsign,
             GetNextPortNumber(),
-            _configurationService.Settings.Aprs.DefaultSymbolTableCharacter,
-            _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter,
             config);
         _navigationService.NavigateTo(vm);
     }
@@ -93,9 +91,7 @@ public partial class PortsViewModel : ViewModelBase
         var vm = App.GetService<Pages.AddEditPortViewModel>();
         vm.Initialize(
             _configurationService.Settings.Aprs.Callsign,
-            GetNextPortNumber(),
-            _configurationService.Settings.Aprs.DefaultSymbolTableCharacter,
-            _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter);
+            GetNextPortNumber());
         _navigationService.NavigateTo(vm);
     }
 

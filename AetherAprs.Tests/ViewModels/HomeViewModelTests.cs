@@ -44,13 +44,15 @@ public sealed class HomeViewModelTests
     }
 
     [Fact]
-    public async Task EnablingTxPortUsesItsConfiguredSymbol()
+    public async Task EnablingTxPortUsesGlobalDefaultSymbol()
     {
         var port = CreatePort(isEnabled: false, isTx: true);
-        port.SymbolTableCharacter = "\\";
-        port.SymbolCodeCharacter = ">";
         var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService());
+        var configuration = new TestConfigurationService();
+        configuration.Settings.Aprs.Callsign = "N0CALL";
+        configuration.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
+        configuration.Settings.Aprs.DefaultSymbolCodeCharacter = ">";
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), configuration);
         viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
         port.IsEnabled = true;

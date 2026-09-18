@@ -89,7 +89,7 @@ public sealed class MessageService : IMessageService, IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var sourceCallsign = ParsePortCallsign(_portSettingsResolver.GetPortCallsign(port, baseCallsign));
+                var sourceCallsign = ParsePortCallsign(_portSettingsResolver.GetCallsign(baseCallsign));
                 var packet = new MessagePacket
                 {
                     Source = sourceCallsign,

@@ -26,12 +26,6 @@ public partial class AprsSymbolPickerView : UserControl
     public static readonly StyledProperty<string> CodeCharacterProperty =
         AvaloniaProperty.Register<AprsSymbolPickerView, string>(nameof(CodeCharacter), "[");
 
-    public static readonly StyledProperty<bool> UseDefaultProperty =
-        AvaloniaProperty.Register<AprsSymbolPickerView, bool>(nameof(UseDefault));
-
-    public static readonly StyledProperty<bool> ShowInheritOptionProperty =
-        AvaloniaProperty.Register<AprsSymbolPickerView, bool>(nameof(ShowInheritOption));
-
     public static readonly StyledProperty<Bitmap?> SymbolPreviewProperty =
         AvaloniaProperty.Register<AprsSymbolPickerView, Bitmap?>(nameof(SymbolPreview));
 
@@ -52,18 +46,6 @@ public partial class AprsSymbolPickerView : UserControl
     {
         get => GetValue(CodeCharacterProperty);
         set => SetValue(CodeCharacterProperty, value);
-    }
-
-    public bool UseDefault
-    {
-        get => GetValue(UseDefaultProperty);
-        set => SetValue(UseDefaultProperty, value);
-    }
-
-    public bool ShowInheritOption
-    {
-        get => GetValue(ShowInheritOptionProperty);
-        set => SetValue(ShowInheritOptionProperty, value);
     }
 
     public Bitmap? SymbolPreview

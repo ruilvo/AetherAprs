@@ -57,8 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
             <components:AprsSymbolPickerView
               TableCharacter="{Binding DefaultSymbolTableCharacter, Mode=TwoWay}"
-              CodeCharacter="{Binding DefaultSymbolCodeCharacter, Mode=TwoWay}"
-              ShowInheritOption="False" />
+              CodeCharacter="{Binding DefaultSymbolCodeCharacter, Mode=TwoWay}" />
           </StackPanel>
         </StackPanel>
 

@@ -19,63 +19,33 @@ namespace AetherAprs.Tests.ViewModels;
 public sealed class AddEditPortViewModelTests
 {
     [Fact]
-    public void DefaultsUseHumanSymbol()
+    public void DefaultsEnableTransmitAndInheritBeaconMode()
     {
         var viewModel = CreateViewModel();
-
-        Assert.Equal("/", viewModel.SymbolTableCharacter);
-        Assert.Equal("[", viewModel.SymbolCodeCharacter);
-        Assert.True(viewModel.IsSymbolValid);
         Assert.True(viewModel.IsTx);
 
         var config = viewModel.BuildConfig();
-        Assert.Null(config.SymbolTableCharacter);
-        Assert.Null(config.SymbolCodeCharacter);
         Assert.True(config.IsTx);
-    }
-
-    [Fact]
-    public void ChangingSymbolCharactersUpdatesConfig()
-    {
-        var viewModel = CreateViewModel();
-
-        viewModel.SymbolTableCharacter = "\\";
-        viewModel.SymbolCodeCharacter = ">";
-        viewModel.UseDefaultSymbol = false;
-
-        Assert.True(viewModel.IsSymbolValid);
-        var config = viewModel.BuildConfig();
-        Assert.Equal("\\", config.SymbolTableCharacter);
-        Assert.Equal(">", config.SymbolCodeCharacter);
-    }
-
-    [Fact]
-    public void BuildConfigCanInheritDefaultSymbolAndBeaconMode()
-    {
-        var viewModel = CreateViewModel();
-        viewModel.UseDefaultSymbol = true;
-        viewModel.SelectedBeaconMode = BeaconModeOption.UseDefault;
-
-        var config = viewModel.BuildConfig();
-
-        Assert.Null(config.SymbolTableCharacter);
-        Assert.Null(config.SymbolCodeCharacter);
         Assert.Null(config.DynamicBeaconMode);
     }
 
     [Fact]
-    public void BuildConfigSupportsCustomSymbolAndBeaconMode()
+    public void BuildConfigCanInheritDefaultBeaconMode()
     {
         var viewModel = CreateViewModel();
-        viewModel.UseDefaultSymbol = false;
-        viewModel.SymbolTableCharacter = "/";
-        viewModel.SymbolCodeCharacter = ">";
+        viewModel.SelectedBeaconMode = BeaconModeOption.UseDefault;
+
+        var config = viewModel.BuildConfig();
+        Assert.Null(config.DynamicBeaconMode);
+    }
+
+    [Fact]
+    public void BuildConfigSupportsCustomBeaconMode()
+    {
+        var viewModel = CreateViewModel();
         viewModel.SelectedBeaconMode = BeaconModeOption.FromMode(AetherAprs.Models.DynamicBeaconMode.Walk);
 
         var config = viewModel.BuildConfig();
-
-        Assert.Equal("/", config.SymbolTableCharacter);
-        Assert.Equal(">", config.SymbolCodeCharacter);
         Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Walk, config.DynamicBeaconMode);
     }
 
@@ -86,7 +56,6 @@ public sealed class AddEditPortViewModelTests
         var config = new PortConfig
         {
             Name = "Test Port",
-            Ssid = 5,
             TypeSettings = new AprsIsSettings
             {
                 Server = "example.com",
@@ -97,15 +66,12 @@ public sealed class AddEditPortViewModelTests
             IsRx = true,
             IsTx = false,
             ShowOnMap = true,
-            SymbolTableCharacter = "/",
-            SymbolCodeCharacter = ">",
             DynamicBeaconMode = AetherAprs.Models.DynamicBeaconMode.Drive
         };
 
         viewModel.PopulateFrom(config);
 
         Assert.Equal("Test Port", viewModel.Name);
-        Assert.Equal(5, viewModel.Ssid);
         Assert.Equal(typeof(AprsIsSettings), viewModel.SelectedPortSettingsType);
         Assert.Equal("example.com", viewModel.Server);
         Assert.Equal(14580, viewModel.ServerPort);
@@ -114,9 +80,6 @@ public sealed class AddEditPortViewModelTests
         Assert.True(viewModel.IsRx);
         Assert.False(viewModel.IsTx);
         Assert.True(viewModel.ShowOnMap);
-        Assert.False(viewModel.UseDefaultSymbol);
-        Assert.Equal("/", viewModel.SymbolTableCharacter);
-        Assert.Equal(">", viewModel.SymbolCodeCharacter);
         Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, viewModel.SelectedBeaconMode.Mode);
     }
 
@@ -151,7 +114,7 @@ public sealed class AddEditPortViewModelTests
     {
         var viewModel = CreateViewModel(initialize: false);
 
-        viewModel.Initialize("N0CALL", 1, "/", "[");
+        viewModel.Initialize("N0CALL", 1);
 
         Assert.False(viewModel.IsEditing);
         Assert.Equal("APRS-IS Port 1", viewModel.Name);
@@ -178,7 +141,7 @@ public sealed class AddEditPortViewModelTests
             TypeSettings = new AprsIsSettings()
         };
 
-        viewModel.Initialize("N0CALL", 1, "/", "[", existing);
+        viewModel.Initialize("N0CALL", 1, existing);
 
         Assert.True(viewModel.IsEditing);
         Assert.Equal("Edit Existing Port", viewModel.Title);
@@ -195,7 +158,7 @@ public sealed class AddEditPortViewModelTests
         var vm = new AddEditPortViewModel(nav, portService, kissFactory, bleScanner, btClassic);
         if (initialize)
         {
-            vm.Initialize("N0CALL", 1, "/", "[");
+            vm.Initialize("N0CALL", 1);
         }
         return vm;
     }

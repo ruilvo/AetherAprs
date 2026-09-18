@@ -8,7 +8,7 @@ using AetherAprs.Models;
 namespace AetherAprs.Services;
 
 /// <summary>
-/// Resolves APRS settings for ports with fallback to global defaults.
+/// Resolves APRS identity from global settings and per-port beacon mode.
 /// </summary>
 public class AprsPortSettingsResolver : IAprsPortSettingsResolver
 {
@@ -21,43 +21,43 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
         _beaconService = beaconService;
     }
 
-    public int? GetPortSsid(PortConfig port)
+    public int? GetSsid()
     {
-        var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
+        var ssid = _configurationService.Settings.Aprs.DefaultSsid;
         return ssid > 0 ? ssid : null;
     }
 
-    public string GetPortCallsign(PortConfig port, string baseCallsign)
+    public string GetCallsign(string baseCallsign)
     {
-        var ssid = GetPortSsid(port);
+        var ssid = GetSsid();
         return ssid.HasValue ? $"{baseCallsign}-{ssid.Value}" : baseCallsign;
     }
 
     public DynamicBeaconMode GetPortBeaconMode(PortConfig port) =>
         port.DynamicBeaconMode ?? _beaconService.CurrentConfiguration.Mode;
 
-    public string GetPortSymbolTableCharacter(PortConfig port) =>
-        port.SymbolTableCharacter ?? _configurationService.Settings.Aprs.DefaultSymbolTableCharacter;
+    public string GetSymbolTableCharacter() =>
+        _configurationService.Settings.Aprs.DefaultSymbolTableCharacter;
 
-    public string GetPortSymbolCodeCharacter(PortConfig port) =>
-        port.SymbolCodeCharacter ?? _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter;
+    public string GetSymbolCodeCharacter() =>
+        _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter;
 }
 
 /// <summary>
-/// Interface for resolving APRS settings for ports.
+/// Interface for resolving APRS settings used when transmitting on ports.
 /// </summary>
 public interface IAprsPortSettingsResolver
 {
     /// <summary>
-    /// Gets the SSID for a port, falling back to the default SSID from settings.
+    /// Gets the configured station SSID.
     /// Returns null if the SSID is 0 or negative.
     /// </summary>
-    int? GetPortSsid(PortConfig port);
+    int? GetSsid();
 
     /// <summary>
-    /// Gets the full callsign for a port (base callsign + SSID if applicable).
+    /// Gets the full station callsign (base callsign + SSID if applicable).
     /// </summary>
-    string GetPortCallsign(PortConfig port, string baseCallsign);
+    string GetCallsign(string baseCallsign);
 
     /// <summary>
     /// Gets the beacon mode for a port, falling back to the active dynamic beaconing mode.
@@ -65,12 +65,12 @@ public interface IAprsPortSettingsResolver
     DynamicBeaconMode GetPortBeaconMode(PortConfig port);
 
     /// <summary>
-    /// Gets the symbol table character for a port, falling back to the default from settings.
+    /// Gets the configured APRS symbol table character.
     /// </summary>
-    string GetPortSymbolTableCharacter(PortConfig port);
+    string GetSymbolTableCharacter();
 
     /// <summary>
-    /// Gets the symbol code character for a port, falling back to the default from settings.
+    /// Gets the configured APRS symbol code character.
     /// </summary>
-    string GetPortSymbolCodeCharacter(PortConfig port);
+    string GetSymbolCodeCharacter();
 }

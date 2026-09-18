@@ -44,8 +44,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconModeWalk" xml:space="preserve"><value>Walk</value></data>
   <data name="BeaconModeDrive" xml:space="preserve"><value>Drive</value></data>
   <data name="BeaconModeCustom" xml:space="preserve"><value>Custom</value></data>
-  <data name="Ssid" xml:space="preserve"><value>SSID</value></data>
-  <data name="SsidPlaceholder" xml:space="preserve"><value>Leave empty for default</value></data>
   <data name="SelectPortType" xml:space="preserve"><value>Select a port type</value></data>
   <data name="AprsIsSettings" xml:space="preserve"><value>APRS-IS Settings</value></data>
   <data name="Server" xml:space="preserve"><value>Server</value></data>
@@ -148,7 +146,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="AprsSymbol" xml:space="preserve"><value>APRS Symbol</value></data>
   <data name="Table" xml:space="preserve"><value>Table</value></data>
   <data name="Code" xml:space="preserve"><value>Code</value></data>
-  <data name="UseDefaultStationSymbol" xml:space="preserve"><value>Use default station symbol</value></data>
   <data name="ChooseASymbol" xml:space="preserve"><value>Choose a symbol</value></data>
   <data name="EnterAprsTableAndCode" xml:space="preserve"><value>Enter the APRS table and code characters.</value></data>
   <data name="Default" xml:space="preserve"><value>Default</value></data>

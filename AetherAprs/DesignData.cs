@@ -132,7 +132,7 @@ public static class DesignData
                 _serviceProvider.GetRequiredService<IKissStreamFactory>(),
                 _serviceProvider.GetRequiredService<IBluetoothLeScanner>(),
                 _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());
-            vm.Initialize(callsign, 1, "/", "[");
+            vm.Initialize(callsign, 1);
             return vm;
         }
     }

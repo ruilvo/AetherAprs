@@ -11,10 +11,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:converters="using:AetherAprs.Converters"
              xmlns:bt="using:AetherAprs.Services.Bluetooth"
-             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
-             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-             xmlns:components="using:AetherAprs.Views.Components"
-             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="900"
              x:Class="AetherAprs.Views.Pages.AddEditPortView"
              x:DataType="vm:AddEditPortViewModel"
@@ -92,20 +91,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-        </StackPanel>
-
-        <components:AprsSymbolPickerView
-          TableCharacter="{Binding SymbolTableCharacter, Mode=TwoWay}"
-          CodeCharacter="{Binding SymbolCodeCharacter, Mode=TwoWay}"
-          UseDefault="{Binding UseDefaultSymbol, Mode=TwoWay}"
-            ShowInheritOption="True" />
-
-        <!-- Shared SSID -->
-        <StackPanel Spacing="8">
-          <TextBox Text="{Binding Ssid}"
-                   PlaceholderText="Leave empty for default"
-                   wpf:TextFieldAssist.Label="SSID"
-                   UseFloatingPlaceholder="True" />
         </StackPanel>
 
         <!-- Port Type Section -->
@@ -282,7 +267,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <Button Content="Save"
                 MinWidth="80"
                 MinHeight="48"
-                IsEnabled="{Binding IsSymbolValid}"
                 Command="{Binding SaveCommand}" />
       </StackPanel>
     </Border>

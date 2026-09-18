@@ -31,7 +31,7 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
         var resolver = Substitute.For<IAprsPortSettingsResolver>();
-        resolver.GetPortCallsign(port, "N0CALL").Returns("N0CALL-1");
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
 
         var service = new MessageService(
             portService,

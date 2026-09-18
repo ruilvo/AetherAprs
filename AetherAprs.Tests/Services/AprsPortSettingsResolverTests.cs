@@ -14,107 +14,41 @@ namespace AetherAprs.Tests.Services;
 public class AprsPortSettingsResolverTests
 {
     [Fact]
-    public void GetPortSsid_ReturnsPortSsidWhenSet()
-    {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = 5;
-
-        var result = resolver.GetPortSsid(port);
-
-        Assert.Equal(5, result);
-    }
-
-    [Fact]
-    public void GetPortSsid_ReturnsDefaultSsidWhenPortSsidIsNull()
+    public void GetSsid_ReturnsDefaultSsidWhenPositive()
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSsid = 3;
         var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = null;
 
-        var result = resolver.GetPortSsid(port);
-
-        Assert.Equal(3, result);
+        Assert.Equal(3, resolver.GetSsid());
     }
 
     [Fact]
-    public void GetPortSsid_ReturnsNullWhenSsidIsZero()
+    public void GetSsid_ReturnsNullWhenSsidIsZero()
     {
         var config = CreateConfiguration();
         var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = 0;
 
-        var result = resolver.GetPortSsid(port);
-
-        Assert.Null(result);
+        Assert.Null(resolver.GetSsid());
     }
 
     [Fact]
-    public void GetPortSsid_ReturnsNullWhenSsidIsNegative()
+    public void GetCallsign_AppendsSsidWhenPositive()
     {
         var config = CreateConfiguration();
+        config.Settings.Aprs.DefaultSsid = 7;
         var resolver = CreateResolver(config);
-        var port = CreatePort();
-        
-        // Negative SSID should throw ArgumentOutOfRangeException due to validation
-        Assert.Throws<ArgumentOutOfRangeException>(() => port.Ssid = -1);
+
+        Assert.Equal("N0CALL-7", resolver.GetCallsign("N0CALL"));
     }
 
     [Fact]
-    public void GetPortCallsign_ReturnsCallsignWithSsidWhenSsidIsSet()
+    public void GetCallsign_OmitsSsidWhenZero()
     {
         var config = CreateConfiguration();
         var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = 7;
 
-        var result = resolver.GetPortCallsign(port, "N0CALL");
-
-        Assert.Equal("N0CALL-7", result);
-    }
-
-    [Fact]
-    public void GetPortCallsign_ReturnsCallsignWithoutSsidWhenSsidIsNull()
-    {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = null;
-
-        var result = resolver.GetPortCallsign(port, "N0CALL");
-
-        Assert.Equal("N0CALL", result);
-    }
-
-    [Fact]
-    public void GetPortCallsign_ReturnsCallsignWithoutSsidWhenSsidIsZero()
-    {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = 0;
-
-        var result = resolver.GetPortCallsign(port, "N0CALL");
-
-        Assert.Equal("N0CALL", result);
-    }
-
-    [Fact]
-    public void GetPortCallsign_UsesDefaultSsidWhenPortSsidIsNull()
-    {
-        var config = CreateConfiguration();
-        config.Settings.Aprs.DefaultSsid = 9;
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.Ssid = null;
-
-        var result = resolver.GetPortCallsign(port, "N0CALL");
-
-        Assert.Equal("N0CALL-9", result);
+        Assert.Equal("N0CALL", resolver.GetCallsign("N0CALL"));
     }
 
     [Fact]
@@ -143,57 +77,23 @@ public class AprsPortSettingsResolverTests
     }
 
     [Fact]
-    public void GetPortSymbolTableCharacter_ReturnsPortSymbolWhenSet()
-    {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.SymbolTableCharacter = "\\";
-
-        var result = resolver.GetPortSymbolTableCharacter(port);
-
-        Assert.Equal("\\", result);
-    }
-
-    [Fact]
-    public void GetPortSymbolTableCharacter_ReturnsDefaultWhenPortSymbolIsNull()
+    public void GetSymbolTableCharacter_ReturnsDefault()
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
         var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.SymbolTableCharacter = null;
 
-        var result = resolver.GetPortSymbolTableCharacter(port);
-
-        Assert.Equal("\\", result);
+        Assert.Equal("\\", resolver.GetSymbolTableCharacter());
     }
 
     [Fact]
-    public void GetPortSymbolCodeCharacter_ReturnsPortSymbolWhenSet()
-    {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.SymbolCodeCharacter = ">";
-
-        var result = resolver.GetPortSymbolCodeCharacter(port);
-
-        Assert.Equal(">", result);
-    }
-
-    [Fact]
-    public void GetPortSymbolCodeCharacter_ReturnsDefaultWhenPortSymbolIsNull()
+    public void GetSymbolCodeCharacter_ReturnsDefault()
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.DefaultSymbolCodeCharacter = "k";
         var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.SymbolCodeCharacter = null;
 
-        var result = resolver.GetPortSymbolCodeCharacter(port);
-
-        Assert.Equal("k", result);
+        Assert.Equal("k", resolver.GetSymbolCodeCharacter());
     }
 
     private static TestConfigurationService CreateConfiguration()

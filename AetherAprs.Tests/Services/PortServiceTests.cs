@@ -39,7 +39,6 @@ public sealed class PortServiceTests
                 Passcode = "old-passcode",
                 Filter = "m/10"
             },
-            Ssid = 1,
             IsRx = true,
             IsTx = false
         };
@@ -57,11 +56,8 @@ public sealed class PortServiceTests
                 Passcode = "new-passcode",
                 Filter = "m/50"
             },
-            Ssid = 2,
             IsRx = false,
             IsTx = true,
-            SymbolTableCharacter = "\\",
-            SymbolCodeCharacter = ">",
             DynamicBeaconMode = DynamicBeaconMode.Drive,
             ShowOnMap = false
         };
@@ -77,11 +73,8 @@ public sealed class PortServiceTests
         Assert.Equal(14501, aprsIsSettings.ServerPort);
         Assert.Equal("new-passcode", aprsIsSettings.Passcode);
         Assert.Equal("m/50", aprsIsSettings.Filter);
-        Assert.Equal(2, persisted.Ssid);
         Assert.False(persisted.IsRx);
         Assert.True(persisted.IsTx);
-        Assert.Equal("\\", persisted.SymbolTableCharacter);
-        Assert.Equal(">", persisted.SymbolCodeCharacter);
         Assert.Equal(DynamicBeaconMode.Drive, persisted.DynamicBeaconMode);
         Assert.False(persisted.ShowOnMap);
 

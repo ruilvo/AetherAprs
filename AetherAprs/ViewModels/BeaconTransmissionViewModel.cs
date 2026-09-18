@@ -81,6 +81,10 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                 return;
             }
 
+            var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
+            var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
+            var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+
             // Send to each TX port with the configured beacon mode
             var sentPortCount = 0;
             foreach (var port in txPorts)
@@ -90,9 +94,9 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                     _beaconService.SetActiveMode(_portSettingsResolver.GetPortBeaconMode(port));
                     var packet = _beaconService.CreatePositionPacket(
                         currentLocation,
-                        _portSettingsResolver.GetPortCallsign(port, callsign),
-                        _portSettingsResolver.GetPortSymbolTableCharacter(port),
-                        _portSettingsResolver.GetPortSymbolCodeCharacter(port));
+                        sourceCallsign,
+                        symbolTable,
+                        symbolCode);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation(
@@ -156,6 +160,10 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                 return;
             }
 
+            var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
+            var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
+            var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+
             var sentPortCount = 0;
             foreach (var port in txPorts)
             {
@@ -164,9 +172,9 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                     _beaconService.SetActiveMode(_portSettingsResolver.GetPortBeaconMode(port));
                     var packet = _beaconService.CreatePositionPacket(
                         userLocation,
-                        _portSettingsResolver.GetPortCallsign(port, callsign),
-                        _portSettingsResolver.GetPortSymbolTableCharacter(port),
-                        _portSettingsResolver.GetPortSymbolCodeCharacter(port));
+                        sourceCallsign,
+                        symbolTable,
+                        symbolCode);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
@@ -200,6 +208,10 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
         if (string.IsNullOrEmpty(callsign))
             return;
 
+        var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
+        var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
+        var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+
         var sentPortNames = new System.Collections.Generic.List<string>();
         foreach (var port in portsJustEnabled)
         {
@@ -208,9 +220,9 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                 _beaconService.SetActiveMode(_portSettingsResolver.GetPortBeaconMode(port));
                 var packet = _beaconService.CreatePositionPacket(
                     userLocation,
-                    _portSettingsResolver.GetPortCallsign(port, callsign),
-                    _portSettingsResolver.GetPortSymbolTableCharacter(port),
-                    _portSettingsResolver.GetPortSymbolCodeCharacter(port));
+                    sourceCallsign,
+                    symbolTable,
+                    symbolCode);
                 await _portService.SendPacketAsync(port.Id, packet);
                 sentPortNames.Add(port.Name);
                 _logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);

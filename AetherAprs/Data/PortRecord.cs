@@ -24,12 +24,6 @@ public sealed class PortRecord
 
     public bool ShowOnMap { get; set; } = true;
 
-    public int? Ssid { get; set; }
-
-    public string? SymbolTableCharacter { get; set; }
-
-    public string? SymbolCodeCharacter { get; set; }
-
     public DynamicBeaconMode? DynamicBeaconMode { get; set; }
 
     /// <summary>

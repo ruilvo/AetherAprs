@@ -264,9 +264,6 @@ public class PortService : IPortService
         target.IsRx = source.IsRx;
         target.IsTx = source.IsTx;
         target.ShowOnMap = source.ShowOnMap;
-        target.Ssid = source.Ssid;
-        target.SymbolTableCharacter = source.SymbolTableCharacter;
-        target.SymbolCodeCharacter = source.SymbolCodeCharacter;
         target.DynamicBeaconMode = source.DynamicBeaconMode;
         target.TypeSettings = source.TypeSettings;
     }
@@ -286,8 +283,8 @@ public class PortService : IPortService
                 case AprsIsSettings aprsIsSettings:
                 {
                     var callsign = _configurationService.Settings.Aprs.Callsign;
-                    var ssid = port.Ssid ?? _configurationService.Settings.Aprs.DefaultSsid;
-                    var fullCallsign = new Callsign(callsign, ssid);
+                    var ssid = _configurationService.Settings.Aprs.DefaultSsid;
+                    var fullCallsign = new Callsign(callsign, ssid > 0 ? ssid : null);
 
                     var modem = new AprsIsModem(
                         aprsIsSettings.Server,

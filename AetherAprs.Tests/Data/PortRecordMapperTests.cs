@@ -26,9 +26,6 @@ public sealed class PortRecordMapperTests
             IsRx = true,
             IsTx = false,
             ShowOnMap = false,
-            Ssid = 7,
-            SymbolTableCharacter = "\\",
-            SymbolCodeCharacter = ">",
             DynamicBeaconMode = DynamicBeaconMode.Drive,
             TypeSettings = new AprsIsSettings
             {
@@ -49,9 +46,6 @@ public sealed class PortRecordMapperTests
         Assert.True(loaded.IsRx);
         Assert.False(loaded.IsTx);
         Assert.False(loaded.ShowOnMap);
-        Assert.Equal(7, loaded.Ssid);
-        Assert.Equal("\\", loaded.SymbolTableCharacter);
-        Assert.Equal(">", loaded.SymbolCodeCharacter);
         Assert.Equal(DynamicBeaconMode.Drive, loaded.DynamicBeaconMode);
         var aprsIs = Assert.IsType<AprsIsSettings>(loaded.TypeSettings);
         Assert.Equal("rotate.aprs2.net", aprsIs.Server);

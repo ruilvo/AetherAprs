@@ -65,9 +65,7 @@ public sealed class PortsViewModelTests
     {
         Id = Guid.NewGuid(),
         Name = name,
-        TypeSettings = typeSettings,
-        SymbolTableCharacter = "\\",
-        SymbolCodeCharacter = ">"
+        TypeSettings = typeSettings
     };
 
     private sealed class TestPortService : IPortService

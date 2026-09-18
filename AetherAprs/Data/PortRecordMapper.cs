@@ -18,9 +18,6 @@ internal static class PortRecordMapper
             IsRx = port.IsRx,
             IsTx = port.IsTx,
             ShowOnMap = port.ShowOnMap,
-            Ssid = port.Ssid,
-            SymbolTableCharacter = port.SymbolTableCharacter,
-            SymbolCodeCharacter = port.SymbolCodeCharacter,
             DynamicBeaconMode = port.DynamicBeaconMode
         };
         ApplyTypeSettings(record, port.TypeSettings);
@@ -37,9 +34,6 @@ internal static class PortRecordMapper
             IsRx = record.IsRx,
             IsTx = record.IsTx,
             ShowOnMap = record.ShowOnMap,
-            Ssid = record.Ssid,
-            SymbolTableCharacter = record.SymbolTableCharacter,
-            SymbolCodeCharacter = record.SymbolCodeCharacter,
             DynamicBeaconMode = record.DynamicBeaconMode,
             TypeSettings = ToTypeSettings(record)
         };
@@ -52,9 +46,6 @@ internal static class PortRecordMapper
         target.IsRx = port.IsRx;
         target.IsTx = port.IsTx;
         target.ShowOnMap = port.ShowOnMap;
-        target.Ssid = port.Ssid;
-        target.SymbolTableCharacter = port.SymbolTableCharacter;
-        target.SymbolCodeCharacter = port.SymbolCodeCharacter;
         target.DynamicBeaconMode = port.DynamicBeaconMode;
         ApplyTypeSettings(target, port.TypeSettings);
     }
