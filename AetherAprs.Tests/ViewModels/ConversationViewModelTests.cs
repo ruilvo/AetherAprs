@@ -11,7 +11,6 @@ using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
@@ -32,7 +31,7 @@ public sealed class ConversationViewModelTests
             IsOutbound = false
         });
 
-        var vm = new ConversationViewModel(messageService, Substitute.For<INavigationService>(), NullLogger<ConversationViewModel>.Instance);
+        var vm = new ConversationViewModel(messageService, NullLogger<ConversationViewModel>.Instance);
         vm.Initialize(peer);
 
         Assert.Equal("K0PEER-1", vm.Title);
@@ -46,7 +45,7 @@ public sealed class ConversationViewModelTests
     {
         var peer = new Callsign("K0PEER", 1);
         var messageService = new FakeMessageService();
-        var vm = new ConversationViewModel(messageService, Substitute.For<INavigationService>(), NullLogger<ConversationViewModel>.Instance);
+        var vm = new ConversationViewModel(messageService, NullLogger<ConversationViewModel>.Instance);
         vm.Initialize(peer);
 
         messageService.GetOrCreateConversation(peer).Messages.Add(new StoredMessage
@@ -64,7 +63,7 @@ public sealed class ConversationViewModelTests
     [Fact]
     public async Task SendAsync_RejectsInvalidDestination()
     {
-        var vm = new ConversationViewModel(new FakeMessageService(), Substitute.For<INavigationService>(), NullLogger<ConversationViewModel>.Instance);
+        var vm = new ConversationViewModel(new FakeMessageService(), NullLogger<ConversationViewModel>.Instance);
         vm.InitializeNew();
         vm.DestinationCallsign = "@@@";
         vm.MessageText = "Hi";

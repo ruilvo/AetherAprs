@@ -20,7 +20,6 @@ namespace AetherAprs.ViewModels.Pages;
 public partial class ConversationViewModel : ViewModelBase
 {
     private readonly IMessageService _messageService;
-    private readonly INavigationService _navigationService;
     private readonly ILogger<ConversationViewModel> _logger;
     private ConversationThread? _thread;
     private bool _isNewConversation;
@@ -44,11 +43,9 @@ public partial class ConversationViewModel : ViewModelBase
 
     public ConversationViewModel(
         IMessageService messageService,
-        INavigationService navigationService,
         ILogger<ConversationViewModel> logger)
     {
         _messageService = messageService;
-        _navigationService = navigationService;
         _logger = logger;
     }
 
@@ -74,13 +71,6 @@ public partial class ConversationViewModel : ViewModelBase
         ErrorMessage = null;
         IsDestinationEditable = false;
         AttachThread(_messageService.GetOrCreateConversation(peer));
-    }
-
-    [RelayCommand]
-    private void GoBack()
-    {
-        DetachThread();
-        _navigationService.GoBack();
     }
 
     [RelayCommand]

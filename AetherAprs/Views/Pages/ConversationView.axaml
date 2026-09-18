@@ -18,18 +18,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <Grid RowDefinitions="Auto,*,Auto,Auto">
     <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
-      <DockPanel>
-        <Button DockPanel.Dock="Left"
-                Content="Back"
-                Classes="Outline"
-                MinHeight="48"
-                Command="{Binding GoBackCommand}"
-                Margin="0,0,8,0" />
-        <TextBlock Text="{Binding Title}"
-                   Classes="Headline5"
-                   FontWeight="Bold"
-                   VerticalAlignment="Center" />
-      </DockPanel>
+      <TextBlock Text="{Binding Title}"
+                 Classes="Headline5"
+                 FontWeight="Bold" />
 
       <TextBox Text="{Binding DestinationCallsign}"
                IsEnabled="{Binding IsDestinationEditable}"
