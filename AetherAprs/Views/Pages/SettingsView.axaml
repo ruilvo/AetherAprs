@@ -13,6 +13,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.SettingsView"
              x:DataType="vm:SettingsViewModel"
@@ -24,9 +25,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="*,Auto">
-    <ScrollViewer Grid.Row="0">
-      <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="600">
+  <Grid>
+    <ScrollViewer>
+      <StackPanel Spacing="24" Margin="16,16,16,80" MaxWidth="600">
 
         <!-- Station Section -->
         <StackPanel Spacing="16">
@@ -49,7 +50,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
             <!-- Default SSID -->
             <TextBox x:Name="SsidBox"
-                     Text="{Binding DefaultSsid}"
+                     Text="{Binding DefaultSsid, TargetNullValue=''}"
                      PlaceholderText="0"
                      wpf:TextFieldAssist.Label="Default SSID"
                      UseFloatingPlaceholder="True" />
@@ -83,20 +84,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
       </StackPanel>
     </ScrollViewer>
 
-    <!-- Save Button (sticky at bottom) -->
-    <Border Grid.Row="1"
-            Background="{DynamicResource MaterialBackgroundBrush}"
-            BorderThickness="0,1,0,0"
-            BorderBrush="{DynamicResource MaterialDividerBrush}"
-            Padding="16">
-      <StackPanel Orientation="Horizontal"
-                  HorizontalAlignment="Right"
-                  Spacing="8">
-        <Button Content="Save"
-                Command="{Binding SaveCommand}"
-                MinWidth="80"
-                MinHeight="48" />
-      </StackPanel>
-    </Border>
+    <controls:FloatingButton HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="0,0,16,16"
+                             MinHeight="56"
+                             MinWidth="56"
+                             ToolTip.Tip="Save"
+                             Command="{Binding SaveCommand}"
+                             x:Name="SaveButton">
+      <Viewbox Width="24" Height="24">
+        <avalonia:MaterialIcon Kind="ContentSave" Width="24" Height="24" />
+      </Viewbox>
+    </controls:FloatingButton>
   </Grid>
 </UserControl>

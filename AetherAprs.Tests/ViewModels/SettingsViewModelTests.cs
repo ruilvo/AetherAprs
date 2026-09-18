@@ -38,6 +38,23 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task SaveCommandPersistsZeroWhenDefaultSsidIsCleared()
+    {
+        var configuration = new TestConfigurationService();
+        configuration.Settings.Aprs.DefaultSsid = 7;
+        var viewModel = new SettingsViewModel(configuration, new TestNavigationService())
+        {
+            DefaultSsid = null,
+        };
+
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, configuration.Settings.Aprs.DefaultSsid);
+        Assert.True(viewModel.IsSaved);
+        Assert.Equal(1, configuration.SaveCount);
+    }
+
+    [Fact]
     public void OpenBeaconingSettingsNavigatesToDynamicBeaconingViewModel()
     {
         var navigation = new TestNavigationService();

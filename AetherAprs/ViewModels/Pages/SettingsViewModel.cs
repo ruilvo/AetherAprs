@@ -20,7 +20,7 @@ public partial class SettingsViewModel : ViewModelBase
     public partial string Callsign { get; set; } = "N0CALL";
 
     [ObservableProperty]
-    public partial int DefaultSsid { get; set; }
+    public partial int? DefaultSsid { get; set; }
 
     [ObservableProperty]
     public partial string DefaultSymbolTableCharacter { get; set; } = "/";
@@ -47,7 +47,7 @@ public partial class SettingsViewModel : ViewModelBase
     private async Task SaveAsync()
     {
         _configurationService.Settings.Aprs.Callsign = Callsign;
-        _configurationService.Settings.Aprs.DefaultSsid = DefaultSsid;
+        _configurationService.Settings.Aprs.DefaultSsid = DefaultSsid ?? 0;
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
         await _configurationService.SaveSettingsAsync();
