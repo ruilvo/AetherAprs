@@ -54,6 +54,7 @@ public static class DesignData
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IMessageService, MessageService>();
+        services.AddSingleton<IPacketStorageService, PacketStorageService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
@@ -72,10 +73,12 @@ public static class DesignData
         services.AddTransient<BeaconTransmissionViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
+        services.AddSingleton<PacketsViewModel>();
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
         services.AddTransient<ConversationViewModel>();
+        services.AddTransient<PacketDetailsViewModel>();
 
         var provider = services.BuildServiceProvider();
         Localization.UiCulture.Apply(provider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
@@ -112,6 +115,8 @@ public static class DesignData
 
     public static MessagesViewModel MessagesViewModel => _serviceProvider.GetRequiredService<MessagesViewModel>();
 
+    public static PacketsViewModel PacketsViewModel => _serviceProvider.GetRequiredService<PacketsViewModel>();
+
     public static SettingsViewModel SettingsViewModel => _serviceProvider.GetRequiredService<SettingsViewModel>();
 
     public static PortsViewModel PortsViewModel => _serviceProvider.GetRequiredService<PortsViewModel>();
@@ -121,6 +126,9 @@ public static class DesignData
 
     public static ConversationViewModel ConversationViewModel =>
         _serviceProvider.GetRequiredService<ConversationViewModel>();
+
+    public static PacketDetailsViewModel PacketDetailsViewModel =>
+        _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
 
     public static SymbolSelectorViewModel SymbolSelectorViewModel
     {

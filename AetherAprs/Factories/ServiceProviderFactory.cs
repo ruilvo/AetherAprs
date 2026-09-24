@@ -101,11 +101,13 @@ public static class ServiceProviderFactory
         services.AddTransient<BeaconTransmissionViewModel>(); // Sub-component, created per HomeViewModel
         services.AddSingleton<HomeViewModel>(); // Main page state
         services.AddSingleton<MessagesViewModel>(); // Main page state
+        services.AddSingleton<PacketsViewModel>(); // Main page state
         services.AddSingleton<PortsViewModel>(); // Main page state
         services.AddSingleton<SettingsViewModel>(); // Main page state
         services.AddTransient<DynamicBeaconingViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ViewModels.Pages.AddEditPortViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ConversationViewModel>(); // Overlay sub-page, fresh each time
+        services.AddTransient<PacketDetailsViewModel>(); // Overlay sub-page, fresh each time
 
         // Allow overriding core services for testing or platform-specific
         // implementations

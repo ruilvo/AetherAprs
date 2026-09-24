@@ -43,6 +43,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             VerticalContentAlignment="Stretch" />
           </ContentPage>
 
+          <ContentPage Header="Packets" Icon="{ext:MaterialIconGeometryExt PackageVariant}">
+            <ContentControl Content="{Binding PacketsViewModel}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+          </ContentPage>
+
           <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
             <ContentControl Content="{Binding PortsViewModel}"
                             HorizontalAlignment="Stretch"

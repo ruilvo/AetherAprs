@@ -8,11 +8,13 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Data;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
@@ -119,10 +121,18 @@ public sealed class MainViewModelTests
             beaconTransmission,
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, provider);
+        
+        using var tempDb = TempAppDatabase.CreateEmpty();
+        var packets = new PacketsViewModel(
+            tempDb.Factory,
+            navigation,
+            provider,
+            portService,
+            NullLogger<PacketsViewModel>.Instance);
         var ports = new PortsViewModel(portService, configuration, navigation, NullLogger<PortsViewModel>.Instance);
         var settings = new SettingsViewModel(configuration, navigation);
 
-        return new MainViewModel(navigation, home, messages, ports, settings);
+        return new MainViewModel(navigation, home, messages, packets, ports, settings);
     }
 
     private sealed class OverlayStubViewModel : ViewModelBase;

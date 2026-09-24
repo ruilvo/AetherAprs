@@ -1,0 +1,104 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:data="using:AetherAprs.Data"
+             xmlns:local="using:AetherAprs"
+             xmlns:ext="using:AetherAprs.Extensions"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.PacketDetailsView"
+             x:DataType="vm:PacketDetailsViewModel"
+             d:DataContext="{x:Static local:DesignData.PacketDetailsViewModel}">
+
+  <Grid RowDefinitions="Auto,Auto,*">
+    <!-- Header with back button -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Classes="PageHeader">
+      <Button Grid.Column="0"
+              Classes="Icon"
+              Command="{Binding GoBackCommand}"
+              ToolTip.Tip="Back">
+        <PathIcon Data="{ext:MaterialIconGeometryExt ArrowBack}" />
+      </Button>
+      <TextBlock Grid.Column="1"
+                 Text="{Binding Title}"
+                 Classes="Headline6"
+                 VerticalAlignment="Center"
+                 Margin="8,0,0,0" />
+    </Grid>
+
+    <!-- Action buttons -->
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="16,8">
+      <Button Content="Send Message"
+              Command="{Binding SendMessageCommand}"
+              Classes="Flat">
+        <Button.ContentTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PathIcon Data="{ext:MaterialIconGeometryExt Message}" />
+              <TextBlock Text="Send Message" />
+            </StackPanel>
+          </DataTemplate>
+        </Button.ContentTemplate>
+      </Button>
+    </StackPanel>
+
+    <!-- Packets table -->
+    <ScrollViewer Grid.Row="2">
+      <StackPanel Spacing="8" Margin="16">
+        <!-- Loading indicator -->
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     Margin="0,8" />
+
+        <!-- DataGrid for packets -->
+        <DataGrid ItemsSource="{Binding Packets}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  CanUserReorderColumns="False"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="True">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Time"
+                                Binding="{Binding ReceivedAt, StringFormat='{}{0:HH:mm:ss}'}"
+                                Width="80" />
+            <DataGridTextColumn Header="Type"
+                                Binding="{Binding PacketType}"
+                                Width="80" />
+            <DataGridTextColumn Header="Lat"
+                                Binding="{Binding Latitude, StringFormat='{}{0:F4}'}"
+                                Width="70" />
+            <DataGridTextColumn Header="Lon"
+                                Binding="{Binding Longitude, StringFormat='{}{0:F4}'}"
+                                Width="70" />
+            <DataGridTextColumn Header="Comment"
+                                Binding="{Binding Comment}"
+                                Width="*" />
+            <DataGridTextColumn Header="Message"
+                                Binding="{Binding MessageText}"
+                                Width="*" />
+            <DataGridTextColumn Header="Status"
+                                Binding="{Binding StatusText}"
+                                Width="*" />
+          </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Empty state -->
+        <TextBlock Text="No packets found"
+                   Classes="Body1"
+                   HorizontalAlignment="Center"
+                   Margin="0,32"
+                   Opacity="0.5"
+                   IsVisible="{Binding !Packets.Count}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>

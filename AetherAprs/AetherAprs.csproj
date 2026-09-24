@@ -40,6 +40,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="DialogHost.Avalonia" />
     <PackageReference Include="Material.Avalonia" />
+    <PackageReference Include="Material.Avalonia.DataGrid" />
     <PackageReference Include="Material.Avalonia.Dialogs" />
     <PackageReference Include="Material.Icons.Avalonia" />
     <PackageReference Include="Microsoft.Extensions.Configuration" />

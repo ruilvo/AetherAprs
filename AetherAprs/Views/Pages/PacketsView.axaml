@@ -1,0 +1,91 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:local="using:AetherAprs"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.PacketsView"
+             x:DataType="vm:PacketsViewModel"
+             d:DataContext="{x:Static local:DesignData.PacketsViewModel}">
+
+  <Grid RowDefinitions="Auto,*">
+    <!-- Header -->
+    <Border Grid.Row="0" Classes="PageHeader">
+      <TextBlock Text="{Binding Title}"
+                 Classes="Headline6" />
+    </Border>
+
+    <!-- Content -->
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Spacing="8" Margin="16">
+        <!-- Loading indicator -->
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     Margin="0,8" />
+
+        <!-- Packet cards -->
+        <ItemsControl ItemsSource="{Binding Packets}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PacketSummary">
+              <Button Classes="Outline"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch"
+                      Command="{Binding $parent[UserControl].((vm:PacketsViewModel)DataContext).OpenPacketDetailsCommand}"
+                      CommandParameter="{Binding}"
+                      Margin="0,4">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                  <!-- Callsign -->
+                  <TextBlock Grid.Row="0" Grid.Column="0"
+                             Text="{Binding Source}"
+                             Classes="Subtitle1"
+                             FontWeight="Bold" />
+
+                  <!-- Packet type badge -->
+                  <Border Grid.Row="0" Grid.Column="1"
+                          Background="{DynamicResource MaterialPrimaryLightBrush}"
+                          CornerRadius="4"
+                          Padding="8,2"
+                          VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PacketType}"
+                               Classes="Caption"
+                               Foreground="{DynamicResource MaterialPrimaryForegroundBrush}" />
+                  </Border>
+
+                  <!-- Preview -->
+                  <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                             Text="{Binding Preview}"
+                             Classes="Body2"
+                             TextWrapping="Wrap"
+                             Margin="0,4,0,0"
+                             Opacity="0.7" />
+
+                  <!-- Timestamp -->
+                  <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                             Text="{Binding ReceivedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                             Classes="Caption"
+                             Margin="0,4,0,0"
+                             Opacity="0.5" />
+                </Grid>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Empty state -->
+        <TextBlock Text="No packets received yet"
+                   Classes="Body1"
+                   HorizontalAlignment="Center"
+                   Margin="0,32"
+                   Opacity="0.5"
+                   IsVisible="{Binding !Packets.Count}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>

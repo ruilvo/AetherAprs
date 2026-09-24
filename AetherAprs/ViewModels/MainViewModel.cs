@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Services;
+using AetherAprs.ViewModels.Pages;
 
 namespace AetherAprs.ViewModels;
 
@@ -16,16 +17,18 @@ public partial class MainViewModel : ViewModelBase
     {
         [0] = typeof(HomeViewModel),
         [1] = typeof(MessagesViewModel),
-        [2] = typeof(PortsViewModel),
-        [3] = typeof(SettingsViewModel)
+        [2] = typeof(PacketsViewModel),
+        [3] = typeof(PortsViewModel),
+        [4] = typeof(SettingsViewModel)
     };
 
     private static readonly Dictionary<Type, int> ViewModelTypeToTabIndex = new()
     {
         [typeof(HomeViewModel)] = 0,
         [typeof(MessagesViewModel)] = 1,
-        [typeof(PortsViewModel)] = 2,
-        [typeof(SettingsViewModel)] = 3
+        [typeof(PacketsViewModel)] = 2,
+        [typeof(PortsViewModel)] = 3,
+        [typeof(SettingsViewModel)] = 4
     };
 
     [ObservableProperty]
@@ -38,6 +41,7 @@ public partial class MainViewModel : ViewModelBase
 
     public HomeViewModel HomeViewModel { get; }
     public MessagesViewModel MessagesViewModel { get; }
+    public PacketsViewModel PacketsViewModel { get; }
     public PortsViewModel PortsViewModel { get; }
     public SettingsViewModel SettingsViewModel { get; }
 
@@ -45,12 +49,14 @@ public partial class MainViewModel : ViewModelBase
         INavigationService navService,
         HomeViewModel homeViewModel,
         MessagesViewModel messagesViewModel,
+        PacketsViewModel packetsViewModel,
         PortsViewModel portsViewModel,
         SettingsViewModel settingsViewModel)
     {
         _navigationService = navService;
         HomeViewModel = homeViewModel;
         MessagesViewModel = messagesViewModel;
+        PacketsViewModel = packetsViewModel;
         PortsViewModel = portsViewModel;
         SettingsViewModel = settingsViewModel;
 
@@ -76,6 +82,8 @@ public partial class MainViewModel : ViewModelBase
                 _navigationService.NavigateTo<HomeViewModel>();
             else if (viewModelType == typeof(MessagesViewModel))
                 _navigationService.NavigateTo<MessagesViewModel>();
+            else if (viewModelType == typeof(PacketsViewModel))
+                _navigationService.NavigateTo<PacketsViewModel>();
             else if (viewModelType == typeof(PortsViewModel))
                 _navigationService.NavigateTo<PortsViewModel>();
             else if (viewModelType == typeof(SettingsViewModel))
