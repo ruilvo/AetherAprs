@@ -17,6 +17,7 @@ namespace AetherAprs.Imaging;
 public interface IAprsSymbolBitmapProvider : IDisposable
 {
     SKBitmap GetSymbolBitmap(Symbol symbol);
+    SKBitmap GetOverlayBitmap(SymbolCode overlayChar);
 }
 
 public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider

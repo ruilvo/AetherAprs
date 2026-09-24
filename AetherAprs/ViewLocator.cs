@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views;
 using AetherAprs.Views.Components;
@@ -31,6 +32,7 @@ public class ViewLocator: IDataTemplate
             PortItemViewModel => new PortItemView(),
             BeaconTransmissionViewModel => new BeaconTransmissionView(),
             LocationTrackingViewModel => new LocationTrackingView(),
+            SymbolSelectorViewModel => new SymbolSelectorView(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

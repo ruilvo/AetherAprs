@@ -247,12 +247,27 @@ public sealed class PortServiceTests
     {
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
+        var mockPacketStorage = new MockPacketStorageService();
         return new PortService(
             db.Factory,
             new TestConfigurationService(),
             NullLogger<PortService>.Instance,
             services,
-            kissStreamFactory);
+            kissStreamFactory,
+            mockPacketStorage);
+    }
+
+    private sealed class MockPacketStorageService : IPacketStorageService
+    {
+        public Task StorePacketAsync(AprsPacket packet, Guid? portId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class CountingKissStreamFactory : IKissStreamFactory

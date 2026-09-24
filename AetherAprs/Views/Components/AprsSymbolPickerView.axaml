@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:pages="using:AetherAprs.ViewModels.Pages"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              x:Class="AetherAprs.Views.Components.AprsSymbolPickerView"
              x:Name="Root">
     <StackPanel Spacing="8">
@@ -22,55 +23,77 @@ SPDX-License-Identifier: GPL-3.0-or-later
                        Foreground="{DynamicResource MaterialPrimaryBrush}" />
         </StackPanel>
 
-        <Grid ColumnDefinitions="64,64,Auto"
-              ColumnSpacing="12"
-              VerticalAlignment="Center">
-            <TextBox Grid.Column="0"
-                     Text="{Binding TableCharacter, ElementName=Root, Mode=TwoWay}"
-                     MaxLength="1"
-                     HorizontalContentAlignment="Center"
-                     PlaceholderText="/"
-                     wpf:TextFieldAssist.Label="Table"
-                     UseFloatingPlaceholder="True" />
-            <TextBox Grid.Column="1"
-                     Text="{Binding CodeCharacter, ElementName=Root, Mode=TwoWay}"
-                     MaxLength="1"
-                     HorizontalContentAlignment="Center"
-                     PlaceholderText="["
-                     wpf:TextFieldAssist.Label="Code"
-                     UseFloatingPlaceholder="True" />
-            <Border Grid.Column="2"
-                    Width="64"
+        <!-- Symbol Selection Buttons -->
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+            <!-- Base Symbol Button -->
+            <Button Grid.Column="0"
+                    Classes="Outline"
+                    Height="80"
+                    HorizontalContentAlignment="Stretch"
+                    Click="OnBaseSymbolButtonClick">
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <Border Width="48"
+                            Height="48"
+                            Padding="2"
+                            CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource MaterialDividerBrush}">
+                        <Image Source="{Binding BaseSymbolPreview, ElementName=Root}"
+                               Stretch="Uniform" />
+                    </Border>
+                    <TextBlock Text="Base Symbol"
+                               Classes="Caption"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                </StackPanel>
+            </Button>
+
+            <!-- Overlay Button -->
+            <Button Grid.Column="1"
+                    Classes="Outline"
+                    Height="80"
+                    HorizontalContentAlignment="Stretch"
+                    IsEnabled="{Binding IsOverlayEnabled, ElementName=Root}"
+                    Click="OnOverlayButtonClick">
+                <StackPanel Spacing="8" HorizontalAlignment="Center">
+                    <Border Width="48"
+                            Height="48"
+                            Padding="2"
+                            CornerRadius="4"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource MaterialDividerBrush}">
+                        <Image Source="{Binding OverlayPreview, ElementName=Root}"
+                               Stretch="Uniform" />
+                    </Border>
+                    <TextBlock Text="Overlay"
+                               Classes="Caption"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Final Symbol Preview -->
+        <StackPanel Spacing="4">
+            <TextBlock Text="Result"
+                       Classes="Caption"
+                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+            <Border Width="64"
                     Height="64"
                     Padding="4"
                     CornerRadius="4"
                     BorderThickness="1"
                     BorderBrush="{DynamicResource MaterialDividerBrush}"
-                    Background="{DynamicResource MaterialCardBackgroundBrush}">
-                <Image Source="{Binding SymbolPreview, ElementName=Root}"
+                    Background="{DynamicResource MaterialCardBackgroundBrush}"
+                    HorizontalAlignment="Left">
+                <Image Source="{Binding FinalSymbolPreview, ElementName=Root}"
                        Stretch="Uniform" />
             </Border>
-        </Grid>
+        </StackPanel>
 
-        <ComboBox ItemsSource="{Binding SymbolOptions, ElementName=Root}"
-                  SelectedItem="{Binding SelectedSymbolOption, ElementName=Root, Mode=TwoWay}"
-                  Theme="{StaticResource MaterialOutlineComboBox}"
-                  wpf:ComboBoxAssist.Label="Choose a symbol">
-            <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="pages:AprsSymbolOption">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="{Binding Name}" />
-                        <TextBlock Text="(" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                        <TextBlock Text="{Binding TableCharacter}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                        <TextBlock Text="{Binding CodeCharacter}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                        <TextBlock Text=")" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                    </StackPanel>
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
-
-        <TextBlock Text="Enter the APRS table and code characters."
+        <TextBlock Text="Select a base symbol from the primary or alternate table. If you select from the alternate table, you can also add an overlay character."
                    Classes="Caption"
+                   TextWrapping="Wrap"
                    Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
     </StackPanel>
 </UserControl>

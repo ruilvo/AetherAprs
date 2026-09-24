@@ -337,6 +337,11 @@ public sealed class HomeViewModelTests : TestFixtureBase
             return new SKBitmap(8, 8);
         }
 
+        public SKBitmap GetOverlayBitmap(SymbolCode overlayChar)
+        {
+            return new SKBitmap(8, 8);
+        }
+
         public void Dispose()
         {
             // No resources to dispose

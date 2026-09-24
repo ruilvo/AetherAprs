@@ -29,6 +29,9 @@ public partial class SettingsViewModel : ViewModelBase
     public partial string DefaultSymbolCodeCharacter { get; set; } = "[";
 
     [ObservableProperty]
+    public partial string? DefaultSymbolOverlayCharacter { get; set; }
+
+    [ObservableProperty]
     public partial bool IsSaved { get; set; }
 
     public SettingsViewModel(IConfigurationService configurationService, INavigationService navigationService)
@@ -41,6 +44,7 @@ public partial class SettingsViewModel : ViewModelBase
         DefaultSsid = aprs.DefaultSsid;
         DefaultSymbolTableCharacter = aprs.DefaultSymbolTableCharacter;
         DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
+        DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
     }
 
     [RelayCommand]
@@ -50,6 +54,7 @@ public partial class SettingsViewModel : ViewModelBase
         _configurationService.Settings.Aprs.DefaultSsid = DefaultSsid ?? 0;
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
+        _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
         await _configurationService.SaveSettingsAsync();
         IsSaved = true;
     }

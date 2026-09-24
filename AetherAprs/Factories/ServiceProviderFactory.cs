@@ -63,6 +63,7 @@ public static class ServiceProviderFactory
 
         // Register messaging
         services.AddSingleton<IMessageService, MessageService>();
+        services.AddSingleton<IPacketStorageService, PacketStorageService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();

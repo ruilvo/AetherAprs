@@ -12,6 +12,7 @@ public class AprsSettings
     private int _defaultSsid = 0;
     private string _defaultSymbolTableCharacter = "/";
     private string _defaultSymbolCodeCharacter = "[";
+    private string? _defaultSymbolOverlayCharacter;
 
     /// <summary>
     /// Gets or sets the APRS callsign (without SSID). Must be 1-6 alphanumeric characters.
@@ -105,4 +106,37 @@ public class AprsSettings
             _defaultSymbolCodeCharacter = value;
         }
     }
+
+    /// <summary>
+    /// Gets or sets the default APRS symbol overlay character (typically '0'-'9' or 'A'-'Z', or null for no overlay).
+    /// Only applicable when using the Alternate table ('\').
+    /// </summary>
+    public string? DefaultSymbolOverlayCharacter
+    {
+        get => _defaultSymbolOverlayCharacter;
+        set
+        {
+            if (value != null)
+            {
+                if (value.Length != 1)
+                {
+                    throw new ArgumentException("Symbol overlay character must be exactly one character or null.", nameof(value));
+                }
+
+                var ch = value[0];
+                if (ch < 33 || ch > 126)
+                {
+                    throw new ArgumentException($"Symbol overlay character must be printable ASCII (33-126), got '{ch}' ({(int)ch}).", nameof(value));
+                }
+            }
+
+            _defaultSymbolOverlayCharacter = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum number of days to retain received APRS packets in the database.
+    /// Packets older than this will be automatically deleted. Default is 30 days.
+    /// </summary>
+    public int PacketRetentionDays { get; set; } = 30;
 }

@@ -26,6 +26,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly ILogger<PortService> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IKissStreamFactory _kissStreamFactory;
+    private readonly IPacketStorageService _packetStorageService;
     private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
     private readonly List<PortConfig> _ports;
 
@@ -34,13 +35,15 @@ public class PortService : IPortService, IAsyncDisposable
         IConfigurationService configurationService,
         ILogger<PortService> logger,
         IServiceProvider serviceProvider,
-        IKissStreamFactory kissStreamFactory)
+        IKissStreamFactory kissStreamFactory,
+        IPacketStorageService packetStorageService)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
         _logger = logger;
         _serviceProvider = serviceProvider;
         _kissStreamFactory = kissStreamFactory;
+        _packetStorageService = packetStorageService;
         _ports = LoadPorts();
     }
 
@@ -387,6 +390,20 @@ public class PortService : IPortService, IAsyncDisposable
                 packet.Source,
                 packet.Raw);
         }
+
+        // Store packet asynchronously (fire and forget)
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _packetStorageService.StorePacketAsync(packet, portId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
+            }
+        });
+
         PacketReceived?.Invoke(this, new PortPacketReceivedEventArgs
         {
             PortId = portId,

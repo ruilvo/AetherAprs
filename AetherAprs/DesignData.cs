@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
@@ -15,6 +16,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
+using AetherAprs.Models.Aprs;
 using Microsoft.EntityFrameworkCore;
 
 namespace AetherAprs;
@@ -119,6 +121,14 @@ public static class DesignData
 
     public static ConversationViewModel ConversationViewModel =>
         _serviceProvider.GetRequiredService<ConversationViewModel>();
+
+    public static SymbolSelectorViewModel SymbolSelectorViewModel
+    {
+        get
+        {
+            return new SymbolSelectorViewModel(SymbolTable.Primary, SymbolCode.LeftSquareBracket);
+        }
+    }
 
     public static AddEditPortViewModel AddEditPortViewModel
     {

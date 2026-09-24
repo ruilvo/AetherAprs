@@ -265,6 +265,7 @@ public sealed class MainViewModelTests
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
     {
         public SKBitmap GetSymbolBitmap(Symbol symbol) => new(8, 8);
+        public SKBitmap GetOverlayBitmap(SymbolCode overlayChar) => new(8, 8);
         public void Dispose()
         {
         }
