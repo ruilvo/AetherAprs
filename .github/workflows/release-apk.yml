@@ -23,20 +23,9 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          
-          # Extract version code (integer) from tag
-          # For v1.2.3, this creates version code 10203
-          # For v1.2.3-beta.4, this creates 10203
-          VERSION_MAJOR=$(echo $TAG | cut -d. -f1)
-          VERSION_MINOR=$(echo $TAG | cut -d. -f2)
-          VERSION_PATCH=$(echo $TAG | cut -d. -f3 | cut -d- -f1)
-          VERSION_CODE=$((VERSION_MAJOR * 10000 + VERSION_MINOR * 100 + VERSION_PATCH))
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-          echo "version_name=$TAG" >> $GITHUB_OUTPUT
-          
-          echo "Building version $TAG (code: $VERSION_CODE)"
+          chmod +x .github/scripts/extract-version.sh
+          OUTPUT=$(.github/scripts/extract-version.sh "${GITHUB_REF#refs/tags/}")
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
