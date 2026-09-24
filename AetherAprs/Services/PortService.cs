@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
@@ -29,6 +30,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly IPacketStorageService _packetStorageService;
     private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
     private readonly List<PortConfig> _ports;
+    private readonly CancellationTokenSource _disposalCts = new();
 
     public PortService(
         IDbContextFactory<AppDbContext> dbContextFactory,
@@ -391,18 +393,22 @@ public class PortService : IPortService, IAsyncDisposable
                 packet.Raw);
         }
 
-        // Store packet asynchronously (fire and forget)
+        // Store packet asynchronously (fire and forget with cancellation support)
         _ = Task.Run(async () =>
         {
             try
             {
-                await _packetStorageService.StorePacketAsync(packet, portId);
+                await _packetStorageService.StorePacketAsync(packet, portId, _disposalCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected during disposal
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
             }
-        });
+        }, _disposalCts.Token);
 
         PacketReceived?.Invoke(this, new PortPacketReceivedEventArgs
         {
@@ -419,7 +425,9 @@ public class PortService : IPortService, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing PortService and stopping all active ports.");
+        _disposalCts.Cancel();
         await StopAllPortsAsync();
+        _disposalCts.Dispose();
     }
 
     private sealed class ActivePortSession : IAsyncDisposable

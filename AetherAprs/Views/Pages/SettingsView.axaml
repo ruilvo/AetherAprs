@@ -81,18 +81,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
       </StackPanel>
     </ScrollViewer>
-
-    <controls:FloatingButton HorizontalAlignment="Right"
-                             VerticalAlignment="Bottom"
-                             Margin="0,0,16,16"
-                             MinHeight="56"
-                             MinWidth="56"
-                             ToolTip.Tip="Save"
-                             Command="{Binding SaveCommand}"
-                             x:Name="SaveButton">
-      <Viewbox Width="24" Height="24">
-        <avalonia:MaterialIcon Kind="ContentSave" Width="24" Height="24" />
-      </Viewbox>
-    </controls:FloatingButton>
   </Grid>
 </UserControl>

@@ -161,16 +161,17 @@ public partial class BeaconConfigurationItemViewModel : ViewModelBase
         CourseChangeThresholdDegrees = configuration.CourseChangeThresholdDegrees;
         MinimumDistanceMeters = configuration.MinimumDistanceMeters;
         BeaconComment = configuration.BeaconComment ?? string.Empty;
-
-        // Watch for changes and rebuild configuration
-        PropertyChanged += (s, e) =>
-        {
-            if (e.PropertyName != nameof(Configuration))
-            {
-                UpdateConfiguration();
-            }
-        };
     }
+
+    partial void OnDisplayNameChanged(string value) => UpdateConfiguration();
+    partial void OnSlowIntervalSecondsChanged(int value) => UpdateConfiguration();
+    partial void OnNormalIntervalSecondsChanged(int value) => UpdateConfiguration();
+    partial void OnFastIntervalSecondsChanged(int value) => UpdateConfiguration();
+    partial void OnFastSpeedThresholdKmhChanged(double value) => UpdateConfiguration();
+    partial void OnSlowSpeedThresholdKmhChanged(double value) => UpdateConfiguration();
+    partial void OnCourseChangeThresholdDegreesChanged(int value) => UpdateConfiguration();
+    partial void OnMinimumDistanceMetersChanged(int value) => UpdateConfiguration();
+    partial void OnBeaconCommentChanged(string value) => UpdateConfiguration();
 
     private void UpdateConfiguration()
     {

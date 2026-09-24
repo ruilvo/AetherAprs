@@ -45,6 +45,8 @@ public partial class MapViewModel : ViewModelBase, IDisposable
     /// </summary>
     public void UpdateUserLocation(LocationData? location)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         if (location == null || UserLocationLayer == null)
         {
             return;
@@ -92,7 +94,10 @@ public partial class MapViewModel : ViewModelBase, IDisposable
         }
 
         _disposed = true;
-        UserLocationLayer?.Clear();
+
+        var layer = UserLocationLayer;
         UserLocationLayer = null;
+
+        layer?.Clear();
     }
 }

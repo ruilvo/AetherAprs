@@ -20,6 +20,8 @@ public partial class HomeView : UserControl
     private const string OsmUserAgent =
         "AetherAprs/1.0 (+https://github.com/ruilvo/AetherAprs)";
 
+    private HomeViewModel? _currentViewModel;
+
     public HomeView()
     {
         InitializeComponent();
@@ -37,10 +39,19 @@ public partial class HomeView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        // Unsubscribe from old ViewModel to prevent memory leak
+        if (_currentViewModel?.MapViewModel != null)
+        {
+            _currentViewModel.MapViewModel.CenterOnPointRequested -= OnCenterOnPointRequested;
+        }
+
         if (DataContext is not HomeViewModel viewModel)
         {
+            _currentViewModel = null;
             return;
         }
+
+        _currentViewModel = viewModel;
 
         // Add map layers from ViewModels
         if (viewModel.MapViewModel?.UserLocationLayer != null)
@@ -93,7 +104,13 @@ public partial class HomeView : UserControl
             return;
         }
 
-        var appDataDir = App.GetService<IAppDataDirProviderService>().GetAppDataDirectory();
+        var appDataDirService = App.GetService<IAppDataDirProviderService>();
+        if (appDataDirService == null)
+        {
+            return;
+        }
+
+        var appDataDir = appDataDirService.GetAppDataDirectory();
         var cacheDir = Path.Combine(appDataDir, "osm-tile-cache");
         OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
     }

@@ -17,45 +17,60 @@ namespace AetherAprs.Tests.ViewModels;
 public sealed class SettingsViewModelTests
 {
     [Fact]
-    public async Task SaveCommandPersistsEditedAprsSettings()
+    public async Task ChangingCallsignAutoSavesSettings()
     {
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
         var symbolProvider = new TestSymbolBitmapProvider();
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolProvider)
-        {
-            Callsign = "CT7ALW",
-            DefaultSsid = 7,
-            DefaultSymbolTableCharacter = "\\",
-            DefaultSymbolCodeCharacter = ">",
-        };
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolProvider);
 
-        await viewModel.SaveCommand.ExecuteAsync(null);
+        viewModel.Callsign = "CT7ALW";
+        
+        // Give async save a moment to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
+        Assert.True(configuration.SaveCount > 0);
+    }
+
+    [Fact]
+    public async Task ChangingMultiplePropertiesAutoSavesEachTime()
+    {
+        var configuration = new TestConfigurationService();
+        var navigation = new TestNavigationService();
+        var symbolProvider = new TestSymbolBitmapProvider();
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolProvider);
+
+        viewModel.Callsign = "CT7ALW";
+        viewModel.DefaultSsid = 7;
+        viewModel.DefaultSymbolTableCharacter = "\\";
+        viewModel.DefaultSymbolCodeCharacter = ">";
+        
+        // Give async saves a moment to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
         Assert.Equal(7, configuration.Settings.Aprs.DefaultSsid);
         Assert.Equal("\\", configuration.Settings.Aprs.DefaultSymbolTableCharacter);
         Assert.Equal(">", configuration.Settings.Aprs.DefaultSymbolCodeCharacter);
-        Assert.True(viewModel.IsSaved);
-        Assert.Equal(1, configuration.SaveCount);
+        Assert.True(configuration.SaveCount >= 4);
     }
 
     [Fact]
-    public async Task SaveCommandPersistsZeroWhenDefaultSsidIsCleared()
+    public async Task ChangingDefaultSsidToNullSavesZero()
     {
         var configuration = new TestConfigurationService();
         configuration.Settings.Aprs.DefaultSsid = 7;
         var symbolProvider = new TestSymbolBitmapProvider();
-        var viewModel = new SettingsViewModel(configuration, new TestNavigationService(), symbolProvider)
-        {
-            DefaultSsid = null,
-        };
+        var viewModel = new SettingsViewModel(configuration, new TestNavigationService(), symbolProvider);
 
-        await viewModel.SaveCommand.ExecuteAsync(null);
+        viewModel.DefaultSsid = null;
+        
+        // Give async save a moment to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.Equal(0, configuration.Settings.Aprs.DefaultSsid);
-        Assert.True(viewModel.IsSaved);
-        Assert.Equal(1, configuration.SaveCount);
+        Assert.True(configuration.SaveCount > 0);
     }
 
     [Fact]

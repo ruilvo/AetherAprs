@@ -209,6 +209,154 @@ Follow these conventions consistently throughout the codebase:
 - Do NOT use `this.` prefix when `_camelCase` fields distinguish fields from parameters
 - The `_` prefix is specifically for fields. Do NOT prefix properties, methods, parameters, or local variables with `_`
 
+## Memory Leak Prevention
+
+**Event Handler Subscriptions**: Always unsubscribe from events to prevent memory leaks.
+
+```csharp
+// WRONG - Memory leak: subscription never cleaned up
+public MyView()
+{
+    InitializeComponent();
+    this.DataContextChanged += (s, e) =>
+    {
+        if (e.NewValue is MyViewModel vm)
+        {
+            vm.PropertyChanged += (s2, e2) => { /* ... */ };
+        }
+    };
+}
+
+// CORRECT - Track and unsubscribe
+private MyViewModel? _currentViewModel;
+
+private void OnDataContextChanged(object? sender, EventArgs e)
+{
+    if (_currentViewModel != null)
+    {
+        _currentViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+    }
+
+    _currentViewModel = DataContext as MyViewModel;
+
+    if (_currentViewModel != null)
+    {
+        _currentViewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+}
+
+private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+{
+    // Handle property changes
+}
+```
+
+**Self-Referencing PropertyChanged**: Never subscribe to your own PropertyChanged event with lambdas. Use CommunityToolkit.Mvvm partial methods instead.
+
+```csharp
+// WRONG - Memory leak: object holds reference to itself
+public BeaconConfigurationItemViewModel()
+{
+    PropertyChanged += (s, e) =>
+    {
+        if (e.PropertyName == nameof(SlowIntervalSeconds))
+        {
+            UpdateConfiguration();
+        }
+    };
+}
+
+// CORRECT - Use partial methods
+[ObservableProperty]
+public partial int SlowIntervalSeconds { get; set; }
+
+partial void OnSlowIntervalSecondsChanged(int value)
+{
+    UpdateConfiguration();
+}
+```
+
+**Async Void Event Handlers**: Avoid `async void` except for event handlers, and add try-catch for error handling.
+
+```csharp
+// ACCEPTABLE with error handling
+private async void OnSomeEvent(object? sender, EventArgs e)
+{
+    try
+    {
+        await DoSomethingAsync();
+    }
+    catch (Exception ex)
+    {
+        // Log error - exceptions in async void crash the app
+        _logger?.LogError(ex, "Error in event handler");
+    }
+}
+
+// BETTER - Use RelayCommand for user actions
+[RelayCommand]
+private async Task DoSomethingAsync()
+{
+    // Exceptions are captured by the command infrastructure
+}
+```
+
+**Disposal and Cancellation**: Pass cancellation tokens to background tasks and cancel them during disposal.
+
+```csharp
+// WRONG - Fire-and-forget task continues after disposal
+public async ValueTask DisposeAsync()
+{
+    // Task continues running
+}
+
+// CORRECT - Cancellation token stops task
+private readonly CancellationTokenSource _disposalCts = new();
+
+private void StartBackgroundWork()
+{
+    _ = Task.Run(async () =>
+    {
+        try
+        {
+            while (!_disposalCts.Token.IsCancellationRequested)
+            {
+                await DoWorkAsync(_disposalCts.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected during disposal
+        }
+    }, _disposalCts.Token);
+}
+
+public async ValueTask DisposeAsync()
+{
+    _disposalCts.Cancel();
+    _disposalCts.Dispose();
+}
+```
+
+**Thread Safety in Disposal**: Capture references before nulling them when disposing from potentially different threads.
+
+```csharp
+// WRONG - Race condition
+public void Dispose()
+{
+    _someLayer?.Dispose();
+    _someLayer = null;
+}
+
+// CORRECT - Capture then null
+public void Dispose()
+{
+    var layer = _someLayer;
+    _someLayer = null;
+    layer?.Dispose();
+}
+```
+
 ## Common Mistakes to Avoid
 
 - Creating files without SPDX headers - pre-commit will reject
@@ -220,3 +368,7 @@ Follow these conventions consistently throughout the codebase:
 - Manually instantiating views or using inline DataTemplates instead of letting ViewLocator handle ViewModel-to-View resolution
 - Using inconsistent naming conventions for private fields (always use `_camelCase`)
 - Using backing field approach with `[ObservableProperty]` instead of partial properties
+- Subscribing to events without unsubscribing (memory leaks)
+- Using lambda subscriptions to own PropertyChanged event (memory leaks)
+- Fire-and-forget async operations without cancellation tokens
+- Missing try-catch in async void event handlers (app crashes on exception)

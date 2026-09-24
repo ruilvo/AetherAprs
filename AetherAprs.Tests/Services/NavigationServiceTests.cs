@@ -6,6 +6,7 @@ using System;
 using AetherAprs.Imaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -97,6 +98,7 @@ public sealed class NavigationServiceTests
         services.AddSingleton<ReceivedBeaconsViewModel>();
         services.AddSingleton<LocationTrackingViewModel>();
         services.AddSingleton<BeaconTransmissionViewModel>();
+        services.AddSingleton<MapViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
         services.AddSingleton<PortsViewModel>();

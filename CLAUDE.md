@@ -127,4 +127,130 @@ All projects have `<ImplicitUsings>disable</ImplicitUsings>`. When writing C# co
 
 ---
 
+## 5. Memory Leak Prevention
+
+**Always clean up event subscriptions. Always.**
+
+Event handlers create strong references that prevent garbage collection. Unsubscribe in disposal or when the source changes.
+
+Common leak patterns:
+
+```csharp
+// WRONG - Leak: lambda captures 'this', subscription never removed
+public MyView()
+{
+    someObject.SomeEvent += (s, e) => { UseThis(); };
+}
+
+// CORRECT - Track source and unsubscribe
+private SomeType? _currentSource;
+
+private void OnSourceChanged(SomeType? newSource)
+{
+    if (_currentSource != null)
+    {
+        _currentSource.SomeEvent -= OnSomeEvent;
+    }
+    
+    _currentSource = newSource;
+    
+    if (_currentSource != null)
+    {
+        _currentSource.SomeEvent += OnSomeEvent;
+    }
+}
+
+private void OnSomeEvent(object? sender, EventArgs e)
+{
+    // Handle event
+}
+```
+
+**Never subscribe to your own PropertyChanged with lambdas:**
+
+```csharp
+// WRONG - Self-reference leak
+PropertyChanged += (s, e) => 
+{
+    if (e.PropertyName == nameof(Foo)) DoSomething();
+};
+
+// CORRECT - Use CommunityToolkit.Mvvm partial methods
+[ObservableProperty]
+public partial int Foo { get; set; }
+
+partial void OnFooChanged(int value)
+{
+    DoSomething();
+}
+```
+
+**Cancel background work during disposal:**
+
+```csharp
+// WRONG - Task runs after disposal
+_ = Task.Run(async () => await LongRunningWorkAsync());
+
+// CORRECT - Pass cancellation token
+private readonly CancellationTokenSource _disposalCts = new();
+
+private void StartWork()
+{
+    _ = Task.Run(async () => 
+    {
+        try
+        {
+            await LongRunningWorkAsync(_disposalCts.Token);
+        }
+        catch (OperationCanceledException) { }
+    }, _disposalCts.Token);
+}
+
+public void Dispose()
+{
+    _disposalCts.Cancel();
+    _disposalCts.Dispose();
+}
+```
+
+**Async void only for event handlers, and always wrap in try-catch:**
+
+```csharp
+// ACCEPTABLE - Event handler with error handling
+private async void OnButtonClick(object? sender, EventArgs e)
+{
+    try
+    {
+        await DoWorkAsync();
+    }
+    catch (Exception ex)
+    {
+        // Log - exceptions in async void crash the app
+        Logger.LogError(ex, "Error in handler");
+    }
+}
+
+// BETTER - Use RelayCommand for user actions
+[RelayCommand]
+private async Task DoWorkAsync()
+{
+    // Framework captures exceptions
+}
+```
+
+**Thread-safe disposal:**
+
+```csharp
+// WRONG - Race condition if called from different thread
+_resource?.Dispose();
+_resource = null;
+
+// CORRECT - Capture then null
+var resource = _resource;
+_resource = null;
+resource?.Dispose();
+```
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

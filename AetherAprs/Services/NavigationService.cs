@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Pages;
 
 namespace AetherAprs.Services;
 
@@ -16,6 +17,7 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
         typeof(HomeViewModel),
         typeof(PortsViewModel),
         typeof(MessagesViewModel),
+        typeof(PacketsViewModel),
         typeof(SettingsViewModel)
     ];
 

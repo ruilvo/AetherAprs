@@ -46,7 +46,7 @@ public sealed class MainViewModelTests
 
         fixture.SelectedTabIndex = 2;
 
-        Assert.Equal(typeof(PortsViewModel), navigation.LastNavigatedType);
+        Assert.Equal(typeof(PacketsViewModel), navigation.LastNavigatedType);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class MainViewModelTests
 
         Assert.Null(fixture.OverlayViewModel);
         Assert.False(fixture.IsOverlayVisible);
-        Assert.Equal(3, fixture.SelectedTabIndex);
+        Assert.Equal(4, fixture.SelectedTabIndex);
     }
 
     [Fact]
