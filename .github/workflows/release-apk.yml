@@ -124,7 +124,8 @@ jobs:
           
           echo ""
           echo "=== APK Details (aapt) ==="
-          $ANDROID_HOME/build-tools/*/aapt dump badging "$APK_PATH" | head -25
+          BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$BUILD_TOOLS/aapt" dump badging "$APK_PATH" | head -25
           
           echo ""
           echo "=== APK Signature Check (jarsigner) ==="
@@ -142,13 +143,17 @@ jobs:
             # Backup original
             cp "$APK_PATH" "${APK_PATH}.unsigned"
             
+            # Find build tools
+            BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -maxdepth 1 -type d | sort -V | tail -n 1)
+            echo "Using build tools: $BUILD_TOOLS"
+            
             # Align
             echo "Aligning APK..."
-            $ANDROID_HOME/build-tools/*/zipalign -v -p 4 "${APK_PATH}.unsigned" "${APK_PATH}.aligned"
+            "$BUILD_TOOLS/zipalign" -v -p 4 "${APK_PATH}.unsigned" "${APK_PATH}.aligned"
             
             # Sign with apksigner
             echo "Signing APK with apksigner..."
-            $ANDROID_HOME/build-tools/*/apksigner sign \
+            "$BUILD_TOOLS/apksigner" sign \
               --ks ${{ github.workspace }}/release.keystore \
               --ks-key-alias ${{ secrets.ANDROID_KEY_ALIAS }} \
               --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
