@@ -44,6 +44,30 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/release.keystore
 
+      - name: Verify keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "Verifying keystore..."
+          ls -lh ${{ github.workspace }}/release.keystore
+          
+          echo "Listing keystore contents..."
+          keytool -list -v -keystore ${{ github.workspace }}/release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -20
+          
+          echo "Checking for alias '$KEY_ALIAS'..."
+          if keytool -list -keystore ${{ github.workspace }}/release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
+            echo "✓ Alias '$KEY_ALIAS' found in keystore"
+          else
+            echo "✗ Alias '$KEY_ALIAS' NOT found in keystore"
+            echo "Available aliases:"
+            keytool -list -keystore ${{ github.workspace }}/release.keystore \
+              -storepass "$KEYSTORE_PASSWORD" | grep "Alias name:"
+            exit 1
+          fi
+
       - name: Build APK
         run: |
           dotnet publish AetherAprs.Android/AetherAprs.Android.csproj \

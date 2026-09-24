@@ -22,15 +22,30 @@ The GitHub Actions workflow (`.github/workflows/release-apk.yml`) automatically:
 You need to create a keystore for signing your APK. Run this command locally:
 
 ```bash
-keytool -genkey -v -keystore release.keystore -alias aetheraprs -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v -keystore release.keystore -alias aetheraprs -keyalg RSA -keysize 2048 -validity 10000 -storetype PKCS12
 ```
 
+**Important parameters:**
+- `-keystore release.keystore` - Output filename
+- `-alias aetheraprs` - Key alias (use this exact value or update `ANDROID_KEY_ALIAS` secret)
+- `-keyalg RSA -keysize 2048` - Encryption algorithm and key size
+- `-validity 10000` - Validity period in days (~27 years)
+- `-storetype PKCS12` - Modern keystore format (required for Android signing)
+
 You'll be prompted for:
-- **Keystore password**: Choose a strong password (you'll need this later)
-- **Key password**: Choose a strong password (can be the same or different)
-- **Your name, organization, etc.**: Fill in as appropriate
+- **Keystore password**: Choose a strong password (you'll need this for `ANDROID_KEYSTORE_PASSWORD`)
+- **Key password**: Choose a strong password (you'll need this for `ANDROID_KEY_PASSWORD`)
+  - You can press Enter to use the same password as the keystore
+- **Your name, organization, etc.**: Fill in as appropriate (will appear in the certificate)
 
 **Important**: Keep `release.keystore` safe and NEVER commit it to git!
+
+**Verify your keystore was created correctly:**
+```bash
+keytool -list -v -keystore release.keystore -alias aetheraprs
+```
+
+This should show your key details. If it asks for a password and then shows the certificate, your keystore is valid.
 
 ### 2. Convert Keystore to Base64
 
