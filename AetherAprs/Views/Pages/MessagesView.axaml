@@ -12,6 +12,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.MessagesView"
              x:DataType="vm:MessagesViewModel"
@@ -22,7 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <TextBlock Text="{Binding Title}"
                  Classes="Headline5"
                  FontWeight="Bold" />
-      <TextBlock Text="APRS message conversations"
+      <TextBlock Text="{loc:Loc AprsMessageConversations}"
                  Classes="Body2"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />

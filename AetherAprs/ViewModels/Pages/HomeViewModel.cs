@@ -26,6 +26,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private Dictionary<Guid, bool> _previousPortEnabledState = new();
     private LocationData? _previousLocation;
     private bool _disposed;
+    private bool _hasReceivedFirstLocation;
 
     [ObservableProperty]
     public partial ReceivedBeaconsViewModel? ReceivedBeacons { get; set; }
@@ -71,6 +72,13 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         {
             // Update map with new location
             MapViewModel.UpdateUserLocation(currentLocation);
+
+            // Auto-center on first location received
+            if (!_hasReceivedFirstLocation)
+            {
+                MapViewModel.CenterOnUser();
+                _hasReceivedFirstLocation = true;
+            }
 
             // Evaluate beacon transmission if enabled
             if (IsDynamicBeaconingEnabled)

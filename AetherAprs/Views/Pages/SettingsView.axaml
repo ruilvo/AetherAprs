@@ -14,6 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.SettingsView"
              x:DataType="vm:SettingsViewModel"
@@ -32,11 +33,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Station Section -->
         <StackPanel Spacing="16">
           <TextBlock Classes="Headline5"
-                     Text="Station Settings"
+                     Text="{loc:Loc StationSettings}"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <TextBlock Classes="Body2"
-                     Text="Configure your station identity used for APRS."
+                     Text="{loc:Loc StationSettingsDescription}"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
@@ -63,15 +64,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Placeholder for future settings sections -->
         <StackPanel Spacing="16">
           <TextBlock Classes="Headline5"
-                     Text="Dynamic Beaconing"
+                     Text="{loc:Loc DynamicBeaconing}"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <TextBlock Classes="Body2"
-                     Text="Configure intelligent position beaconing with smart transmit intervals."
+                     Text="{loc:Loc DynamicBeaconingDescription}"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
-          <Button Content="Configure Beaconing Modes"
+          <Button Content="{loc:Loc ConfigureBeaconingModes}"
                   Command="{Binding OpenBeaconingSettingsCommand}"
                   x:Name="ConfigureBeaconingButton"
                   MinWidth="120"

@@ -393,7 +393,7 @@ public class PortService : IPortService, IAsyncDisposable
                 packet.Raw);
         }
 
-        // Store packet asynchronously (fire and forget with cancellation support)
+        // Store packet and raise event asynchronously on background thread
         _ = Task.Run(async () =>
         {
             try
@@ -408,13 +408,14 @@ public class PortService : IPortService, IAsyncDisposable
             {
                 _logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
             }
-        }, _disposalCts.Token);
 
-        PacketReceived?.Invoke(this, new PortPacketReceivedEventArgs
-        {
-            PortId = portId,
-            Packet = packet
-        });
+            // Raise event on background thread to avoid blocking the modem's receive loop
+            PacketReceived?.Invoke(this, new PortPacketReceivedEventArgs
+            {
+                PortId = portId,
+                Packet = packet
+            });
+        }, _disposalCts.Token);
     }
 
     private void OnModemReceiveError(object? sender, Exception exception)

@@ -55,6 +55,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
     public AprsSymbolPickerViewModel(IAprsSymbolBitmapProvider symbolBitmapProvider)
     {
         _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
+        UpdatePreviews();
     }
 
     partial void OnTableCharacterChanged(string value)

@@ -108,9 +108,30 @@ public partial class AprsSymbolPickerView : UserControl
                 return;
             }
 
-            var view = new SymbolSelectorView { DataContext = viewModel.SymbolSelectorViewModel };
-            await DialogHost.Show(view, "RootDialogHost");
-            viewModel.ApplyBaseSymbolSelection();
+            var selectorViewModel = viewModel.SymbolSelectorViewModel;
+            var view = new SymbolSelectorView { DataContext = selectorViewModel };
+            
+            // Subscribe to symbol selected event to close dialog
+            void OnSymbolSelected(object? s, EventArgs args)
+            {
+                DialogHost.Close("MainDialogHost");
+            }
+            
+            selectorViewModel.SymbolSelected += OnSymbolSelected;
+            
+            try
+            {
+                await DialogHost.Show(view, "MainDialogHost");
+                // Apply selection after dialog closes (whether by selection or back button)
+                if (selectorViewModel.IsSelected)
+                {
+                    viewModel.ApplyBaseSymbolSelection();
+                }
+            }
+            finally
+            {
+                selectorViewModel.SymbolSelected -= OnSymbolSelected;
+            }
         }
         catch (Exception ex)
         {
@@ -127,9 +148,30 @@ public partial class AprsSymbolPickerView : UserControl
                 return;
             }
 
-            var view = new SymbolSelectorView { DataContext = viewModel.OverlaySelectorViewModel };
-            await DialogHost.Show(view, "RootDialogHost");
-            viewModel.ApplyOverlaySelection();
+            var selectorViewModel = viewModel.OverlaySelectorViewModel;
+            var view = new SymbolSelectorView { DataContext = selectorViewModel };
+            
+            // Subscribe to symbol selected event to close dialog
+            void OnSymbolSelected(object? s, EventArgs args)
+            {
+                DialogHost.Close("MainDialogHost");
+            }
+            
+            selectorViewModel.SymbolSelected += OnSymbolSelected;
+            
+            try
+            {
+                await DialogHost.Show(view, "MainDialogHost");
+                // Apply selection after dialog closes (whether by selection or back button)
+                if (selectorViewModel.IsSelected)
+                {
+                    viewModel.ApplyOverlaySelection();
+                }
+            }
+            finally
+            {
+                selectorViewModel.SymbolSelected -= OnSymbolSelected;
+            }
         }
         catch (Exception ex)
         {

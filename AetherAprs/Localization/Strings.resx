@@ -156,4 +156,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SymbolBoat" xml:space="preserve"><value>Boat</value></data>
   <data name="SymbolEmergency" xml:space="preserve"><value>Emergency</value></data>
   <data name="SymbolHospital" xml:space="preserve"><value>Hospital</value></data>
+  <data name="BaseSymbol" xml:space="preserve"><value>Base Symbol</value></data>
+  <data name="Overlay" xml:space="preserve"><value>Overlay</value></data>
+  <data name="Result" xml:space="preserve"><value>Result</value></data>
+  <data name="SymbolPickerDescription" xml:space="preserve"><value>Select a base symbol from the primary or alternate table. If you select from the alternate table, you can also add an overlay character.</value></data>
+  <data name="PrimaryTable" xml:space="preserve"><value>Primary (/)</value></data>
+  <data name="AlternateTable" xml:space="preserve"><value>Alternate (\)</value></data>
 </root>

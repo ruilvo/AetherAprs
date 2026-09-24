@@ -13,6 +13,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PortsView"
              x:DataType="vm:PortsViewModel"
@@ -24,7 +25,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <TextBlock Text="{Binding Title}"
                  Classes="Headline5"
                  FontWeight="Bold" />
-      <TextBlock Text="Manage your APRS ports"
+      <TextBlock Text="{loc:Loc ManageYourAprsPorts}"
                  Classes="Body2"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />

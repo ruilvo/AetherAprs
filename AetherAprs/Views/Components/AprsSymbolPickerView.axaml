@@ -7,17 +7,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AetherAprs.ViewModels.Components"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
              x:Class="AetherAprs.Views.Components.AprsSymbolPickerView"
              x:DataType="vm:AprsSymbolPickerViewModel"
              x:Name="Root">
     <StackPanel Spacing="8">
         <StackPanel Orientation="Horizontal" Spacing="8">
-            <avalonia:MaterialIcon Kind="MapMarker"
-                                   Width="20"
-                                   Height="20"
-                                   Foreground="{DynamicResource MaterialPrimaryBrush}" />
             <TextBlock Classes="Headline6"
-                       Text="APRS Symbol"
+                       Text="{loc:Loc AprsSymbol}"
                        Foreground="{DynamicResource MaterialPrimaryBrush}" />
         </StackPanel>
 
@@ -39,7 +36,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                         <Image Source="{Binding BaseSymbolPreview}"
                                Stretch="Uniform" />
                     </Border>
-                    <TextBlock Text="Base Symbol"
+                    <TextBlock Text="{loc:Loc BaseSymbol}"
                                Classes="Caption"
                                HorizontalAlignment="Center"
                                Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
@@ -63,7 +60,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                         <Image Source="{Binding OverlayPreview}"
                                Stretch="Uniform" />
                     </Border>
-                    <TextBlock Text="Overlay"
+                    <TextBlock Text="{loc:Loc Overlay}"
                                Classes="Caption"
                                HorizontalAlignment="Center"
                                Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
@@ -73,7 +70,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <!-- Final Symbol Preview -->
         <StackPanel Spacing="4">
-            <TextBlock Text="Result"
+            <TextBlock Text="{loc:Loc Result}"
                        Classes="Caption"
                        Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
             <Border Width="64"
@@ -89,7 +86,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </Border>
         </StackPanel>
 
-        <TextBlock Text="Select a base symbol from the primary or alternate table. If you select from the alternate table, you can also add an overlay character."
+        <TextBlock Text="{loc:Loc SymbolPickerDescription}"
                    Classes="Caption"
                    TextWrapping="Wrap"
                    Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />

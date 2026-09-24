@@ -9,12 +9,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="500"
              x:Class="AetherAprs.Views.Components.SymbolSelectorView"
              x:DataType="vm:SymbolSelectorViewModel">
-  <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+  <StackPanel>
+    <!-- TabControl for symbol tables (not overlay mode) -->
+    <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" 
+                Height="400"
+                IsVisible="{Binding !IsOverlayMode}">
     <!-- Primary Table Tab -->
-    <TabItem Header="Primary (/)">
+    <TabItem Header="{loc:Loc PrimaryTable}">
       <ScrollViewer>
         <ItemsControl ItemsSource="{Binding PrimarySymbols}"
                       Margin="8">
@@ -42,7 +48,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </TabItem>
 
     <!-- Alternate Table Tab -->
-    <TabItem Header="Alternate (\)">
+    <TabItem Header="{loc:Loc AlternateTable}">
       <ScrollViewer>
         <ItemsControl ItemsSource="{Binding AlternateSymbols}"
                       Margin="8">
@@ -69,4 +75,31 @@ SPDX-License-Identifier: GPL-3.0-or-later
       </ScrollViewer>
     </TabItem>
   </TabControl>
+
+    <!-- ScrollViewer for overlay mode -->
+    <ScrollViewer Height="400" IsVisible="{Binding IsOverlayMode}">
+      <ItemsControl ItemsSource="{Binding PrimarySymbols}"
+                    Margin="8">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SymbolGridItem">
+            <Button Width="64"
+                    Height="64"
+                    Margin="4"
+                    Padding="4"
+                    Classes="Flat"
+                    Command="{Binding $parent[UserControl].((vm:SymbolSelectorViewModel)DataContext).SelectSymbolCommand}"
+                    CommandParameter="{Binding}">
+              <Image Source="{Binding Preview}"
+                     Stretch="Uniform" />
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </StackPanel>
 </UserControl>

@@ -19,6 +19,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 {
     private readonly IAprsSymbolBitmapProvider? _symbolBitmapProvider;
     private readonly Func<SKBitmap, Bitmap?> _previewFactory;
+    private readonly bool _isOverlayMode;
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
@@ -31,12 +32,17 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 
     public bool IsSelected { get; private set; }
 
+    public event EventHandler? SymbolSelected;
+
+    public bool IsOverlayMode => _isOverlayMode;
+
     public IReadOnlyList<SymbolGridItem> PrimarySymbols { get; }
     public IReadOnlyList<SymbolGridItem> AlternateSymbols { get; }
 
     public SymbolSelectorViewModel(SymbolTable currentTable, SymbolCode currentCode, bool isOverlayMode = false)
     {
         _previewFactory = CreatePreviewBitmap;
+        _isOverlayMode = isOverlayMode;
 
         try
         {
@@ -56,8 +62,17 @@ public partial class SymbolSelectorViewModel : ViewModelBase
             .Select(i => (SymbolCode)(byte)i)
             .ToList();
 
-        PrimarySymbols = GenerateSymbolGridItems(SymbolTable.Primary, allCodes);
-        AlternateSymbols = GenerateSymbolGridItems(SymbolTable.Alternate, allCodes);
+        if (_isOverlayMode)
+        {
+            // In overlay mode, show only overlay glyphs (no base symbols)
+            PrimarySymbols = GenerateOverlayGridItems(allCodes);
+            AlternateSymbols = Array.Empty<SymbolGridItem>();
+        }
+        else
+        {
+            PrimarySymbols = GenerateSymbolGridItems(SymbolTable.Primary, allCodes);
+            AlternateSymbols = GenerateSymbolGridItems(SymbolTable.Alternate, allCodes);
+        }
     }
 
     private IReadOnlyList<SymbolGridItem> GenerateSymbolGridItems(SymbolTable table, IEnumerable<SymbolCode> codes)
@@ -88,6 +103,33 @@ public partial class SymbolSelectorViewModel : ViewModelBase
         }).ToList();
     }
 
+    private IReadOnlyList<SymbolGridItem> GenerateOverlayGridItems(IEnumerable<SymbolCode> codes)
+    {
+        return codes.Select(code =>
+        {
+            Bitmap? preview = null;
+            if (_symbolBitmapProvider != null)
+            {
+                try
+                {
+                    preview = _previewFactory(_symbolBitmapProvider.GetOverlayBitmap(code));
+                }
+                catch
+                {
+                    preview = null;
+                }
+            }
+
+            return new SymbolGridItem
+            {
+                Code = code,
+                Table = SymbolTable.Alternate, // Overlays are always associated with Alternate table
+                Preview = preview,
+                Character = code.ToChar().ToString()
+            };
+        }).ToList();
+    }
+
     partial void OnSelectedTabIndexChanged(int value)
     {
         SelectedTable = value == 0 ? SymbolTable.Primary : SymbolTable.Alternate;
@@ -111,6 +153,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
         SelectedSymbolCode = item.Code;
         SelectedTable = item.Table;
         IsSelected = true;
+        SymbolSelected?.Invoke(this, EventArgs.Empty);
     }
 
     private static Bitmap CreatePreviewBitmap(SKBitmap bitmap)

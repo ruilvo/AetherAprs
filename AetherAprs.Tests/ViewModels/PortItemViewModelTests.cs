@@ -106,6 +106,66 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         Assert.True(built.ShowOnMap);
     }
 
+    [Fact]
+    public void Constructor_DoesNotInvokeCallbacksDuringInitialization()
+    {
+        // This test prevents the infinite loop bug where setting properties
+        // during construction triggered callbacks that reloaded the ports list
+        var toggleCount = 0;
+        var mapToggleCount = 0;
+        
+        var config = new PortConfig 
+        { 
+            Name = "Port", 
+            IsEnabled = true,  // Setting to true during construction
+            ShowOnMap = true   // Setting to true during construction
+        };
+
+        var vm = new PortItemViewModel(
+            config,
+            _ => toggleCount++,
+            _ => mapToggleCount++,
+            _ => { },
+            _ => { });
+
+        // Callbacks should NOT have been invoked during construction
+        Assert.Equal(0, toggleCount);
+        Assert.Equal(0, mapToggleCount);
+        
+        // But properties should be set correctly
+        Assert.True(vm.IsEnabled);
+        Assert.True(vm.ShowOnMap);
+    }
+
+    [Fact]
+    public void PropertyChanges_AfterInitialization_InvokeCallbacks()
+    {
+        // This test ensures callbacks ARE invoked after initialization
+        var toggleCount = 0;
+        var mapToggleCount = 0;
+        var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
+
+        var vm = new PortItemViewModel(
+            config,
+            _ => toggleCount++,
+            _ => mapToggleCount++,
+            _ => { },
+            _ => { });
+
+        // Verify no callbacks during construction
+        Assert.Equal(0, toggleCount);
+        Assert.Equal(0, mapToggleCount);
+
+        // Now change properties - callbacks SHOULD be invoked
+        vm.IsEnabled = true;
+        Assert.Equal(1, toggleCount);
+        Assert.Equal(0, mapToggleCount);
+
+        vm.ShowOnMap = true;
+        Assert.Equal(1, toggleCount);
+        Assert.Equal(1, mapToggleCount);
+    }
+
     private static PortItemViewModel Create(PortConfig config) =>
         new(config, _ => { }, _ => { }, _ => { }, _ => { });
 }

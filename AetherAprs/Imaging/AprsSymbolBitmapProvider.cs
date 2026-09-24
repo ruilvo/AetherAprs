@@ -204,9 +204,11 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider
         var (overlayRow, overlayCol) = GetCellPosition(overlayCode);
         var overlayBitmap = ExtractSubBitmap(_spriteSheets[SpriteSheet.Overlay], overlayCol, overlayRow);
 
-        // Composite the overlay glyph onto the top-left corner of the base symbol
+        // Composite the overlay glyph centered at half size over the base symbol
         using var canvas = new SKCanvas(result);
-        var overlayRect = new SKRect(0, 0, CellSize / 2, CellSize / 2);
+        var overlaySize = CellSize / 2;
+        var offset = (CellSize - overlaySize) / 2;
+        var overlayRect = new SKRect(offset, offset, offset + overlaySize, offset + overlaySize);
         canvas.DrawBitmap(overlayBitmap, overlayRect);
         canvas.Flush();
 

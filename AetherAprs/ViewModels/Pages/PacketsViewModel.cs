@@ -5,9 +5,11 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Services;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +28,10 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly IServiceProvider _serviceProvider;
     private readonly IPortService _portService;
     private readonly ILogger<PacketsViewModel> _logger;
+    private readonly DispatcherTimer _refreshTimer;
+    private readonly SemaphoreSlim _updateLock = new(1, 1);
+    private DateTimeOffset _lastUpdateTime = DateTimeOffset.MinValue;
+    private bool _pendingRefresh;
     private bool _disposed;
 
     [ObservableProperty]
@@ -50,14 +56,113 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _portService = portService;
         _logger = logger;
 
+        // Throttle UI updates to every 2 seconds to avoid overwhelming the UI thread
+        _refreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _refreshTimer.Tick += OnRefreshTimerTick;
+        _refreshTimer.Start();
+
         _portService.PacketReceived += OnPacketReceived;
         _ = LoadPacketsAsync();
     }
 
-    private async void OnPacketReceived(object? sender, PortPacketReceivedEventArgs e)
+    private async void OnRefreshTimerTick(object? sender, EventArgs e)
     {
-        // Reload packets when new ones arrive
-        await LoadPacketsAsync();
+        if (_pendingRefresh)
+        {
+            _pendingRefresh = false;
+            await Task.Run(async () => await LoadPacketsIncrementalAsync());
+        }
+    }
+
+    private void OnPacketReceived(object? sender, PortPacketReceivedEventArgs e)
+    {
+        // Mark that we need a refresh, but don't trigger immediately
+        // The timer will pick it up on the next tick
+        _pendingRefresh = true;
+    }
+
+    private async Task LoadPacketsIncrementalAsync()
+    {
+        if (!await _updateLock.WaitAsync(0))
+        {
+            // Another update is already in progress, skip this one
+            return;
+        }
+
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+            // Only fetch packets that have been updated since our last check
+            var newOrUpdatedPackets = await context.Packets
+                .Where(p => p.ReceivedAt > _lastUpdateTime)
+                .GroupBy(p => p.Source)
+                .Select(g => g.OrderByDescending(p => p.ReceivedAt.UtcTicks).First())
+                .ToListAsync();
+
+            if (newOrUpdatedPackets.Count == 0)
+            {
+                return;
+            }
+
+            _lastUpdateTime = DateTimeOffset.UtcNow;
+
+            // Update the UI on the UI thread
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var packet in newOrUpdatedPackets)
+                {
+                    // Find existing entry for this source
+                    var existing = Packets.FirstOrDefault(p => p.Source == packet.Source);
+                    
+                    if (existing is not null)
+                    {
+                        // Update existing entry
+                        existing.PacketType = packet.PacketType;
+                        existing.ReceivedAt = packet.ReceivedAt;
+                        existing.Preview = GetPacketPreview(packet);
+                    }
+                    else
+                    {
+                        // Add new entry
+                        Packets.Add(new PacketSummary
+                        {
+                            Source = packet.Source,
+                            PacketType = packet.PacketType,
+                            ReceivedAt = packet.ReceivedAt,
+                            Preview = GetPacketPreview(packet)
+                        });
+                    }
+                }
+
+                // Sort by most recent first (only if we added new items)
+                if (Packets.Count > 0)
+                {
+                    var sorted = Packets.OrderByDescending(p => p.ReceivedAt).Take(100).ToList();
+                    
+                    // Only rebuild if order changed significantly or we have too many items
+                    if (Packets.Count > 100 || !Packets.Take(10).SequenceEqual(sorted.Take(10)))
+                    {
+                        Packets.Clear();
+                        foreach (var item in sorted)
+                        {
+                            Packets.Add(item);
+                        }
+                    }
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load packets incrementally");
+        }
+        finally
+        {
+            _updateLock.Release();
+        }
     }
 
     private async Task LoadPacketsAsync()
@@ -69,24 +174,29 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             await using var context = await _dbContextFactory.CreateDbContextAsync();
 
             // Get the most recent packet per source callsign
+            // Note: SQLite doesn't support DateTimeOffset in ORDER BY, so we convert to ticks
             var latestPackets = await context.Packets
                 .GroupBy(p => p.Source)
-                .Select(g => g.OrderByDescending(p => p.ReceivedAt).First())
-                .OrderByDescending(p => p.ReceivedAt)
+                .Select(g => g.OrderByDescending(p => p.ReceivedAt.UtcTicks).First())
+                .OrderByDescending(p => p.ReceivedAt.UtcTicks)
                 .Take(100)
                 .ToListAsync();
 
-            Packets.Clear();
-            foreach (var packet in latestPackets)
+            // ObservableCollection modifications must happen on the UI thread
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                Packets.Add(new PacketSummary
+                Packets.Clear();
+                foreach (var packet in latestPackets)
                 {
-                    Source = packet.Source,
-                    PacketType = packet.PacketType,
-                    ReceivedAt = packet.ReceivedAt,
-                    Preview = GetPacketPreview(packet)
-                });
-            }
+                    Packets.Add(new PacketSummary
+                    {
+                        Source = packet.Source,
+                        PacketType = packet.PacketType,
+                        ReceivedAt = packet.ReceivedAt,
+                        Preview = GetPacketPreview(packet)
+                    });
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -130,7 +240,10 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        _refreshTimer.Stop();
+        _refreshTimer.Tick -= OnRefreshTimerTick;
         _portService.PacketReceived -= OnPacketReceived;
+        _updateLock.Dispose();
         _disposed = true;
     }
 }

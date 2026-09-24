@@ -16,6 +16,7 @@ public partial class PortItemViewModel : ViewModelBase
     private readonly Action<PortItemViewModel> _onShowOnMapToggle;
     private readonly Action<PortItemViewModel> _onDelete;
     private readonly Action<PortItemViewModel> _onEdit;
+    private bool _isInitializing;
 
     public Guid Id => _config.Id;
 
@@ -51,19 +52,27 @@ public partial class PortItemViewModel : ViewModelBase
         _onDelete = onDelete;
         _onEdit = onEdit;
 
+        _isInitializing = true;
         IsEnabled = config.IsEnabled;
         ShowOnMap = config.ShowOnMap;
+        _isInitializing = false;
     }
 
     partial void OnIsEnabledChanged(bool value)
     {
         OnPropertyChanged(nameof(StatusText));
-        _onToggle(this);
+        if (!_isInitializing)
+        {
+            _onToggle(this);
+        }
     }
 
     partial void OnShowOnMapChanged(bool value)
     {
-        _onShowOnMapToggle(this);
+        if (!_isInitializing)
+        {
+            _onShowOnMapToggle(this);
+        }
     }
 
     [RelayCommand]
