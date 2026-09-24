@@ -87,15 +87,7 @@ jobs:
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
-            -p:AndroidSdkBuildToolsVersion=34.0.0 \
-            --verbosity detailed | tee build.log
-          
-          # Check if signing was mentioned in the build
-          if grep -q "jarsigner" build.log || grep -q "apksigner" build.log; then
-            echo "✓ Build log indicates APK was signed"
-          else
-            echo "⚠ Warning: Build log doesn't mention signing tools"
-          fi
+            -p:AndroidSdkBuildToolsVersion=34.0.0
       
       - name: Verify build output
         run: |
