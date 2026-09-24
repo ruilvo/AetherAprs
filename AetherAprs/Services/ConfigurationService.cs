@@ -16,7 +16,9 @@ public class ConfigurationService : IConfigurationService
     private readonly IAppDataDirProviderService _appDataDirProvider;
 
     private static readonly string _appSettingsFileName = "appsettings.json";
+#if DEBUG
     private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
+#endif
 
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {

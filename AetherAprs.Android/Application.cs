@@ -41,7 +41,9 @@ namespace AetherAprs.Android
     public class Application : AvaloniaAndroidApplication<AndroidApp>
     {
         private static readonly string _appSettingsFileName = "appsettings.json";
+#if DEBUG
         private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
+#endif
 
         protected Application(nint javaReference, JniHandleOwnership transfer) : base(javaReference, transfer)
         {

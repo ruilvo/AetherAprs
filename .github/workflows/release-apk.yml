@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
@@ -28,7 +28,7 @@ jobs:
           echo "$OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: '10.0.x'
 
@@ -55,7 +55,9 @@ jobs:
             -p:AndroidSigningKeyStore=${{ github.workspace }}/release.keystore \
             -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
-            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -p:AndroidPackageFormat=apk \
+            --verbosity normal
 
       - name: Find APK
         id: find_apk
@@ -70,7 +72,7 @@ jobs:
           echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.find_apk.outputs.apk_name }}
           draft: false
