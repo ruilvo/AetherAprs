@@ -182,6 +182,11 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                 .Take(100)
                 .ToListAsync();
 
+            _logger.LogInformation("Loaded {Count} packets from database", latestPackets.Count);
+
+            // Update the last update time to now so incremental updates work correctly
+            _lastUpdateTime = DateTimeOffset.UtcNow;
+
             // ObservableCollection modifications must happen on the UI thread
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -196,6 +201,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                         Preview = GetPacketPreview(packet)
                     });
                 }
+                _logger.LogInformation("Added {Count} packets to observable collection", Packets.Count);
             });
         }
         catch (Exception ex)
