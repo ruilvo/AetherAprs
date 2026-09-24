@@ -173,16 +173,28 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
             await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-            // Get the most recent packet per source callsign
-            // Note: SQLite doesn't support DateTimeOffset in ORDER BY, so we convert to ticks
-            var latestPackets = await context.Packets
-                .GroupBy(p => p.Source)
-                .Select(g => g.OrderByDescending(p => p.ReceivedAt.UtcTicks).First())
+            _logger.LogInformation("Starting to load packets from database");
+
+            // First, get total count to verify database has data
+            var totalCount = await context.Packets.CountAsync();
+            _logger.LogInformation("Total packets in database: {Count}", totalCount);
+
+            // Get all packets first, then group in memory
+            // This avoids potential SQLite GroupBy translation issues
+            var allPackets = await context.Packets
                 .OrderByDescending(p => p.ReceivedAt.UtcTicks)
-                .Take(100)
                 .ToListAsync();
 
-            _logger.LogInformation("Loaded {Count} packets from database", latestPackets.Count);
+            _logger.LogInformation("Retrieved {Count} packets from database, now grouping by source", allPackets.Count);
+
+            // Group by source and take most recent per source
+            var latestPackets = allPackets
+                .GroupBy(p => p.Source)
+                .Select(g => g.First()) // Already ordered by ReceivedAt descending
+                .Take(100)
+                .ToList();
+
+            _logger.LogInformation("Grouped into {Count} unique sources", latestPackets.Count);
 
             // Update the last update time to now so incremental updates work correctly
             _lastUpdateTime = DateTimeOffset.UtcNow;

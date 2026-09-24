@@ -50,18 +50,22 @@ public sealed class PacketStorageService : IPacketStorageService
     {
         try
         {
+            _logger.LogInformation("Attempting to store packet from {Source}, Type: {Type}", packet.Source, packet.GetType().Name);
+            
             await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
             
             var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow);
             context.Packets.Add(record);
             
-            await context.SaveChangesAsync(cancellationToken);
+            var savedCount = await context.SaveChangesAsync(cancellationToken);
             
-            _logger.LogDebug("Stored {PacketType} packet from {Source}", record.PacketType, record.Source);
+            _logger.LogInformation("Successfully stored {PacketType} packet from {Source} (SaveChanges returned {Count})", 
+                record.PacketType, record.Source, savedCount);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
+            throw; // Re-throw to make errors more visible
         }
     }
 
