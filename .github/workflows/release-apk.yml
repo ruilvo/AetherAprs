@@ -1,0 +1,96 @@
+# This file is part of AetherAprs
+# SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+# SPDX-License-Identifier: CC0-1.0
+name: Build and Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/v}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          
+          # Extract version code (integer) from tag
+          # For v1.2.3, this creates version code 10203
+          # For v1.2.3-beta.4, this creates 10203
+          VERSION_MAJOR=$(echo $TAG | cut -d. -f1)
+          VERSION_MINOR=$(echo $TAG | cut -d. -f2)
+          VERSION_PATCH=$(echo $TAG | cut -d. -f3 | cut -d- -f1)
+          VERSION_CODE=$((VERSION_MAJOR * 10000 + VERSION_MINOR * 100 + VERSION_PATCH))
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$TAG" >> $GITHUB_OUTPUT
+          
+          echo "Building version $TAG (code: $VERSION_CODE)"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install workload
+        run: dotnet workload install android
+
+      - name: Restore dependencies
+        run: dotnet restore AetherAprs.slnx
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/release.keystore
+
+      - name: Build APK
+        run: |
+          dotnet publish AetherAprs.Android/AetherAprs.Android.csproj \
+            -c Release \
+            -f net10.0-android \
+            -p:ApplicationVersion=${{ steps.version.outputs.version_code }} \
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.version_name }} \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore=${{ github.workspace }}/release.keystore \
+            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
+            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK_PATH=$(find AetherAprs.Android/bin/Release/net10.0-android/publish -name "*.apk" | head -n 1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "Found APK at: $APK_PATH"
+          
+          # Rename APK to include version
+          APK_NAME="AetherAprs-v${{ steps.version.outputs.version_name }}.apk"
+          cp "$APK_PATH" "$APK_NAME"
+          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ steps.find_apk.outputs.apk_name }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version_name, '-') }}
+          generate_release_notes: true
+          name: Release ${{ steps.version.outputs.version_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f ${{ github.workspace }}/release.keystore
