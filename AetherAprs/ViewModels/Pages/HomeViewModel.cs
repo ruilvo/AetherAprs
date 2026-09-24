@@ -5,6 +5,7 @@
 using AetherAprs.Configuration;
 using AetherAprs.Models;
 using AetherAprs.Services;
+using AetherAprs.ViewModels.Components;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -36,6 +37,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public partial BeaconTransmissionViewModel BeaconTransmission { get; set; }
 
     [ObservableProperty]
+    public partial MapViewModel MapViewModel { get; set; }
+
+    [ObservableProperty]
     public partial bool IsDynamicBeaconingEnabled { get; set; } = true;
 
     public HomeViewModel(
@@ -43,6 +47,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         ReceivedBeaconsViewModel receivedBeacons,
         LocationTrackingViewModel locationTracking,
         BeaconTransmissionViewModel beaconTransmission,
+        MapViewModel mapViewModel,
         ILogger<HomeViewModel> logger)
     {
         _portService = portService;
@@ -50,6 +55,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         ReceivedBeacons = receivedBeacons;
         LocationTracking = locationTracking;
         BeaconTransmission = beaconTransmission;
+        MapViewModel = mapViewModel;
 
         _previousPortEnabledState = _portService.Ports
             .ToDictionary(port => port.Id, port => port.IsEnabled);
@@ -63,6 +69,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     {
         try
         {
+            // Update map with new location
+            MapViewModel.UpdateUserLocation(currentLocation);
+
             // Evaluate beacon transmission if enabled
             if (IsDynamicBeaconingEnabled)
             {
@@ -138,6 +147,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         // Dispose sub-ViewModels
         LocationTracking?.Dispose();
+        MapViewModel?.Dispose();
 
         // Dispose ReceivedBeacons if it implements IDisposable
         if (ReceivedBeacons is IDisposable disposable)

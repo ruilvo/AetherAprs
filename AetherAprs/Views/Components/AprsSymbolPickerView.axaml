@@ -5,12 +5,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:AetherAprs.ViewModels"
-             xmlns:pages="using:AetherAprs.ViewModels.Pages"
+             xmlns:vm="using:AetherAprs.ViewModels.Components"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
-             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
-             xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              x:Class="AetherAprs.Views.Components.AprsSymbolPickerView"
+             x:DataType="vm:AprsSymbolPickerViewModel"
              x:Name="Root">
     <StackPanel Spacing="8">
         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -30,7 +28,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     Classes="Outline"
                     Height="80"
                     HorizontalContentAlignment="Stretch"
-                    Click="OnBaseSymbolButtonClick">
+                    Command="{Binding OpenBaseSymbolSelectorCommand}">
                 <StackPanel Spacing="8" HorizontalAlignment="Center">
                     <Border Width="48"
                             Height="48"
@@ -38,7 +36,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource MaterialDividerBrush}">
-                        <Image Source="{Binding BaseSymbolPreview, ElementName=Root}"
+                        <Image Source="{Binding BaseSymbolPreview}"
                                Stretch="Uniform" />
                     </Border>
                     <TextBlock Text="Base Symbol"
@@ -53,8 +51,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     Classes="Outline"
                     Height="80"
                     HorizontalContentAlignment="Stretch"
-                    IsEnabled="{Binding IsOverlayEnabled, ElementName=Root}"
-                    Click="OnOverlayButtonClick">
+                    IsEnabled="{Binding IsOverlayEnabled}"
+                    Command="{Binding OpenOverlaySelectorCommand}">
                 <StackPanel Spacing="8" HorizontalAlignment="Center">
                     <Border Width="48"
                             Height="48"
@@ -62,7 +60,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             CornerRadius="4"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource MaterialDividerBrush}">
-                        <Image Source="{Binding OverlayPreview, ElementName=Root}"
+                        <Image Source="{Binding OverlayPreview}"
                                Stretch="Uniform" />
                     </Border>
                     <TextBlock Text="Overlay"
@@ -86,7 +84,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     BorderBrush="{DynamicResource MaterialDividerBrush}"
                     Background="{DynamicResource MaterialCardBackgroundBrush}"
                     HorizontalAlignment="Left">
-                <Image Source="{Binding FinalSymbolPreview, ElementName=Root}"
+                <Image Source="{Binding FinalSymbolPreview}"
                        Stretch="Uniform" />
             </Border>
         </StackPanel>

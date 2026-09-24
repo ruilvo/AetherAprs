@@ -40,9 +40,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:PortItemViewModel">
-            <ContentControl Content="{Binding}"
-                            components:PortItemView.PortClicked="OnPortClicked"
-                            components:PortItemView.DeleteClicked="OnDeleteClicked" />
+            <ContentControl Content="{Binding}" />
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
@@ -56,7 +54,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              x:Name="AddPortButton"
                              MinHeight="56"
                              MinWidth="56"
-                             Click="OnAddPortClick">
+                             Command="{Binding AddPortCommand}">
       <Viewbox Width="24" Height="24">
         <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
       </Viewbox>

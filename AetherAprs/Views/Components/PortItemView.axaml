@@ -19,7 +19,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <!-- Clickable area for edit -->
       <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
               Background="Transparent" BorderThickness="0" Padding="8"
-              Click="OnPortClicked"
+              Command="{Binding EditCommand}"
               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
               HorizontalContentAlignment="Left">
         <StackPanel>
@@ -63,7 +63,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 Padding="8"
                 VerticalAlignment="Center"
                 ToolTip.Tip="Show on map"
-                Click="OnShowOnMapClicked">
+                Command="{Binding ToggleShowOnMapCommand}">
           <Panel>
             <avalonia:MaterialIcon Kind="Map"
                                    Width="24"
@@ -81,7 +81,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Delete button -->
         <Button Background="Transparent"
                 BorderThickness="0"
-                Click="OnDeleteClicked"
+                Command="{Binding DeleteCommand}"
                 ToolTip.Tip="Delete port"
                 VerticalAlignment="Center"
                 Padding="8">

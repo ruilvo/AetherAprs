@@ -71,6 +71,7 @@ public static class DesignData
         services.AddSingleton<MainViewModel>();
         services.AddTransient<LocationTrackingViewModel>();
         services.AddTransient<BeaconTransmissionViewModel>();
+        services.AddTransient<MapViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
         services.AddSingleton<PacketsViewModel>();

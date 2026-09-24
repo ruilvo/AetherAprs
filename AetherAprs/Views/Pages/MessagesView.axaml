@@ -42,8 +42,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       HorizontalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
                       Padding="16"
-                      Tag="{Binding}"
-                      Click="OnConversationClick">
+                      Command="{Binding $parent[UserControl].((vm:MessagesViewModel)DataContext).OpenConversationCommand}"
+                      CommandParameter="{Binding}">
                 <StackPanel Spacing="4">
                   <TextBlock Text="{Binding PeerDisplay}"
                              Classes="Subtitle1"
@@ -67,7 +67,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              Margin="0,0,16,16"
                              MinHeight="56"
                              MinWidth="56"
-                             x:Name="NewMessageButton">
+                             x:Name="NewMessageButton"
+                             Command="{Binding NewMessageCommand}">
       <Viewbox Width="24" Height="24">
         <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
       </Viewbox>

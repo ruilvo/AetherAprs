@@ -16,6 +16,7 @@ using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -114,11 +115,14 @@ public sealed class MainViewModelTests
             new AprsPortSettingsResolver(configuration),
             NullLogger<BeaconTransmissionViewModel>.Instance);
 
+        var mapViewModel = new MapViewModel();
+
         var home = new HomeViewModel(
             portService,
             receivedBeacons,
             locationTracking,
             beaconTransmission,
+            mapViewModel,
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, provider);
         
@@ -130,7 +134,7 @@ public sealed class MainViewModelTests
             portService,
             NullLogger<PacketsViewModel>.Instance);
         var ports = new PortsViewModel(portService, configuration, navigation, NullLogger<PortsViewModel>.Instance);
-        var settings = new SettingsViewModel(configuration, navigation);
+        var settings = new SettingsViewModel(configuration, navigation, symbolProvider);
 
         return new MainViewModel(navigation, home, messages, packets, ports, settings);
     }

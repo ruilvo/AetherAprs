@@ -56,9 +56,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      UseFloatingPlaceholder="True" />
 
             <components:AprsSymbolPickerView
-              TableCharacter="{Binding DefaultSymbolTableCharacter, Mode=TwoWay}"
-              CodeCharacter="{Binding DefaultSymbolCodeCharacter, Mode=TwoWay}"
-              OverlayCharacter="{Binding DefaultSymbolOverlayCharacter, Mode=TwoWay}" />
+              DataContext="{Binding SymbolPicker}" />
           </StackPanel>
         </StackPanel>
 

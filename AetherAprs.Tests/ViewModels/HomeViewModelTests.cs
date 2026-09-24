@@ -12,6 +12,7 @@ using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using Microsoft.Extensions.Logging.Abstractions;
 using SkiaSharp;
 using Xunit;
@@ -173,11 +174,14 @@ public sealed class HomeViewModelTests : TestFixtureBase
             portSettingsResolver,
             NullLogger<BeaconTransmissionViewModel>.Instance);
         
+        var mapViewModel = new MapViewModel();
+        
         return new HomeViewModel(
             portService,
             receivedBeacons,
             locationTracking,
             beaconTransmission,
+            mapViewModel,
             NullLogger<HomeViewModel>.Instance);
     }
 

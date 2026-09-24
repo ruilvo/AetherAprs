@@ -5,9 +5,11 @@
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Imaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
+using SkiaSharp;
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
@@ -19,7 +21,8 @@ public sealed class SettingsViewModelTests
     {
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
-        var viewModel = new SettingsViewModel(configuration, navigation)
+        var symbolProvider = new TestSymbolBitmapProvider();
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolProvider)
         {
             Callsign = "CT7ALW",
             DefaultSsid = 7,
@@ -42,7 +45,8 @@ public sealed class SettingsViewModelTests
     {
         var configuration = new TestConfigurationService();
         configuration.Settings.Aprs.DefaultSsid = 7;
-        var viewModel = new SettingsViewModel(configuration, new TestNavigationService())
+        var symbolProvider = new TestSymbolBitmapProvider();
+        var viewModel = new SettingsViewModel(configuration, new TestNavigationService(), symbolProvider)
         {
             DefaultSsid = null,
         };
@@ -58,11 +62,19 @@ public sealed class SettingsViewModelTests
     public void OpenBeaconingSettingsNavigatesToDynamicBeaconingViewModel()
     {
         var navigation = new TestNavigationService();
-        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation);
+        var symbolProvider = new TestSymbolBitmapProvider();
+        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation, symbolProvider);
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
 
         Assert.Equal(typeof(DynamicBeaconingViewModel), navigation.LastNavigatedType);
+    }
+
+    private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
+    {
+        public SKBitmap GetSymbolBitmap(AetherAprs.Models.Aprs.Symbol symbol) => new(64, 64);
+        public SKBitmap GetOverlayBitmap(AetherAprs.Models.Aprs.SymbolCode overlayChar) => new(64, 64);
+        public void Dispose() { }
     }
 
     private sealed class TestConfigurationService : IConfigurationService

@@ -3,11 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Threading.Tasks;
+using AetherAprs.Configuration;
+using AetherAprs.Imaging;
+using AetherAprs.Services;
+using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Pages;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using AetherAprs.Configuration;
-using AetherAprs.Services;
-using AetherAprs.ViewModels.Pages;
 
 namespace AetherAprs.ViewModels;
 
@@ -32,9 +34,15 @@ public partial class SettingsViewModel : ViewModelBase
     public partial string? DefaultSymbolOverlayCharacter { get; set; }
 
     [ObservableProperty]
+    public partial AprsSymbolPickerViewModel SymbolPicker { get; set; }
+
+    [ObservableProperty]
     public partial bool IsSaved { get; set; }
 
-    public SettingsViewModel(IConfigurationService configurationService, INavigationService navigationService)
+    public SettingsViewModel(
+        IConfigurationService configurationService,
+        INavigationService navigationService,
+        IAprsSymbolBitmapProvider symbolBitmapProvider)
     {
         _configurationService = configurationService;
         _navigationService = navigationService;
@@ -45,6 +53,31 @@ public partial class SettingsViewModel : ViewModelBase
         DefaultSymbolTableCharacter = aprs.DefaultSymbolTableCharacter;
         DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
         DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
+
+        // Initialize symbol picker ViewModel
+        SymbolPicker = new AprsSymbolPickerViewModel(symbolBitmapProvider)
+        {
+            TableCharacter = DefaultSymbolTableCharacter,
+            CodeCharacter = DefaultSymbolCodeCharacter,
+            OverlayCharacter = DefaultSymbolOverlayCharacter
+        };
+
+        // Sync symbol picker changes back to settings
+        SymbolPicker.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AprsSymbolPickerViewModel.TableCharacter))
+            {
+                DefaultSymbolTableCharacter = SymbolPicker.TableCharacter;
+            }
+            else if (e.PropertyName == nameof(AprsSymbolPickerViewModel.CodeCharacter))
+            {
+                DefaultSymbolCodeCharacter = SymbolPicker.CodeCharacter;
+            }
+            else if (e.PropertyName == nameof(AprsSymbolPickerViewModel.OverlayCharacter))
+            {
+                DefaultSymbolOverlayCharacter = SymbolPicker.OverlayCharacter;
+            }
+        };
     }
 
     [RelayCommand]

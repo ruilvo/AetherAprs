@@ -3,14 +3,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using CommunityToolkit.Mvvm.ComponentModel;
 using AetherAprs.Configuration;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AetherAprs.ViewModels;
 
-public partial class PortItemViewModel(PortConfig config, Action<PortItemViewModel> onToggle, Action<PortItemViewModel> onShowOnMapToggle, Action<PortItemViewModel> onDelete, Action<PortItemViewModel> onEdit) : ViewModelBase
+public partial class PortItemViewModel : ViewModelBase
 {
-    private readonly PortConfig _config = config ?? throw new ArgumentNullException(nameof(config));
+    private readonly PortConfig _config;
+    private readonly Action<PortItemViewModel> _onToggle;
+    private readonly Action<PortItemViewModel> _onShowOnMapToggle;
+    private readonly Action<PortItemViewModel> _onDelete;
+    private readonly Action<PortItemViewModel> _onEdit;
 
     public Guid Id => _config.Id;
 
@@ -28,30 +33,55 @@ public partial class PortItemViewModel(PortConfig config, Action<PortItemViewMod
         : Localization.Strings.Get("Stopped");
 
     [ObservableProperty]
-    public partial bool IsEnabled { get; set; } = config.IsEnabled;
+    public partial bool IsEnabled { get; set; }
 
     [ObservableProperty]
-    public partial bool ShowOnMap { get; set; } = config.ShowOnMap;
+    public partial bool ShowOnMap { get; set; }
+
+    public PortItemViewModel(
+        PortConfig config,
+        Action<PortItemViewModel> onToggle,
+        Action<PortItemViewModel> onShowOnMapToggle,
+        Action<PortItemViewModel> onDelete,
+        Action<PortItemViewModel> onEdit)
+    {
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+        _onToggle = onToggle;
+        _onShowOnMapToggle = onShowOnMapToggle;
+        _onDelete = onDelete;
+        _onEdit = onEdit;
+
+        IsEnabled = config.IsEnabled;
+        ShowOnMap = config.ShowOnMap;
+    }
 
     partial void OnIsEnabledChanged(bool value)
     {
         OnPropertyChanged(nameof(StatusText));
-        onToggle(this);
+        _onToggle(this);
     }
 
     partial void OnShowOnMapChanged(bool value)
     {
-        onShowOnMapToggle(this);
+        _onShowOnMapToggle(this);
     }
 
-    public void Delete()
+    [RelayCommand]
+    private void Edit()
     {
-        onDelete(this);
+        _onEdit(this);
     }
 
-    public void Edit()
+    [RelayCommand]
+    private void Delete()
     {
-        onEdit(this);
+        _onDelete(this);
+    }
+
+    [RelayCommand]
+    private void ToggleShowOnMap()
+    {
+        ShowOnMap = !ShowOnMap;
     }
 
     public PortConfig BuildConfig()

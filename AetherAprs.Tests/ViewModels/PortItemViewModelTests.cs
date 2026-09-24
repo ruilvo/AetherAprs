@@ -84,8 +84,8 @@ public sealed class PortItemViewModelTests : TestFixtureBase
             item => deleted = item,
             item => edited = item);
 
-        vm.Delete();
-        vm.Edit();
+        vm.DeleteCommand.Execute(null);
+        vm.EditCommand.Execute(null);
 
         Assert.Same(vm, deleted);
         Assert.Same(vm, edited);
