@@ -45,12 +45,14 @@ Go to: **GitHub Repository → Settings → Secrets and variables → Actions**
 
 Add these 4 secrets:
 
-| Secret Name | Value |
-|-------------|-------|
-| `ANDROID_KEYSTORE_BASE64` | Content of `keystore.base64.txt` |
-| `ANDROID_KEY_ALIAS` | `aetheraprs` |
-| `ANDROID_KEY_PASSWORD` | Your key password |
-| `ANDROID_KEYSTORE_PASSWORD` | Your keystore password |
+| Secret Name | Value | Notes |
+|-------------|-------|-------|
+| `ANDROID_KEYSTORE_BASE64` | Content of `keystore.base64.txt` | The entire base64 string |
+| `ANDROID_KEY_ALIAS` | `aetheraprs` | **Must exactly match the alias from step 1** |
+| `ANDROID_KEY_PASSWORD` | Your key password | Password entered when creating keystore |
+| `ANDROID_KEYSTORE_PASSWORD` | Your keystore password | Password entered when creating keystore |
+
+**Critical:** The `ANDROID_KEY_ALIAS` value must exactly match the `-alias` parameter you used when creating the keystore. If you used a different alias, put that value here instead of `aetheraprs`.
 
 ### 4. Create a Release
 

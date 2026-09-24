@@ -16,7 +16,34 @@ error MSB6006: "java" exited with code 2.
 
 This error typically occurs during APK signing. Common causes:
 
-#### 1. Incorrect Keystore Password or Alias
+#### 1. Incorrect Keystore Alias
+
+**Error message:**
+```
+✗ Alias 'your-alias' NOT found in keystore
+```
+or
+```
+Failed to load signer 'signer #1': keystore entry 'your-alias' does not contain a key
+```
+
+**Solution:** The `ANDROID_KEY_ALIAS` secret must **exactly match** the alias in your keystore.
+
+**Find the correct alias:**
+```bash
+keytool -list -v -keystore release.keystore
+```
+
+Look for the line `Alias name:` in the output. Use that exact value (case-sensitive) for the `ANDROID_KEY_ALIAS` secret.
+
+**Common aliases:**
+- `aetheraprs` (recommended in docs)
+- `androiddebugkey` (default debug keystore)
+- `my-key-alias` (custom names)
+
+The workflow now includes automatic verification that will show you the available aliases if there's a mismatch.
+
+#### 2. Incorrect Keystore Password or Key Password
 
 **Solution:** Verify your GitHub Secrets are correct:
 - `ANDROID_KEYSTORE_PASSWORD` - Must match the password used when creating the keystore

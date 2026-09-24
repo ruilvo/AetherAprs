@@ -54,17 +54,22 @@ jobs:
           
           echo "Listing keystore contents..."
           keytool -list -v -keystore ${{ github.workspace }}/release.keystore \
-            -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -20
+            -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -30
           
+          echo ""
           echo "Checking for alias '$KEY_ALIAS'..."
           if keytool -list -keystore ${{ github.workspace }}/release.keystore \
             -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
             echo "✓ Alias '$KEY_ALIAS' found in keystore"
           else
-            echo "✗ Alias '$KEY_ALIAS' NOT found in keystore"
-            echo "Available aliases:"
+            echo "✗ ERROR: Alias '$KEY_ALIAS' NOT found in keystore"
+            echo ""
+            echo "Available aliases in keystore:"
             keytool -list -keystore ${{ github.workspace }}/release.keystore \
-              -storepass "$KEYSTORE_PASSWORD" | grep "Alias name:"
+              -storepass "$KEYSTORE_PASSWORD" | grep "Alias name:" || echo "Could not list aliases"
+            echo ""
+            echo "Please update the ANDROID_KEY_ALIAS secret to match an alias in your keystore."
+            echo "Common value: aetheraprs"
             exit 1
           fi
 
