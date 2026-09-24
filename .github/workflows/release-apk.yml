@@ -128,16 +128,13 @@ jobs:
           
           echo ""
           echo "=== APK Signature Check (jarsigner) ==="
-          if jarsigner -verify -verbose -certs "$APK_PATH" 2>&1 | tee verify.log; then
-            echo ""
-            if grep -q "jar verified" verify.log; then
-              echo "✓ APK is properly signed"
-            else
-              echo "⚠ APK signature status unclear"
-              cat verify.log
-            fi
-          else
-            echo "✗ APK verification failed"
+          jarsigner -verify -verbose -certs "$APK_PATH" 2>&1 | tee verify.log
+          
+          # Check if APK is actually signed (look for "jar verified" or check for "jar is unsigned")
+          if grep -q "jar verified" verify.log; then
+            echo "✓ APK is properly signed"
+          elif grep -q "jar is unsigned" verify.log || grep -q "no manifest" verify.log; then
+            echo "✗ APK is unsigned - performing manual signing"
             cat verify.log
             
             echo ""
@@ -146,9 +143,11 @@ jobs:
             cp "$APK_PATH" "${APK_PATH}.unsigned"
             
             # Align
+            echo "Aligning APK..."
             $ANDROID_HOME/build-tools/*/zipalign -v -p 4 "${APK_PATH}.unsigned" "${APK_PATH}.aligned"
             
             # Sign with apksigner
+            echo "Signing APK with apksigner..."
             $ANDROID_HOME/build-tools/*/apksigner sign \
               --ks ${{ github.workspace }}/release.keystore \
               --ks-key-alias ${{ secrets.ANDROID_KEY_ALIAS }} \
@@ -158,12 +157,18 @@ jobs:
               "${APK_PATH}.aligned"
             
             # Verify again
-            if jarsigner -verify "$APK_PATH"; then
-              echo "✓ APK manually signed and verified"
+            echo "Verifying signed APK..."
+            if jarsigner -verify -verbose "$APK_PATH" 2>&1 | grep -q "jar verified"; then
+              echo "✓ APK manually signed and verified successfully"
             else
-              echo "✗ Manual signing failed"
+              echo "✗ Manual signing failed - APK still not properly signed"
+              jarsigner -verify -verbose "$APK_PATH"
               exit 1
             fi
+          else
+            echo "⚠ APK signature status unclear"
+            cat verify.log
+            exit 1
           fi
           
           # Rename APK to include version
