@@ -78,6 +78,7 @@ jobs:
           dotnet publish AetherAprs.Android/AetherAprs.Android.csproj \
             -c Release \
             -f net10.0-android \
+            -r android-arm64 \
             -p:ApplicationVersion=${{ steps.version.outputs.version_code }} \
             -p:ApplicationDisplayVersion=${{ steps.version.outputs.version_name }} \
             -p:AndroidKeyStore=true \
@@ -86,14 +87,45 @@ jobs:
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
+            -p:AndroidSdkBuildToolsVersion=34.0.0 \
             --verbosity normal
+      
+      - name: Verify build output
+        run: |
+          echo "=== Checking build output directory ==="
+          find AetherAprs.Android/bin/Release -name "*.apk" -o -name "*.aab"
 
-      - name: Find APK
+      - name: Find and Verify APK
         id: find_apk
         run: |
-          APK_PATH=$(find AetherAprs.Android/bin/Release/net10.0-android/publish -name "*.apk" | head -n 1)
+          APK_PATH=$(find AetherAprs.Android/bin/Release/net10.0-android -name "*.apk" | grep -E "(Signed|publish)" | head -n 1)
+          
+          if [ -z "$APK_PATH" ]; then
+            echo "ERROR: No signed APK found!"
+            echo "Looking for any APK files..."
+            find AetherAprs.Android/bin/Release -name "*.apk"
+            exit 1
+          fi
+          
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK at: $APK_PATH"
+          
+          # Verify APK
+          echo ""
+          echo "=== APK Information ==="
+          ls -lh "$APK_PATH"
+          
+          echo ""
+          echo "=== APK Signature Verification ==="
+          if ! $ANDROID_HOME/build-tools/*/apksigner verify --verbose "$APK_PATH"; then
+            echo "ERROR: APK signature verification failed!"
+            exit 1
+          fi
+          echo "✓ APK signature verified successfully"
+          
+          echo ""
+          echo "=== APK Details (aapt) ==="
+          $ANDROID_HOME/build-tools/*/aapt dump badging "$APK_PATH" | head -20
           
           # Rename APK to include version
           APK_NAME="AetherAprs-v${{ steps.version.outputs.version_name }}.apk"
