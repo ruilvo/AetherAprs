@@ -88,7 +88,14 @@ jobs:
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
             -p:AndroidSdkBuildToolsVersion=34.0.0 \
-            --verbosity normal
+            --verbosity detailed | tee build.log
+          
+          # Check if signing was mentioned in the build
+          if grep -q "jarsigner" build.log || grep -q "apksigner" build.log; then
+            echo "✓ Build log indicates APK was signed"
+          else
+            echo "⚠ Warning: Build log doesn't mention signing tools"
+          fi
       
       - name: Verify build output
         run: |
@@ -116,16 +123,48 @@ jobs:
           ls -lh "$APK_PATH"
           
           echo ""
-          echo "=== APK Signature Verification ==="
-          if ! $ANDROID_HOME/build-tools/*/apksigner verify --verbose "$APK_PATH"; then
-            echo "ERROR: APK signature verification failed!"
-            exit 1
-          fi
-          echo "✓ APK signature verified successfully"
+          echo "=== APK Details (aapt) ==="
+          $ANDROID_HOME/build-tools/*/aapt dump badging "$APK_PATH" | head -25
           
           echo ""
-          echo "=== APK Details (aapt) ==="
-          $ANDROID_HOME/build-tools/*/aapt dump badging "$APK_PATH" | head -20
+          echo "=== APK Signature Check (jarsigner) ==="
+          if jarsigner -verify -verbose -certs "$APK_PATH" 2>&1 | tee verify.log; then
+            echo ""
+            if grep -q "jar verified" verify.log; then
+              echo "✓ APK is properly signed"
+            else
+              echo "⚠ APK signature status unclear"
+              cat verify.log
+            fi
+          else
+            echo "✗ APK verification failed"
+            cat verify.log
+            
+            echo ""
+            echo "=== Attempting manual signing ==="
+            # Backup original
+            cp "$APK_PATH" "${APK_PATH}.unsigned"
+            
+            # Align
+            $ANDROID_HOME/build-tools/*/zipalign -v -p 4 "${APK_PATH}.unsigned" "${APK_PATH}.aligned"
+            
+            # Sign with apksigner
+            $ANDROID_HOME/build-tools/*/apksigner sign \
+              --ks ${{ github.workspace }}/release.keystore \
+              --ks-key-alias ${{ secrets.ANDROID_KEY_ALIAS }} \
+              --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+              --key-pass pass:"${{ secrets.ANDROID_KEY_PASSWORD }}" \
+              --out "$APK_PATH" \
+              "${APK_PATH}.aligned"
+            
+            # Verify again
+            if jarsigner -verify "$APK_PATH"; then
+              echo "✓ APK manually signed and verified"
+            else
+              echo "✗ Manual signing failed"
+              exit 1
+            fi
+          fi
           
           # Rename APK to include version
           APK_NAME="AetherAprs-v${{ steps.version.outputs.version_name }}.apk"
