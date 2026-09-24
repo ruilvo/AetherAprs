@@ -15,7 +15,7 @@ namespace AetherAprs.Tests;
 /// <summary>
 /// Tests for the dynamic beacon service.
 /// </summary>
-public class BeaconServiceTests
+public class BeaconServiceTests : TestFixtureBase
 {
     private static LocationData CreateLocation(double latitude, double longitude, double? altitude = null, DateTimeOffset? timestamp = null)
     {

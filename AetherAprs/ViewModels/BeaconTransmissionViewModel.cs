@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Models;
-using AetherAprs.Services;
 using AetherAprs.Localization;
+using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -81,22 +82,15 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                 return;
             }
 
-            var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
-            var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
-            var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+            // Create position packet using current global beacon mode
+            var packet = CreateBeaconPacket(currentLocation, callsign);
 
-            // Send to each TX port with the configured beacon mode
+            // Send to each TX port
             var sentPortCount = 0;
             foreach (var port in txPorts)
             {
                 try
                 {
-                    _beaconService.SetActiveMode(_portSettingsResolver.GetPortBeaconMode(port));
-                    var packet = _beaconService.CreatePositionPacket(
-                        currentLocation,
-                        sourceCallsign,
-                        symbolTable,
-                        symbolCode);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation(
@@ -160,21 +154,14 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                 return;
             }
 
-            var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
-            var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
-            var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+            // Create position packet using current global beacon mode
+            var packet = CreateBeaconPacket(userLocation, callsign);
 
             var sentPortCount = 0;
             foreach (var port in txPorts)
             {
                 try
                 {
-                    _beaconService.SetActiveMode(_portSettingsResolver.GetPortBeaconMode(port));
-                    var packet = _beaconService.CreatePositionPacket(
-                        userLocation,
-                        sourceCallsign,
-                        symbolTable,
-                        symbolCode);
                     await _portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
                     _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
@@ -208,21 +195,14 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
         if (string.IsNullOrEmpty(callsign))
             return;
 
-        var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
-        var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
-        var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+        // Create position packet using current global beacon mode
+        var packet = CreateBeaconPacket(userLocation, callsign);
 
         var sentPortNames = new System.Collections.Generic.List<string>();
         foreach (var port in portsJustEnabled)
         {
             try
             {
-                _beaconService.SetActiveMode(_portSettingsResolver.GetPortBeaconMode(port));
-                var packet = _beaconService.CreatePositionPacket(
-                    userLocation,
-                    sourceCallsign,
-                    symbolTable,
-                    symbolCode);
                 await _portService.SendPacketAsync(port.Id, packet);
                 sentPortNames.Add(port.Name);
                 _logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);
@@ -239,5 +219,21 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
             var portNames = string.Join(", ", sentPortNames);
             BeaconStatus = Strings.Format("InitialBeaconSentOnPortActivation", portNames);
         }
+    }
+
+    /// <summary>
+    /// Creates a beacon packet for the given location and callsign.
+    /// </summary>
+    private PositionPacket CreateBeaconPacket(LocationData location, string callsign)
+    {
+        var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
+        var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
+        var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+
+        return _beaconService.CreatePositionPacket(
+            location,
+            sourceCallsign,
+            symbolTable,
+            symbolCode);
     }
 }

@@ -17,7 +17,7 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
 
-public sealed class MessagesViewModelTests
+public sealed class MessagesViewModelTests : TestFixtureBase
 {
     [Fact]
     public void Conversations_ExposesMessageServiceCollection()

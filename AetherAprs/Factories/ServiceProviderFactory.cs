@@ -55,7 +55,7 @@ public static class ServiceProviderFactory
         // Register port service
         services.AddSingleton<IPortService, PortService>();
 
-        // Register APRS port settings resolver
+        // Register APRS settings resolver
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
 
         // Register beacon service

@@ -71,13 +71,28 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
         IsTracking = true;
 
         // Start periodic location updates
-        _ = Task.Run(async () =>
+        _ = RunLocationUpdateLoopAsync(_locationUpdateCancellation.Token);
+    }
+
+    /// <summary>
+    /// Stops location tracking.
+    /// </summary>
+    public void StopTracking()
+    {
+        _locationUpdateCancellation?.Cancel();
+        _locationUpdateCancellation = null;
+        IsTracking = false;
+    }
+
+    private async Task RunLocationUpdateLoopAsync(CancellationToken cancellationToken)
+    {
+        try
         {
-            while (!_locationUpdateCancellation.Token.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
-                    var location = await _locationService.GetCurrentLocationAsync(_locationUpdateCancellation.Token);
+                    var location = await _locationService.GetCurrentLocationAsync(cancellationToken);
 
                     CurrentLocation = location;
                     LocationUpdated?.Invoke(this, location);
@@ -85,7 +100,7 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
                     _logger.LogInformation("Location updated: {Lat}, {Lon}", location.Latitude, location.Longitude);
 
                     // Wait 5 seconds before next update
-                    await Task.Delay(TimeSpan.FromSeconds(5), _locationUpdateCancellation.Token);
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -99,7 +114,7 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
                     // Wait longer on error before retrying
                     try
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(10), _locationUpdateCancellation.Token);
+                        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
                     }
                     catch (OperationCanceledException)
                     {
@@ -107,19 +122,11 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
                     }
                 }
             }
-
+        }
+        finally
+        {
             IsTracking = false;
-        }, _locationUpdateCancellation.Token);
-    }
-
-    /// <summary>
-    /// Stops location tracking.
-    /// </summary>
-    public void StopTracking()
-    {
-        _locationUpdateCancellation?.Cancel();
-        _locationUpdateCancellation = null;
-        IsTracking = false;
+        }
     }
 
     public void Dispose()

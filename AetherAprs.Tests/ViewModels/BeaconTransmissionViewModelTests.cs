@@ -16,7 +16,7 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
 
-public class BeaconTransmissionViewModelTests
+public class BeaconTransmissionViewModelTests : TestFixtureBase
 {
     [Fact]
     public async Task SendManualBeaconAsync_WithNullLocation_SetsStatusAndDoesNotSend()
@@ -218,7 +218,7 @@ public class BeaconTransmissionViewModelTests
         }
         
         beaconService ??= new TestBeaconService();
-        var portSettingsResolver = new AprsPortSettingsResolver(config, beaconService);
+        var portSettingsResolver = new AprsPortSettingsResolver(config);
 
         return new BeaconTransmissionViewModel(
             beaconService,
@@ -237,8 +237,7 @@ public class BeaconTransmissionViewModelTests
             IsEnabled = true,
             IsRx = true,
             IsTx = isTx,
-            TypeSettings = new AprsIsSettings(),
-            DynamicBeaconMode = DynamicBeaconMode.Walk
+            TypeSettings = new AprsIsSettings()
         };
     }
 
@@ -359,5 +358,6 @@ public class BeaconTransmissionViewModelTests
 
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

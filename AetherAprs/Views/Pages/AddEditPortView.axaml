@@ -80,19 +80,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </StackPanel>
         </StackPanel>
 
-        <!-- Dynamic Beaconing Mode Section -->
-        <StackPanel Spacing="8">
-          <ComboBox ItemsSource="{Binding BeaconModes}"
-                    SelectedItem="{Binding SelectedBeaconMode}"
-                    wpf:ComboBoxAssist.Label="Dynamic Beaconing Mode">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:BeaconModeOption">
-                <TextBlock Text="{Binding DisplayName}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-        </StackPanel>
-
         <!-- Port Type Section -->
         <StackPanel Spacing="8">
           <ComboBox ItemsSource="{Binding PortTypes}"

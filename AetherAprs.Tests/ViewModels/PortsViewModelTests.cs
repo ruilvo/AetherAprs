@@ -106,6 +106,7 @@ public sealed class PortsViewModelTests
         public Task SendPacketAsync(Guid id, AprsPacket packet) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         private static TaskCompletionSource<bool> NewOperation() => new(TaskCreationOptions.RunContinuationsAsynchronously);
     }

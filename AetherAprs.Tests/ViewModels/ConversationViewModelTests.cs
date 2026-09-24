@@ -15,7 +15,7 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
 
-public sealed class ConversationViewModelTests
+public sealed class ConversationViewModelTests : TestFixtureBase
 {
     [Fact]
     public void Initialize_ReflectsExistingMessages()

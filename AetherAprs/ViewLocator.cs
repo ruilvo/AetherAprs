@@ -29,6 +29,8 @@ public class ViewLocator: IDataTemplate
             AddEditPortViewModel => new AddEditPortView(),
             ConversationViewModel => new ConversationView(),
             PortItemViewModel => new PortItemView(),
+            BeaconTransmissionViewModel => new BeaconTransmissionView(),
+            LocationTrackingViewModel => new LocationTrackingView(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

@@ -30,12 +30,6 @@ public class PortConfig
     public bool ShowOnMap { get; set; } = true;
 
     /// <summary>
-    /// Dynamic beaconing mode to use for position transmissions on this port.
-    /// Null means that the global APRS default beacon mode is used.
-    /// </summary>
-    public DynamicBeaconMode? DynamicBeaconMode { get; set; }
-
-    /// <summary>
     /// Type-specific configuration. Use AprsIsSettings for APRS-IS ports, KissSettings for KISS ports.
     /// </summary>
     public IPortTypeSettings? TypeSettings { get; set; }

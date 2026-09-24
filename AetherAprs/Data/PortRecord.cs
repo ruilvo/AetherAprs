@@ -24,8 +24,6 @@ public sealed class PortRecord
 
     public bool ShowOnMap { get; set; } = true;
 
-    public DynamicBeaconMode? DynamicBeaconMode { get; set; }
-
     /// <summary>
     /// Discriminator for <see cref="AprsIs"/> vs <see cref="Kiss"/>: "aprs-is", "kiss", or null.
     /// </summary>

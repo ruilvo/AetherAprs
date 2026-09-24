@@ -3,10 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -170,6 +173,124 @@ public sealed class MessageServiceTests
         Assert.Empty(service.Conversations);
     }
 
+    [Fact]
+    public async Task SendAsync_ConcurrentCalls_AssignsUniqueMessageNumbers()
+    {
+        // Arrange
+        var port = new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "TX",
+            IsEnabled = true,
+            IsTx = true,
+            IsRx = true,
+            TypeSettings = new AprsIsSettings()
+        };
+        var portService = new FakePortService(port);
+        var resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+
+        var service = new MessageService(
+            portService,
+            CreateConfiguration("N0CALL", defaultSsid: 1),
+            resolver,
+            Substitute.For<ILogger<MessageService>>());
+
+        var addressee = new Callsign("K0OTH", 7);
+
+        // Act - send 10 messages concurrently
+        var tasks = Enumerable.Range(1, 10)
+            .Select(i => service.SendAsync(addressee, $"Message {i}", TestContext.Current.CancellationToken))
+            .ToArray();
+
+        await Task.WhenAll(tasks);
+
+        // Assert - all message numbers should be unique
+        var messageNumbers = portService.SentPackets
+            .OfType<MessagePacket>()
+            .Select(p => p.MessageNumber)
+            .ToList();
+
+        Assert.Equal(10, messageNumbers.Count);
+        Assert.Equal(10, messageNumbers.Distinct().Count()); // All unique
+    }
+
+    [Fact]
+    public async Task PacketReceived_ConcurrentPackets_CreatesConversationsThreadSafely()
+    {
+        // Arrange
+        var portService = new FakePortService();
+        var service = new MessageService(
+            portService,
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            Substitute.For<ILogger<MessageService>>());
+
+        // Act - receive 100 packets concurrently from different callsigns
+        var tasks = Enumerable.Range(1, 100)
+            .Select(i => Task.Run(() =>
+            {
+                // Generate callsigns: K1A to K100 format, ensuring 2-6 chars
+                var callsign = i < 10 ? $"K{i}A" : i < 100 ? $"K{i}" : "K100";
+                portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+                {
+                    PortId = Guid.NewGuid(),
+                    Packet = new MessagePacket
+                    {
+                        Source = new Callsign(callsign, (i % 15) + 1), // Valid SSID range 1-15
+                        Destination = new Callsign("APRS"),
+                        Addressee = new Callsign("N0CALL"),
+                        Text = $"Message {i}"
+                    }
+                });
+            }, TestContext.Current.CancellationToken))
+            .ToArray();
+
+        await Task.WhenAll(tasks);
+
+        // Assert - should have 100 conversations, one per unique callsign
+        Assert.Equal(100, service.Conversations.Count);
+        
+        // Verify each conversation has exactly one message
+        foreach (var conversation in service.Conversations)
+        {
+            Assert.Single(conversation.Messages);
+        }
+    }
+
+    [Fact]
+    public async Task GetOrCreateConversation_ConcurrentAccess_ReturnsSameInstanceForSameCallsign()
+    {
+        // Arrange
+        var portService = new FakePortService();
+        var service = new MessageService(
+            portService,
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            Substitute.For<ILogger<MessageService>>());
+
+        var callsign = new Callsign("K0OTH", 7);
+        var conversations = new ConcurrentBag<ConversationThread>();
+
+        // Act - call GetOrCreateConversation 100 times concurrently
+        var tasks = Enumerable.Range(1, 100)
+            .Select(_ => Task.Run(() =>
+            {
+                var conversation = service.GetOrCreateConversation(callsign);
+                conversations.Add(conversation);
+            }, TestContext.Current.CancellationToken))
+            .ToArray();
+
+        await Task.WhenAll(tasks);
+
+        // Assert - should have only 1 conversation in service
+        Assert.Single(service.Conversations);
+        
+        // All returned instances should be the same reference
+        var distinctConversations = conversations.Distinct().ToList();
+        Assert.Single(distinctConversations);
+    }
+
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
     {
         var configuration = Substitute.For<IConfigurationService>();
@@ -214,5 +335,6 @@ public sealed class MessageServiceTests
         public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

@@ -8,17 +8,15 @@ using AetherAprs.Models;
 namespace AetherAprs.Services;
 
 /// <summary>
-/// Resolves APRS identity from global settings and per-port beacon mode.
+/// Resolves APRS identity settings from global configuration.
 /// </summary>
 public class AprsPortSettingsResolver : IAprsPortSettingsResolver
 {
     private readonly IConfigurationService _configurationService;
-    private readonly IBeaconService _beaconService;
 
-    public AprsPortSettingsResolver(IConfigurationService configurationService, IBeaconService beaconService)
+    public AprsPortSettingsResolver(IConfigurationService configurationService)
     {
         _configurationService = configurationService;
-        _beaconService = beaconService;
     }
 
     public int? GetSsid()
@@ -32,9 +30,6 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
         var ssid = GetSsid();
         return ssid.HasValue ? $"{baseCallsign}-{ssid.Value}" : baseCallsign;
     }
-
-    public DynamicBeaconMode GetPortBeaconMode(PortConfig port) =>
-        port.DynamicBeaconMode ?? _beaconService.CurrentConfiguration.Mode;
 
     public string GetSymbolTableCharacter() =>
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter;
@@ -58,11 +53,6 @@ public interface IAprsPortSettingsResolver
     /// Gets the full station callsign (base callsign + SSID if applicable).
     /// </summary>
     string GetCallsign(string baseCallsign);
-
-    /// <summary>
-    /// Gets the beacon mode for a port, falling back to the active dynamic beaconing mode.
-    /// </summary>
-    DynamicBeaconMode GetPortBeaconMode(PortConfig port);
 
     /// <summary>
     /// Gets the configured APRS symbol table character.

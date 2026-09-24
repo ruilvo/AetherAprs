@@ -17,8 +17,7 @@ internal static class PortRecordMapper
             IsEnabled = port.IsEnabled,
             IsRx = port.IsRx,
             IsTx = port.IsTx,
-            ShowOnMap = port.ShowOnMap,
-            DynamicBeaconMode = port.DynamicBeaconMode
+            ShowOnMap = port.ShowOnMap
         };
         ApplyTypeSettings(record, port.TypeSettings);
         return record;
@@ -34,7 +33,6 @@ internal static class PortRecordMapper
             IsRx = record.IsRx,
             IsTx = record.IsTx,
             ShowOnMap = record.ShowOnMap,
-            DynamicBeaconMode = record.DynamicBeaconMode,
             TypeSettings = ToTypeSettings(record)
         };
     }
@@ -46,7 +44,6 @@ internal static class PortRecordMapper
         target.IsRx = port.IsRx;
         target.IsTx = port.IsTx;
         target.ShowOnMap = port.ShowOnMap;
-        target.DynamicBeaconMode = port.DynamicBeaconMode;
         ApplyTypeSettings(target, port.TypeSettings);
     }
 

@@ -61,13 +61,20 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private async void OnLocationUpdated(object? sender, LocationData currentLocation)
     {
-        // Evaluate beacon transmission if enabled
-        if (IsDynamicBeaconingEnabled)
+        try
         {
-            await BeaconTransmission.EvaluateAndTransmitBeaconAsync(currentLocation, _previousLocation);
-        }
+            // Evaluate beacon transmission if enabled
+            if (IsDynamicBeaconingEnabled)
+            {
+                await BeaconTransmission.EvaluateAndTransmitBeaconAsync(currentLocation, _previousLocation);
+            }
 
-        _previousLocation = currentLocation;
+            _previousLocation = currentLocation;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing location update");
+        }
     }
 
     private async void OnPortsChanged(object? sender, EventArgs e)

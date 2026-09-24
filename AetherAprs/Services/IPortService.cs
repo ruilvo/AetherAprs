@@ -10,7 +10,7 @@ using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.Services;
 
-public interface IPortService
+public interface IPortService : IAsyncDisposable
 {
     IReadOnlyList<PortConfig> Ports { get; }
 

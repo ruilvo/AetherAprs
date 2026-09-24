@@ -19,7 +19,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services;
 
-public class PortService : IPortService
+public class PortService : IPortService, IAsyncDisposable
 {
     private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly IConfigurationService _configurationService;
@@ -264,7 +264,6 @@ public class PortService : IPortService
         target.IsRx = source.IsRx;
         target.IsTx = source.IsTx;
         target.ShowOnMap = source.ShowOnMap;
-        target.DynamicBeaconMode = source.DynamicBeaconMode;
         target.TypeSettings = source.TypeSettings;
     }
 
@@ -398,6 +397,12 @@ public class PortService : IPortService
     private void OnModemReceiveError(object? sender, Exception exception)
     {
         _logger.LogWarning(exception, "Receive error on modem.");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _logger.LogInformation("Disposing PortService and stopping all active ports.");
+        await StopAllPortsAsync();
     }
 
     private sealed class ActivePortSession : IAsyncDisposable

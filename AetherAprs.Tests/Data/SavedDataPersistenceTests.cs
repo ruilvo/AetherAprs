@@ -102,5 +102,6 @@ public sealed class SavedDataPersistenceTests
         public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

@@ -58,7 +58,6 @@ public sealed class PortServiceTests
             },
             IsRx = false,
             IsTx = true,
-            DynamicBeaconMode = DynamicBeaconMode.Drive,
             ShowOnMap = false
         };
 
@@ -75,7 +74,6 @@ public sealed class PortServiceTests
         Assert.Equal("m/50", aprsIsSettings.Filter);
         Assert.False(persisted.IsRx);
         Assert.True(persisted.IsTx);
-        Assert.Equal(DynamicBeaconMode.Drive, persisted.DynamicBeaconMode);
         Assert.False(persisted.ShowOnMap);
 
         var reloaded = CreateService(db);

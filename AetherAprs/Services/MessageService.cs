@@ -277,7 +277,8 @@ public sealed class MessageService : IMessageService, IDisposable
             Conversations.Add(thread);
         }
 
-        _nextMessageNumber = maxMessageNumber;
+        // Start from next message number after the highest found
+        _nextMessageNumber = maxMessageNumber + 1;
     }
 
     private void PersistMessage(StoredMessage message)

@@ -16,37 +16,16 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
 
-public sealed class AddEditPortViewModelTests
+public sealed class AddEditPortViewModelTests : TestFixtureBase
 {
     [Fact]
-    public void DefaultsEnableTransmitAndInheritBeaconMode()
+    public void DefaultsEnableTransmit()
     {
         var viewModel = CreateViewModel();
         Assert.True(viewModel.IsTx);
 
         var config = viewModel.BuildConfig();
         Assert.True(config.IsTx);
-        Assert.Null(config.DynamicBeaconMode);
-    }
-
-    [Fact]
-    public void BuildConfigCanInheritDefaultBeaconMode()
-    {
-        var viewModel = CreateViewModel();
-        viewModel.SelectedBeaconMode = BeaconModeOption.UseDefault;
-
-        var config = viewModel.BuildConfig();
-        Assert.Null(config.DynamicBeaconMode);
-    }
-
-    [Fact]
-    public void BuildConfigSupportsCustomBeaconMode()
-    {
-        var viewModel = CreateViewModel();
-        viewModel.SelectedBeaconMode = BeaconModeOption.FromMode(AetherAprs.Models.DynamicBeaconMode.Walk);
-
-        var config = viewModel.BuildConfig();
-        Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Walk, config.DynamicBeaconMode);
     }
 
     [Fact]
@@ -65,8 +44,7 @@ public sealed class AddEditPortViewModelTests
             },
             IsRx = true,
             IsTx = false,
-            ShowOnMap = true,
-            DynamicBeaconMode = AetherAprs.Models.DynamicBeaconMode.Drive
+            ShowOnMap = true
         };
 
         viewModel.PopulateFrom(config);
@@ -80,7 +58,6 @@ public sealed class AddEditPortViewModelTests
         Assert.True(viewModel.IsRx);
         Assert.False(viewModel.IsTx);
         Assert.True(viewModel.ShowOnMap);
-        Assert.Equal(AetherAprs.Models.DynamicBeaconMode.Drive, viewModel.SelectedBeaconMode.Mode);
     }
 
     [Fact]
@@ -119,15 +96,6 @@ public sealed class AddEditPortViewModelTests
         Assert.False(viewModel.IsEditing);
         Assert.Equal("APRS-IS Port 1", viewModel.Name);
         Assert.Equal("Add Port", viewModel.Title);
-    }
-
-    [Fact]
-    public void BeaconModesIncludeUseDefaultOption()
-    {
-        var viewModel = CreateViewModel();
-
-        Assert.Contains(viewModel.BeaconModes, option => option.Mode is null && option.DisplayName == "<Use default>");
-        Assert.Equal(BeaconModeOption.UseDefault, viewModel.SelectedBeaconMode);
     }
 
     [Fact]

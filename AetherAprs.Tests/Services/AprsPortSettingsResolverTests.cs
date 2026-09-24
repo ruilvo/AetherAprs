@@ -52,31 +52,6 @@ public class AprsPortSettingsResolverTests
     }
 
     [Fact]
-    public void GetPortBeaconMode_ReturnsPortModeWhenSet()
-    {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
-        var port = CreatePort();
-        port.DynamicBeaconMode = DynamicBeaconMode.Drive;
-
-        var result = resolver.GetPortBeaconMode(port);
-
-        Assert.Equal(DynamicBeaconMode.Drive, result);
-    }
-
-    [Fact]
-    public void GetPortBeaconMode_ReturnsActiveModeWhenPortModeIsNull()
-    {
-        var resolver = CreateResolver(activeMode: DynamicBeaconMode.Custom);
-        var port = CreatePort();
-        port.DynamicBeaconMode = null;
-
-        var result = resolver.GetPortBeaconMode(port);
-
-        Assert.Equal(DynamicBeaconMode.Custom, result);
-    }
-
-    [Fact]
     public void GetSymbolTableCharacter_ReturnsDefault()
     {
         var config = CreateConfiguration();
@@ -102,18 +77,9 @@ public class AprsPortSettingsResolverTests
     }
 
     private static AprsPortSettingsResolver CreateResolver(
-        IConfigurationService? config = null,
-        DynamicBeaconMode activeMode = DynamicBeaconMode.Walk)
+        IConfigurationService? config = null)
     {
-        var beacon = Substitute.For<IBeaconService>();
-        beacon.CurrentConfiguration.Returns(activeMode switch
-        {
-            DynamicBeaconMode.Drive => BeaconConfig.CreateDrivePreset(),
-            DynamicBeaconMode.Custom => BeaconConfig.CreateCustomPreset(),
-            _ => BeaconConfig.CreateWalkPreset()
-        });
-
-        return new AprsPortSettingsResolver(config ?? CreateConfiguration(), beacon);
+        return new AprsPortSettingsResolver(config ?? CreateConfiguration());
     }
 
     private static PortConfig CreatePort()

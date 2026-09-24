@@ -80,9 +80,6 @@ public partial class AddEditPortViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool ShowOnMap { get; set; } = true;
 
-    [ObservableProperty]
-    public partial BeaconModeOption SelectedBeaconMode { get; set; } = BeaconModeOption.UseDefault;
-
     public ObservableCollection<BluetoothLeAdvertisement> BleDevices { get; } = new();
 
     public ObservableCollection<BluetoothClassicDevice> SppDevices { get; } = new();
@@ -96,8 +93,6 @@ public partial class AddEditPortViewModel : ViewModelBase
     public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings)];
 
     public IReadOnlyList<Type> AvailableKissTransportTypes { get; }
-
-    public IReadOnlyList<BeaconModeOption> BeaconModes { get; } = BeaconModeOption.All;
 
     public AddEditPortViewModel(
         INavigationService navigationService,
@@ -122,7 +117,6 @@ public partial class AddEditPortViewModel : ViewModelBase
 
         Name = string.Empty;
         Passcode = AprsIsSettings.DefaultPasscode;
-        SelectedBeaconMode = BeaconModeOption.UseDefault;
     }
 
     public void Initialize(string globalCallsign, int nextPortNumber, PortConfig? existingConfig = null)
@@ -305,7 +299,6 @@ public partial class AddEditPortViewModel : ViewModelBase
         IsRx = config.IsRx;
         IsTx = config.IsTx;
         ShowOnMap = config.ShowOnMap;
-        SelectedBeaconMode = BeaconModeOption.FromMode(config.DynamicBeaconMode);
 
         if (config.TypeSettings is AprsIsSettings aprsIs)
         {
@@ -364,8 +357,7 @@ public partial class AddEditPortViewModel : ViewModelBase
             Name = Name,
             IsRx = IsRx,
             IsTx = IsTx,
-            ShowOnMap = ShowOnMap,
-            DynamicBeaconMode = SelectedBeaconMode.Mode
+            ShowOnMap = ShowOnMap
         };
 
         if (SelectedPortSettingsType == typeof(AprsIsSettings))

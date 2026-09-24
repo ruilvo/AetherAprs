@@ -9,7 +9,7 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
 
-public sealed class PortItemViewModelTests
+public sealed class PortItemViewModelTests : TestFixtureBase
 {
     [Fact]
     public void Constructor_NullConfig_Throws()

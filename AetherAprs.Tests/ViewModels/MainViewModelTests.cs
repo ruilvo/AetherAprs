@@ -109,7 +109,7 @@ public sealed class MainViewModelTests
             beaconService,
             portService,
             configuration,
-            new AprsPortSettingsResolver(configuration, beaconService),
+            new AprsPortSettingsResolver(configuration),
             NullLogger<BeaconTransmissionViewModel>.Instance);
 
         var home = new HomeViewModel(
@@ -175,6 +175,7 @@ public sealed class MainViewModelTests
         public Task SendPacketAsync(Guid id, AprsPacket packet) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class TestConfigurationService : IConfigurationService

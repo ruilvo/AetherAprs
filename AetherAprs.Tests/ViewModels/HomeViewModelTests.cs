@@ -18,7 +18,7 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;
 
-public sealed class HomeViewModelTests
+public sealed class HomeViewModelTests : TestFixtureBase
 {
     [Fact]
     public async Task EnablingTxPortSendsInitialBeaconOnce()
@@ -160,7 +160,7 @@ public sealed class HomeViewModelTests
         
         var symbolProvider = new TestSymbolBitmapProvider();
         var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
-        var portSettingsResolver = new AprsPortSettingsResolver(configuration, beaconService);
+        var portSettingsResolver = new AprsPortSettingsResolver(configuration);
         
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
@@ -190,8 +190,7 @@ public sealed class HomeViewModelTests
             IsEnabled = isEnabled,
             IsRx = true,
             IsTx = isTx,
-            TypeSettings = new AprsIsSettings(),
-            DynamicBeaconMode = DynamicBeaconMode.Walk
+            TypeSettings = new AprsIsSettings()
         };
     }
 
@@ -327,6 +326,8 @@ public sealed class HomeViewModelTests
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
 
         public Task StopAllPortsAsync() => Task.CompletedTask;
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
