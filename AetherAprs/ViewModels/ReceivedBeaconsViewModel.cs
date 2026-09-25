@@ -141,9 +141,11 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
                 .Where(p => p.Latitude != null && p.Longitude != null);
 
             // Apply time filter
+            // Convert to ticks for SQLite compatibility - SQLite doesn't support DateTimeOffset comparisons
             if (cutoffTime.HasValue)
             {
-                query = query.Where(p => p.ReceivedAt >= cutoffTime.Value);
+                var cutoffTicks = cutoffTime.Value.UtcTicks;
+                query = query.Where(p => p.ReceivedAt.UtcTicks >= cutoffTicks);
             }
 
             // Apply port filter - only include non-null PortIds that are in visiblePortIds

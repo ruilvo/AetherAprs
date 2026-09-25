@@ -101,14 +101,17 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
             await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
             
+            // Use UtcTicks for ordering and filtering - SQLite doesn't support DateTimeOffset in ORDER BY
             var query = dbContext.Packets
                 .AsNoTracking()
-                .OrderByDescending(p => p.ReceivedAt);
+                .OrderByDescending(p => p.ReceivedAt.UtcTicks);
 
             // Apply time filter if not "All"
+            // Convert to ticks for SQLite compatibility
             if (cutoffTime.HasValue)
             {
-                query = (IOrderedQueryable<PacketRecord>)query.Where(p => p.ReceivedAt >= cutoffTime.Value);
+                var cutoffTicks = cutoffTime.Value.UtcTicks;
+                query = (IOrderedQueryable<PacketRecord>)query.Where(p => p.ReceivedAt.UtcTicks >= cutoffTicks);
             }
 
             // Group by source and take the most recent packet for each
