@@ -23,6 +23,9 @@ namespace AetherAprs.Android
             services.AddSingleton<AetherAprs.Services.ILocationService, Services.LocationService>();
             services.AddSingleton<AetherAprs.Services.IUiCultureProvider, Services.AndroidUiCultureProvider>();
 
+            // Register Android foreground service
+            services.AddSingleton<AetherAprs.Services.IForegroundService, Services.AndroidForegroundService>();
+
             // Bluetooth Classic SPP + BLE KISS transports and device discovery
             services.AddSingleton<IKissStreamConnector, Services.BluetoothClassicKissStreamConnector>();
             services.AddSingleton<IKissStreamConnector, Services.BluetoothLeKissStreamConnector>();

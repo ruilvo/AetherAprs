@@ -27,6 +27,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly IServiceProvider _serviceProvider;
     private readonly IKissStreamFactory _kissStreamFactory;
     private readonly IPacketStorageService _packetStorageService;
+    private readonly IForegroundService _foregroundService;
     private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
     private readonly List<PortConfig> _ports;
     private readonly CancellationTokenSource _disposalCts = new();
@@ -37,7 +38,8 @@ public class PortService : IPortService, IAsyncDisposable
         ILogger<PortService> logger,
         IServiceProvider serviceProvider,
         IKissStreamFactory kissStreamFactory,
-        IPacketStorageService packetStorageService)
+        IPacketStorageService packetStorageService,
+        IForegroundService foregroundService)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
@@ -45,6 +47,7 @@ public class PortService : IPortService, IAsyncDisposable
         _serviceProvider = serviceProvider;
         _kissStreamFactory = kissStreamFactory;
         _packetStorageService = packetStorageService;
+        _foregroundService = foregroundService;
         _ports = LoadPorts();
     }
 
@@ -126,13 +129,35 @@ public class PortService : IPortService, IAsyncDisposable
                 PortsChanged?.Invoke(this, EventArgs.Empty);
                 throw new InvalidOperationException($"Failed to start port '{port.Name}'.");
             }
+
+            // Start foreground service when first port is enabled
+            await UpdateForegroundServiceAsync();
         }
         else
         {
             await StopModemAsync(id);
+
+            // Stop foreground service when no ports are enabled
+            await UpdateForegroundServiceAsync();
         }
 
         PortsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task UpdateForegroundServiceAsync()
+    {
+        var hasEnabledPorts = _activeSessions.Count > 0;
+
+        if (hasEnabledPorts && !_foregroundService.IsRunning)
+        {
+            await _foregroundService.StartAsync();
+            _logger.LogInformation("Started foreground service");
+        }
+        else if (!hasEnabledPorts && _foregroundService.IsRunning)
+        {
+            await _foregroundService.StopAsync();
+            _logger.LogInformation("Stopped foreground service");
+        }
     }
 
 
@@ -427,6 +452,13 @@ public class PortService : IPortService, IAsyncDisposable
         _logger.LogInformation("Disposing PortService and stopping all active ports.");
         _disposalCts.Cancel();
         await StopAllPortsAsync();
+        
+        // Stop foreground service on disposal
+        if (_foregroundService.IsRunning)
+        {
+            await _foregroundService.StopAsync();
+        }
+        
         _disposalCts.Dispose();
     }
 

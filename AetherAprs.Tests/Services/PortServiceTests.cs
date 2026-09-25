@@ -248,13 +248,15 @@ public sealed class PortServiceTests
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = new MockPacketStorageService();
+        var mockForegroundService = new NoOpForegroundService();
         return new PortService(
             db.Factory,
             new TestConfigurationService(),
             NullLogger<PortService>.Instance,
             services,
             kissStreamFactory,
-            mockPacketStorage);
+            mockPacketStorage,
+            mockForegroundService);
     }
 
     private sealed class MockPacketStorageService : IPacketStorageService

@@ -71,6 +71,10 @@ public static class ServiceProviderFactory
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
 
+        // Register foreground service (platform-specific implementation registered in platform code)
+        // Default to no-op for desktop platforms
+        services.AddSingleton<IForegroundService, NoOpForegroundService>();
+
         // Register factories
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
