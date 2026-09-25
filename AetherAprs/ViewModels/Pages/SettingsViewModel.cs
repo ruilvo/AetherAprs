@@ -81,7 +81,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     [MaxLength(43, ErrorMessageResourceName = nameof(Strings.ValidationCommentMaxLength), ErrorMessageResourceType = typeof(Strings))]
     [NotifyDataErrorInfo]
-    public partial string? DefaultBeaconComment { get; set; }
+    public partial string? DefaultBeaconComment { get; set; } = "Using AetherAPRS!";
 
     [ObservableProperty]
     public partial string? DigipeaterPath { get; set; } = "WIDE1-1,WIDE2-1";

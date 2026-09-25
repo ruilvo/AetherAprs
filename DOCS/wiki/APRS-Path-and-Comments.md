@@ -212,13 +212,15 @@ AetherAprs can act as a digipeater and respond to WIDE1/WIDE2 alias requests.
 
 ### Understanding Digipeater Aliases
 
-**WIDE1-1**: Fill-in digipeater
+**WIDE1-N**: Fill-in digipeater
 - Local, low-level coverage
+- Responds to any WIDE1 request (WIDE1-1, WIDE1-2, etc.)
 - Helps with "weak signal" situations
 - Recommended for high-altitude or strategic locations
 
 **WIDE2-N**: Wide coverage digipeater  
 - Regional or area coverage
+- Responds to any WIDE2 request (WIDE2-1, WIDE2-2, etc.)
 - Full network participation
 - Recommended for established digipeater stations
 
@@ -226,14 +228,14 @@ AetherAprs can act as a digipeater and respond to WIDE1/WIDE2 alias requests.
 
 1. **Settings** → **Digipeater & Gating**
 2. Find alias checkboxes:
-   - ☑️ **Respond to WIDE1-1**
+   - ☑️ **Respond to WIDE1-N**
    - ☑️ **Respond to WIDE2-N**
 
 **Default settings:**
-- ☐ Respond to WIDE1-1: **Disabled**
+- ☐ Respond to WIDE1-N: **Disabled**
 - ☑️ Respond to WIDE2-N: **Enabled**
 
-### When to Enable WIDE1-1 Response
+### When to Enable WIDE1-N Response
 
 Enable if:
 - ✅ High altitude location (hilltop, tall building)
@@ -329,9 +331,11 @@ WIDE2-0  →  (ignored, already exhausted)
 
 ### Alias Matching
 
-**WIDE1-1 matching:**
-- Exact match: `WIDE1` with hop count 1
-- Does NOT match: `WIDE1-2`, `WIDE`, `WIDE1-0`
+**WIDE1-N matching:**
+- Callsign: `WIDE1`
+- Any hop count: 1-7 (practical range)
+- Matches: `WIDE1-1`, `WIDE1-2`, `WIDE1-3`
+- Does NOT match: `WIDE1-0` (exhausted)
 
 **WIDE2-N matching:**
 - Callsign: `WIDE2`

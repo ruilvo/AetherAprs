@@ -216,7 +216,7 @@ public class AprsSettings
     /// This comment is used when the beacon configuration doesn't specify one.
     /// Maximum length is 43 characters (APRS spec limit).
     /// </summary>
-    public string? DefaultBeaconComment { get; set; }
+    public string? DefaultBeaconComment { get; set; } = "Using AetherAPRS!";
 
     /// <summary>
     /// Gets or sets the digipeater path for transmitted packets.

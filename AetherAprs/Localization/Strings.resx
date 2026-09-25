@@ -206,7 +206,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="DigipeaterPath" xml:space="preserve"><value>Digipeater Path</value></data>
   <data name="DigipeaterPathPlaceholder" xml:space="preserve"><value>WIDE1-1,WIDE2-1</value></data>
   <data name="DigipeaterPathDescription" xml:space="preserve"><value>The digipeater path for transmitted packets. Common values: WIDE1-1,WIDE2-1 (recommended), WIDE2-2, or leave empty for direct only.</value></data>
-  <data name="RespondToWide1" xml:space="preserve"><value>Respond to WIDE1-1 (Fill-in Digi)</value></data>
+  <data name="RespondToWide1" xml:space="preserve"><value>Respond to WIDE1-N (Fill-in Digi)</value></data>
   <data name="RespondToWide2" xml:space="preserve"><value>Respond to WIDE2-N (Full Digi)</value></data>
   <data name="BeaconSettings" xml:space="preserve"><value>Beacon Settings</value></data>
   <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configure default comment and path for position beacons.</value></data>
@@ -217,4 +217,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Max retries must be between 0 and 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Retry timeout must be between 5 and 300 seconds</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Comment cannot exceed 43 characters</value></data>
+  <data name="TimeRangeLastHour" xml:space="preserve"><value>Last Hour</value></data>
+  <data name="TimeRangeLastDay" xml:space="preserve"><value>Last Day</value></data>
+  <data name="TimeRangeLastWeek" xml:space="preserve"><value>Last Week</value></data>
+  <data name="TimeRangeLastMonth" xml:space="preserve"><value>Last Month</value></data>
+  <data name="TimeRangeAll" xml:space="preserve"><value>All Packets</value></data>
+  <data name="TimeRangeCustom" xml:space="preserve"><value>Custom</value></data>
 </root>

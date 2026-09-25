@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:config="using:AetherAprs.Configuration"
+             xmlns:converters="using:AetherAprs.Converters"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
@@ -20,6 +21,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:Class="AetherAprs.Views.Pages.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
+  <UserControl.Resources>
+    <converters:PacketDisplayTimeRangeConverter x:Key="TimeRangeConverter" />
+  </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="TextBox">
       <Setter Property="Margin" Value="0,8,0,0" />
@@ -77,13 +81,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       SelectedItem="{Binding DisplayTimeRange}"
                       MinHeight="48"
                       wpf:ComboBoxAssist.Label="Packet Display Time Range"
-                      HorizontalAlignment="Stretch" />
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Converter={StaticResource TimeRangeConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
 
-            <!-- Custom Hours -->
+            <!-- Custom Hours - only visible when Custom is selected -->
             <TextBox Text="{Binding CustomDisplayTimeRangeHours}"
                      PlaceholderText="12"
                      wpf:TextFieldAssist.Label="Custom Time Range (hours) - used when Custom is selected"
-                     UseFloatingPlaceholder="True" />
+                     UseFloatingPlaceholder="True"
+                     IsVisible="{Binding DisplayTimeRange, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:PacketDisplayTimeRange.Custom}}" />
           </StackPanel>
         </StackPanel>
 

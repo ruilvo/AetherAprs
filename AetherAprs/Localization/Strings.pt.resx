@@ -206,7 +206,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="DigipeaterPath" xml:space="preserve"><value>Caminho de Digipeater</value></data>
   <data name="DigipeaterPathPlaceholder" xml:space="preserve"><value>WIDE1-1,WIDE2-1</value></data>
   <data name="DigipeaterPathDescription" xml:space="preserve"><value>O caminho de digipeater para pacotes transmitidos. Valores comuns: WIDE1-1,WIDE2-1 (recomendado), WIDE2-2, ou deixar vazio para apenas direto.</value></data>
-  <data name="RespondToWide1" xml:space="preserve"><value>Responder a WIDE1-1 (Fill-in Digi)</value></data>
+  <data name="RespondToWide1" xml:space="preserve"><value>Responder a WIDE1-N (Fill-in Digi)</value></data>
   <data name="RespondToWide2" xml:space="preserve"><value>Responder a WIDE2-N (Full Digi)</value></data>
   <data name="BeaconSettings" xml:space="preserve"><value>Definições de Beacon</value></data>
   <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configurar comentário e caminho predefinidos para beacons de posição.</value></data>
@@ -217,4 +217,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Máximo de tentativas deve estar entre 0 e 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Timeout de tentativa deve estar entre 5 e 300 segundos</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Comentário não pode exceder 43 caracteres</value></data>
+  <data name="TimeRangeLastHour" xml:space="preserve"><value>Última Hora</value></data>
+  <data name="TimeRangeLastDay" xml:space="preserve"><value>Último Dia</value></data>
+  <data name="TimeRangeLastWeek" xml:space="preserve"><value>Última Semana</value></data>
+  <data name="TimeRangeLastMonth" xml:space="preserve"><value>Último Mês</value></data>
+  <data name="TimeRangeAll" xml:space="preserve"><value>Todos os Pacotes</value></data>
+  <data name="TimeRangeCustom" xml:space="preserve"><value>Personalizado</value></data>
 </root>
