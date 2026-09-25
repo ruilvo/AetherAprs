@@ -103,14 +103,18 @@ public sealed class MainViewModelTests
         services.AddSingleton<INavigationService>(navigation);
         services.AddLogging();
         services.AddTransient<ConversationViewModel>();
+        services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         var provider = services.BuildServiceProvider();
+        var conversationFactory = provider.GetRequiredService<IConversationViewModelFactory>();
 
         var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var symbolProvider = new TestSymbolBitmapProvider();
-        var packetCache = new PacketCacheService(portService, dbContextFactory, NullLogger<PacketCacheService>.Instance);
+        var packetQuery = Substitute.For<IPacketQueryService>();
+        var packetStorage = Substitute.For<IPacketStorageService>();
         var receivedBeacons = new ReceivedBeaconsViewModel(
             portService, 
-            packetCache, 
+            packetQuery,
+            packetStorage,
             configuration, 
             symbolProvider, 
             NullLogger<ReceivedBeaconsViewModel>.Instance);
@@ -127,18 +131,23 @@ public sealed class MainViewModelTests
 
         var mapViewModel = new MapViewModel();
 
+        var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        var navigationService = Substitute.For<INavigationService>();
+
         var home = new HomeViewModel(
             portService,
             receivedBeacons,
             locationTracking,
             beaconTransmission,
             mapViewModel,
+            packetDetailsFactory,
+            navigationService,
             NullLogger<HomeViewModel>.Instance);
-        var messages = new MessagesViewModel(messageService, navigation, provider);
+        var messages = new MessagesViewModel(messageService, navigation, conversationFactory);
         
-        var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         var packets = new PacketsViewModel(
-            packetCache,
+            packetQuery,
+            packetStorage,
             navigation,
             packetDetailsFactory,
             configuration,

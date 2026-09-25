@@ -20,7 +20,7 @@ namespace AetherAprs.ViewModels.Pages;
 /// ViewModel for packet details page showing all packets from a specific callsign.
 /// </summary>
 public partial class PacketDetailsViewModel(
-    IPacketCacheService packetCacheService,
+    IPacketQueryService packetQueryService,
     INavigationService navigationService,
     IConversationViewModelFactory conversationFactory,
     ILogger<PacketDetailsViewModel> logger) : ViewModelBase
@@ -53,7 +53,7 @@ public partial class PacketDetailsViewModel(
 
             logger.LogInformation("Loading packets for callsign: {Callsign}", Callsign);
 
-            var packets = await packetCacheService.GetPacketsByCallsignAsync(Callsign, 500);
+            var packets = await packetQueryService.GetPacketsByCallsignAsync(Callsign, 500);
 
             logger.LogInformation("Found {Count} packets for callsign {Callsign}", packets.Count, Callsign);
 

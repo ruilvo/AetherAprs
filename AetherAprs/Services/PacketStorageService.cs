@@ -27,6 +27,11 @@ public interface IPacketStorageService
     /// Removes packets older than the configured retention period.
     /// </summary>
     Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Raised when a packet is successfully stored in the database.
+    /// </summary>
+    event EventHandler? PacketStored;
 }
 
 public sealed class PacketStorageService(
@@ -34,6 +39,8 @@ public sealed class PacketStorageService(
     IConfigurationService configurationService,
     ILogger<PacketStorageService> logger) : IPacketStorageService
 {
+    public event EventHandler? PacketStored;
+
     public async Task StorePacketAsync(AprsPacket packet, Guid? portId, CancellationToken cancellationToken = default)
     {
         try
@@ -49,6 +56,9 @@ public sealed class PacketStorageService(
 
             logger.LogInformation("Successfully stored {PacketType} packet from {Source} (SaveChanges returned {Count})",
                 record.PacketType, record.Source, savedCount);
+
+            // Raise event after successful storage
+            PacketStored?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {

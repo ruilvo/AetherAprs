@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PacketsPage"
              x:DataType="vm:PacketsViewModel"
@@ -75,7 +76,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </ItemsControl>
 
         <!-- Empty state -->
-        <TextBlock Text="No packets received yet"
+        <TextBlock Text="{loc:Loc NoPacketsReceivedYet}"
                    Classes="EmptyState"
                    IsVisible="{Binding !Packets.Count}" />
       </StackPanel>

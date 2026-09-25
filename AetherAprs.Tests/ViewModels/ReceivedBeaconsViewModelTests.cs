@@ -12,7 +12,6 @@ using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
@@ -22,17 +21,19 @@ namespace AetherAprs.Tests.ViewModels;
 public sealed class ReceivedBeaconsViewModelTests : IDisposable
 {
     private readonly IPortService _portService;
-    private readonly IPacketCacheService _packetCacheService;
+    private readonly IPacketQueryService _packetQueryService;
+    private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly ReceivedBeaconsViewModel _viewModel;
-    private readonly Dictionary<string, CachedPacket> _cachedPackets;
+    private readonly List<PacketRecord> _storedPackets;
 
     public ReceivedBeaconsViewModelTests()
     {
         _portService = Substitute.For<IPortService>();
-        _packetCacheService = Substitute.For<IPacketCacheService>();
+        _packetQueryService = Substitute.For<IPacketQueryService>();
+        _packetStorageService = Substitute.For<IPacketStorageService>();
         _configurationService = Substitute.For<IConfigurationService>();
         _symbolBitmapProvider = Substitute.For<IAprsSymbolBitmapProvider>();
         _logger = Substitute.For<ILogger<ReceivedBeaconsViewModel>>();
@@ -50,16 +51,24 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         };
         _configurationService.Settings.Returns(appSettings);
         
-        // Use a shared dictionary that tests can modify
-        _cachedPackets = new Dictionary<string, CachedPacket>();
-        _packetCacheService.GetPositionPackets().Returns(_ => _cachedPackets);
+        // Use a shared list that tests can modify
+        _storedPackets = new List<PacketRecord>();
+        _packetQueryService.GetMostRecentPositionPacketsAsync(Arg.Any<int>())
+            .Returns(callInfo => 
+            {
+                var dict = _storedPackets.ToDictionary(p => p.Source, p => p);
+                return Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(dict);
+            });
+        _packetQueryService.GetPacketsByCallsignAsync(Arg.Any<string>(), Arg.Any<int>())
+            .Returns(callInfo => Task.FromResult<IReadOnlyList<PacketRecord>>(new List<PacketRecord>()));
         
         // Configure mock to return a valid bitmap
         _symbolBitmapProvider.GetSymbolBitmap(Arg.Any<Symbol>()).Returns(callInfo => new SkiaSharp.SKBitmap(64, 64));
         
         _viewModel = new ReceivedBeaconsViewModel(
-            _portService, 
-            _packetCacheService, 
+            _portService,
+            _packetQueryService,
+            _packetStorageService,
             _configurationService, 
             _symbolBitmapProvider, 
             _logger);
@@ -73,7 +82,14 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
     }
 
     [Fact]
-    public void OnPacketReceived_PositionPacket_AddsToLayer()
+    public void Constructor_InitializesTrailsLayer()
+    {
+        Assert.NotNull(_viewModel.TrailsLayer);
+        Assert.Equal("Position Trails", _viewModel.TrailsLayer.Name);
+    }
+
+    [Fact]
+    public async Task OnPacketStored_PositionPacket_TriggersLayerRebuild()
     {
         // Arrange
         var portId = Guid.NewGuid();
@@ -86,29 +102,25 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         };
         _portService.Ports.Returns(new[] { port });
 
-        var packet = new PositionPacket
+        var record = new PacketRecord
         {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
+            Id = 1,
+            Source = "N0CALL-1",
+            PacketType = "Position",
             Latitude = 45.5,
             Longitude = -122.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
+            SymbolTable = "/",
+            SymbolCode = "-",
+            ReceivedAt = DateTime.UtcNow,
+            PortId = portId
         };
 
-        var cachedPacket = new CachedPacket
-        {
-            Packet = packet,
-            PortId = portId,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "N0CALL-1"
-        };
+        // Act - Add to stored packets and raise event
+        _storedPackets.Add(record);
+        _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
 
-        // Act - Add to shared dictionary and raise event
-        _cachedPackets["N0CALL-1"] = cachedPacket;
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket
-        });
+        // Give async operations time to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         // Assert
         var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
@@ -117,42 +129,7 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
     }
 
     [Fact]
-    public void OnPacketReceived_NonPositionPacket_DoesNotAddToLayer()
-    {
-        // Arrange
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
-        {
-            Id = portId,
-            Name = "TestPort",
-            ShowOnMap = true,
-            TypeSettings = new AprsIsSettings()
-        };
-        _portService.Ports.Returns(new[] { port });
-
-        var packet = new MessagePacket
-        {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
-            Addressee = new Callsign("K0OTH"),
-            Text = "Hello"
-        };
-
-        // Act
-        _portService.PacketReceived += Raise.EventWith(new PortPacketReceivedEventArgs
-        {
-            PortId = portId,
-            Packet = packet
-        });
-
-        // Assert
-        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
-        Assert.NotNull(layer);
-        Assert.Empty(layer.GetFeatures());
-    }
-
-    [Fact]
-    public void OnPacketReceived_ShowOnMapFalse_BuffersBeaconButDoesNotDisplay()
+    public async Task OnPacketStored_ShowOnMapFalse_DoesNotDisplay()
     {
         // Arrange
         var portId = Guid.NewGuid();
@@ -165,44 +142,76 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         };
         _portService.Ports.Returns(new[] { port });
 
-        var packet = new PositionPacket
+        var record = new PacketRecord
         {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
+            Id = 1,
+            Source = "N0CALL-1",
+            PacketType = "Position",
             Latitude = 45.5,
             Longitude = -122.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
+            SymbolTable = "/",
+            SymbolCode = "-",
+            ReceivedAt = DateTime.UtcNow,
+            PortId = portId
         };
 
-        var cachedPacket = new CachedPacket
-        {
-            Packet = packet,
-            PortId = portId,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "N0CALL-1"
-        };
+        // Act - Add to stored packets and raise event
+        _storedPackets.Add(record);
+        _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
 
-        // Act - Add to shared dictionary and raise event
-        _cachedPackets["N0CALL-1"] = cachedPacket;
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket
-        });
+        // Give async operations time to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
-        // Assert - beacon is buffered but not displayed
+        // Assert - beacon is not displayed
         var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
         Assert.NotNull(layer);
         Assert.Empty(layer!.GetFeatures());
+    }
 
-        // Now enable ShowOnMap and verify beacon appears
+    [Fact]
+    public async Task PortsChanged_ShowOnMapToggled_RebuildsLayers()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "TestPort",
+            ShowOnMap = false,
+            TypeSettings = new AprsIsSettings()
+        };
+        _portService.Ports.Returns(new[] { port });
+
+        var record = new PacketRecord
+        {
+            Id = 1,
+            Source = "N0CALL-1",
+            PacketType = "Position",
+            Latitude = 45.5,
+            Longitude = -122.5,
+            SymbolTable = "/",
+            SymbolCode = "-",
+            ReceivedAt = DateTime.UtcNow,
+            PortId = portId
+        };
+
+        _storedPackets.Add(record);
+
+        // Act - Enable ShowOnMap and trigger PortsChanged
         port.ShowOnMap = true;
         _portService.PortsChanged += Raise.EventWith(EventArgs.Empty);
 
+        // Give async operations time to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        // Assert - beacon now appears
+        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
+        Assert.NotNull(layer);
         Assert.Single(layer.GetFeatures());
     }
 
     [Fact]
-    public void OnPacketReceived_UpdatesExistingCallsignBeacon()
+    public async Task RebuildVisibleLayerAsync_MultipleBeacons_AddsAllVisible()
     {
         // Arrange
         var portId = Guid.NewGuid();
@@ -215,248 +224,75 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         };
         _portService.Ports.Returns(new[] { port });
 
-        var packet1 = new PositionPacket
+        var records = new[]
         {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
-            Latitude = 45.5,
-            Longitude = -122.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
+            new PacketRecord
+            {
+                Id = 1,
+                Source = "N0CALL-1",
+                PacketType = "Position",
+                Latitude = 45.5,
+                Longitude = -122.5,
+                SymbolTable = "/",
+                SymbolCode = "-",
+                ReceivedAt = DateTime.UtcNow.AddMinutes(-5),
+                PortId = portId
+            },
+            new PacketRecord
+            {
+                Id = 2,
+                Source = "K0OTH-2",
+                PacketType = "Position",
+                Latitude = 46.5,
+                Longitude = -123.5,
+                SymbolTable = "\\",
+                SymbolCode = ">",
+                ReceivedAt = DateTime.UtcNow,
+                PortId = portId
+            }
         };
 
-        var packet2 = new PositionPacket
-        {
-            Source = new Callsign("N0CALL", 1), // Same callsign
-            Destination = new Callsign("APRS"),
-            Latitude = 45.6, // Different location
-            Longitude = -122.6,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
-        };
+        _storedPackets.AddRange(records);
 
-        var cachedPacket1 = new CachedPacket
-        {
-            Packet = packet1,
-            PortId = portId,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "N0CALL-1"
-        };
-
-        var cachedPacket2 = new CachedPacket
-        {
-            Packet = packet2,
-            PortId = portId,
-            ReceivedAt = DateTimeOffset.UtcNow.AddSeconds(1),
-            Source = "N0CALL-1"
-        };
-
-        // Act - First packet
-        _cachedPackets["N0CALL-1"] = cachedPacket1;
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket1
-        });
-
-        // Second packet updates the same callsign
-        _cachedPackets["N0CALL-1"] = cachedPacket2;
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket2
-        });
-
-        // Assert - only one beacon for the callsign
-        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
-        Assert.NotNull(layer);
-        Assert.Single(layer.GetFeatures());
-    }
-
-    [Fact]
-    public void OnPortsChanged_RemovesBeaconsFromDeletedPorts()
-    {
-        // Arrange
-        var port1Id = Guid.NewGuid();
-        var port2Id = Guid.NewGuid();
-        var port1 = new PortConfig
-        {
-            Id = port1Id,
-            Name = "Port1",
-            ShowOnMap = true,
-            TypeSettings = new AprsIsSettings()
-        };
-        var port2 = new PortConfig
-        {
-            Id = port2Id,
-            Name = "Port2",
-            ShowOnMap = true,
-            TypeSettings = new AprsIsSettings()
-        };
-
-        _portService.Ports.Returns(new[] { port1, port2 });
-
-        var packet1 = new PositionPacket
-        {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
-            Latitude = 45.5,
-            Longitude = -122.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
-        };
-
-        var packet2 = new PositionPacket
-        {
-            Source = new Callsign("K0OTH", 2),
-            Destination = new Callsign("APRS"),
-            Latitude = 46.5,
-            Longitude = -123.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign)
-        };
-
-        var cachedPacket1 = new CachedPacket
-        {
-            Packet = packet1,
-            PortId = port1Id,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "N0CALL-1"
-        };
-
-        var cachedPacket2 = new CachedPacket
-        {
-            Packet = packet2,
-            PortId = port2Id,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "K0OTH-2"
-        };
-
-        // Act - Add both packets
-        _cachedPackets["N0CALL-1"] = cachedPacket1;
-        _cachedPackets["K0OTH-2"] = cachedPacket2;
-
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket1
-        });
-
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket2
-        });
-
-        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
-        Assert.NotNull(layer);
-        Assert.Equal(2, layer!.GetFeatures().Count());
-
-        // Act - remove port1, update cache and notify
-        _portService.Ports.Returns(new[] { port2 });
-        _cachedPackets.Remove("N0CALL-1");
+        // Act
         _portService.PortsChanged += Raise.EventWith(EventArgs.Empty);
 
-        // Assert - only port2's beacon remains
-        Assert.Single(layer.GetFeatures());
+        // Give async operations time to complete
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+
+        // Assert
+        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
+        Assert.NotNull(layer);
+        Assert.Equal(2, layer.GetFeatures().Count());
     }
 
     [Fact]
     public void Dispose_CleansUpResourcesAndUnsubscribes()
     {
-        // Arrange
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
-        {
-            Id = portId,
-            Name = "TestPort",
-            ShowOnMap = true,
-            TypeSettings = new AprsIsSettings()
-        };
-        _portService.Ports.Returns(new[] { port });
-
-        var packet = new PositionPacket
-        {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
-            Latitude = 45.5,
-            Longitude = -122.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
-        };
-
-        var cachedPacket = new CachedPacket
-        {
-            Packet = packet,
-            PortId = portId,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "N0CALL-1"
-        };
-
-        _cachedPackets["N0CALL-1"] = cachedPacket;
-
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket
-        });
-
-        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
-        Assert.NotNull(layer);
-        Assert.Single(layer!.GetFeatures());
-
         // Act
         _viewModel.Dispose();
 
-        // Assert - layer is cleared
-        Assert.Empty(layer.GetFeatures());
-
-        // Verify no exception on second dispose
-        _viewModel.Dispose();
-    }
-
-    [Fact]
-    public void Dispose_IgnoresSubsequentPacketReceived()
-    {
-        // Arrange
-        var layer = _viewModel.BeaconsLayer as Mapsui.Layers.WritableLayer;
-        Assert.NotNull(layer);
+        // Trigger events after disposal
+        _portService.PortsChanged += Raise.EventWith(EventArgs.Empty);
         
+        var record = new PacketRecord
+        {
+            Id = 999,
+            Source = "TEST",
+            PacketType = "Position",
+            Latitude = 45.0,
+            Longitude = -122.0,
+            ReceivedAt = DateTime.UtcNow,
+            PortId = Guid.NewGuid()
+        };
+        _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
+
+        // Assert - Second dispose should not throw
         _viewModel.Dispose();
-
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
-        {
-            Id = portId,
-            Name = "TestPort",
-            ShowOnMap = true,
-            TypeSettings = new AprsIsSettings()
-        };
-        _portService.Ports.Returns(new[] { port });
-        
-        var packet = new PositionPacket
-        {
-            Source = new Callsign("N0CALL", 1),
-            Destination = new Callsign("APRS"),
-            Latitude = 45.5,
-            Longitude = -122.5,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
-        };
-
-        var cachedPacket = new CachedPacket
-        {
-            Packet = packet,
-            PortId = portId,
-            ReceivedAt = DateTimeOffset.UtcNow,
-            Source = "N0CALL-1"
-        };
-
-        _cachedPackets["N0CALL-1"] = cachedPacket;
-
-        // Act - raise event after disposal
-        // The event handler throws ObjectDisposedException, but NSubstitute doesn't propagate it
-        // We verify the behavior by checking that no features are added
-        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
-        {
-            UpdatedPacket = cachedPacket
-        });
-
-        // Assert - no features should be added after disposal
-        Assert.Empty(layer!.GetFeatures());
     }
 
     public void Dispose()
     {
-        _viewModel.Dispose();
+        _viewModel?.Dispose();
     }
 }

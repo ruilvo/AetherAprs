@@ -17,4 +17,10 @@ public interface IConversationViewModelFactory
     /// <param name="callsign">The callsign to start a conversation with.</param>
     /// <returns>An initialized ConversationViewModel.</returns>
     ViewModels.Pages.ConversationViewModel Create(Callsign callsign);
+
+    /// <summary>
+    /// Creates a new ConversationViewModel for starting a new conversation.
+    /// </summary>
+    /// <returns>A ConversationViewModel initialized for a new conversation.</returns>
+    ViewModels.Pages.ConversationViewModel CreateNew();
 }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Data;
 using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
@@ -19,11 +20,12 @@ namespace AetherAprs.ViewModels.Pages;
 
 /// <summary>
 /// ViewModel for the Packets page showing the most recent packet per callsign.
-/// Uses the shared PacketCacheService for real-time updates.
+/// Queries packet data from the database with periodic refresh.
 /// </summary>
 public partial class PacketsViewModel : ViewModelBase, IDisposable
 {
-    private readonly IPacketCacheService _packetCacheService;
+    private readonly IPacketQueryService _packetQueryService;
+    private readonly IPacketStorageService _packetStorageService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly IConfigurationService _configurationService;
@@ -42,13 +44,15 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     public partial bool IsLoading { get; set; }
 
     public PacketsViewModel(
-        IPacketCacheService packetCacheService,
+        IPacketQueryService packetQueryService,
+        IPacketStorageService packetStorageService,
         INavigationService navigationService,
         IPacketDetailsViewModelFactory packetDetailsFactory,
         IConfigurationService configurationService,
         ILogger<PacketsViewModel> logger)
     {
-        _packetCacheService = packetCacheService;
+        _packetQueryService = packetQueryService;
+        _packetStorageService = packetStorageService;
         _navigationService = navigationService;
         _packetDetailsFactory = packetDetailsFactory;
         _configurationService = configurationService;
@@ -62,63 +66,17 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _refreshTimer.Tick += OnRefreshTimerTick;
         _refreshTimer.Start();
 
-        _packetCacheService.CacheUpdated += OnCacheUpdated;
+        _packetStorageService.PacketStored += OnPacketStored;
         
-        // Load initial data from cache synchronously (cache is in-memory)
-        LoadPacketsFromCacheSync();
+        // Load initial data from database
+        _ = LoadPacketsAsync();
     }
 
-    private void LoadPacketsFromCacheSync()
+    private void OnPacketStored(object? sender, EventArgs e)
     {
-        try
-        {
-            // Get the time range filter from configuration
-            var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
-            var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
-            
-            DateTimeOffset? cutoffTime = GetCutoffTime(timeRange, customHours);
-
-            // Load from cache - it already has the most recent packet per source
-            var allPackets = _packetCacheService.GetAllPackets();
-            
-            // Apply time filter if not "All"
-            var filteredPackets = allPackets.Values;
-            if (cutoffTime.HasValue)
-            {
-                filteredPackets = filteredPackets.Where(p => p.ReceivedAt >= cutoffTime.Value).ToList();
-            }
-
-            // Sort by most recent first and take top 100
-            var packets = filteredPackets
-                .OrderByDescending(p => p.ReceivedAt)
-                .Take(100)
-                .ToList();
-
-            _logger.LogInformation("Loaded {Count} packets from cache with time filter {TimeRange}", packets.Count, timeRange);
-
-            // Build the list of summaries
-            var summaries = packets
-                .Select(cached => new PacketSummary
-                {
-                    Source = cached.Source,
-                    PacketType = GetPacketType(cached.Packet),
-                    ReceivedAt = cached.ReceivedAt,
-                    Preview = GetPacketPreview(cached.Packet)
-                })
-                .ToList();
-
-            Packets.Clear();
-            foreach (var summary in summaries)
-            {
-                Packets.Add(summary);
-            }
-
-            _logger.LogInformation("Displayed {Count} packets in UI", Packets.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load packets from cache");
-        }
+        // Mark that we need a refresh, but don't trigger immediately
+        // The timer will pick it up on the next tick
+        _pendingRefresh = true;
     }
 
     private async void OnRefreshTimerTick(object? sender, EventArgs e)
@@ -128,13 +86,6 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             _pendingRefresh = false;
             await Dispatcher.UIThread.InvokeAsync(() => LoadPacketsAsync());
         }
-    }
-
-    private void OnCacheUpdated(object? sender, PacketCacheUpdatedEventArgs e)
-    {
-        // Mark that we need a refresh, but don't trigger immediately
-        // The timer will pick it up on the next tick
-        _pendingRefresh = true;
     }
 
     private async Task LoadPacketsAsync()
@@ -149,32 +100,32 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             
             DateTimeOffset? cutoffTime = GetCutoffTime(timeRange, customHours);
 
-            // Load from cache - it already has the most recent packet per source
-            var allPackets = _packetCacheService.GetAllPackets();
+            // Load most recent packets from database
+            var allPackets = await _packetQueryService.GetMostRecentPacketsAsync();
             
             // Apply time filter if not "All"
-            var filteredPackets = allPackets.Values;
+            var filteredPackets = allPackets.Values.AsEnumerable();
             if (cutoffTime.HasValue)
             {
-                filteredPackets = filteredPackets.Where(p => p.ReceivedAt >= cutoffTime.Value).ToList();
+                filteredPackets = filteredPackets.Where(r => new DateTimeOffset(r.ReceivedAt, TimeSpan.Zero) >= cutoffTime.Value);
             }
 
             // Sort by most recent first and take top 100
             var packets = filteredPackets
-                .OrderByDescending(p => p.ReceivedAt)
+                .OrderByDescending(r => r.Id)
                 .Take(100)
                 .ToList();
 
-            _logger.LogInformation("Loaded {Count} packets from cache with time filter {TimeRange}", packets.Count, timeRange);
+            _logger.LogInformation("Loaded {Count} packets from database with time filter {TimeRange}", packets.Count, timeRange);
 
             // Build the list of summaries
             var summaries = packets
-                .Select(cached => new PacketSummary
+                .Select(record => new PacketSummary
                 {
-                    Source = cached.Source,
-                    PacketType = GetPacketType(cached.Packet),
-                    ReceivedAt = cached.ReceivedAt,
-                    Preview = GetPacketPreview(cached.Packet)
+                    Source = record.Source,
+                    PacketType = record.PacketType,
+                    ReceivedAt = new DateTimeOffset(record.ReceivedAt, TimeSpan.Zero),
+                    Preview = GetPacketPreview(record)
                 })
                 .ToList();
 
@@ -192,7 +143,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load packets from cache");
+            _logger.LogError(ex, "Failed to load packets from database");
         }
         finally
         {
@@ -215,48 +166,25 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         };
     }
 
-    private void LoadPacketsFromCache()
+    private static string GetPacketPreview(PacketRecord record)
     {
-        // Trigger async load
-        _ = LoadPacketsAsync();
-    }
-
-    private static string GetPacketTypeName(AprsPacket packet)
-    {
-        return packet switch
+        if (record.Latitude.HasValue && record.Longitude.HasValue)
         {
-            PositionPacket => "Position",
-            MessagePacket => "Message",
-            StatusPacket => "Status",
-            WeatherPacket => "Weather",
-            UnknownPacket => "Unknown",
-            _ => packet.GetType().Name
-        };
-    }
-
-    private static string GetPacketType(AprsPacket packet)
-    {
-        return packet switch
+            return $"Lat: {record.Latitude.Value:F4}, Lon: {record.Longitude.Value:F4}";
+        }
+        
+        if (!string.IsNullOrEmpty(record.MessageText))
         {
-            PositionPacket => "Position",
-            MessagePacket => "Message",
-            StatusPacket => "Status",
-            WeatherPacket => "Weather",
-            UnknownPacket => "Unknown",
-            _ => packet.GetType().Name
-        };
-    }
-
-    private static string GetPacketPreview(AprsPacket packet)
-    {
-        return packet switch
+            var addressee = record.MessageAddressee ?? "Unknown";
+            return $"To {addressee}: {record.MessageText}";
+        }
+        
+        if (!string.IsNullOrEmpty(record.StatusText))
         {
-            PositionPacket pos => $"Lat: {pos.Latitude:F4}, Lon: {pos.Longitude:F4}",
-            MessagePacket msg => $"To {msg.Addressee}: {msg.Text}",
-            StatusPacket status => status.Text ?? "",
-            WeatherPacket weather => $"Temp: {weather.Temperature}°F",
-            _ => packet.Raw.Length > 40 ? packet.Raw[..40] + "..." : packet.Raw
-        };
+            return record.StatusText;
+        }
+        
+        return record.RawInfo != null && record.RawInfo.Length > 40 ? record.RawInfo[..40] + "..." : record.RawInfo ?? "";
     }
 
     [RelayCommand]
@@ -280,7 +208,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
         _refreshTimer.Stop();
         _refreshTimer.Tick -= OnRefreshTimerTick;
-        _packetCacheService.CacheUpdated -= OnCacheUpdated;
+        _packetStorageService.PacketStored -= OnPacketStored;
         _disposed = true;
     }
 }

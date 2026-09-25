@@ -108,8 +108,7 @@ public sealed class MessageService : IMessageService, IDisposable
         var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
         if (txPorts.Count == 0)
         {
-            _logger.LogWarning("No enabled TX ports available to send message.");
-            return;
+            throw new InvalidOperationException("No enabled TX ports available to send message.");
         }
 
         var baseCallsign = _configurationService.Settings.Aprs.Callsign;

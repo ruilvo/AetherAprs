@@ -6,6 +6,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
@@ -88,8 +89,10 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         services.AddSingleton(navigation);
         services.AddLogging();
         services.AddTransient<ConversationViewModel>();
+        services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         var provider = services.BuildServiceProvider();
-        return new MessagesViewModel(messageService, navigation, provider);
+        var factory = provider.GetRequiredService<IConversationViewModelFactory>();
+        return new MessagesViewModel(messageService, navigation, factory);
     }
 
     private sealed class FakeMessageService : IMessageService

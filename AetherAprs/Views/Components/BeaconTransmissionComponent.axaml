@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
              x:Class="AetherAprs.Views.Components.BeaconTransmissionComponent"
              x:DataType="vm:BeaconTransmissionViewModel"
@@ -17,7 +18,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     
     <controls:Card Padding="16" Margin="0">
         <StackPanel Spacing="12">
-            <TextBlock Text="Beacon Transmission" 
+            <TextBlock Text="{loc:Loc BeaconTransmission}" 
                        Classes="Subtitle1"
                        Foreground="{DynamicResource MaterialPrimaryBrush}" />
             
@@ -27,28 +28,30 @@ SPDX-License-Identifier: GPL-3.0-or-later
             
             <StackPanel Spacing="8" 
                        IsVisible="{Binding LastBeaconDecision, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <TextBlock Text="Last Decision:" 
+                <TextBlock Text="{loc:Loc LastDecision}" 
                            Classes="Subtitle2"
                            Foreground="{DynamicResource MaterialPrimaryBrush}" />
                 
                 <StackPanel Spacing="4">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Speed:" Classes="Caption" />
-                        <TextBlock Text="{Binding LastBeaconDecision.CurrentSpeedKmh, StringFormat={}{0:F1} km/h}" 
-                                   Classes="Caption"
-                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{loc:Loc Speed}" Classes="Caption" />
+                        <TextBlock Classes="Caption" FontWeight="SemiBold">
+                            <Run Text="{Binding LastBeaconDecision.CurrentSpeedKmh, StringFormat={}{0:F1}}" />
+                            <Run Text=" " />
+                            <Run Text="{loc:Loc KilometersPerHour}" />
+                        </TextBlock>
                     </StackPanel>
                     
                     <StackPanel Orientation="Horizontal" Spacing="8" 
                                IsVisible="{Binding LastBeaconDecision.CurrentCourseDegrees, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <TextBlock Text="Course:" Classes="Caption" />
+                        <TextBlock Text="{loc:Loc Course}" Classes="Caption" />
                         <TextBlock Text="{Binding LastBeaconDecision.CurrentCourseDegrees, StringFormat={}{0:F0}°}" 
                                    Classes="Caption"
                                    FontWeight="SemiBold" />
                     </StackPanel>
                     
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Interval:" Classes="Caption" />
+                        <TextBlock Text="{loc:Loc Interval}" Classes="Caption" />
                         <TextBlock Text="{Binding LastBeaconDecision.ActiveIntervalSeconds, StringFormat={}{0}s}" 
                                    Classes="Caption"
                                    FontWeight="SemiBold" />

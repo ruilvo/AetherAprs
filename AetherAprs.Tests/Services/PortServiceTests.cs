@@ -263,6 +263,10 @@ public sealed class PortServiceTests
 
     private sealed class MockPacketStorageService : IPacketStorageService
     {
+#pragma warning disable CS0067 // Event is never used - required by interface
+        public event EventHandler? PacketStored;
+#pragma warning restore CS0067
+
         public Task StorePacketAsync(AprsPacket packet, Guid? portId, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;

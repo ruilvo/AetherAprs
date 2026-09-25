@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
+using AetherAprs.Factories;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -164,10 +165,12 @@ public sealed class HomeViewModelTests : TestFixtureBase
         
         var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var symbolProvider = new TestSymbolBitmapProvider();
-        var packetCache = new PacketCacheService(portService, dbContextFactory, NullLogger<PacketCacheService>.Instance);
+        var packetQuery = new PacketQueryService(dbContextFactory, NullLogger<PacketQueryService>.Instance);
+        var packetStorage = Substitute.For<IPacketStorageService>();
         var receivedBeacons = new ReceivedBeaconsViewModel(
             portService, 
-            packetCache, 
+            packetQuery,
+            packetStorage,
             configuration, 
             symbolProvider, 
             NullLogger<ReceivedBeaconsViewModel>.Instance);
@@ -186,12 +189,17 @@ public sealed class HomeViewModelTests : TestFixtureBase
         
         var mapViewModel = new MapViewModel();
         
+        var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        var navigationService = Substitute.For<INavigationService>();
+        
         return new HomeViewModel(
             portService,
             receivedBeacons,
             locationTracking,
             beaconTransmission,
             mapViewModel,
+            packetDetailsFactory,
+            navigationService,
             NullLogger<HomeViewModel>.Instance);
     }
 

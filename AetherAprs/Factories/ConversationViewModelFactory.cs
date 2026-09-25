@@ -26,4 +26,11 @@ public class ConversationViewModelFactory : IConversationViewModelFactory
         viewModel.Initialize(callsign);
         return viewModel;
     }
+
+    public ViewModels.Pages.ConversationViewModel CreateNew()
+    {
+        var viewModel = _serviceProvider.GetRequiredService<ViewModels.Pages.ConversationViewModel>();
+        viewModel.InitializeNew();
+        return viewModel;
+    }
 }

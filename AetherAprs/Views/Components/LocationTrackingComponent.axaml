@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:converters="using:AetherAprs.Converters"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="150"
              x:Class="AetherAprs.Views.Components.LocationTrackingComponent"
              x:DataType="vm:LocationTrackingViewModel"
@@ -21,20 +22,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
     
     <controls:Card Padding="16" Margin="0">
         <StackPanel Spacing="12">
-            <TextBlock Text="Location Tracking" 
+            <TextBlock Text="{loc:Loc LocationTracking}" 
                        Classes="Subtitle1"
                        Foreground="{DynamicResource MaterialPrimaryBrush}" />
             
             <StackPanel Spacing="8">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="Status:" Classes="Body2" />
+                    <TextBlock Text="{loc:Loc Status}" Classes="Body2" />
                     <TextBlock Text="{Binding IsTracking, Converter={StaticResource BoolToTrackingStatusConverter}}" 
                                Classes="Body2"
                                FontWeight="SemiBold" />
                 </StackPanel>
                 
                 <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLocationAvailable}">
-                    <TextBlock Text="Position:" Classes="Body2" />
+                    <TextBlock Text="{loc:Loc Position}" Classes="Body2" />
                     <TextBlock Classes="Body2">
                         <Run Text="{Binding CurrentLocation.Latitude, StringFormat={}{0:F5}}" />
                         <Run Text="," />
@@ -44,10 +45,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 
                 <StackPanel Orientation="Horizontal" Spacing="8" 
                            IsVisible="{Binding CurrentLocation.Altitude, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <TextBlock Text="Altitude:" Classes="Body2" />
+                    <TextBlock Text="{loc:Loc Altitude}" Classes="Body2" />
                     <TextBlock Classes="Body2">
                         <Run Text="{Binding CurrentLocation.Altitude, StringFormat={}{0:F1}}" />
-                        <Run Text="m" />
+                        <Run Text=" " />
+                        <Run Text="{loc:Loc Meters}" />
                     </TextBlock>
                 </StackPanel>
             </StackPanel>

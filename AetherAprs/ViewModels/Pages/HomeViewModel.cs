@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Factories;
 using AetherAprs.Models;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Components;
@@ -21,6 +22,8 @@ namespace AetherAprs.ViewModels;
 public partial class HomeViewModel : ViewModelBase, IDisposable
 {
     private readonly IPortService _portService;
+    private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly INavigationService _navigationService;
     private readonly ILogger<HomeViewModel> _logger;
     private Dictionary<Guid, bool> _previousPortEnabledState = new();
     private LocationData? _previousLocation;
@@ -48,9 +51,13 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         LocationTrackingViewModel locationTracking,
         BeaconTransmissionViewModel beaconTransmission,
         MapViewModel mapViewModel,
+        IPacketDetailsViewModelFactory packetDetailsFactory,
+        INavigationService navigationService,
         ILogger<HomeViewModel> logger)
     {
         _portService = portService;
+        _packetDetailsFactory = packetDetailsFactory;
+        _navigationService = navigationService;
         _logger = logger;
         ReceivedBeacons = receivedBeacons;
         LocationTracking = locationTracking;
@@ -134,6 +141,21 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public async Task SendManualBeaconAsync()
     {
         await BeaconTransmission.SendManualBeaconAsync(LocationTracking.CurrentLocation);
+    }
+
+    /// <summary>
+    /// Handles beacon click events from the map view.
+    /// </summary>
+    /// <param name="callsign">The callsign of the clicked beacon.</param>
+    public void OnBeaconClicked(string callsign)
+    {
+        if (string.IsNullOrEmpty(callsign))
+        {
+            return;
+        }
+
+        var vm = _packetDetailsFactory.Create(callsign);
+        _navigationService.NavigateTo(vm);
     }
 
     public void Dispose()

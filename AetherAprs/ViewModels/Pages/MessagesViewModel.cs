@@ -2,13 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Factories;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Pages;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.Collections.ObjectModel;
 
 namespace AetherAprs.ViewModels;
@@ -16,7 +15,7 @@ namespace AetherAprs.ViewModels;
 public partial class MessagesViewModel(
     IMessageService messageService,
     INavigationService navigationService,
-    IServiceProvider serviceProvider) : ViewModelBase
+    IConversationViewModelFactory conversationFactory) : ViewModelBase
 {
     [ObservableProperty]
     public partial string Title { get; set; } = Localization.Strings.Get("Messages");
@@ -26,8 +25,7 @@ public partial class MessagesViewModel(
     [RelayCommand]
     private void NewMessage()
     {
-        var vm = serviceProvider.GetRequiredService<ConversationViewModel>();
-        vm.InitializeNew();
+        var vm = conversationFactory.CreateNew();
         navigationService.NavigateTo(vm);
     }
 
@@ -39,8 +37,7 @@ public partial class MessagesViewModel(
             return;
         }
 
-        var vm = serviceProvider.GetRequiredService<ConversationViewModel>();
-        vm.Initialize(thread.Peer);
+        var vm = conversationFactory.Create(thread.Peer);
         navigationService.NavigateTo(vm);
     }
 }

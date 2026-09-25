@@ -136,11 +136,8 @@ public partial class HomePage : UserControl
                 var callsign = feature["Callsign"] as string;
                 if (!string.IsNullOrEmpty(callsign))
                 {
-                    // Navigate to packet details
-                    var factory = App.GetService<IPacketDetailsViewModelFactory>();
-                    var navigationService = App.GetService<INavigationService>();
-                    var vm = factory.Create(callsign);
-                    navigationService.NavigateTo(vm);
+                    // Delegate to ViewModel for navigation
+                    _currentViewModel.OnBeaconClicked(callsign);
                     e.Handled = true;
                     return;
                 }

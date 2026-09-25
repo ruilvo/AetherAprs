@@ -12,6 +12,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PacketDetailsPage"
              x:DataType="vm:PacketDetailsViewModel"
@@ -33,14 +34,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <!-- Action buttons -->
         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-          <Button Content="Send Message"
-                  Command="{Binding SendMessageCommand}"
+          <Button Command="{Binding SendMessageCommand}"
                   Classes="Flat">
             <Button.ContentTemplate>
               <DataTemplate>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Data="{ext:MaterialIconGeometryExt Message}" />
-                  <TextBlock Text="Send Message" />
+                  <TextBlock Text="{loc:Loc SendMessage}" />
                 </StackPanel>
               </DataTemplate>
             </Button.ContentTemplate>
@@ -71,18 +71,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
                   <!-- Coordinates if available -->
                   <StackPanel Spacing="4" IsVisible="{Binding Latitude, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <TextBlock Classes="Caption" Text="Location" Opacity="0.7" />
+                    <TextBlock Classes="Caption" Text="{loc:Loc Location}" Opacity="0.7" />
                     <TextBlock Classes="Body2">
-                      <Run Text="Lat: " />
+                      <Run Text="{loc:Loc Latitude}" />
+                      <Run Text=": " />
                       <Run Text="{Binding Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
-                      <Run Text="  Lon: " />
+                      <Run Text="  " />
+                      <Run Text="{loc:Loc Longitude}" />
+                      <Run Text=": " />
                       <Run Text="{Binding Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
                     </TextBlock>
                   </StackPanel>
 
                   <!-- Comment if available -->
                   <StackPanel Spacing="4" IsVisible="{Binding Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Classes="Caption" Text="Comment" Opacity="0.7" />
+                    <TextBlock Classes="Caption" Text="{loc:Loc Comment}" Opacity="0.7" />
                     <TextBlock Text="{Binding Comment}"
                                Classes="Body2"
                                TextWrapping="Wrap" />
@@ -90,7 +93,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
                   <!-- Message if available -->
                   <StackPanel Spacing="4" IsVisible="{Binding MessageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Classes="Caption" Text="Message" Opacity="0.7" />
+                    <TextBlock Classes="Caption" Text="{loc:Loc Message}" Opacity="0.7" />
                     <TextBlock Text="{Binding MessageText}"
                                Classes="Body2"
                                TextWrapping="Wrap" />
@@ -98,7 +101,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
                   <!-- Status if available -->
                   <StackPanel Spacing="4" IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Classes="Caption" Text="Status" Opacity="0.7" />
+                    <TextBlock Classes="Caption" Opacity="0.7">
+                      <Run Text="{loc:Loc Status}" />
+                    </TextBlock>
                     <TextBlock Text="{Binding StatusText}"
                                Classes="Body2"
                                TextWrapping="Wrap" />
@@ -110,7 +115,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </ItemsControl>
 
         <!-- Empty state -->
-        <TextBlock Text="No packets found"
+        <TextBlock Text="{loc:Loc NoPacketsFound}"
                    Classes="EmptyState"
                    IsVisible="{Binding !Packets.Count}" />
       </StackPanel>

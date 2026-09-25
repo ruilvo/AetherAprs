@@ -25,13 +25,14 @@ namespace AetherAprs.ViewModels;
 
 /// <summary>
 /// Manages the display of received APRS beacons on a Mapsui map layer.
-/// Uses the shared PacketCacheService and updates features with APRS symbols.
+/// Queries packet data from the database and updates map features with APRS symbols.
 /// Port ShowOnMap is a visual filter only.
 /// </summary>
 public sealed class ReceivedBeaconsViewModel : IDisposable
 {
     private readonly IPortService _portService;
-    private readonly IPacketCacheService _packetCacheService;
+    private readonly IPacketQueryService _packetQueryService;
+    private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
@@ -53,13 +54,15 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
     public ReceivedBeaconsViewModel(
         IPortService portService,
-        IPacketCacheService packetCacheService,
+        IPacketQueryService packetQueryService,
+        IPacketStorageService packetStorageService,
         IConfigurationService configurationService,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
         ILogger<ReceivedBeaconsViewModel> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
-        _packetCacheService = packetCacheService ?? throw new ArgumentNullException(nameof(packetCacheService));
+        _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
+        _packetStorageService = packetStorageService ?? throw new ArgumentNullException(nameof(packetStorageService));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         _symbolConverter = new AprsSymbolMapConverter(
             symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
@@ -78,22 +81,13 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             Style = null
         };
 
-        _packetCacheService.CacheUpdated += OnCacheUpdated;
+        _packetStorageService.PacketStored += OnPacketStored;
         _portService.PortsChanged += OnPortsChanged;
     }
 
-    private void OnCacheUpdated(object? sender, PacketCacheUpdatedEventArgs e)
+    private void OnPacketStored(object? sender, EventArgs e)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (e.UpdatedPacket.Packet is not PositionPacket)
-        {
-            _logger.LogDebug(
-                "Ignoring non-position packet Type={PacketType}",
-                e.UpdatedPacket.Packet.GetType().Name);
-            return;
-        }
-
         RunOnUi(() => _ = RebuildVisibleLayerAsync());
     }
 
@@ -129,43 +123,43 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
             var cutoffTime = GetCutoffTime(timeRange, customHours);
 
-            // Get position packets from cache
-            var allPositionPackets = _packetCacheService.GetPositionPackets();
+            // Get most recent position packets from database
+            var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
             
             // Apply time filter
             var filteredPackets = allPositionPackets.Values
-                .Where(cp => !cutoffTime.HasValue || cp.ReceivedAt >= cutoffTime.Value);
+                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.ReceivedAt, TimeSpan.Zero) >= cutoffTime.Value);
 
             // Apply port filter - only include packets from visible ports
             // If no ports are visible, show nothing
-            filteredPackets = filteredPackets.Where(cp => visiblePortIds.Contains(cp.PortId));
+            filteredPackets = filteredPackets.Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
-            var cachedPackets = filteredPackets.ToList();
+            var packetRecords = filteredPackets.ToList();
 
             // Clear layers
             _beaconsLayer.Clear();
             _trailsLayer.Clear();
 
-            // Add markers for latest positions from cache
-            foreach (var cached in cachedPackets)
+            // Add markers for latest positions
+            foreach (var record in packetRecords)
             {
-                if (cached.Packet is PositionPacket pos)
+                if (record.Latitude.HasValue && record.Longitude.HasValue)
                 {
                     _logger.LogDebug(
                         "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
-                        cached.Source,
-                        pos.Latitude,
-                        pos.Longitude);
+                        record.Source,
+                        record.Latitude.Value,
+                        record.Longitude.Value);
 
-                    var feature = CreateFeatureFromPacket(cached.Source, pos, cached.ReceivedAt);
+                    var feature = CreateFeatureFromRecord(record);
                     _beaconsLayer.Add(feature);
                 }
             }
 
             // Add trails - query historical positions from database for each visible station
-            foreach (var cached in cachedPackets)
+            foreach (var record in packetRecords)
             {
-                var trailRecords = await _packetCacheService.GetPacketsByCallsignAsync(cached.Source, limit: 100);
+                var trailRecords = await _packetQueryService.GetPacketsByCallsignAsync(record.Source, limit: 100);
                 
                 var trailPositions = trailRecords
                     .Where(r => r.Latitude.HasValue && r.Longitude.HasValue)
@@ -239,38 +233,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         return feature;
     }
 
-    private PointFeature CreateFeatureFromPacket(string source, PositionPacket pos, DateTimeOffset receivedAt)
-    {
-        var (x, y) = SphericalMercator.FromLonLat(pos.Longitude, pos.Latitude);
-        var mapPoint = new MPoint(x, y);
-
-        var symbolKey = $"{pos.Symbol.Table}{pos.Symbol.Code}";
-        if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
-            cachedStyle.symbol != pos.Symbol)
-        {
-            var imageStyle = _symbolConverter.CreateImageStyle(pos.Symbol, scale: 0.25);
-            cachedStyle = (pos.Symbol, imageStyle);
-            _symbolStyleCache[symbolKey] = cachedStyle;
-        }
-
-        var labelStyle = new LabelStyle
-        {
-            Text = source,
-            Offset = new Offset(45, 0),
-            Font = new Font { FontFamily = "Arial", Size = 14, Bold = true },
-            ForeColor = Color.Black,
-            BackColor = new Brush(new Color(255, 255, 255, 200)),
-            Halo = new Pen(Color.White, 2)
-        };
-
-        return new PointFeature(mapPoint)
-        {
-            Styles = [cachedStyle.imageStyle, labelStyle],
-            ["Callsign"] = source // Store for click handling
-        };
-    }
-
-    private PointFeature CreateFeature(PacketRecord record)
+    private PointFeature CreateFeatureFromRecord(PacketRecord record)
     {
         var (x, y) = SphericalMercator.FromLonLat(
             record.Longitude!.Value,
@@ -317,7 +280,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         }
 
         _disposed = true;
-        _packetCacheService.CacheUpdated -= OnCacheUpdated;
+        _packetStorageService.PacketStored -= OnPacketStored;
         _portService.PortsChanged -= OnPortsChanged;
         _beaconsLayer.Clear();
         _trailsLayer.Clear();

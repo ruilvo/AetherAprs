@@ -97,14 +97,20 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<ILogger<LocationTrackingViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<BeaconTransmissionViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<ReceivedBeaconsViewModel>>());
+        services.AddSingleton(Substitute.For<ILogger<PacketsViewModel>>());
         
-        // Register IPacketCacheService - required by ReceivedBeaconsViewModel
-        var packetCache = Substitute.For<IPacketCacheService>();
-        packetCache.GetPositionPackets().Returns(new Dictionary<string, CachedPacket>());
-        services.AddSingleton(packetCache);
+        // Register IPacketQueryService and IPacketStorageService - required by ViewModels
+        services.AddSingleton(Substitute.For<IPacketQueryService>());
+        services.AddSingleton(Substitute.For<IPacketStorageService>());
 
         // Register IAddEditPortViewModelFactory - required by PortsViewModel
         services.AddSingleton(Substitute.For<IAddEditPortViewModelFactory>());
+        
+        // Register IPacketDetailsViewModelFactory - required by HomeViewModel
+        services.AddSingleton(Substitute.For<IPacketDetailsViewModelFactory>());
+        
+        // Register IConversationViewModelFactory - required by MessagesViewModel
+        services.AddSingleton(Substitute.For<IConversationViewModelFactory>());
 
         services.AddSingleton<ReceivedBeaconsViewModel>();
         services.AddSingleton<LocationTrackingViewModel>();
@@ -113,6 +119,7 @@ public sealed class NavigationServiceTests
         services.AddTransient<AprsSymbolPickerViewModel>(); // Required by SettingsViewModel
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
+        services.AddSingleton<PacketsViewModel>();
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
