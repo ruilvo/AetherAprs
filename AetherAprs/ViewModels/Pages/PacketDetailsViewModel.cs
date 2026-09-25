@@ -9,11 +9,9 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
@@ -22,7 +20,7 @@ namespace AetherAprs.ViewModels.Pages;
 /// ViewModel for packet details page showing all packets from a specific callsign.
 /// </summary>
 public partial class PacketDetailsViewModel(
-    IDbContextFactory<AppDbContext> dbContextFactory,
+    IPacketCacheService packetCacheService,
     INavigationService navigationService,
     IConversationViewModelFactory conversationFactory,
     ILogger<PacketDetailsViewModel> logger) : ViewModelBase
@@ -41,6 +39,7 @@ public partial class PacketDetailsViewModel(
 
     public void Initialize(string callsign)
     {
+        logger.LogInformation("Initializing PacketDetailsViewModel with callsign: {Callsign}", callsign);
         Callsign = callsign;
         Title = $"Packets from {callsign}";
         _ = LoadPacketsAsync();
@@ -52,19 +51,19 @@ public partial class PacketDetailsViewModel(
         {
             IsLoading = true;
 
-            await using var context = await dbContextFactory.CreateDbContextAsync();
+            logger.LogInformation("Loading packets for callsign: {Callsign}", Callsign);
 
-            var packets = await context.Packets
-                .Where(p => p.Source == Callsign)
-                .OrderByDescending(p => p.ReceivedAt)
-                .Take(500)
-                .ToListAsync();
+            var packets = await packetCacheService.GetPacketsByCallsignAsync(Callsign, 500);
+
+            logger.LogInformation("Found {Count} packets for callsign {Callsign}", packets.Count, Callsign);
 
             Packets.Clear();
             foreach (var packet in packets)
             {
                 Packets.Add(packet);
             }
+
+            logger.LogInformation("Added {Count} packets to observable collection", Packets.Count);
         }
         catch (Exception ex)
         {
@@ -100,11 +99,5 @@ public partial class PacketDetailsViewModel(
         {
             logger.LogError(ex, "Failed to parse callsign {Callsign}", Callsign);
         }
-    }
-
-    [RelayCommand]
-    private void GoBack()
-    {
-        navigationService.NavigateTo<PacketsViewModel>();
     }
 }

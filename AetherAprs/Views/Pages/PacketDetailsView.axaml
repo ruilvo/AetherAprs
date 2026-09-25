@@ -17,20 +17,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
              d:DataContext="{x:Static local:DesignData.PacketDetailsViewModel}">
 
   <Grid RowDefinitions="Auto,Auto,*">
-    <!-- Header with back button -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Classes="PageHeader">
-      <Button Grid.Column="0"
-              Classes="Icon"
-              Command="{Binding GoBackCommand}"
-              ToolTip.Tip="Back">
-        <PathIcon Data="{ext:MaterialIconGeometryExt ArrowBack}" />
-      </Button>
-      <TextBlock Grid.Column="1"
-                 Text="{Binding Title}"
-                 Classes="Headline6"
-                 VerticalAlignment="Center"
-                 Margin="8,0,0,0" />
-    </Grid>
+    <!-- Header -->
+    <Border Grid.Row="0" Classes="PageHeader">
+      <TextBlock Text="{Binding Title}"
+                 Classes="Headline6" />
+    </Border>
 
     <!-- Action buttons -->
     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="16,8">
@@ -58,6 +49,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
         <!-- DataGrid for packets -->
         <DataGrid ItemsSource="{Binding Packets}"
+                  IsVisible="{Binding Packets.Count}"
                   AutoGenerateColumns="False"
                   IsReadOnly="True"
                   GridLinesVisibility="Horizontal"

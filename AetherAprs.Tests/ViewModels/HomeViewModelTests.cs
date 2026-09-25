@@ -7,13 +7,16 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Data;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using SkiaSharp;
 using Xunit;
 
@@ -159,8 +162,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
             configuration.Settings.Aprs.Callsign = "N0CALL";
         }
         
+        var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var symbolProvider = new TestSymbolBitmapProvider();
-        var packetCache = new PacketCacheService(portService, NullLogger<PacketCacheService>.Instance);
+        var packetCache = new PacketCacheService(portService, dbContextFactory, NullLogger<PacketCacheService>.Instance);
         var receivedBeacons = new ReceivedBeaconsViewModel(portService, packetCache, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);
         

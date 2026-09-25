@@ -2,15 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Data;
 using AetherAprs.Models.Aprs;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services;
 
 /// <summary>
-/// Service that maintains an in-memory cache of recently received APRS packets.
-/// Provides a shared backend for both map and packet list views.
+/// Service that maintains an in-memory cache of recently received APRS packets
+/// and provides read access to historical packet data.
+/// This is the single read interface for all packet queries.
 /// </summary>
 public interface IPacketCacheService
 {
@@ -28,6 +31,15 @@ public interface IPacketCacheService
     /// Gets packets from a specific port.
     /// </summary>
     IReadOnlyList<CachedPacket> GetPacketsFromPort(Guid portId);
+
+    /// <summary>
+    /// Gets historical packets from a specific callsign from the database.
+    /// Results are ordered by most recent first.
+    /// </summary>
+    /// <param name="callsign">The source callsign to query.</param>
+    /// <param name="limit">Maximum number of packets to return (default: 500).</param>
+    /// <returns>List of packet records ordered by ReceivedAt descending.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignAsync(string callsign, int limit = 500);
 
     /// <summary>
     /// Raised when a new packet is added or updated in the cache.

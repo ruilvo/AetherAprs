@@ -2,21 +2,26 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Data;
 using AetherAprs.Models.Aprs;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services;
 
 /// <summary>
 /// In-memory cache of recently received APRS packets.
 /// Subscribes to PortService and maintains a rolling window of packets.
+/// Also provides read access to historical packet data from the database.
 /// </summary>
 public sealed class PacketCacheService : IPacketCacheService, IDisposable
 {
     private readonly IPortService _portService;
+    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly ILogger<PacketCacheService> _logger;
     private readonly Dictionary<string, CachedPacket> _packetsBySource = new();
     private readonly object _lock = new();
@@ -26,9 +31,11 @@ public sealed class PacketCacheService : IPacketCacheService, IDisposable
 
     public PacketCacheService(
         IPortService portService,
+        IDbContextFactory<AppDbContext> dbContextFactory,
         ILogger<PacketCacheService> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
+        _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _portService.PacketReceived += OnPacketReceived;
@@ -90,6 +97,33 @@ public sealed class PacketCacheService : IPacketCacheService, IDisposable
             return _packetsBySource.Values
                 .Where(cp => cp.PortId == portId)
                 .ToList();
+        }
+    }
+
+    public async Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignAsync(string callsign, int limit = 500)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+
+            // Order by Id descending (auto-increment primary key) instead of DateTimeOffset
+            // This works because SQLite auto-increment ensures newer packets have higher IDs
+            var packets = await context.Packets
+                .Where(p => p.Source == callsign)
+                .OrderByDescending(p => p.Id)
+                .Take(limit)
+                .ToListAsync();
+
+            _logger.LogDebug("Retrieved {Count} historical packets for callsign {Callsign}", packets.Count, callsign);
+
+            return packets;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve packets for callsign {Callsign}", callsign);
+            throw;
         }
     }
 

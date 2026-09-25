@@ -353,11 +353,12 @@ public class PacketsViewModelTests : IDisposable
         };
 
         var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
+        var packetCacheService = Substitute.For<IPacketCacheService>();
         var conversationFactory = Substitute.For<IConversationViewModelFactory>();
         var detailsLogger = Substitute.For<ILogger<PacketDetailsViewModel>>();
 
         var detailsVm = new PacketDetailsViewModel(
-            dbContextFactory,
+            packetCacheService,
             _navigationService,
             conversationFactory,
             detailsLogger);

@@ -19,6 +19,7 @@ using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -104,8 +105,9 @@ public sealed class MainViewModelTests
         services.AddTransient<ConversationViewModel>();
         var provider = services.BuildServiceProvider();
 
+        var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var symbolProvider = new TestSymbolBitmapProvider();
-        var packetCache = new PacketCacheService(portService, NullLogger<PacketCacheService>.Instance);
+        var packetCache = new PacketCacheService(portService, dbContextFactory, NullLogger<PacketCacheService>.Instance);
         var receivedBeacons = new ReceivedBeaconsViewModel(portService, packetCache, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
