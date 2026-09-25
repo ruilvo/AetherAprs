@@ -169,4 +169,31 @@ public class AprsSettings
     /// Default is true.
     /// </summary>
     public bool AutoAcknowledgeMessages { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether to enable digipeater functionality.
+    /// When enabled, packets received on one port can be retransmitted on other ports.
+    /// Default is false.
+    /// </summary>
+    public bool EnableDigipeater { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets whether to add the station callsign to the path when digipeating.
+    /// Default is true.
+    /// </summary>
+    public bool DigipeaterInsertCallsign { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether to enable APRS-IS to RF gating.
+    /// When enabled, packets received from APRS-IS can be transmitted on RF ports.
+    /// Default is false (requires careful consideration due to potential flooding).
+    /// </summary>
+    public bool EnableAprsIsToRfGate { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets whether to enable RF to APRS-IS gating.
+    /// When enabled, packets received from RF ports can be transmitted to APRS-IS.
+    /// Default is true.
+    /// </summary>
+    public bool EnableRfToAprsIsGate { get; set; } = true;
 }

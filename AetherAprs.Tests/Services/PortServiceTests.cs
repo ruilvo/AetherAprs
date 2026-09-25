@@ -249,6 +249,7 @@ public sealed class PortServiceTests
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = new MockPacketStorageService();
         var mockForegroundService = new NoOpForegroundService();
+        var mockDigipeaterService = new MockDigipeaterService();
         return new PortService(
             db.Factory,
             new TestConfigurationService(),
@@ -256,7 +257,8 @@ public sealed class PortServiceTests
             services,
             kissStreamFactory,
             mockPacketStorage,
-            mockForegroundService);
+            mockForegroundService,
+            mockDigipeaterService);
     }
 
     private sealed class MockPacketStorageService : IPacketStorageService
@@ -269,6 +271,18 @@ public sealed class PortServiceTests
         public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class MockDigipeaterService : IDigipeaterService
+    {
+        public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
+            AprsPacket packet,
+            Guid sourcePortId,
+            bool sourcePortIsAprsIs,
+            IReadOnlyList<PortInfo> availablePorts)
+        {
+            return Array.Empty<DigipeatTarget>();
         }
     }
 

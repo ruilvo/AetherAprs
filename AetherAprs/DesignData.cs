@@ -53,6 +53,7 @@ public static class DesignData
         services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
         services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
         services.AddSingleton<IPortService, PortService>();
+        services.AddSingleton<IDigipeaterService, DigipeaterService>();
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IMessageService, MessageService>();
@@ -61,6 +62,7 @@ public static class DesignData
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
+        services.AddSingleton<IForegroundService, NoOpForegroundService>();
 
         // Register factories
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();

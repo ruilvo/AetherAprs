@@ -28,6 +28,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly IKissStreamFactory _kissStreamFactory;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IForegroundService _foregroundService;
+    private readonly IDigipeaterService _digipeaterService;
     private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
     private readonly List<PortConfig> _ports;
     private readonly CancellationTokenSource _disposalCts = new();
@@ -39,7 +40,8 @@ public class PortService : IPortService, IAsyncDisposable
         IServiceProvider serviceProvider,
         IKissStreamFactory kissStreamFactory,
         IPacketStorageService packetStorageService,
-        IForegroundService foregroundService)
+        IForegroundService foregroundService,
+        IDigipeaterService digipeaterService)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
@@ -48,6 +50,7 @@ public class PortService : IPortService, IAsyncDisposable
         _kissStreamFactory = kissStreamFactory;
         _packetStorageService = packetStorageService;
         _foregroundService = foregroundService;
+        _digipeaterService = digipeaterService;
         _ports = LoadPorts();
     }
 
@@ -439,7 +442,72 @@ public class PortService : IPortService, IAsyncDisposable
                 PortId = portId,
                 Packet = packet
             });
+
+            // Handle digipeating
+            await HandleDigipeatAsync(portId, packet);
         }, _disposalCts.Token);
+    }
+
+    private async Task HandleDigipeatAsync(Guid sourcePortId, AprsPacket packet)
+    {
+        try
+        {
+            // Get source port info
+            var sourcePort = FindPortById(sourcePortId);
+            if (sourcePort is null)
+            {
+                return;
+            }
+
+            bool sourceIsAprsIs = sourcePort.TypeSettings is AprsIsSettings;
+
+            // Build list of available ports
+            var availablePorts = new List<PortInfo>();
+            foreach (var port in _ports)
+            {
+                if (_activeSessions.ContainsKey(port.Id))
+                {
+                    availablePorts.Add(new PortInfo(
+                        port.Id,
+                        port.TypeSettings is AprsIsSettings,
+                        port.IsTx,
+                        port.AllowDigipeat));
+                }
+            }
+
+            // Get digipeat targets
+            var targets = _digipeaterService.GetDigipeatTargets(
+                packet,
+                sourcePortId,
+                sourceIsAprsIs,
+                availablePorts);
+
+            // Send to each target port
+            foreach (var target in targets)
+            {
+                try
+                {
+                    await SendPacketAsync(target.PortId, target.Packet);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected during disposal
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to digipeat packet from {Source} to port {TargetPortId}",
+                        packet.Source,
+                        target.PortId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in digipeat handler for packet from {Source}", packet.Source);
+        }
     }
 
     private void OnModemReceiveError(object? sender, Exception exception)

@@ -29,6 +29,13 @@ public class PortConfig
     public bool ShowOnMap { get; set; } = true;
 
     /// <summary>
+    /// When true, packets received on this port can be digipeated to other ports.
+    /// Requires EnableDigipeater=true in APRS settings.
+    /// Default is true.
+    /// </summary>
+    public bool AllowDigipeat { get; set; } = true;
+
+    /// <summary>
     /// Type-specific configuration. Use AprsIsSettings for APRS-IS ports, KissSettings for KISS ports.
     /// </summary>
     public IPortTypeSettings? TypeSettings { get; set; }

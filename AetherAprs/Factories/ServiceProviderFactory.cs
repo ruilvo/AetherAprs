@@ -57,6 +57,9 @@ public static class ServiceProviderFactory
         // Register port service
         services.AddSingleton<IPortService, PortService>();
 
+        // Register digipeater service
+        services.AddSingleton<IDigipeaterService, DigipeaterService>();
+
         // Register APRS settings resolver
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
 
