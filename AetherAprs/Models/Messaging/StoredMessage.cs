@@ -38,4 +38,27 @@ public sealed class StoredMessage
     /// Next retry time for outbound messages.
     /// </summary>
     public DateTimeOffset? NextRetryTime { get; set; }
+
+    /// <summary>
+    /// Gets the delivery status text for display. Empty for inbound messages or when no status is available.
+    /// </summary>
+    public string DeliveryStatusText
+    {
+        get
+        {
+            if (!IsOutbound || !DeliveryStatus.HasValue)
+            {
+                return string.Empty;
+            }
+
+            return DeliveryStatus.Value switch
+            {
+                MessageDeliveryStatus.Pending => $"⏱ {Localization.Strings.Get("Pending")}",
+                MessageDeliveryStatus.Acknowledged => $"✓ {Localization.Strings.Get("Acknowledged")}",
+                MessageDeliveryStatus.Rejected => $"✗ {Localization.Strings.Get("Rejected")}",
+                MessageDeliveryStatus.Timeout => $"⌛ {Localization.Strings.Get("Timeout")}",
+                _ => string.Empty
+            };
+        }
+    }
 }

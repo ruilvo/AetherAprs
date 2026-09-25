@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services;
 using Android.App;
+using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Window;
 using Avalonia.Android;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Android;
 
@@ -22,6 +25,7 @@ public class MainActivity : AvaloniaMainActivity
 {
     private INavigationService? navigationService;
     private BackInvokedCallback? backInvokedCallback;
+    private StopPortsBroadcastReceiver? stopPortsReceiver;
 
     /// <summary>
     /// Gets the current MainActivity instance for permission requests.
@@ -44,6 +48,18 @@ public class MainActivity : AvaloniaMainActivity
 
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
+
+        // Register broadcast receiver for stopping ports
+        stopPortsReceiver = new StopPortsBroadcastReceiver();
+        var filter = new IntentFilter("com.aetheraprs.STOP_ALL_PORTS");
+        if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
+        {
+            RegisterReceiver(stopPortsReceiver, filter, ReceiverFlags.NotExported);
+        }
+        else
+        {
+            RegisterReceiver(stopPortsReceiver, filter);
+        }
     }
 
     protected override void OnResume()
@@ -106,6 +122,13 @@ public class MainActivity : AvaloniaMainActivity
     {
         navigationService?.RequestAppExit -= OnRequestAppExit;
 
+        // Unregister broadcast receiver
+        if (stopPortsReceiver != null)
+        {
+            UnregisterReceiver(stopPortsReceiver);
+            stopPortsReceiver = null;
+        }
+
         // Clear instance reference
         if (Instance == this)
         {
@@ -128,6 +151,39 @@ public class MainActivity : AvaloniaMainActivity
         public void OnBackInvoked()
         {
             onBackInvoked?.Invoke();
+        }
+    }
+
+    private class StopPortsBroadcastReceiver : BroadcastReceiver
+    {
+        public override void OnReceive(Context? context, Intent? intent)
+        {
+            if (intent?.Action == "com.aetheraprs.STOP_ALL_PORTS")
+            {
+                // Get the app and stop all ports
+                var app = (App?)Avalonia.Application.Current;
+                if (app != null)
+                {
+                    var portService = app.ServiceProvider.GetService<IPortService>();
+                    var logger = app.ServiceProvider.GetService<Microsoft.Extensions.Logging.ILogger<MainActivity>>();
+                    
+                    if (portService != null)
+                    {
+                        // Stop all ports asynchronously
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await portService.StopAllPortsAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                logger?.LogError(ex, "Error stopping ports from notification action");
+                            }
+                        });
+                    }
+                }
+            }
         }
     }
 }

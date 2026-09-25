@@ -64,10 +64,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Display Settings Section -->
         <StackPanel Spacing="16">
           <TextBlock Classes="SectionTitle"
-                     Text="Display Settings" />
+                     Text="{loc:Loc DisplaySettings}" />
 
           <TextBlock Classes="Body2"
-                     Text="Configure what time range of packets to show in the list and on the map."
+                     Text="{loc:Loc DisplaySettingsDescription}"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
@@ -103,6 +103,73 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   MinWidth="120"
                   MinHeight="48"
                   Classes="Outline" />
+        </StackPanel>
+
+        <!-- Digipeater and Gating Section -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc DigipeaterAndGating}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc DigipeaterGatingDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <StackPanel Spacing="12">
+            <CheckBox Content="{loc:Loc EnableDigipeater}"
+                      IsChecked="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center" />
+
+            <CheckBox Content="{loc:Loc InsertStationCallsignInPath}"
+                      IsChecked="{Binding DigipeaterInsertCallsign}"
+                      IsEnabled="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center"
+                      Margin="24,0,0,0" />
+
+            <CheckBox Content="{loc:Loc EnableAprsIsToRfGating}"
+                      IsChecked="{Binding EnableAprsIsToRfGate}"
+                      IsEnabled="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center"
+                      Margin="24,0,0,0" />
+
+            <CheckBox Content="{loc:Loc EnableRfToAprsIsGating}"
+                      IsChecked="{Binding EnableRfToAprsIsGate}"
+                      IsEnabled="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center"
+                      Margin="24,0,0,0" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Messaging Section -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc Messaging}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc MessagingDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <StackPanel Spacing="12">
+            <CheckBox Content="{loc:Loc AutoAcknowledgeIncomingMessages}"
+                      IsChecked="{Binding AutoAcknowledgeMessages}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center" />
+
+            <TextBox Text="{Binding MessageMaxRetries}"
+                     PlaceholderText="5"
+                     wpf:TextFieldAssist.Label="{loc:Loc MaximumRetryAttempts}"
+                     UseFloatingPlaceholder="True" />
+
+            <TextBox Text="{Binding MessageRetryTimeoutSeconds}"
+                     PlaceholderText="30"
+                     wpf:TextFieldAssist.Label="{loc:Loc InitialRetryTimeoutSeconds}"
+                     UseFloatingPlaceholder="True" />
+          </StackPanel>
         </StackPanel>
 
       </StackPanel>

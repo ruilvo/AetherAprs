@@ -31,6 +31,10 @@ public class AetherAprsForegroundService : Service
     {
         if (intent?.Action == ActionStop)
         {
+            // Broadcast intent to notify the app to stop all ports
+            var stopPortsIntent = new Intent("com.aetheraprs.STOP_ALL_PORTS");
+            SendBroadcast(stopPortsIntent);
+
             if (Build.VERSION.SdkInt >= BuildVersionCodes.N)
             {
                 StopForeground(StopForegroundFlags.Remove);
@@ -73,9 +77,7 @@ public class AetherAprsForegroundService : Service
 
         if (notification != null)
         {
-#pragma warning disable CS8604
             StartForeground(NotificationId, notification);
-#pragma warning restore CS8604
         }
 
         return StartCommandResult.Sticky;

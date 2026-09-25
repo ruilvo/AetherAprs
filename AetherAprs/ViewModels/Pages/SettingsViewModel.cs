@@ -44,6 +44,27 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
+    [ObservableProperty]
+    public partial bool EnableDigipeater { get; set; }
+
+    [ObservableProperty]
+    public partial bool DigipeaterInsertCallsign { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool EnableAprsIsToRfGate { get; set; }
+
+    [ObservableProperty]
+    public partial bool EnableRfToAprsIsGate { get; set; } = true;
+
+    [ObservableProperty]
+    public partial int MessageMaxRetries { get; set; } = 5;
+
+    [ObservableProperty]
+    public partial int MessageRetryTimeoutSeconds { get; set; } = 30;
+
+    [ObservableProperty]
+    public partial bool AutoAcknowledgeMessages { get; set; } = true;
+
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
         (Configuration.PacketDisplayTimeRange[])Enum.GetValues(typeof(Configuration.PacketDisplayTimeRange));
 
@@ -66,6 +87,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
         DisplayTimeRange = aprs.DisplayTimeRange;
         CustomDisplayTimeRangeHours = aprs.CustomDisplayTimeRangeHours;
+        EnableDigipeater = aprs.EnableDigipeater;
+        DigipeaterInsertCallsign = aprs.DigipeaterInsertCallsign;
+        EnableAprsIsToRfGate = aprs.EnableAprsIsToRfGate;
+        EnableRfToAprsIsGate = aprs.EnableRfToAprsIsGate;
+        MessageMaxRetries = aprs.MessageMaxRetries;
+        MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
+        AutoAcknowledgeMessages = aprs.AutoAcknowledgeMessages;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             DefaultSymbolTableCharacter, DefaultSymbolCodeCharacter, DefaultSymbolOverlayCharacter);
@@ -149,6 +177,41 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
+    partial void OnEnableDigipeaterChanged(bool value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnDigipeaterInsertCallsignChanged(bool value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnEnableAprsIsToRfGateChanged(bool value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnEnableRfToAprsIsGateChanged(bool value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnMessageMaxRetriesChanged(int value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnMessageRetryTimeoutSecondsChanged(int value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnAutoAcknowledgeMessagesChanged(bool value)
+    {
+        SaveSettings();
+    }
+
     private void SaveSettings()
     {
         // Don't auto-save during initialization
@@ -164,6 +227,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
         _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
         _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
+        _configurationService.Settings.Aprs.EnableDigipeater = EnableDigipeater;
+        _configurationService.Settings.Aprs.DigipeaterInsertCallsign = DigipeaterInsertCallsign;
+        _configurationService.Settings.Aprs.EnableAprsIsToRfGate = EnableAprsIsToRfGate;
+        _configurationService.Settings.Aprs.EnableRfToAprsIsGate = EnableRfToAprsIsGate;
+        _configurationService.Settings.Aprs.MessageMaxRetries = MessageMaxRetries;
+        _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
+        _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
 
         // Fire-and-forget is acceptable here as we don't need to wait for save completion
         _ = _configurationService.SaveSettingsAsync();

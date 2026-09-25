@@ -405,6 +405,60 @@ public void Dispose()
 - Using service locator pattern (`App.GetService<>()` or `IServiceProvider.GetRequiredService<>()`) instead of constructor injection or factory pattern
 - Creating child ViewModels directly instead of injecting them via constructor
 - Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
+- **Adding hardcoded user-facing text in AXAML or code without using localization** - ALL user-facing strings MUST use `{loc:Loc StringKey}` in AXAML or `Strings.Get("StringKey")` in code
+
+## Localization Requirements
+
+**ALL user-facing text MUST be localized.** Never hardcode English (or any language) strings in UI code or AXAML files.
+
+### In AXAML Files
+Use the `{loc:Loc}` markup extension:
+```xml
+<TextBlock Text="{loc:Loc SettingsPageTitle}" />
+<CheckBox Content="{loc:Loc EnableDigipeater}" />
+<TextBox wpf:TextFieldAssist.Label="{loc:Loc PortName}" />
+```
+
+### In C# Code
+Use `Strings.Get()` or `Strings.Format()`:
+```csharp
+// Simple string
+var title = Strings.Get("SettingsPageTitle");
+
+// Formatted string with parameters
+var message = Strings.Format("ErrorConnecting", portName);
+```
+
+### Adding New Strings
+When adding new UI text:
+
+1. **Add to `AetherAprs/Localization/Strings.resx`** (English, default):
+```xml
+<data name="EnableDigipeater" xml:space="preserve">
+  <value>Enable Digipeater</value>
+</data>
+```
+
+2. **Add to `AetherAprs/Localization/Strings.pt.resx`** (Portuguese translation):
+```xml
+<data name="EnableDigipeater" xml:space="preserve">
+  <value>Ativar Digipeater</value>
+</data>
+```
+
+3. Use consistent naming conventions:
+   - Page titles: `PageNameTitle` (e.g., `SettingsPageTitle`)
+   - Section titles: `SectionName` (e.g., `StationSettings`, `DigipeaterAndGating`)
+   - Field labels: descriptive names (e.g., `EnableDigipeater`, `MaximumRetryAttempts`)
+   - Descriptions: append `Description` (e.g., `DigipeaterGatingDescription`)
+   - Placeholders: append `Placeholder` (e.g., `CallsignPlaceholder`)
+
+### When NOT to Localize
+- Log messages (use English for consistency in logs)
+- Exception messages in code (use English)
+- Developer comments
+- Configuration keys
+- Technical identifiers
 
 ## Async/Await Best Practices
 

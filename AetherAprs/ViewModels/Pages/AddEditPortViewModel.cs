@@ -81,6 +81,9 @@ public partial class AddEditPortViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool ShowOnMap { get; set; } = true;
 
+    [ObservableProperty]
+    public partial bool AllowDigipeat { get; set; } = true;
+
     public ObservableCollection<BluetoothLeAdvertisement> BleDevices { get; } = new();
 
     public ObservableCollection<BluetoothClassicDevice> SppDevices { get; } = new();
@@ -327,6 +330,7 @@ public partial class AddEditPortViewModel : ViewModelBase
         IsRx = config.IsRx;
         IsTx = config.IsTx;
         ShowOnMap = config.ShowOnMap;
+        AllowDigipeat = config.AllowDigipeat;
 
         if (config.TypeSettings is AprsIsSettings aprsIs)
         {
@@ -385,7 +389,8 @@ public partial class AddEditPortViewModel : ViewModelBase
             Name = Name,
             IsRx = IsRx,
             IsTx = IsTx,
-            ShowOnMap = ShowOnMap
+            ShowOnMap = ShowOnMap,
+            AllowDigipeat = AllowDigipeat
         };
 
         if (SelectedPortSettingsType == typeof(AprsIsSettings))

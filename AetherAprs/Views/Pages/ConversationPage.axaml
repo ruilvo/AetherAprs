@@ -52,6 +52,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
                            Text="{loc:Loc Received}"
                            IsVisible="{Binding !IsOutbound}" />
                 <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                <TextBlock Classes="Caption"
+                           Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                           Text="{Binding DeliveryStatusText}"
+                           IsVisible="{Binding DeliveryStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </StackPanel>
             </Border>
           </DataTemplate>

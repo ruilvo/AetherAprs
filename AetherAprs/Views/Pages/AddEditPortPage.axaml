@@ -78,6 +78,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       IsChecked="{Binding ShowOnMap}"
                       MinHeight="48"
                       VerticalContentAlignment="Center" />
+            <CheckBox Content="{loc:Loc AllowDigipeating}"
+                      IsChecked="{Binding AllowDigipeat}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center" />
           </StackPanel>
         </StackPanel>
 
