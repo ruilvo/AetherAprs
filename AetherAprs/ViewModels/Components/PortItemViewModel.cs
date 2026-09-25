@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
 using AetherAprs.Configuration;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
 
 namespace AetherAprs.ViewModels;
 
@@ -16,7 +16,7 @@ public partial class PortItemViewModel : ViewModelBase
     private readonly Action<PortItemViewModel> _onShowOnMapToggle;
     private readonly Action<PortItemViewModel> _onDelete;
     private readonly Action<PortItemViewModel> _onEdit;
-    private bool _isInitializing;
+    private readonly bool _isInitializing;
 
     public Guid Id => _config.Id;
 

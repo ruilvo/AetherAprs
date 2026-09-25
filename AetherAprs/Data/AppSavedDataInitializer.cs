@@ -2,43 +2,33 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
+using AetherAprs.Models;
+using AetherAprs.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AetherAprs.Configuration;
-using AetherAprs.Models;
-using AetherAprs.Services;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using System.Threading;
 
 namespace AetherAprs.Data;
 
 /// <summary>
 /// Applies EF migrations and imports legacy ports from appsettings.json once.
 /// </summary>
-public sealed class AppSavedDataInitializer
+public sealed class AppSavedDataInitializer(
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    IAppDataDirProviderService appDataDirProvider,
+    ILogger<AppSavedDataInitializer> logger)
 {
     private static readonly string _appSettingsFileName = "appsettings.json";
     private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
-
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
-    private readonly IAppDataDirProviderService _appDataDirProvider;
-    private readonly ILogger<AppSavedDataInitializer> _logger;
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private bool _initialized;
-
-    public AppSavedDataInitializer(
-        IDbContextFactory<AppDbContext> dbContextFactory,
-        IAppDataDirProviderService appDataDirProvider,
-        ILogger<AppSavedDataInitializer> logger)
-    {
-        _dbContextFactory = dbContextFactory;
-        _appDataDirProvider = appDataDirProvider;
-        _logger = logger;
-    }
 
     public void Initialize()
     {
@@ -49,7 +39,7 @@ public sealed class AppSavedDataInitializer
                 return;
             }
 
-            using var db = _dbContextFactory.CreateDbContext();
+            using var db = dbContextFactory.CreateDbContext();
             db.Database.Migrate();
             ImportLegacyPorts(db);
             SeedBeaconingDefaults(db);
@@ -77,7 +67,7 @@ public sealed class AppSavedDataInitializer
         }
 
         db.SaveChanges();
-        _logger.LogInformation("Imported {PortCount} port(s) from appsettings into savedata.", ports.Count);
+        logger.LogInformation("Imported {PortCount} port(s) from appsettings into savedata.", ports.Count);
         StripLegacyPortsFromAppSettings();
     }
 
@@ -101,7 +91,7 @@ public sealed class AppSavedDataInitializer
 
     private List<PortConfig> ReadLegacyPorts()
     {
-        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
+        var configDirectory = appDataDirProvider.GetAppDataDirectory();
 
 #if DEBUG
         string[] candidates = [_appSettingsDevelopmentFileName, _appSettingsFileName];
@@ -136,7 +126,7 @@ public sealed class AppSavedDataInitializer
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to read legacy ports from {Path}.", path);
+                logger.LogWarning(ex, "Failed to read legacy ports from {Path}.", path);
             }
         }
 
@@ -145,7 +135,7 @@ public sealed class AppSavedDataInitializer
 
     private void StripLegacyPortsFromAppSettings()
     {
-        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
+        var configDirectory = appDataDirProvider.GetAppDataDirectory();
         string[] candidates = [_appSettingsFileName, _appSettingsDevelopmentFileName];
 
         foreach (var fileName in candidates)
@@ -158,8 +148,7 @@ public sealed class AppSavedDataInitializer
 
             try
             {
-                var node = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
-                if (node is null)
+                if (JsonNode.Parse(File.ReadAllText(path)) is not JsonObject node)
                 {
                     continue;
                 }
@@ -186,7 +175,7 @@ public sealed class AppSavedDataInitializer
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to strip legacy Ports from {Path}.", path);
+                logger.LogWarning(ex, "Failed to strip legacy Ports from {Path}.", path);
             }
         }
     }

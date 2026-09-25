@@ -2,17 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AetherAprs.Data;
+using AetherAprs.Localization;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 
 namespace AetherAprs.Services;
 
@@ -24,14 +24,14 @@ public sealed class BeaconService : IBeaconService
 {
     private readonly ILogger<BeaconService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
     private BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
     private DateTime _lastTransmitTime = DateTime.UtcNow;
     private double? _lastCourseDegrees;
-    
+
     // Physical constants
     private const double EarthRadiusMeters = 6371000.0;
     private const double MetersPerSecondToKilometersPerHour = 3.6;
@@ -319,7 +319,7 @@ public sealed class BeaconService : IBeaconService
     {
         BeaconConfig config;
         double? lastCourse;
-        
+
         lock (_lock)
         {
             config = _activeMode switch
@@ -331,7 +331,7 @@ public sealed class BeaconService : IBeaconService
             };
             lastCourse = _lastCourseDegrees;
         }
-        
+
         var callsignParts = callsign.Split('-');
         var callsignBase = callsignParts[0];
         var ssid = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssidValue) ? ssidValue : (int?)null;

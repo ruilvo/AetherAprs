@@ -2,14 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using AetherAprs.Configuration;
 using AetherAprs.Imaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
 
 namespace AetherAprs.ViewModels;
 
@@ -113,7 +112,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
-        
+
         // Fire-and-forget is acceptable here as we don't need to wait for save completion
         _ = _configurationService.SaveSettingsAsync();
     }

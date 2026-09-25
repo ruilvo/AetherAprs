@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Configuration;
 
 namespace AetherAprs.Transports.Kiss;
 
@@ -33,10 +33,9 @@ public sealed class KissStreamFactory : IKissStreamFactory
 
     /// <inheritdoc />
     public IReadOnlyCollection<Type> SupportedTransports =>
-        _connectorsBySettingsType.Values
+        [.. _connectorsBySettingsType.Values
             .Where(connector => connector.IsSupported)
-            .Select(connector => connector.SettingsType)
-            .ToArray();
+            .Select(connector => connector.SettingsType)];
 
     /// <inheritdoc />
     public Task<Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default)

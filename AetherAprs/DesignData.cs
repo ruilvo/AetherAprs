@@ -1,23 +1,24 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using AetherAprs.ViewModels;
-using AetherAprs.ViewModels.Components;
-using AetherAprs.ViewModels.Pages;
+
+using AetherAprs.Data;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
+using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Pages;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Data;
-using AetherAprs.Models.Aprs;
-using Microsoft.EntityFrameworkCore;
 
 namespace AetherAprs;
 

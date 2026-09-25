@@ -4,7 +4,6 @@
 
 using AetherAprs.Configuration;
 using AetherAprs.Transports.Kiss;
-using Android.Bluetooth;
 using System;
 using System.IO;
 using System.Threading;

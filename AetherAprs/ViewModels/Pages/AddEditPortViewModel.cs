@@ -2,15 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
-using AetherAprs.Models;
 using AetherAprs.Localization;
 using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -150,7 +149,7 @@ public partial class AddEditPortViewModel : ViewModelBase
         StopBleScan();
 
         var config = BuildConfig();
-        
+
         if (_existingConfig != null)
         {
             config.Id = _existingConfig.Id;
@@ -328,7 +327,7 @@ public partial class AddEditPortViewModel : ViewModelBase
                         ble.DeviceAddress,
                         ble.DeviceName,
                         0,
-                        Array.Empty<Guid>());
+                        []);
                     BleDevices.Clear();
                     if (!string.IsNullOrWhiteSpace(ble.DeviceAddress))
                     {

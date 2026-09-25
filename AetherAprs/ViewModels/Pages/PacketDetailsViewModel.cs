@@ -2,10 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
@@ -14,19 +10,22 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
 /// <summary>
 /// ViewModel for packet details page showing all packets from a specific callsign.
 /// </summary>
-public partial class PacketDetailsViewModel : ViewModelBase
+public partial class PacketDetailsViewModel(
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    INavigationService navigationService,
+    IServiceProvider serviceProvider,
+    ILogger<PacketDetailsViewModel> logger) : ViewModelBase
 {
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
-    private readonly INavigationService _navigationService;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<PacketDetailsViewModel> _logger;
-
     [ObservableProperty]
     public partial string Callsign { get; set; } = string.Empty;
 
@@ -38,18 +37,6 @@ public partial class PacketDetailsViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
-
-    public PacketDetailsViewModel(
-        IDbContextFactory<AppDbContext> dbContextFactory,
-        INavigationService navigationService,
-        IServiceProvider serviceProvider,
-        ILogger<PacketDetailsViewModel> logger)
-    {
-        _dbContextFactory = dbContextFactory;
-        _navigationService = navigationService;
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-    }
 
     public void Initialize(string callsign)
     {
@@ -64,7 +51,7 @@ public partial class PacketDetailsViewModel : ViewModelBase
         {
             IsLoading = true;
 
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            await using var context = await dbContextFactory.CreateDbContextAsync();
 
             var packets = await context.Packets
                 .Where(p => p.Source == Callsign)
@@ -80,7 +67,7 @@ public partial class PacketDetailsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load packets for {Callsign}", Callsign);
+            logger.LogError(ex, "Failed to load packets for {Callsign}", Callsign);
         }
         finally
         {
@@ -92,11 +79,11 @@ public partial class PacketDetailsViewModel : ViewModelBase
     private void SendMessage()
     {
         // Navigate to messages page and open conversation with this callsign
-        _navigationService.NavigateTo<MessagesViewModel>();
+        navigationService.NavigateTo<MessagesViewModel>();
 
         // Open conversation with the callsign
-        var conversationVm = _serviceProvider.GetRequiredService<ConversationViewModel>();
-        
+        var conversationVm = serviceProvider.GetRequiredService<ConversationViewModel>();
+
         // Parse callsign to extract base callsign (remove SSID if present)
         var callsignStr = Callsign;
         var dashIndex = callsignStr.IndexOf('-');
@@ -109,17 +96,17 @@ public partial class PacketDetailsViewModel : ViewModelBase
         {
             var callsign = new Callsign(callsignStr);
             conversationVm.Initialize(callsign);
-            _navigationService.NavigateTo(conversationVm);
+            navigationService.NavigateTo(conversationVm);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to parse callsign {Callsign}", Callsign);
+            logger.LogError(ex, "Failed to parse callsign {Callsign}", Callsign);
         }
     }
 
     [RelayCommand]
     private void GoBack()
     {
-        _navigationService.NavigateTo<PacketsViewModel>();
+        navigationService.NavigateTo<PacketsViewModel>();
     }
 }

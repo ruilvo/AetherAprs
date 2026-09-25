@@ -18,33 +18,18 @@ namespace AetherAprs.ViewModels;
 /// <summary>
 /// ViewModel responsible for beacon transmission logic and status.
 /// </summary>
-public partial class BeaconTransmissionViewModel : ViewModelBase
+public partial class BeaconTransmissionViewModel(
+    IBeaconService beaconService,
+    IPortService portService,
+    IConfigurationService configurationService,
+    IAprsPortSettingsResolver portSettingsResolver,
+    ILogger<BeaconTransmissionViewModel> logger) : ViewModelBase
 {
-    private readonly IBeaconService _beaconService;
-    private readonly IPortService _portService;
-    private readonly IConfigurationService _configurationService;
-    private readonly IAprsPortSettingsResolver _portSettingsResolver;
-    private readonly ILogger<BeaconTransmissionViewModel> _logger;
-
     [ObservableProperty]
     public partial BeaconTransmitDecision? LastBeaconDecision { get; set; }
 
     [ObservableProperty]
     public partial string BeaconStatus { get; set; } = Strings.Get("BeaconSystemReady");
-
-    public BeaconTransmissionViewModel(
-        IBeaconService beaconService,
-        IPortService portService,
-        IConfigurationService configurationService,
-        IAprsPortSettingsResolver portSettingsResolver,
-        ILogger<BeaconTransmissionViewModel> logger)
-    {
-        _beaconService = beaconService;
-        _portService = portService;
-        _configurationService = configurationService;
-        _portSettingsResolver = portSettingsResolver;
-        _logger = logger;
-    }
 
     /// <summary>
     /// Evaluates whether to transmit a beacon based on the current location,
@@ -55,7 +40,7 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
         try
         {
             // Evaluate whether to transmit
-            var decision = _beaconService.EvaluateLocationUpdate(currentLocation, previousLocation);
+            var decision = beaconService.EvaluateLocationUpdate(currentLocation, previousLocation);
             LastBeaconDecision = decision;
 
             if (!decision.ShouldTransmit)
@@ -65,20 +50,20 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
             }
 
             // Get enabled TX ports
-            var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+            var txPorts = portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
             if (txPorts.Count == 0)
             {
                 BeaconStatus = Strings.Get("NoTxPortsEnabled");
-                _logger.LogWarning("Cannot transmit beacon: no TX ports enabled");
+                logger.LogWarning("Cannot transmit beacon: no TX ports enabled");
                 return;
             }
 
             // Get callsign from configuration
-            var callsign = _configurationService.Settings.Aprs.Callsign;
+            var callsign = configurationService.Settings.Aprs.Callsign;
             if (string.IsNullOrEmpty(callsign))
             {
                 BeaconStatus = Strings.Get("CallsignNotConfigured");
-                _logger.LogWarning("Cannot transmit beacon: callsign not configured");
+                logger.LogWarning("Cannot transmit beacon: callsign not configured");
                 return;
             }
 
@@ -91,9 +76,9 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
             {
                 try
                 {
-                    await _portService.SendPacketAsync(port.Id, packet);
+                    await portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
-                    _logger.LogInformation(
+                    logger.LogInformation(
                         "Beacon transmitted on port {PortName}: {Lat}, {Lon} (Speed: {Speed:F1}km/h, Course: {Course:F0}°)",
                         port.Name,
                         currentLocation.Latitude,
@@ -103,7 +88,7 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error transmitting beacon on port {PortName}", port.Name);
+                    logger.LogError(ex, "Error transmitting beacon on port {PortName}", port.Name);
                 }
             }
 
@@ -114,14 +99,14 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
             }
 
             // Reset transmission timer
-            _beaconService.ResetTransmissionTimer();
+            beaconService.ResetTransmissionTimer();
 
             // Update status
             BeaconStatus = Strings.Format("BeaconSentStatus", decision.Reason, decision.CurrentSpeedKmh, decision.CurrentCourseDegrees);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error evaluating beacon transmission");
+            logger.LogError(ex, "Error evaluating beacon transmission");
             BeaconStatus = Strings.Format("BeaconError", ex.Message);
         }
     }
@@ -140,14 +125,14 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
 
         try
         {
-            var callsign = _configurationService.Settings.Aprs.Callsign;
+            var callsign = configurationService.Settings.Aprs.Callsign;
             if (string.IsNullOrEmpty(callsign))
             {
                 BeaconStatus = Strings.Get("CallsignNotConfigured");
                 return;
             }
 
-            var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+            var txPorts = portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
             if (txPorts.Count == 0)
             {
                 BeaconStatus = Strings.Get("NoTxPortsEnabled");
@@ -162,13 +147,13 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
             {
                 try
                 {
-                    await _portService.SendPacketAsync(port.Id, packet);
+                    await portService.SendPacketAsync(port.Id, packet);
                     sentPortCount++;
-                    _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
+                    logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error sending manual beacon on port {PortName}", port.Name);
+                    logger.LogError(ex, "Error sending manual beacon on port {PortName}", port.Name);
                 }
             }
 
@@ -178,7 +163,7 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending manual beacon");
+            logger.LogError(ex, "Error sending manual beacon");
             BeaconStatus = Strings.Format("ErrorPrefix", ex.Message);
         }
     }
@@ -191,7 +176,7 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
         if (userLocation == null || !portsJustEnabled.Any())
             return;
 
-        var callsign = _configurationService.Settings.Aprs.Callsign;
+        var callsign = configurationService.Settings.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
             return;
 
@@ -203,19 +188,19 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
         {
             try
             {
-                await _portService.SendPacketAsync(port.Id, packet);
+                await portService.SendPacketAsync(port.Id, packet);
                 sentPortNames.Add(port.Name);
-                _logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);
+                logger.LogInformation("Initial beacon sent due to port activation: {Port}", port.Name);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending initial beacon on port activation for {PortName}", port.Name);
+                logger.LogError(ex, "Error sending initial beacon on port activation for {PortName}", port.Name);
             }
         }
 
         if (sentPortNames.Count > 0)
         {
-            _beaconService.ResetTransmissionTimer();
+            beaconService.ResetTransmissionTimer();
             var portNames = string.Join(", ", sentPortNames);
             BeaconStatus = Strings.Format("InitialBeaconSentOnPortActivation", portNames);
         }
@@ -226,11 +211,11 @@ public partial class BeaconTransmissionViewModel : ViewModelBase
     /// </summary>
     private PositionPacket CreateBeaconPacket(LocationData location, string callsign)
     {
-        var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
-        var symbolTable = _portSettingsResolver.GetSymbolTableCharacter();
-        var symbolCode = _portSettingsResolver.GetSymbolCodeCharacter();
+        var sourceCallsign = portSettingsResolver.GetCallsign(callsign);
+        var symbolTable = portSettingsResolver.GetSymbolTableCharacter();
+        var symbolCode = portSettingsResolver.GetSymbolCodeCharacter();
 
-        return _beaconService.CreatePositionPacket(
+        return beaconService.CreatePositionPacket(
             location,
             sourceCallsign,
             symbolTable,

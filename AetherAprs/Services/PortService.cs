@@ -2,14 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
-using AetherAprs.Helpers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
@@ -17,6 +11,11 @@ using AetherAprs.Transports.Kiss;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services;
 
@@ -285,53 +284,53 @@ public class PortService : IPortService, IAsyncDisposable
             switch (port.TypeSettings)
             {
                 case AprsIsSettings aprsIsSettings:
-                {
-                    var callsign = _configurationService.Settings.Aprs.Callsign;
-                    var ssid = _configurationService.Settings.Aprs.DefaultSsid;
-                    var fullCallsign = new Callsign(callsign, ssid > 0 ? ssid : null);
-
-                    var modem = new AprsIsModem(
-                        aprsIsSettings.Server,
-                        aprsIsSettings.ServerPort,
-                        fullCallsign,
-                        aprsIsSettings.Passcode,
-                        aprsIsSettings.Filter,
-                        _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
-
-                    EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                    modem.PacketReceived += packetHandler;
-                    modem.ReceiveError += OnModemReceiveError;
-                    modem.Start();
-
-                    _activeSessions[port.Id] = new ActivePortSession
                     {
-                        Modem = modem,
-                        PacketHandler = packetHandler
-                    };
-                    _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
-                    break;
-                }
+                        var callsign = _configurationService.Settings.Aprs.Callsign;
+                        var ssid = _configurationService.Settings.Aprs.DefaultSsid;
+                        var fullCallsign = new Callsign(callsign, ssid > 0 ? ssid : null);
+
+                        var modem = new AprsIsModem(
+                            aprsIsSettings.Server,
+                            aprsIsSettings.ServerPort,
+                            fullCallsign,
+                            aprsIsSettings.Passcode,
+                            aprsIsSettings.Filter,
+                            _serviceProvider.GetRequiredService<ILogger<AprsIsModem>>());
+
+                        EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                        modem.PacketReceived += packetHandler;
+                        modem.ReceiveError += OnModemReceiveError;
+                        modem.Start();
+
+                        _activeSessions[port.Id] = new ActivePortSession
+                        {
+                            Modem = modem,
+                            PacketHandler = packetHandler
+                        };
+                        _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
+                        break;
+                    }
                 case KissSettings kiss:
-                {
-                    var stream = await _kissStreamFactory.OpenAsync(kiss).ConfigureAwait(false);
-                    var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
-                    var kissModem = new KissModem(stream, loggerFactory);
-                    var modem = new AprsRfModem(kissModem, loggerFactory);
-
-                    EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                    modem.PacketReceived += packetHandler;
-                    modem.ReceiveError += OnModemReceiveError;
-                    modem.Start();
-
-                    _activeSessions[port.Id] = new ActivePortSession
                     {
-                        Modem = modem,
-                        KissModem = kissModem,
-                        PacketHandler = packetHandler
-                    };
-                    _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
-                    break;
-                }
+                        var stream = await _kissStreamFactory.OpenAsync(kiss).ConfigureAwait(false);
+                        var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+                        var kissModem = new KissModem(stream, loggerFactory);
+                        var modem = new AprsRfModem(kissModem, loggerFactory);
+
+                        EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                        modem.PacketReceived += packetHandler;
+                        modem.ReceiveError += OnModemReceiveError;
+                        modem.Start();
+
+                        _activeSessions[port.Id] = new ActivePortSession
+                        {
+                            Modem = modem,
+                            KissModem = kissModem,
+                            PacketHandler = packetHandler
+                        };
+                        _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
+                        break;
+                    }
             }
 
             if (!_activeSessions.ContainsKey(port.Id))

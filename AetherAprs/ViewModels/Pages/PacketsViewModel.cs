@@ -2,11 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Services;
 using Avalonia.Threading;
@@ -15,6 +10,11 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -117,7 +117,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                 {
                     // Find existing entry for this source
                     var existing = Packets.FirstOrDefault(p => p.Source == packet.Source);
-                    
+
                     if (existing is not null)
                     {
                         // Update existing entry
@@ -142,7 +142,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                 if (Packets.Count > 0)
                 {
                     var sorted = Packets.OrderByDescending(p => p.ReceivedAt).Take(100).ToList();
-                    
+
                     // Only rebuild if order changed significantly or we have too many items
                     if (Packets.Count > 100 || !Packets.Take(10).SequenceEqual(sorted.Take(10)))
                     {

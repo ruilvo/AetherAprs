@@ -4,7 +4,6 @@
 
 using System;
 using System.Text.Json.Serialization;
-using AetherAprs.Models;
 
 namespace AetherAprs.Configuration;
 

@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Configuration;
 
 namespace AetherAprs.Transports.Kiss;
 
@@ -48,17 +48,10 @@ public sealed class TcpKissStreamConnector : IKissStreamConnector
     /// <summary>
     /// NetworkStream wrapper that owns the underlying <see cref="TcpClient"/>.
     /// </summary>
-    private sealed class TcpClientNetworkStream : Stream
+    private sealed class TcpClientNetworkStream(TcpClient client) : Stream
     {
-        private readonly TcpClient _client;
-        private readonly NetworkStream _stream;
+        private readonly NetworkStream _stream = client.GetStream();
         private bool _disposed;
-
-        public TcpClientNetworkStream(TcpClient client)
-        {
-            _client = client;
-            _stream = client.GetStream();
-        }
 
         public override bool CanRead => _stream.CanRead;
 
@@ -113,7 +106,7 @@ public sealed class TcpKissStreamConnector : IKissStreamConnector
             if (disposing)
             {
                 _stream.Dispose();
-                _client.Dispose();
+                client.Dispose();
             }
 
             _disposed = true;

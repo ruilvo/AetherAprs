@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Models;
+using AetherAprs.Services;
 using Android;
 using Android.Content;
 using Android.Content.PM;
@@ -9,8 +11,6 @@ using Android.Locations;
 using Android.OS;
 using AndroidX.Core.App;
 using AndroidX.Core.Content;
-using AetherAprs.Models;
-using AetherAprs.Services;
 using System;
 using System.Linq;
 using System.Threading;
@@ -132,14 +132,12 @@ public class LocationService : ILocationService
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // RequestLocationUpdates is available on all Android API levels we support (API 23+).
         // The Looper.MainLooper call is also available on all supported API levels.
-#pragma warning disable CA1416
         locationManager.RequestLocationUpdates(
             provider,
             minTimeMs: 0,
             minDistanceM: 0,
             listener,
             Looper.MainLooper);
-#pragma warning restore CA1416
 
         // Set a timeout for location request (30 seconds)
         var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
@@ -167,7 +165,6 @@ public class LocationService : ILocationService
     {
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // GetLastKnownLocation is available on all Android API levels we support.
-#pragma warning disable CA1416
         var providers = locationManager.GetProviders(enabledOnly: true);
         Location? bestLocation = null;
 
@@ -181,7 +178,6 @@ public class LocationService : ILocationService
         }
 
         return bestLocation;
-#pragma warning restore CA1416
     }
 
     private static string? GetBestProvider(LocationManager locationManager)

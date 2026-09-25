@@ -2,19 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services;
 using Avalonia;
 using Avalonia.Threading;
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Projections;
 using Mapsui.Styles;
-using AetherAprs.Imaging;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Services;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AetherAprs.ViewModels;
 
@@ -156,10 +156,10 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
     private PointFeature CreateFeature(PositionPacket positionPacket, string beaconKey)
     {
-        var mercatorCoordinate = SphericalMercator.FromLonLat(
+        var (x, y) = SphericalMercator.FromLonLat(
             positionPacket.Longitude,
             positionPacket.Latitude);
-        var mapPoint = new MPoint(mercatorCoordinate.x, mercatorCoordinate.y);
+        var mapPoint = new MPoint(x, y);
 
         var symbolKey = $"{positionPacket.Symbol.TableChar}{positionPacket.Symbol.CodeChar}";
         if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
@@ -174,7 +174,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         {
             Text = beaconKey,
             Offset = new Offset(35, 0),
-            Font = new Mapsui.Styles.Font { FontFamily = "Arial", Size = 10 },
+            Font = new Font { FontFamily = "Arial", Size = 10 },
             ForeColor = Color.Black,
             BackColor = null,
             Halo = null

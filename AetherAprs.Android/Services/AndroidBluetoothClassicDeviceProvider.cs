@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.Bluetooth;
-using Android.Bluetooth;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,20 +27,15 @@ public sealed class AndroidBluetoothClassicDeviceProvider : IBluetoothClassicDev
         await EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
         var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
-
-#pragma warning disable CA1416
         var bonded = adapter.BondedDevices;
-#pragma warning restore CA1416
-
         if (bonded is null || bonded.Count == 0)
         {
-            return Array.Empty<BluetoothClassicDevice>();
+            return [];
         }
 
-        return bonded
+        return [.. bonded
             .Where(device => device is not null && !string.IsNullOrWhiteSpace(device.Address))
             .Select(device => new BluetoothClassicDevice(device!.Address!, device.Name))
-            .OrderBy(device => device.Name ?? device.Address, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            .OrderBy(device => device.Name ?? device.Address, StringComparer.OrdinalIgnoreCase)];
     }
 }

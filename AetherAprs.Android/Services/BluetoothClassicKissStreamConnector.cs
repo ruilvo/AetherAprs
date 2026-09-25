@@ -4,8 +4,6 @@
 
 using AetherAprs.Configuration;
 using AetherAprs.Transports.Kiss;
-using Android.Bluetooth;
-using Android.Content;
 using Java.Util;
 using System;
 using System.IO;
@@ -52,30 +50,19 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
 
         var device = adapter.GetRemoteDevice(classicSettings.DeviceAddress)
             ?? throw new InvalidOperationException($"Bluetooth device '{classicSettings.DeviceAddress}' was not found.");
-
-#pragma warning disable CA1416
         var socket = device.CreateRfcommSocketToServiceRecord(SppUuid)
             ?? throw new InvalidOperationException("Failed to create RFCOMM socket for SPP.");
-#pragma warning restore CA1416
-
         try
         {
             // Cancel discovery to improve connection reliability.
-#pragma warning disable CA1416
             if (adapter.IsDiscovering)
             {
                 adapter.CancelDiscovery();
             }
-#pragma warning restore CA1416
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var connectTask = Task.Run(() =>
-            {
-#pragma warning disable CA1416
-                socket.Connect();
-#pragma warning restore CA1416
-            }, cancellationToken);
+            var connectTask = Task.Run(socket.Connect, cancellationToken);
 
             await using (cancellationToken.Register(() =>
             {

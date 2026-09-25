@@ -1,6 +1,7 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+
 using AetherAprs.Configuration;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -90,7 +91,7 @@ public class ConfigurationService : IConfigurationService
     public async Task UpdateSettingsAsync(Action<AppSettings> updateAction)
     {
         ArgumentNullException.ThrowIfNull(updateAction);
-        
+
         updateAction(Settings);
         await SaveSettingsAsync();
     }

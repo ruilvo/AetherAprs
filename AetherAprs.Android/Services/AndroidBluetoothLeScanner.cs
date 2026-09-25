@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.Bluetooth;
-using Android.Bluetooth;
 using Android.Bluetooth.LE;
 using Android.Runtime;
 using System;
@@ -37,11 +36,8 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
             throw new InvalidOperationException("Bluetooth is disabled.");
         }
 
-#pragma warning disable CA1416
         var scanner = adapter.BluetoothLeScanner
             ?? throw new InvalidOperationException("Bluetooth LE scanner is not available on this device.");
-#pragma warning restore CA1416
-
         var channel = Channel.CreateUnbounded<BluetoothLeAdvertisement>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -53,15 +49,11 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
         {
             channel.Writer.TryWrite(advertisement);
         });
-
-#pragma warning disable CA1416
         var settings = new ScanSettings.Builder()
-            .SetScanMode(global::Android.Bluetooth.LE.ScanMode.LowLatency)!
+            .SetScanMode(ScanMode.LowLatency)!
             .Build();
 
         scanner.StartScan(filters: null, settings, callback);
-#pragma warning restore CA1416
-
         try
         {
             await foreach (var advertisement in channel.Reader.ReadAllAsync(cancellationToken)
@@ -72,7 +64,6 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
         }
         finally
         {
-#pragma warning disable CA1416
             try
             {
                 scanner.StopScan(callback);
@@ -81,22 +72,14 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
             {
                 // Best-effort stop.
             }
-#pragma warning restore CA1416
 
             callback.Dispose();
             channel.Writer.TryComplete();
         }
     }
 
-    private sealed class AdvertisementScanCallback : ScanCallback
+    private sealed class AdvertisementScanCallback(Action<BluetoothLeAdvertisement> onAdvertisement) : ScanCallback
     {
-        private readonly Action<BluetoothLeAdvertisement> _onAdvertisement;
-
-        public AdvertisementScanCallback(Action<BluetoothLeAdvertisement> onAdvertisement)
-        {
-            _onAdvertisement = onAdvertisement;
-        }
-
         public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult? result)
         {
             Publish(result);
@@ -128,9 +111,7 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
             }
 
             var serviceUuids = new List<Guid>();
-#pragma warning disable CA1416
             var parcelUuids = result.ScanRecord?.ServiceUuids;
-#pragma warning restore CA1416
             if (parcelUuids is not null)
             {
                 foreach (var parcelUuid in parcelUuids)
@@ -148,12 +129,9 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
                 }
             }
 
-#pragma warning disable CA1416
             var name = result.ScanRecord?.DeviceName ?? result.Device.Name;
             var rssi = result.Rssi;
-#pragma warning restore CA1416
-
-            _onAdvertisement(new BluetoothLeAdvertisement(address, name, rssi, serviceUuids));
+            onAdvertisement(new BluetoothLeAdvertisement(address, name, rssi, serviceUuids));
         }
     }
 }

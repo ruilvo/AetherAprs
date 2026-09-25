@@ -2,12 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Threading.Tasks;
 using AetherAprs.ViewModels.Components;
 using Avalonia;
 using Avalonia.Controls;
 using DialogHostAvalonia;
+using System;
 
 namespace AetherAprs.Views.Components;
 
@@ -110,15 +109,15 @@ public partial class AprsSymbolPickerView : UserControl
 
             var selectorViewModel = viewModel.SymbolSelectorViewModel;
             var view = new SymbolSelectorView { DataContext = selectorViewModel };
-            
+
             // Subscribe to symbol selected event to close dialog
-            void OnSymbolSelected(object? s, EventArgs args)
+            static void OnSymbolSelected(object? s, EventArgs args)
             {
                 DialogHost.Close("MainDialogHost");
             }
-            
+
             selectorViewModel.SymbolSelected += OnSymbolSelected;
-            
+
             try
             {
                 await DialogHost.Show(view, "MainDialogHost");
@@ -150,15 +149,15 @@ public partial class AprsSymbolPickerView : UserControl
 
             var selectorViewModel = viewModel.OverlaySelectorViewModel;
             var view = new SymbolSelectorView { DataContext = selectorViewModel };
-            
+
             // Subscribe to symbol selected event to close dialog
-            void OnSymbolSelected(object? s, EventArgs args)
+            static void OnSymbolSelected(object? s, EventArgs args)
             {
                 DialogHost.Close("MainDialogHost");
             }
-            
+
             selectorViewModel.SymbolSelected += OnSymbolSelected;
-            
+
             try
             {
                 await DialogHost.Show(view, "MainDialogHost");

@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.ComponentModel;
 using AetherAprs.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +9,7 @@ using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Projections;
 using Mapsui.Styles;
+using System;
 
 namespace AetherAprs.ViewModels.Components;
 
@@ -55,8 +54,8 @@ public partial class MapViewModel : ViewModelBase, IDisposable
         UserLocation = location;
 
         // Convert lat/lon to map coordinates (Web Mercator)
-        var sphericalMercatorCoordinate = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
-        var mapPoint = new MPoint(sphericalMercatorCoordinate.x, sphericalMercatorCoordinate.y);
+        var (x, y) = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
+        var mapPoint = new MPoint(x, y);
         _lastUserMapPoint = mapPoint;
 
         // Create style for user location marker

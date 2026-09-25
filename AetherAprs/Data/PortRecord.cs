@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using AetherAprs.Models;
 
 namespace AetherAprs.Data;
 

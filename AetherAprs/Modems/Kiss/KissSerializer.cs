@@ -127,8 +127,8 @@ public static class KissSerializer
                     default:
                         throw new ArgumentException(
                             $"Invalid escape sequence: FESC followed by 0x{data[i]:X2}.", nameof(data));
-                    }
                 }
+            }
             else
             {
                 result.Add(data[i]);

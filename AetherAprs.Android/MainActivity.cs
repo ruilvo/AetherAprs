@@ -1,12 +1,12 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using AetherAprs.Services;
 using Android.App;
 using Android.Content.PM;
 using Android.OS;
 using Android.Window;
 using Avalonia.Android;
-using AetherAprs.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
@@ -37,16 +37,13 @@ public class MainActivity : AvaloniaMainActivity
     {
         base.OnCreate(savedInstanceState);
 
-        AetherAprs.Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
+        Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
 
         // Store instance for permission requests
         Instance = this;
 
         // Setup the modern back handling for Android 13+
-        backInvokedCallback = new BackInvokedCallback(() =>
-        {
-            HandleBackPressed();
-        });
+        backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
     }
 
     protected override void OnResume()
@@ -108,20 +105,20 @@ public class MainActivity : AvaloniaMainActivity
     protected override void OnDestroy()
     {
         navigationService?.RequestAppExit -= OnRequestAppExit;
-        
+
         // Clear instance reference
         if (Instance == this)
         {
             Instance = null;
         }
-        
+
         base.OnDestroy();
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-        
+
         // Notify any listeners about permission results
         OnPermissionResult?.Invoke(requestCode, permissions, grantResults);
     }

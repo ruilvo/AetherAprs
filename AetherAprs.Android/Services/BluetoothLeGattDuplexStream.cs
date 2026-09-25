@@ -78,12 +78,8 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             txCharacteristicUuid,
             rxChannel,
             readyTcs);
-
-#pragma warning disable CA1416
         var gatt = device.ConnectGatt(context, autoConnect: false, callback)
             ?? throw new InvalidOperationException("Failed to start BLE GATT connection.");
-#pragma warning restore CA1416
-
         await using (cancellationToken.Register(() =>
         {
             readyTcs.TrySetCanceled(cancellationToken);
@@ -199,7 +195,6 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         try
         {
             var payload = buffer.ToArray();
-#pragma warning disable CA1416
             var writeType = (_rxCharacteristic.Properties & GattProperty.WriteNoResponse) != 0
                 ? GattWriteType.NoResponse
                 : GattWriteType.Default;
@@ -236,7 +231,6 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                     throw new IOException($"BLE WriteCharacteristic (no response) failed to start with status {status}.");
                 }
             }
-#pragma warning restore CA1416
         }
         finally
         {
@@ -355,12 +349,11 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
             if (newState == ProfileState.Connected && status == GattStatus.Success)
             {
-#pragma warning disable CA1416
                 if (!gatt.DiscoverServices())
                 {
                     FailReady(new IOException("BLE service discovery failed to start."));
                 }
-#pragma warning restore CA1416
+
                 return;
             }
 
@@ -386,7 +379,6 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
             try
             {
-#pragma warning disable CA1416
                 var service = gatt.GetService(ToJavaUuid(_serviceUuid))
                     ?? throw new InvalidOperationException($"BLE service {_serviceUuid} was not found.");
 
@@ -420,7 +412,6 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 {
                     throw new IOException($"Failed to write BLE CCCD to enable notifications (status {descriptorStatus}).");
                 }
-#pragma warning restore CA1416
             }
             catch (Exception ex)
             {

@@ -2,16 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SkiaSharp;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace AetherAprs.ViewModels.Components;
 
@@ -77,7 +77,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 
     private IReadOnlyList<SymbolGridItem> GenerateSymbolGridItems(SymbolTable table, IEnumerable<SymbolCode> codes)
     {
-        return codes.Select(code =>
+        return [.. codes.Select(code =>
         {
             Bitmap? preview = null;
             if (_symbolBitmapProvider != null)
@@ -100,12 +100,12 @@ public partial class SymbolSelectorViewModel : ViewModelBase
                 Preview = preview,
                 Character = code.ToChar().ToString()
             };
-        }).ToList();
+        })];
     }
 
     private IReadOnlyList<SymbolGridItem> GenerateOverlayGridItems(IEnumerable<SymbolCode> codes)
     {
-        return codes.Select(code =>
+        return [.. codes.Select(code =>
         {
             Bitmap? preview = null;
             if (_symbolBitmapProvider != null)
@@ -127,7 +127,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
                 Preview = preview,
                 Character = code.ToChar().ToString()
             };
-        }).ToList();
+        })];
     }
 
     partial void OnSelectedTabIndexChanged(int value)

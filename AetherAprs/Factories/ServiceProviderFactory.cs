@@ -1,6 +1,7 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+
 using AetherAprs.Data;
 using AetherAprs.Imaging;
 using AetherAprs.Services;
@@ -107,7 +108,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<PortsViewModel>(); // Main page state
         services.AddSingleton<SettingsViewModel>(); // Main page state
         services.AddTransient<DynamicBeaconingViewModel>(); // Overlay sub-page, fresh each time
-        services.AddTransient<ViewModels.Pages.AddEditPortViewModel>(); // Overlay sub-page, fresh each time
+        services.AddTransient<AddEditPortViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ConversationViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<PacketDetailsViewModel>(); // Overlay sub-page, fresh each time
 

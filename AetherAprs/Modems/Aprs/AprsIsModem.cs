@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Models.Aprs;
+using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 using System.Linq;
@@ -9,8 +11,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Models.Aprs;
-using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Modems.Aprs;
 
@@ -28,7 +28,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private readonly string _passcode;
     private readonly string _filter;
     private readonly ILogger<AprsIsModem> _logger;
-    private readonly object _connectionLock = new();
+    private readonly Lock _connectionLock = new();
     private TcpClient? _tcpClient;
     private StreamReader? _reader;
     private StreamWriter? _writer;
@@ -146,7 +146,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         // APRS-IS client-originated packets must identify the TCP connection in the path.
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        
+
         // Capture writer and connection version atomically under lock
         StreamWriter? writer;
         int connectionVersion;
@@ -234,7 +234,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
     {
         _connectionReady = CreateConnectionReadySource();
-        
+
         // Increment connection version and dispose old resources under lock
         lock (_connectionLock)
         {
@@ -243,7 +243,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             _reader?.Dispose();
             _writer?.Dispose();
             _stream?.Dispose();
-            
+
             _tcpClient = null;
             _reader = null;
             _writer = null;
@@ -291,13 +291,13 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
             if (line is null)
-             {
-                 // Connection closed by server
-                 _logger.LogInformation("Connection closed by server.");
-                 break;
-             }
+            {
+                // Connection closed by server
+                _logger.LogInformation("Connection closed by server.");
+                break;
+            }
 
-             _logger.LogInformation("Server response: {Response}", line);
+            _logger.LogInformation("Server response: {Response}", line);
 
             if (line.StartsWith("# logresp ", StringComparison.OrdinalIgnoreCase))
             {
@@ -316,21 +316,21 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             {
                 // Empty or comment line (server status messages start with #)
                 continue;
-             }
+            }
 
-             try
-             {
-                 var packet = ParseIsLine(line);
-                 if (packet is not null)
-                 {
-                     PacketReceived?.Invoke(this, packet);
-                 }
-             }
-             catch (Exception ex)
-             {
-                 ReceiveError?.Invoke(this, ex);
-             }
-         }
+            try
+            {
+                var packet = ParseIsLine(line);
+                if (packet is not null)
+                {
+                    PacketReceived?.Invoke(this, packet);
+                }
+            }
+            catch (Exception ex)
+            {
+                ReceiveError?.Invoke(this, ex);
+            }
+        }
 
         _connectionReady.TrySetException(
             new IOException("APRS-IS connection closed before authentication completed."));

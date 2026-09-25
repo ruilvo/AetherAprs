@@ -2,25 +2,24 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Localization;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Messaging;
+using AetherAprs.Services;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Messaging;
-using AetherAprs.Services;
-using AetherAprs.Localization;
-using AetherAprs.ViewModels;
-using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.ViewModels.Pages;
 
-public partial class ConversationViewModel : ViewModelBase
+public partial class ConversationViewModel(
+    IMessageService messageService,
+    ILogger<ConversationViewModel> logger) : ViewModelBase
 {
-    private readonly IMessageService _messageService;
-    private readonly ILogger<ConversationViewModel> _logger;
     private ConversationThread? _thread;
     private bool _isNewConversation;
 
@@ -40,14 +39,6 @@ public partial class ConversationViewModel : ViewModelBase
     public partial bool IsDestinationEditable { get; set; } = true;
 
     public ObservableCollection<StoredMessage> Messages { get; } = new();
-
-    public ConversationViewModel(
-        IMessageService messageService,
-        ILogger<ConversationViewModel> logger)
-    {
-        _messageService = messageService;
-        _logger = logger;
-    }
 
     public void InitializeNew()
     {
@@ -70,7 +61,7 @@ public partial class ConversationViewModel : ViewModelBase
         MessageText = string.Empty;
         ErrorMessage = null;
         IsDestinationEditable = false;
-        AttachThread(_messageService.GetOrCreateConversation(peer));
+        AttachThread(messageService.GetOrCreateConversation(peer));
     }
 
     [RelayCommand]
@@ -92,9 +83,9 @@ public partial class ConversationViewModel : ViewModelBase
 
         try
         {
-            await _messageService.SendAsync(addressee, MessageText);
-            _logger.LogInformation("Message sent to {Addressee}", addressee);
-            var thread = _messageService.GetOrCreateConversation(addressee);
+            await messageService.SendAsync(addressee, MessageText);
+            logger.LogInformation("Message sent to {Addressee}", addressee);
+            var thread = messageService.GetOrCreateConversation(addressee);
             if (_isNewConversation)
             {
                 _isNewConversation = false;
@@ -116,7 +107,7 @@ public partial class ConversationViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
+            logger.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
             ErrorMessage = ex.Message;
         }
     }

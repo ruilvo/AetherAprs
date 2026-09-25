@@ -2,19 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Data;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Messaging;
+using Avalonia;
+using Avalonia.Threading;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Threading;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using AetherAprs.Data;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Messaging;
 
 namespace AetherAprs.Services;
 
@@ -25,7 +25,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly ILogger<MessageService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
