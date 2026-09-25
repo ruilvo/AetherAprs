@@ -27,7 +27,7 @@ public static class Ax25Serializer
     public static byte[] Serialize(AprsPacket packet)
     {
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        return BuildAx25Frame(packet.Destination, packet.Source, infoField);
+        return BuildAx25Frame(packet.Destination, packet.Source, packet.Path, infoField);
     }
 
     /// <summary>
@@ -41,28 +41,49 @@ public static class Ax25Serializer
     public static byte[] Serialize(AprsPacket packet, Callsign source, Callsign destination)
     {
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        return BuildAx25Frame(destination, source, infoField);
+        return BuildAx25Frame(destination, source, packet.Path, infoField);
+    }
+
+    /// <summary>
+    /// Serializes an <see cref="AprsPacket"/> with explicit source, destination, and path.
+    /// </summary>
+    /// <param name="packet">The packet to serialize.</param>
+    /// <param name="source">The source callsign to use in the AX.25 header.</param>
+    /// <param name="destination">The destination callsign to use in the AX.25 header.</param>
+    /// <param name="path">The digipeater path to use.</param>
+    /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
+    public static byte[] Serialize(AprsPacket packet, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    {
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        return BuildAx25Frame(destination, source, path, infoField);
     }
 
     // ---------------------------------------------------------------
     // AX.25 framer
     // ---------------------------------------------------------------
 
-    internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, string infoField)
+    internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, IReadOnlyList<Callsign> path, string infoField)
     {
         var infoBytes = Encoding.ASCII.GetBytes(infoField);
-        return BuildAx25Frame(destination, source, infoBytes);
+        return BuildAx25Frame(destination, source, path, infoBytes);
     }
 
-    internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, byte[] infoBytes)
+    internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, IReadOnlyList<Callsign> path, byte[] infoBytes)
     {
         var frame = new List<byte>();
 
         // Destination address (7 bytes)
         frame.AddRange(EncodeAddress(destination, isLast: false));
 
-        // Source address (7 bytes, marked as last address in the list)
-        frame.AddRange(EncodeAddress(source, isLast: true));
+        // Source address (7 bytes, marked as last if no path)
+        frame.AddRange(EncodeAddress(source, isLast: path.Count == 0));
+
+        // Digipeater path addresses
+        for (int i = 0; i < path.Count; i++)
+        {
+            bool isLastAddress = (i == path.Count - 1);
+            frame.AddRange(EncodeAddress(path[i], isLast: isLastAddress));
+        }
 
         // Control field: UI-frame (0x03)
         frame.Add(UiControl);

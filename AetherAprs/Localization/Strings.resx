@@ -201,4 +201,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Display Settings</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configure what time range of packets to show in the list and on the map.</value></data>
+  <data name="DefaultBeaconComment" xml:space="preserve"><value>Default Beacon Comment</value></data>
+  <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Enter comment (optional)</value></data>
+  <data name="DigipeaterPath" xml:space="preserve"><value>Digipeater Path</value></data>
+  <data name="DigipeaterPathPlaceholder" xml:space="preserve"><value>WIDE1-1,WIDE2-1</value></data>
+  <data name="DigipeaterPathDescription" xml:space="preserve"><value>The digipeater path for transmitted packets. Common values: WIDE1-1,WIDE2-1 (recommended), WIDE2-2, or leave empty for direct only.</value></data>
+  <data name="RespondToWide1" xml:space="preserve"><value>Respond to WIDE1-1 (Fill-in Digi)</value></data>
+  <data name="RespondToWide2" xml:space="preserve"><value>Respond to WIDE2-N (Full Digi)</value></data>
+  <data name="BeaconSettings" xml:space="preserve"><value>Beacon Settings</value></data>
+  <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configure default comment and path for position beacons.</value></data>
 </root>

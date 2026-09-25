@@ -184,6 +184,20 @@ public class AprsSettings
     public bool DigipeaterInsertCallsign { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether the digipeater responds to WIDE1-1 (fill-in digi mode).
+    /// Fill-in digis provide local coverage in areas with weak signal.
+    /// Default is false.
+    /// </summary>
+    public bool DigipeaterRespondToWide1 { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets whether the digipeater responds to WIDE2-N (full digi mode).
+    /// Full digis provide wider area coverage.
+    /// Default is true.
+    /// </summary>
+    public bool DigipeaterRespondToWide2 { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets whether to enable APRS-IS to RF gating.
     /// When enabled, packets received from APRS-IS can be transmitted on RF ports.
     /// Default is false (requires careful consideration due to potential flooding).
@@ -196,4 +210,18 @@ public class AprsSettings
     /// Default is true.
     /// </summary>
     public bool EnableRfToAprsIsGate { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the default comment for position beacons.
+    /// This comment is used when the beacon configuration doesn't specify one.
+    /// Maximum length is 43 characters (APRS spec limit).
+    /// </summary>
+    public string? DefaultBeaconComment { get; set; }
+
+    /// <summary>
+    /// Gets or sets the digipeater path for transmitted packets.
+    /// Common values: "WIDE1-1,WIDE2-1" (recommended), "WIDE2-2", or empty for direct only.
+    /// Format: comma-separated list of callsign-SSID pairs.
+    /// </summary>
+    public string? DigipeaterPath { get; set; } = "WIDE1-1,WIDE2-1";
 }

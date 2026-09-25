@@ -65,6 +65,18 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool AutoAcknowledgeMessages { get; set; } = true;
 
+    [ObservableProperty]
+    public partial string? DefaultBeaconComment { get; set; }
+
+    [ObservableProperty]
+    public partial string? DigipeaterPath { get; set; } = "WIDE1-1,WIDE2-1";
+
+    [ObservableProperty]
+    public partial bool DigipeaterRespondToWide1 { get; set; } = false;
+
+    [ObservableProperty]
+    public partial bool DigipeaterRespondToWide2 { get; set; } = true;
+
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
         (Configuration.PacketDisplayTimeRange[])Enum.GetValues(typeof(Configuration.PacketDisplayTimeRange));
 
@@ -94,6 +106,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         MessageMaxRetries = aprs.MessageMaxRetries;
         MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
         AutoAcknowledgeMessages = aprs.AutoAcknowledgeMessages;
+        DefaultBeaconComment = aprs.DefaultBeaconComment;
+        DigipeaterPath = aprs.DigipeaterPath;
+        DigipeaterRespondToWide1 = aprs.DigipeaterRespondToWide1;
+        DigipeaterRespondToWide2 = aprs.DigipeaterRespondToWide2;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             DefaultSymbolTableCharacter, DefaultSymbolCodeCharacter, DefaultSymbolOverlayCharacter);
@@ -212,6 +228,26 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
+    partial void OnDefaultBeaconCommentChanged(string? value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnDigipeaterPathChanged(string? value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnDigipeaterRespondToWide1Changed(bool value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnDigipeaterRespondToWide2Changed(bool value)
+    {
+        SaveSettings();
+    }
+
     private void SaveSettings()
     {
         // Don't auto-save during initialization
@@ -234,6 +270,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _configurationService.Settings.Aprs.MessageMaxRetries = MessageMaxRetries;
         _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
         _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
+        _configurationService.Settings.Aprs.DefaultBeaconComment = DefaultBeaconComment;
+        _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
+        _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
+        _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
 
         // Fire-and-forget is acceptable here as we don't need to wait for save completion
         _ = _configurationService.SaveSettingsAsync();

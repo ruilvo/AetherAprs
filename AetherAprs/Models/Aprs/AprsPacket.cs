@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 
 namespace AetherAprs.Models.Aprs;
 
@@ -20,6 +21,12 @@ public abstract record AprsPacket
     /// Gets the destination callsign.
     /// </summary>
     public Callsign Destination { get; init; }
+
+    /// <summary>
+    /// Gets the digipeater path (list of callsigns between source and destination).
+    /// Empty list means no digipeaters in path.
+    /// </summary>
+    public IReadOnlyList<Callsign> Path { get; init; } = Array.Empty<Callsign>();
 
     /// <summary>
     /// Gets the timestamp, if available from the packet.

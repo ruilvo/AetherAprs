@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using AetherAprs.Data;
 using AetherAprs.Localization;
 using AetherAprs.Models;
@@ -24,6 +25,7 @@ public sealed class BeaconService : IBeaconService
 {
     private readonly ILogger<BeaconService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
+    private readonly IConfigurationService? _configurationService;
     private readonly Lock _lock = new();
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
@@ -42,9 +44,13 @@ public sealed class BeaconService : IBeaconService
         _logger = logger ?? NullLogger<BeaconService>.Instance;
     }
 
-    public BeaconService(IDbContextFactory<AppDbContext> dbContextFactory, ILogger<BeaconService> logger)
+    public BeaconService(
+        IDbContextFactory<AppDbContext> dbContextFactory,
+        IConfigurationService configurationService,
+        ILogger<BeaconService> logger)
     {
         _dbContextFactory = dbContextFactory;
+        _configurationService = configurationService;
         _logger = logger ?? NullLogger<BeaconService>.Instance;
         LoadFromDatabase();
     }
@@ -336,16 +342,35 @@ public sealed class BeaconService : IBeaconService
         var callsignBase = callsignParts[0];
         var ssid = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssidValue) ? ssidValue : (int?)null;
 
+        // Use beacon-specific comment if set, otherwise fall back to default comment from settings
+        var comment = config.BeaconComment;
+        if (string.IsNullOrWhiteSpace(comment) && _configurationService != null)
+        {
+            comment = _configurationService.Settings.Aprs.DefaultBeaconComment;
+        }
+
+        // Get digipeater path from settings
+        var path = Array.Empty<Callsign>();
+        if (_configurationService != null)
+        {
+            var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
+            if (!string.IsNullOrWhiteSpace(pathString))
+            {
+                path = PathHelper.ParsePath(pathString).ToArray();
+            }
+        }
+
         var packet = new PositionPacket
         {
             Source = new Callsign(callsignBase, ssid),
             Destination = new Callsign("APRS"),
+            Path = path,
             Latitude = location.Latitude,
             Longitude = location.Longitude,
             Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
             Course = lastCourse,
             Symbol = CreateSymbol(symbolTableCharacter, symbolCodeCharacter),
-            Comment = config.BeaconComment,
+            Comment = comment,
             Precision = 2
         };
         _logger.LogDebug(

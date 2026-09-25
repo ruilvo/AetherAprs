@@ -183,4 +183,31 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SerialPortPlaceholder" xml:space="preserve"><value>8001</value></data>
   <data name="DefaultSsidLabel" xml:space="preserve"><value>SSID predefinido</value></data>
   <data name="MessageTextPlaceholder" xml:space="preserve"><value>Texto da mensagem</value></data>
+  <data name="AllowDigipeating" xml:space="preserve"><value>Permitir Digipeating</value></data>
+  <data name="DigipeaterAndGating" xml:space="preserve"><value>Digipeater &amp; Gating</value></data>
+  <data name="DigipeaterGatingDescription" xml:space="preserve"><value>Configurar funcionalidade de digipeater e gating APRS-IS/RF. Digipeating reencaminha pacotes entre portas. Gating controla se pacotes podem cruzar entre redes APRS-IS e RF.</value></data>
+  <data name="EnableDigipeater" xml:space="preserve"><value>Ativar Digipeater</value></data>
+  <data name="InsertStationCallsignInPath" xml:space="preserve"><value>Inserir Indicativo da Estação no Caminho</value></data>
+  <data name="EnableAprsIsToRfGating" xml:space="preserve"><value>Ativar Gating APRS-IS para RF</value></data>
+  <data name="EnableRfToAprsIsGating" xml:space="preserve"><value>Ativar Gating RF para APRS-IS</value></data>
+  <data name="Messaging" xml:space="preserve"><value>Mensagens</value></data>
+  <data name="MessagingDescription" xml:space="preserve"><value>Configurar comportamento de confirmação e repetição de mensagens.</value></data>
+  <data name="AutoAcknowledgeIncomingMessages" xml:space="preserve"><value>Confirmar Automaticamente Mensagens Recebidas</value></data>
+  <data name="MaximumRetryAttempts" xml:space="preserve"><value>Tentativas Máximas de Repetição</value></data>
+  <data name="InitialRetryTimeoutSeconds" xml:space="preserve"><value>Timeout Inicial de Repetição (segundos)</value></data>
+  <data name="Pending" xml:space="preserve"><value>Pendente</value></data>
+  <data name="Acknowledged" xml:space="preserve"><value>Confirmada</value></data>
+  <data name="Rejected" xml:space="preserve"><value>Rejeitada</value></data>
+  <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
+  <data name="DisplaySettings" xml:space="preserve"><value>Definições de Visualização</value></data>
+  <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configurar que intervalo de tempo de pacotes mostrar na lista e no mapa.</value></data>
+  <data name="DefaultBeaconComment" xml:space="preserve"><value>Comentário Predefinido de Beacon</value></data>
+  <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Introduzir comentário (opcional)</value></data>
+  <data name="DigipeaterPath" xml:space="preserve"><value>Caminho de Digipeater</value></data>
+  <data name="DigipeaterPathPlaceholder" xml:space="preserve"><value>WIDE1-1,WIDE2-1</value></data>
+  <data name="DigipeaterPathDescription" xml:space="preserve"><value>O caminho de digipeater para pacotes transmitidos. Valores comuns: WIDE1-1,WIDE2-1 (recomendado), WIDE2-2, ou deixar vazio para apenas direto.</value></data>
+  <data name="RespondToWide1" xml:space="preserve"><value>Responder a WIDE1-1 (Fill-in Digi)</value></data>
+  <data name="RespondToWide2" xml:space="preserve"><value>Responder a WIDE2-N (Full Digi)</value></data>
+  <data name="BeaconSettings" xml:space="preserve"><value>Definições de Beacon</value></data>
+  <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configurar comentário e caminho predefinidos para beacons de posição.</value></data>
 </root>

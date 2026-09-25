@@ -23,16 +23,16 @@ public static class Ax25Parser
     /// <exception cref="ArgumentException">Thrown if the data is too short or malformed.</exception>
     public static AprsPacket ParseFrame(byte[] ax25Data)
     {
-        var (source, dest, infoBytes) = DecodeAx25(ax25Data);
+        var (source, dest, path, infoBytes) = DecodeAx25(ax25Data);
         var info = Encoding.ASCII.GetString(infoBytes);
-        return AprsInfoFieldParser.ParseInfoField(info, source, dest);
+        return AprsInfoFieldParser.ParseInfoField(info, source, dest, path);
     }
 
     // ---------------------------------------------------------------
     // AX.25 UI-frame decoder
     // ---------------------------------------------------------------
 
-    internal static (Callsign Source, Callsign Destination, byte[] Info) DecodeAx25(byte[] data)
+    internal static (Callsign Source, Callsign Destination, Callsign[] Path, byte[] Info) DecodeAx25(byte[] data)
     {
         if (data.Length < 15)
         {
@@ -45,6 +45,7 @@ public static class Ax25Parser
         // Walk through address fields to find where the control field starts.
         // Addresses are 7 bytes each; the last byte of each address has
         // bit 0 (the HDLC extension bit) = 1 for the final address in the list.
+        var path = new System.Collections.Generic.List<Callsign>();
         int addrEnd = 14;
         while (addrEnd < data.Length)
         {
@@ -53,6 +54,8 @@ public static class Ax25Parser
                 break;
             }
 
+            // There's another address (digipeater)
+            path.Add(DecodeAddress(data, addrEnd));
             addrEnd += 7;
         }
 
@@ -74,13 +77,13 @@ public static class Ax25Parser
         if (infoLength <= 0)
         {
             // Empty info field — return empty bytes
-            return (source, destination, []);
+            return (source, destination, [.. path], []);
         }
 
         var info = new byte[infoLength];
         Array.Copy(data, infoOffset, info, 0, infoLength);
 
-        return (source, destination, info);
+        return (source, destination, [.. path], info);
     }
 
     internal static Callsign DecodeAddress(byte[] data, int offset)

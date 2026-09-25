@@ -105,6 +105,36 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   Classes="Outline" />
         </StackPanel>
 
+        <!-- Beacon Settings Section -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc BeaconSettings}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc BeaconSettingsDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <StackPanel Spacing="12">
+            <TextBox Text="{Binding DefaultBeaconComment}"
+                     PlaceholderText="{loc:Loc DefaultBeaconCommentPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc DefaultBeaconComment}"
+                     UseFloatingPlaceholder="True"
+                     MaxLength="43" />
+
+            <TextBox Text="{Binding DigipeaterPath}"
+                     PlaceholderText="{loc:Loc DigipeaterPathPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc DigipeaterPath}"
+                     UseFloatingPlaceholder="True" />
+
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc DigipeaterPathDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                       Margin="0,-8,0,0" />
+          </StackPanel>
+        </StackPanel>
+
         <!-- Digipeater and Gating Section -->
         <StackPanel Spacing="16">
           <TextBlock Classes="SectionTitle"
@@ -123,6 +153,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
             <CheckBox Content="{loc:Loc InsertStationCallsignInPath}"
                       IsChecked="{Binding DigipeaterInsertCallsign}"
+                      IsEnabled="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center"
+                      Margin="24,0,0,0" />
+
+            <CheckBox Content="{loc:Loc RespondToWide1}"
+                      IsChecked="{Binding DigipeaterRespondToWide1}"
+                      IsEnabled="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center"
+                      Margin="24,0,0,0" />
+
+            <CheckBox Content="{loc:Loc RespondToWide2}"
+                      IsChecked="{Binding DigipeaterRespondToWide2}"
                       IsEnabled="{Binding EnableDigipeater}"
                       MinHeight="48"
                       VerticalContentAlignment="Center"

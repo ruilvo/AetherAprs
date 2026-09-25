@@ -25,11 +25,17 @@ public sealed class SavedDataPersistenceTests
     public void BeaconServicePersistsActiveModeAndConfiguration()
     {
         using var db = TempAppDatabase.Create();
-        var service = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
+        var configuration = Substitute.For<IConfigurationService>();
+        configuration.Settings.Returns(new AppSettings
+        {
+            Aprs = new AprsSettings { Callsign = "N0CALL" }
+        });
+        
+        var service = new BeaconService(db.Factory, configuration, Substitute.For<ILogger<BeaconService>>());
         service.UpdateConfiguration(BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 });
         service.SetActiveMode(DynamicBeaconMode.Drive);
 
-        var reloaded = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
+        var reloaded = new BeaconService(db.Factory, configuration, Substitute.For<ILogger<BeaconService>>());
         Assert.Equal(DynamicBeaconMode.Drive, reloaded.CurrentConfiguration.Mode);
         Assert.Equal(1111, reloaded.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk).SlowIntervalSeconds);
     }
