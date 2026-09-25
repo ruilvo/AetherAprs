@@ -6,9 +6,9 @@ using Avalonia.Controls;
 
 namespace AetherAprs.Views.Pages;
 
-public partial class SettingsView : UserControl
+public partial class ConversationPage : UserControl
 {
-    public SettingsView()
+    public ConversationPage()
     {
         InitializeComponent();
     }

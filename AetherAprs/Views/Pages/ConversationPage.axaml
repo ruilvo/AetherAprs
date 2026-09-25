@@ -13,21 +13,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Pages.ConversationView"
+             x:Class="AetherAprs.Views.Pages.ConversationPage"
              x:DataType="vm:ConversationViewModel"
              d:DataContext="{x:Static local:DesignData.ConversationViewModel}">
 
   <Grid RowDefinitions="Auto,*,Auto,Auto">
-    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
-      <TextBlock Text="{Binding Title}"
-                 Classes="Headline5"
-                 FontWeight="Bold" />
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}" Classes="PageTitle" />
 
       <TextBox Text="{Binding DestinationCallsign}"
                IsEnabled="{Binding IsDestinationEditable}"
                PlaceholderText="{loc:Loc DestinationCallsignPlaceholder}"
                wpf:TextFieldAssist.Label="{loc:Loc To}"
-               UseFloatingPlaceholder="True" />
+               UseFloatingPlaceholder="True"
+               Margin="0,8,0,0" />
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" Margin="16">

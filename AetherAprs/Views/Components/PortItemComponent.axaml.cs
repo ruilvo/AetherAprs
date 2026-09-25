@@ -4,11 +4,11 @@
 
 using Avalonia.Controls;
 
-namespace AetherAprs.Views.Pages;
+namespace AetherAprs.Views.Components;
 
-public partial class AddEditPortView : UserControl
+public partial class PortItemComponent : UserControl
 {
-    public AddEditPortView()
+    public PortItemComponent()
     {
         InitializeComponent();
     }

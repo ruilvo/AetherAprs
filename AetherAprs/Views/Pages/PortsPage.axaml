@@ -15,28 +15,25 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Pages.PortsView"
+             x:Class="AetherAprs.Views.Pages.PortsPage"
              x:DataType="vm:PortsViewModel"
              d:DataContext="{x:Static local:DesignData.PortsViewModel}">
 
   <Grid RowDefinitions="Auto,*">
     <!-- Header -->
-    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
-      <TextBlock Text="{Binding Title}"
-                 Classes="Headline5"
-                 FontWeight="Bold" />
-      <TextBlock Text="{loc:Loc ManageYourAprsPorts}"
-                 Classes="Body2"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}" Classes="PageTitle" />
+      <TextBlock Text="{loc:Loc ManageYourAprsPorts}" Classes="PageSubtitle" />
     </StackPanel>
 
     <!-- Port list or empty state -->
-    <ScrollViewer Grid.Row="1" Margin="16,16,16,80">
-      <ItemsControl ItemsSource="{Binding PortItems}" HorizontalAlignment="Stretch">
+    <ScrollViewer Grid.Row="1" Classes="PageContent">
+      <ItemsControl ItemsSource="{Binding PortItems}" 
+                    Classes="CardList"
+                    Margin="16,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <StackPanel Spacing="12" />
+            <StackPanel Spacing="8" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>

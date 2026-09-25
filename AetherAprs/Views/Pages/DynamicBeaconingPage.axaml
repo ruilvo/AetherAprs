@@ -15,7 +15,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:assists="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="1000"
-             x:Class="AetherAprs.Views.Pages.DynamicBeaconingView"
+             x:Class="AetherAprs.Views.Pages.DynamicBeaconingPage"
              x:DataType="vm:DynamicBeaconingViewModel"
              d:DataContext="{x:Static local:DesignData.DynamicBeaconingViewModel}">
   <UserControl.Styles>
@@ -30,25 +30,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
   </UserControl.Styles>
 
   <Grid RowDefinitions="*,Auto">
-    <ScrollViewer Grid.Row="0">
-      <StackPanel Spacing="24" Margin="16,16,16,16" MaxWidth="700">
+    <ScrollViewer Grid.Row="0" Classes="PageContent">
+      <StackPanel Classes="SettingsContainer">
 
         <!-- Header -->
-        <StackPanel Spacing="8">
-          <TextBlock Classes="Headline5"
-                     Text="{loc:Loc DynamicBeaconing}"
-                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
-          <TextBlock Classes="Body2"
-                     Text="{loc:Loc DynamicBeaconingDescriptionLong}"
-                     TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+        <StackPanel Classes="PageHeader">
+          <TextBlock Classes="PageTitle"
+                     Text="{loc:Loc DynamicBeaconing}" />
+          <TextBlock Classes="PageSubtitle"
+                     Text="{loc:Loc DynamicBeaconingDescriptionLong}" />
         </StackPanel>
 
         <!-- Active Mode Selection -->
         <StackPanel Spacing="12">
-          <TextBlock Classes="Subtitle2"
-                     Text="{loc:Loc ActiveBeaconMode}"
-                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc ActiveBeaconMode}" />
 
           <ComboBox Theme="{StaticResource MaterialOutlineComboBox}"
                     assists:ComboBoxAssist.Label="{loc:Loc Mode}"
@@ -65,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </StackPanel>
 
         <!-- Walk Configuration -->
-        <controls:Card Padding="16">
+        <controls:Card Classes="StandardCard">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
                     <TextBlock Classes="Subtitle1" Text="{loc:Loc WalkMode}" VerticalAlignment="Center" />
@@ -179,7 +175,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </controls:Card>
 
         <!-- Drive Configuration -->
-        <controls:Card Padding="16">
+        <controls:Card Classes="StandardCard">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
                     <TextBlock Classes="Subtitle1" Text="{loc:Loc DriveMode}" VerticalAlignment="Center" />
@@ -293,7 +289,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </controls:Card>
 
         <!-- Custom Configuration -->
-        <controls:Card Padding="16">
+        <controls:Card Classes="StandardCard">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
                     <TextBlock Classes="Subtitle1" Text="{loc:Loc CustomMode}" VerticalAlignment="Center" />

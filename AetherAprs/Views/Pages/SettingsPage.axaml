@@ -16,7 +16,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Pages.SettingsView"
+             x:Class="AetherAprs.Views.Pages.SettingsPage"
              x:DataType="vm:SettingsViewModel"
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
   <UserControl.Styles>
@@ -27,14 +27,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   </UserControl.Styles>
 
   <Grid>
-    <ScrollViewer>
-      <StackPanel Spacing="24" Margin="16,16,16,80" MaxWidth="600">
+    <ScrollViewer Classes="PageContent">
+      <StackPanel Classes="SettingsContainer">
 
         <!-- Station Section -->
         <StackPanel Spacing="16">
-          <TextBlock Classes="Headline5"
-                     Text="{loc:Loc StationSettings}"
-                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc StationSettings}" />
 
           <TextBlock Classes="Body2"
                      Text="{loc:Loc StationSettingsDescription}"
@@ -56,16 +55,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc DefaultSsidLabel}"
                      UseFloatingPlaceholder="True" />
 
-            <components:AprsSymbolPickerView
+            <components:AprsSymbolPickerComponent
               DataContext="{Binding SymbolPicker}" />
           </StackPanel>
         </StackPanel>
 
-        <!-- Placeholder for future settings sections -->
+        <!-- Dynamic Beaconing Section -->
         <StackPanel Spacing="16">
-          <TextBlock Classes="Headline5"
-                     Text="{loc:Loc DynamicBeaconing}"
-                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc DynamicBeaconing}" />
 
           <TextBlock Classes="Body2"
                      Text="{loc:Loc DynamicBeaconingDescription}"

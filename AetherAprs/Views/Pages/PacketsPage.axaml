@@ -1,0 +1,85 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.PacketsPage"
+             x:DataType="vm:PacketsViewModel"
+             d:DataContext="{x:Static local:DesignData.PacketsViewModel}">
+
+  <Grid RowDefinitions="Auto,*">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}" Classes="PageTitle" />
+    </StackPanel>
+
+    <!-- Content -->
+    <ScrollViewer Grid.Row="1" Classes="PageContent">
+      <StackPanel Classes="PageContainer">
+        <!-- Loading indicator -->
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     Margin="0,8" />
+
+        <!-- Packet cards -->
+        <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:PacketSummary">
+              <controls:Card Classes="ClickableCard">
+                <Button Command="{Binding $parent[UserControl].((vm:PacketsViewModel)DataContext).OpenPacketDetailsCommand}"
+                        CommandParameter="{Binding}">
+                  <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                    <!-- Callsign -->
+                    <TextBlock Grid.Row="0" Grid.Column="0"
+                               Text="{Binding Source}"
+                               Classes="Subtitle1"
+                               FontWeight="Bold" />
+
+                    <!-- Packet type badge -->
+                    <Border Grid.Row="0" Grid.Column="1" Classes="TypeBadge">
+                      <TextBlock Text="{Binding PacketType}" />
+                    </Border>
+
+                    <!-- Preview -->
+                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                               Text="{Binding Preview}"
+                               Classes="Body2"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               Opacity="0.7" />
+
+                    <!-- Timestamp -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                               Text="{Binding ReceivedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                               Classes="Caption"
+                               Margin="0,4,0,0"
+                               Opacity="0.5" />
+                  </Grid>
+                </Button>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Empty state -->
+        <TextBlock Text="No packets received yet"
+                   Classes="EmptyState"
+                   IsVisible="{Binding !Packets.Count}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>

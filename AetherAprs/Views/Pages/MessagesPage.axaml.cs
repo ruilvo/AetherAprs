@@ -6,9 +6,9 @@ using Avalonia.Controls;
 
 namespace AetherAprs.Views.Pages;
 
-public partial class MessagesView : UserControl
+public partial class MessagesPage : UserControl
 {
-    public MessagesView()
+    public MessagesPage()
     {
         InitializeComponent();
     }

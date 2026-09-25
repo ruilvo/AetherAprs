@@ -1,0 +1,62 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles">
+
+  <!-- Standard card with consistent padding -->
+  <Style Selector="controls|Card.StandardCard">
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
+  <!-- Clickable card (using Card with button inside) -->
+  <Style Selector="controls|Card.ClickableCard">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+
+  <!-- Button inside clickable card -->
+  <Style Selector="controls|Card.ClickableCard > Button">
+    <Setter Property="Theme" Value="{StaticResource MaterialFlatButton}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+
+  <!-- List of cards spacing -->
+  <Style Selector="ItemsControl.CardList > ItemsControl.ItemsPanel > StackPanel">
+    <Setter Property="Spacing" Value="8" />
+  </Style>
+
+  <!-- Badge style for type indicators -->
+  <Style Selector="Border.TypeBadge">
+    <Setter Property="Background" Value="{DynamicResource MaterialPrimaryLightBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Border.TypeBadge > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource MaterialPrimaryForegroundBrush}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <!-- Primary badge (for important info like port type) -->
+  <Style Selector="Border.PrimaryBadge">
+    <Setter Property="Background" Value="{DynamicResource MaterialPrimaryBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Border.PrimaryBadge > TextBlock">
+    <Setter Property="Foreground" Value="White" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+</Styles>

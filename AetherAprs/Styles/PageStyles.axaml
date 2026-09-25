@@ -1,0 +1,62 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Page container - consistent margins and max width -->
+  <Style Selector="StackPanel.PageContainer">
+    <Setter Property="Margin" Value="16" />
+    <Setter Property="Spacing" Value="16" />
+  </Style>
+
+  <!-- Page header with title and optional subtitle -->
+  <Style Selector="StackPanel.PageHeader">
+    <Setter Property="Spacing" Value="8" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+  </Style>
+
+  <!-- Page title text -->
+  <Style Selector="TextBlock.PageTitle">
+    <Setter Property="FontSize" Value="24" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+
+  <!-- Page subtitle/description text -->
+  <Style Selector="TextBlock.PageSubtitle">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="{DynamicResource MaterialSecondaryBodyBrush}" />
+  </Style>
+
+  <!-- Content area with bottom padding for FAB -->
+  <Style Selector="ScrollViewer.PageContent">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="0,0,0,80" />
+  </Style>
+
+  <!-- Settings page specific - narrower content -->
+  <Style Selector="StackPanel.SettingsContainer">
+    <Setter Property="Margin" Value="16" />
+    <Setter Property="Spacing" Value="24" />
+    <Setter Property="MaxWidth" Value="600" />
+  </Style>
+
+  <!-- Section header in settings/forms -->
+  <Style Selector="TextBlock.SectionTitle">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="Foreground" Value="{DynamicResource MaterialPrimaryBrush}" />
+  </Style>
+
+  <!-- Empty state text -->
+  <Style Selector="TextBlock.EmptyState">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="Margin" Value="32" />
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+</Styles>

@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Pages.HomeView"
+             x:Class="AetherAprs.Views.Pages.HomePage"
              x:DataType="vm:HomeViewModel"
              d:DataContext="{x:Static local:DesignData.HomeViewModel}">
 

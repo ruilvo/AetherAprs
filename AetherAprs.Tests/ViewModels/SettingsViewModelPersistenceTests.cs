@@ -106,7 +106,9 @@ public sealed class SettingsViewModelPersistenceTests
         public ViewModelBase? CurrentViewModel { get; private set; }
         public event EventHandler<ViewModelBase?>? CurrentViewModelChanged;
         public bool CanGoBack => false;
+#pragma warning disable CS0067 // Event is never used - required by interface
         public event EventHandler? RequestAppExit;
+#pragma warning restore CS0067
 
         public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase
         {

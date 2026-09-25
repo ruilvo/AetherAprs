@@ -11,10 +11,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="100"
-             x:Class="AetherAprs.Views.Components.PortItemView"
+             x:Class="AetherAprs.Views.Components.PortItemComponent"
              x:DataType="vm:PortItemViewModel">
   
-  <controls:Card Padding="16" Margin="0" HorizontalAlignment="Stretch">
+  <controls:Card Classes="StandardCard" HorizontalAlignment="Stretch">
     <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
       <!-- Clickable area for edit -->
       <Button Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
@@ -36,15 +36,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
       </Button>
 
       <!-- Type badge -->
-      <Border Grid.Row="0" Grid.Column="1"
-              Background="{DynamicResource MaterialPrimaryBrush}"
-              CornerRadius="4"
-              Padding="8,4"
-              VerticalAlignment="Top">
-        <TextBlock Text="{Binding TypeName}"
-                   Classes="Caption"
-                   Foreground="White"
-                   TextAlignment="Center" />
+      <Border Grid.Row="0" Grid.Column="1" Classes="PrimaryBadge">
+        <TextBlock Text="{Binding TypeName}" />
       </Border>
 
       <!-- Toggle switch (make it accessible with min height) -->

@@ -23,19 +23,19 @@ public class ViewLocator : IDataTemplate
         return param switch
         {
             MainViewModel => new MainView(),
-            HomeViewModel => new HomeView(),
-            MessagesViewModel => new MessagesView(),
-            PacketsViewModel => new PacketsView(),
-            PortsViewModel => new PortsView(),
-            SettingsViewModel => new SettingsView(),
-            DynamicBeaconingViewModel => new DynamicBeaconingView(),
-            AddEditPortViewModel => new AddEditPortView(),
-            ConversationViewModel => new ConversationView(),
-            PacketDetailsViewModel => new PacketDetailsView(),
-            PortItemViewModel => new PortItemView(),
-            BeaconTransmissionViewModel => new BeaconTransmissionView(),
-            LocationTrackingViewModel => new LocationTrackingView(),
-            SymbolSelectorViewModel => new SymbolSelectorView(),
+            HomeViewModel => new HomePage(),
+            MessagesViewModel => new MessagesPage(),
+            PacketsViewModel => new PacketsPage(),
+            PortsViewModel => new PortsPage(),
+            SettingsViewModel => new SettingsPage(),
+            DynamicBeaconingViewModel => new DynamicBeaconingPage(),
+            AddEditPortViewModel => new AddEditPortPage(),
+            ConversationViewModel => new ConversationPage(),
+            PacketDetailsViewModel => new PacketDetailsPage(),
+            PortItemViewModel => new PortItemComponent(),
+            BeaconTransmissionViewModel => new BeaconTransmissionComponent(),
+            LocationTrackingViewModel => new LocationTrackingComponent(),
+            SymbolSelectorViewModel => new SymbolSelectorComponent(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

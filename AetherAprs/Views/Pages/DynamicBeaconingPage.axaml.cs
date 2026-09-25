@@ -8,9 +8,9 @@ using AetherAprs.ViewModels.Pages;
 
 namespace AetherAprs.Views.Pages;
 
-public partial class DynamicBeaconingView : UserControl
+public partial class DynamicBeaconingPage : UserControl
 {
-    public DynamicBeaconingView()
+    public DynamicBeaconingPage()
     {
         InitializeComponent();
         KeyDown += OnKeyDown;

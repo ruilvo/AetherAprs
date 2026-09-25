@@ -10,16 +10,16 @@ using System;
 
 namespace AetherAprs.Views.Components;
 
-public partial class AprsSymbolPickerView : UserControl
+public partial class AprsSymbolPickerComponent : UserControl
 {
     public static readonly StyledProperty<string> TableCharacterProperty =
-        AvaloniaProperty.Register<AprsSymbolPickerView, string>(nameof(TableCharacter), "/");
+        AvaloniaProperty.Register<AprsSymbolPickerComponent, string>(nameof(TableCharacter), "/");
 
     public static readonly StyledProperty<string> CodeCharacterProperty =
-        AvaloniaProperty.Register<AprsSymbolPickerView, string>(nameof(CodeCharacter), "[");
+        AvaloniaProperty.Register<AprsSymbolPickerComponent, string>(nameof(CodeCharacter), "[");
 
     public static readonly StyledProperty<string?> OverlayCharacterProperty =
-        AvaloniaProperty.Register<AprsSymbolPickerView, string?>(nameof(OverlayCharacter));
+        AvaloniaProperty.Register<AprsSymbolPickerComponent, string?>(nameof(OverlayCharacter));
 
     private AprsSymbolPickerViewModel? _currentViewModel;
 
@@ -41,7 +41,7 @@ public partial class AprsSymbolPickerView : UserControl
         set => SetValue(OverlayCharacterProperty, value);
     }
 
-    public AprsSymbolPickerView()
+    public AprsSymbolPickerComponent()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
@@ -109,7 +109,7 @@ public partial class AprsSymbolPickerView : UserControl
             }
 
             var selectorViewModel = viewModel.SymbolSelectorViewModel;
-            var view = new SymbolSelectorView { DataContext = selectorViewModel };
+            var view = new SymbolSelectorComponent { DataContext = selectorViewModel };
 
             // Subscribe to symbol selected event to close dialog
             static void OnSymbolSelected(object? s, EventArgs args)
@@ -152,7 +152,7 @@ public partial class AprsSymbolPickerView : UserControl
             }
 
             var selectorViewModel = viewModel.OverlaySelectorViewModel;
-            var view = new SymbolSelectorView { DataContext = selectorViewModel };
+            var view = new SymbolSelectorComponent { DataContext = selectorViewModel };
 
             // Subscribe to symbol selected event to close dialog
             static void OnSymbolSelected(object? s, EventArgs args)

@@ -16,7 +16,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
               xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="900"
-             x:Class="AetherAprs.Views.Pages.AddEditPortView"
+             x:Class="AetherAprs.Views.Pages.AddEditPortPage"
              x:DataType="vm:AddEditPortViewModel"
              d:DataContext="{x:Static local:DesignData.AddEditPortViewModel}">
 

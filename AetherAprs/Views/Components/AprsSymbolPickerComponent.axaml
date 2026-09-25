@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels.Components"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
-             x:Class="AetherAprs.Views.Components.AprsSymbolPickerView"
+             x:Class="AetherAprs.Views.Components.AprsSymbolPickerComponent"
              x:DataType="vm:AprsSymbolPickerViewModel"
              x:Name="Root">
     <StackPanel Spacing="8">

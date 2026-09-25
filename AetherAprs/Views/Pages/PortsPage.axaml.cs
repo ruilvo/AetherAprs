@@ -1,14 +1,14 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using Avalonia.Controls;
 
-namespace AetherAprs.Views.Components;
+namespace AetherAprs.Views.Pages;
 
-public partial class PortItemView : UserControl
+public partial class PortsPage : UserControl
 {
-    public PortItemView()
+    public PortsPage()
     {
         InitializeComponent();
     }

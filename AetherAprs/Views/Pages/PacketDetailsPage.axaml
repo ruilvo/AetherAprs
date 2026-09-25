@@ -12,7 +12,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Pages.PacketDetailsView"
+             x:Class="AetherAprs.Views.Pages.PacketDetailsPage"
              x:DataType="vm:PacketDetailsViewModel"
              d:DataContext="{x:Static local:DesignData.PacketDetailsViewModel}">
 

@@ -231,7 +231,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
 
     /// <summary>
     /// Reports dialog errors from the View to the ViewModel for logging.
-    /// Called by AprsSymbolPickerView when dialog operations fail.
+    /// Called by AprsSymbolPickerComponent when dialog operations fail.
     /// </summary>
     public void ReportDialogError(string operation, Exception exception)
     {

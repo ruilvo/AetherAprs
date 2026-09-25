@@ -14,23 +14,22 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
-             x:Class="AetherAprs.Views.Pages.MessagesView"
+             x:Class="AetherAprs.Views.Pages.MessagesPage"
              x:DataType="vm:MessagesViewModel"
              d:DataContext="{x:Static local:DesignData.MessagesViewModel}">
 
   <Grid RowDefinitions="Auto,*">
-    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
-      <TextBlock Text="{Binding Title}"
-                 Classes="Headline5"
-                 FontWeight="Bold" />
-      <TextBlock Text="{loc:Loc AprsMessageConversations}"
-                 Classes="Body2"
-                 TextWrapping="Wrap"
-                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}" Classes="PageTitle" />
+      <TextBlock Text="{loc:Loc AprsMessageConversations}" Classes="PageSubtitle" />
     </StackPanel>
 
-    <ScrollViewer Grid.Row="1" Margin="16,16,16,80">
-      <ItemsControl ItemsSource="{Binding Conversations}" x:Name="ConversationsList">
+    <ScrollViewer Grid.Row="1" Classes="PageContent">
+      <ItemsControl ItemsSource="{Binding Conversations}" 
+                    x:Name="ConversationsList"
+                    Classes="CardList"
+                    Margin="16,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <StackPanel Spacing="8" />
@@ -38,12 +37,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="messaging:ConversationThread">
-            <controls:Card Padding="0">
-              <Button Classes="Flat"
-                      HorizontalAlignment="Stretch"
-                      HorizontalContentAlignment="Stretch"
-                      Padding="16"
-                      Command="{Binding $parent[UserControl].((vm:MessagesViewModel)DataContext).OpenConversationCommand}"
+            <controls:Card Classes="ClickableCard">
+              <Button Command="{Binding $parent[UserControl].((vm:MessagesViewModel)DataContext).OpenConversationCommand}"
                       CommandParameter="{Binding}">
                 <StackPanel Spacing="4">
                   <TextBlock Text="{Binding PeerDisplay}"

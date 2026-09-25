@@ -6,9 +6,9 @@ using Avalonia.Controls;
 
 namespace AetherAprs.Views.Components;
 
-public partial class LocationTrackingView : UserControl
+public partial class BeaconTransmissionComponent : UserControl
 {
-    public LocationTrackingView()
+    public BeaconTransmissionComponent()
     {
         InitializeComponent();
     }

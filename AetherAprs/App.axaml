@@ -19,5 +19,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <themes:MaterialTheme BaseTheme="Light" PrimaryColor="Green" SecondaryColor="LightBlue" />
         <dialogHost:DialogHostStyles />
         <materialIcons:MaterialIconStyles />
+        <StyleInclude Source="/Styles/PageStyles.axaml" />
+        <StyleInclude Source="/Styles/CardStyles.axaml" />
     </Application.Styles>
 </Application>

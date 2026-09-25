@@ -4,11 +4,11 @@
 
 using Avalonia.Controls;
 
-namespace AetherAprs.Views.Pages;
+namespace AetherAprs.Views.Components;
 
-public partial class PacketDetailsView : UserControl
+public partial class SymbolSelectorComponent : UserControl
 {
-    public PacketDetailsView()
+    public SymbolSelectorComponent()
     {
         InitializeComponent();
     }

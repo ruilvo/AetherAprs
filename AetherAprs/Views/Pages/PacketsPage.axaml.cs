@@ -6,9 +6,9 @@ using Avalonia.Controls;
 
 namespace AetherAprs.Views.Pages;
 
-public partial class PacketsView : UserControl
+public partial class PacketsPage : UserControl
 {
-    public PacketsView()
+    public PacketsPage()
     {
         InitializeComponent();
     }

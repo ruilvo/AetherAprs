@@ -14,7 +14,7 @@ using Mapsui.Tiling;
 
 namespace AetherAprs.Views.Pages;
 
-public partial class HomeView : UserControl
+public partial class HomePage : UserControl
 {
     // OSM requires an identifiable User-Agent; generic defaults get blocked.
     private const string OsmUserAgent =
@@ -22,7 +22,7 @@ public partial class HomeView : UserControl
 
     private HomeViewModel? _currentViewModel;
 
-    public HomeView()
+    public HomePage()
     {
         InitializeComponent();
         InitializeMap();
