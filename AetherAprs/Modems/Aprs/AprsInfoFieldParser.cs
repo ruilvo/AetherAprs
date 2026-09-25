@@ -4,7 +4,9 @@
 
 using AetherAprs.Models.Aprs;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 namespace AetherAprs.Modems.Aprs;
 
@@ -47,6 +49,11 @@ public static class AprsInfoFieldParser
             ':' => ParseMessage(info, source, destination),
             '>' => ParseStatus(info, source, destination),
             '_' => ParseWeather(info, source, destination),
+            '<' => ParseCapabilities(info, source, destination),
+            'T' => info.Length > 1 && info[1] == '#' 
+                ? ParseTelemetry(info, source, destination) 
+                : new UnknownPacket { Source = source, Destination = destination, Raw = info },
+            '\'' or '`' => ParseMicE(info, source, destination),
             _ => new UnknownPacket
             {
                 Source = source,
@@ -105,7 +112,8 @@ public static class AprsInfoFieldParser
         // Parse the separator between lat and lon.
         // '/' = primary table (no overlay)
         // '\' = alternate table (no overlay)
-        // Otherwise: overlay character, read the actual table from the next char
+        // Otherwise: overlay character, optionally followed by table indicator
+        // If only overlay with no table indicator, assume alternate table
 
         SymbolTable symbolTable;
         char? overlay = null;
@@ -127,7 +135,7 @@ public static class AprsInfoFieldParser
         }
         else
         {
-            // Overlay character before the table indicator
+            // Overlay character before the table indicator (or longitude if no explicit table)
             overlay = info[pos];
             pos++;
 
@@ -136,6 +144,7 @@ public static class AprsInfoFieldParser
                 return AsUnknown(info, source, dest);
             }
 
+            // Check if next char is explicit table indicator
             if (info[pos] == '/')
             {
                 symbolTable = SymbolTable.Primary;
@@ -148,7 +157,10 @@ public static class AprsInfoFieldParser
             }
             else
             {
-                return AsUnknown(info, source, dest);
+                // No explicit table indicator - longitude starts here
+                // Overlay without explicit table implies alternate table
+                symbolTable = SymbolTable.Alternate;
+                // Don't increment pos - longitude parsing starts at current position
             }
         }
 
@@ -670,6 +682,276 @@ public static class AprsInfoFieldParser
             'r' => w with { Rain1h = value },
             'p' => w with { Rain24h = value },
             _ => w
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // MIC-E parser
+    // ---------------------------------------------------------------
+
+    private static AprsPacket ParseMicE(string info, Callsign source, Callsign dest)
+    {
+        // MIC-E format: '`<longitude><speed/course><symbol table><symbol code><altitude?>
+        // or '<longitude><speed/course><symbol table><symbol code><altitude?>
+        // Latitude is encoded in the destination address
+        
+        if (info.Length < 9)
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        // Decode latitude from destination address
+        if (!TryDecodeMicELatitude(dest.Base, out double latitude, out bool isNorth, out int offset))
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        int pos = 1; // Skip data type indicator (' or `)
+
+        // Decode longitude (3 bytes)
+        if (pos + 3 > info.Length)
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        int lonDeg = info[pos] - 28 + offset;
+        if (lonDeg >= 180 && lonDeg <= 189)
+        {
+            lonDeg -= 80;
+        }
+        else if (lonDeg >= 190 && lonDeg <= 199)
+        {
+            lonDeg -= 190;
+        }
+
+        int lonMin = info[pos + 1] - 28;
+        if (lonMin >= 60)
+        {
+            lonMin -= 60;
+        }
+
+        int lonHundredths = info[pos + 2] - 28;
+        pos += 3;
+
+        double longitude = lonDeg + (lonMin + lonHundredths / 100.0) / 60.0;
+
+        // Determine if longitude is West (message bit in dest address)
+        bool isWest = (dest.Base[3] >= 'P');
+        if (isWest)
+        {
+            longitude = -longitude;
+        }
+
+        // Decode speed and course (3 bytes)
+        if (pos + 3 > info.Length)
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        int sp = info[pos] - 28;
+        int dc = info[pos + 1] - 28;
+        int se = info[pos + 2] - 28;
+        pos += 3;
+
+        double? speed = null;
+        double? course = null;
+
+        int speedVal = (sp * 10) + (dc / 10);
+        if (speedVal >= 0 && speedVal <= 799)
+        {
+            speed = speedVal * 1.852; // Convert knots to km/h (APRS typically uses knots)
+        }
+
+        int courseVal = ((dc % 10) * 100) + se;
+        if (courseVal >= 0 && courseVal <= 360)
+        {
+            course = courseVal == 0 ? 360 : courseVal;
+        }
+
+        // Symbol table and code
+        if (pos + 2 > info.Length)
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        char symbolTableChar = info[pos];
+        char symbolCodeChar = info[pos + 1];
+        pos += 2;
+
+        SymbolTable symbolTable = symbolTableChar == '/' ? SymbolTable.Primary : SymbolTable.Alternate;
+        SymbolCode symbolCode = symbolCodeChar.ToSymbolCode();
+
+        // Optional altitude and comment
+        string? comment = null;
+        double? altitude = null;
+
+        if (pos < info.Length)
+        {
+            comment = info[pos..];
+
+            // Try to extract altitude from comment (format: }xxxyyy where xxx is base-91 altitude)
+            if (comment.Length >= 6 && comment[0] == '}')
+            {
+                var altSpan = comment.AsSpan(1, 3);
+                if (TryDecodeBase91(altSpan, out int altFeet))
+                {
+                    altitude = altFeet - 10000; // MIC-E altitude offset
+                }
+            }
+        }
+
+        return new PositionPacket
+        {
+            Source = source,
+            Destination = dest,
+            Raw = info,
+            Latitude = latitude,
+            Longitude = longitude,
+            Symbol = new Symbol(symbolTable, symbolCode, null),
+            Comment = comment,
+            Precision = 2, // MIC-E provides ~2 decimal places
+            Course = course,
+            Speed = speed,
+            Altitude = altitude,
+            Timestamp = null
+        };
+    }
+
+    private static bool TryDecodeMicELatitude(string destAddress, out double latitude, out bool isNorth, out int offset)
+    {
+        latitude = 0;
+        isNorth = true;
+        offset = 0;
+
+        if (destAddress.Length < 6)
+        {
+            return false;
+        }
+
+        // MIC-E latitude encoding in destination address (6 characters)
+        // Each character encodes a digit and metadata bits
+        var digits = new int[6];
+        
+        for (int i = 0; i < 6; i++)
+        {
+            char c = destAddress[i];
+            
+            if (c >= '0' && c <= '9')
+            {
+                digits[i] = c - '0';
+            }
+            else if (c >= 'A' && c <= 'J')
+            {
+                digits[i] = c - 'A';
+            }
+            else if (c >= 'P' && c <= 'Y')
+            {
+                digits[i] = c - 'P';
+            }
+            else if (c == 'K' || c == 'L' || c == 'Z')
+            {
+                digits[i] = 0; // Space
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        // Extract metadata from character ranges
+        // Character 4 (index 3) determines N/S
+        isNorth = destAddress[3] <= 'L';
+
+        // Character 5 (index 4) determines longitude offset
+        offset = (destAddress[4] >= 'P') ? 100 : 0;
+
+        // Build latitude: DD MM.HH
+        int degrees = digits[0] * 10 + digits[1];
+        int minutes = digits[2] * 10 + digits[3];
+        int hundredths = digits[4] * 10 + digits[5];
+
+        if (degrees > 90 || minutes >= 60 || hundredths >= 100)
+        {
+            return false;
+        }
+
+        latitude = degrees + (minutes + hundredths / 100.0) / 60.0;
+        
+        if (!isNorth)
+        {
+            latitude = -latitude;
+        }
+
+        return true;
+    }
+
+    // ---------------------------------------------------------------
+    // Capabilities parser
+    // ---------------------------------------------------------------
+
+    private static CapabilitiesPacket ParseCapabilities(string info, Callsign source, Callsign dest)
+    {
+        string text = info.Length > 1 ? info[1..] : string.Empty;
+
+        return new CapabilitiesPacket
+        {
+            Source = source,
+            Destination = dest,
+            Raw = info,
+            Text = text
+        };
+    }
+
+    // ---------------------------------------------------------------
+    // Telemetry parser
+    // ---------------------------------------------------------------
+
+    private static AprsPacket ParseTelemetry(string info, Callsign source, Callsign dest)
+    {
+        // Format: T#nnn,v1,v2,v3,v4,v5,bbbbbbbb
+        if (info.Length < 3)
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        var parts = info[2..].Split(',');
+        if (parts.Length < 1)
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        if (!int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int seqNum))
+        {
+            return AsUnknown(info, source, dest);
+        }
+
+        var analogValues = new List<double>();
+        for (int i = 1; i < Math.Min(parts.Length, 6); i++)
+        {
+            if (double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+            {
+                analogValues.Add(value);
+            }
+        }
+
+        byte? digitalValue = null;
+        if (parts.Length > 6 && parts[6].Length > 0)
+        {
+            // Digital value is 8 bits, usually represented as binary string or hex
+            if (parts[6].Length == 8 && parts[6].All(c => c is '0' or '1'))
+            {
+                digitalValue = Convert.ToByte(parts[6], 2);
+            }
+        }
+
+        return new TelemetryPacket
+        {
+            Source = source,
+            Destination = dest,
+            Raw = info,
+            SequenceNumber = seqNum,
+            AnalogValues = analogValues,
+            DigitalValue = digitalValue
         };
     }
 

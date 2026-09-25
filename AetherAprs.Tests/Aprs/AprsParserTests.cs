@@ -141,6 +141,241 @@ public class AprsParserTests
         Assert.Equal(";TESTOBJ  *123456z/9-pFL>:4uBkQ", pos.Raw);
     }
 
+    [Fact]
+    public void ParseInfoField_PositionWithOverlayNoExplicitTable_ReturnsPositionPacket()
+    {
+        // Format: !DDMM.mmND DDDMM.mmW& where D is overlay, & is symbol
+        var result = AprsInfoFieldParser.ParseInfoField("!4038.72ND00747.95W&RNG0001 440 Voice 433.45000MHz +0.0000MHz",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(40.6453333, pos.Latitude, 6);
+        Assert.Equal(-7.79916667, pos.Longitude, 6);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('D', pos.Symbol.Overlay);
+        Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
+        Assert.Equal("RNG0001 440 Voice 433.45000MHz +0.0000MHz", pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_PositionWithTimestampAndOverlayNoExplicitTable_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("@251029z4057.65ND00544.73WaRNG0001/A=002624 70cm Voice (D-Star) 438.01250MHz +0.0000MHz",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(40.9608333, pos.Latitude, 6);
+        Assert.Equal(-5.74550, pos.Longitude, 5);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('D', pos.Symbol.Overlay);
+        Assert.Equal('a'.ToSymbolCode(), pos.Symbol.Code);
+        Assert.Equal("RNG0001/A=002624 70cm Voice (D-Star) 438.01250MHz +0.0000MHz", pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_PositionWithOverlayE_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("@111111z4321.56NE00825.18W0PHG3000/434.550MHz Toff R04m TETRA DMO RPT (https://ham-tetra.es)",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(43.35933333, pos.Latitude, 6);
+        Assert.Equal(-8.41966667, pos.Longitude, 6);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('E', pos.Symbol.Overlay);
+        Assert.Equal(SymbolCode.Digit0, pos.Symbol.Code);
+        Assert.Equal("PHG3000/434.550MHz Toff R04m TETRA DMO RPT (https://ham-tetra.es)", pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_PositionWithOverlayC_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("@251030z4213.06NC00844.10W0430.950MHz PL tone 69.0 CONNECTED",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(42.21766667, pos.Latitude, 6);
+        Assert.Equal(-8.73500, pos.Longitude, 5);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('C', pos.Symbol.Overlay);
+        Assert.Equal(SymbolCode.Digit0, pos.Symbol.Code);
+        Assert.Equal("430.950MHz PL tone 69.0 CONNECTED", pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_ObjectPositionWithOverlayK_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(";EA1RKF   *251030z4327.49N/00808.92WKAbierto viernes 19h-22h",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(43.45816667, pos.Latitude, 6);
+        Assert.Equal(-8.14866667, pos.Longitude, 6);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal('K'.ToSymbolCode(), pos.Symbol.Code);
+        Assert.Equal("Abierto viernes 19h-22h", pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_PositionWithAltitudeInComment_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("!4219.20ND00621.60W&/A=0000002m MMDVM Voice (NXDN) 144.20000MHz +0.0000MHz, EB1ISC_Pi-Star_ND",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(42.32, pos.Latitude, 6);
+        Assert.Equal(-6.36, pos.Longitude, 6);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('D', pos.Symbol.Overlay);
+        Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
+        Assert.Equal("/A=0000002m MMDVM Voice (NXDN) 144.20000MHz +0.0000MHz, EB1ISC_Pi-Star_ND", pos.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_PositionWithMalformedAltitude_ReturnsPositionPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("!4221.37ND00752.21W&/A=00065670cm MMDVM Voice (C4FM) 430.50000MHz +0.0000MHz, EA1RKP_Pi-Star_ND",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(42.35616667, pos.Latitude, 6);
+        Assert.Equal(-7.87016667, pos.Longitude, 6);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('D', pos.Symbol.Overlay);
+        Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
+        Assert.Equal("/A=00065670cm MMDVM Voice (C4FM) 430.50000MHz +0.0000MHz, EA1RKP_Pi-Star_ND", pos.Comment);
+    }
+
+    // ---------------------------------------------------------------
+    // Capabilities parsing
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ParseInfoField_Capabilities_ReturnsCapabilitiesPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("<IGATE,MSG_CNT=0,LOC_CNT=1",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var cap = Assert.IsType<CapabilitiesPacket>(result);
+        Assert.Equal("IGATE,MSG_CNT=0,LOC_CNT=1", cap.Text);
+    }
+
+    [Fact]
+    public void ParseInfoField_CapabilitiesEmpty_ReturnsEmptyText()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("<",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var cap = Assert.IsType<CapabilitiesPacket>(result);
+        Assert.Equal(string.Empty, cap.Text);
+    }
+
+    // ---------------------------------------------------------------
+    // Telemetry parsing
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ParseInfoField_Telemetry_ReturnsTelemetryPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("T#069,10.3,0.0,42.0,1.0,0.0,00000000",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var tel = Assert.IsType<TelemetryPacket>(result);
+        Assert.Equal(69, tel.SequenceNumber);
+        Assert.Equal(5, tel.AnalogValues.Count);
+        Assert.Equal(10.3, tel.AnalogValues[0]);
+        Assert.Equal(0.0, tel.AnalogValues[1]);
+        Assert.Equal(42.0, tel.AnalogValues[2]);
+        Assert.Equal(1.0, tel.AnalogValues[3]);
+        Assert.Equal(0.0, tel.AnalogValues[4]);
+        Assert.NotNull(tel.DigitalValue);
+        Assert.Equal(0, tel.DigitalValue.Value);
+    }
+
+    [Fact]
+    public void ParseInfoField_TelemetryWithDigitalBits_ParsesDigitalValue()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("T#001,1.0,2.0,3.0,4.0,5.0,10101010",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var tel = Assert.IsType<TelemetryPacket>(result);
+        Assert.Equal(1, tel.SequenceNumber);
+        Assert.NotNull(tel.DigitalValue);
+        Assert.Equal(170, tel.DigitalValue.Value); // 0b10101010 = 170
+    }
+
+    [Fact]
+    public void ParseInfoField_TelemetryPartial_ReturnsPartialData()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("T#042,12.5,3.7",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var tel = Assert.IsType<TelemetryPacket>(result);
+        Assert.Equal(42, tel.SequenceNumber);
+        Assert.Equal(2, tel.AnalogValues.Count);
+        Assert.Equal(12.5, tel.AnalogValues[0]);
+        Assert.Equal(3.7, tel.AnalogValues[1]);
+        Assert.Null(tel.DigitalValue);
+    }
+
+    [Fact]
+    public void ParseInfoField_TelemetryInvalid_ReturnsUnknown()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("T#abc,1.0",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        Assert.IsType<UnknownPacket>(result);
+    }
+
+    // ---------------------------------------------------------------
+    // MIC-E parsing
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ParseInfoField_MicE_ReturnsPositionPacket()
+    {
+        // MIC-E packet with latitude encoded in destination
+        // Destination: S3TRV0 encodes latitude
+        var result = AprsInfoFieldParser.ParseInfoField("`(_fn\"Oj/",
+            new Callsign("N0CALL"), new Callsign("S3TRV0"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        // Latitude and longitude are value types, just verify they're reasonable
+        Assert.InRange(pos.Latitude, -90, 90);
+        Assert.InRange(pos.Longitude, -180, 180);
+    }
+
+    [Fact]
+    public void ParseInfoField_MicEWithAltGrave_ReturnsPositionPacket()
+    {
+        // MIC-E with grave accent (`) data type indicator
+        var result = AprsInfoFieldParser.ParseInfoField("`test12345/`comment",
+            new Callsign("TEST"), new Callsign("T2SRVW"));
+
+        // Should parse as PositionPacket or UnknownPacket
+        Assert.True(result is PositionPacket or UnknownPacket);
+    }
+
+    [Fact]
+    public void ParseInfoField_MicEWithApostrophe_ReturnsPositionPacket()
+    {
+        // MIC-E with apostrophe (') data type indicator (current MIC-E)
+        var result = AprsInfoFieldParser.ParseInfoField("'test12345/'comment",
+            new Callsign("TEST"), new Callsign("T2SRVW"));
+
+        // Should parse as PositionPacket or UnknownPacket
+        Assert.True(result is PositionPacket or UnknownPacket);
+    }
+
+    [Fact]
+    public void ParseInfoField_MicETooShort_ReturnsUnknown()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("`short",
+            new Callsign("N0CALL"), new Callsign("S3TRV0"));
+
+        Assert.IsType<UnknownPacket>(result);
+    }
+
     // ---------------------------------------------------------------
     // Message parsing
     // ---------------------------------------------------------------

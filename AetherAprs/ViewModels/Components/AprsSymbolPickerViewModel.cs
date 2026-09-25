@@ -134,7 +134,8 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
 
             // Update base symbol preview (without overlay)
             var baseSymbol = new Symbol(table, code);
-            BaseSymbolPreview = CreatePreviewBitmap(_symbolBitmapProvider.GetSymbolBitmap(baseSymbol));
+            var baseBitmap = _symbolBitmapProvider.GetSymbolBitmap(baseSymbol);
+            BaseSymbolPreview = baseBitmap != null ? CreatePreviewBitmap(baseBitmap) : null;
 
             // Enable overlay only for Alternate table
             IsOverlayEnabled = table == SymbolTable.Alternate;
@@ -145,14 +146,17 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
                 try
                 {
                     var overlayCode = OverlayCharacter[0].ToSymbolCode();
-                    OverlayPreview = CreatePreviewBitmap(_symbolBitmapProvider.GetOverlayBitmap(overlayCode));
+                    var overlayBitmap = _symbolBitmapProvider.GetOverlayBitmap(overlayCode);
+                    OverlayPreview = overlayBitmap != null ? CreatePreviewBitmap(overlayBitmap) : null;
 
                     // Create final symbol with overlay
                     var finalSymbol = new Symbol(table, code, OverlayCharacter[0]);
-                    FinalSymbolPreview = CreatePreviewBitmap(_symbolBitmapProvider.GetSymbolBitmap(finalSymbol));
+                    var finalBitmap = _symbolBitmapProvider.GetSymbolBitmap(finalSymbol);
+                    FinalSymbolPreview = finalBitmap != null ? CreatePreviewBitmap(finalBitmap) : null;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger?.LogWarning(ex, "Failed to create overlay preview");
                     OverlayPreview = null;
                     FinalSymbolPreview = BaseSymbolPreview;
                 }
@@ -163,8 +167,9 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
                 FinalSymbolPreview = BaseSymbolPreview;
             }
         }
-        catch (ArgumentOutOfRangeException)
+        catch (Exception ex)
         {
+            _logger?.LogError(ex, "Failed to update symbol previews");
             BaseSymbolPreview = null;
             FinalSymbolPreview = null;
             OverlayPreview = null;
@@ -221,12 +226,25 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
         }
     }
 
-    private static Bitmap CreatePreviewBitmap(SKBitmap bitmap)
+    private static Bitmap? CreatePreviewBitmap(SKBitmap? bitmap)
     {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = new MemoryStream(data.ToArray());
-        return new Bitmap(stream);
+        if (bitmap == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = new MemoryStream(data.ToArray());
+            return new Bitmap(stream);
+        }
+        catch (InvalidOperationException)
+        {
+            // Avalonia platform not initialized (e.g., in tests)
+            return null;
+        }
     }
 
     /// <summary>
