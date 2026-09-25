@@ -19,6 +19,7 @@ namespace AetherAprs.Tests.ViewModels;
 public sealed class ReceivedBeaconsViewModelTests : IDisposable
 {
     private readonly IPortService _portService;
+    private readonly IPacketCacheService _packetCacheService;
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly ReceivedBeaconsViewModel _viewModel;
@@ -26,15 +27,17 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
     public ReceivedBeaconsViewModelTests()
     {
         _portService = Substitute.For<IPortService>();
+        _packetCacheService = Substitute.For<IPacketCacheService>();
         _symbolBitmapProvider = Substitute.For<IAprsSymbolBitmapProvider>();
         _logger = Substitute.For<ILogger<ReceivedBeaconsViewModel>>();
         
         _portService.Ports.Returns(new List<PortConfig>());
+        _packetCacheService.GetPositionPackets().Returns(new Dictionary<string, CachedPacket>());
         
         // Configure mock to return a valid bitmap
         _symbolBitmapProvider.GetSymbolBitmap(Arg.Any<Symbol>()).Returns(callInfo => new SkiaSharp.SKBitmap(64, 64));
         
-        _viewModel = new ReceivedBeaconsViewModel(_portService, _symbolBitmapProvider, _logger);
+        _viewModel = new ReceivedBeaconsViewModel(_portService, _packetCacheService, _symbolBitmapProvider, _logger);
     }
 
     [Fact]
@@ -67,11 +70,23 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus)
         };
 
-        // Act
-        _portService.PacketReceived += Raise.EventWith(new PortPacketReceivedEventArgs
+        var cachedPacket = new CachedPacket
         {
+            Packet = packet,
             PortId = portId,
-            Packet = packet
+            ReceivedAt = DateTimeOffset.UtcNow,
+            Source = "N0CALL-1"
+        };
+
+        _packetCacheService.GetPositionPackets().Returns(new Dictionary<string, CachedPacket>
+        {
+            ["N0CALL-1"] = cachedPacket
+        });
+
+        // Act
+        _packetCacheService.CacheUpdated += Raise.EventWith(new PacketCacheUpdatedEventArgs
+        {
+            UpdatedPacket = cachedPacket
         });
 
         // Assert

@@ -20,16 +20,16 @@ namespace AetherAprs.ViewModels;
 
 /// <summary>
 /// Manages the display of received APRS beacons on a Mapsui map layer.
-/// Subscribes to PortService packet events and updates features with APRS symbols.
-/// Port ShowOnMap is a visual filter only; history is retained while a port is hidden.
+/// Uses the shared PacketCacheService and updates features with APRS symbols.
+/// Port ShowOnMap is a visual filter only.
 /// </summary>
 public sealed class ReceivedBeaconsViewModel : IDisposable
 {
     private readonly IPortService _portService;
+    private readonly IPacketCacheService _packetCacheService;
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly WritableLayer _beaconsLayer;
-    private readonly Dictionary<(Guid PortId, string Callsign), BeaconHistoryEntry> _history = new();
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
     private bool _disposed;
 
@@ -41,10 +41,12 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
     public ReceivedBeaconsViewModel(
         IPortService portService,
+        IPacketCacheService packetCacheService,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
         ILogger<ReceivedBeaconsViewModel> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
+        _packetCacheService = packetCacheService ?? throw new ArgumentNullException(nameof(packetCacheService));
         _symbolConverter = new AprsSymbolMapConverter(
             symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -56,24 +58,23 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             Style = null
         };
 
-        _portService.PacketReceived += OnPortServicePacketReceived;
+        _packetCacheService.CacheUpdated += OnCacheUpdated;
         _portService.PortsChanged += OnPortsChanged;
     }
 
-    private void OnPortServicePacketReceived(object? sender, PortPacketReceivedEventArgs e)
+    private void OnCacheUpdated(object? sender, PacketCacheUpdatedEventArgs e)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (e.Packet is not PositionPacket positionPacket)
+        if (e.UpdatedPacket.Packet is not PositionPacket)
         {
             _logger.LogDebug(
-                "Ignoring non-position packet Type={PacketType} Raw={Raw}",
-                e.Packet.GetType().Name,
-                e.Packet.Raw);
+                "Ignoring non-position packet Type={PacketType}",
+                e.UpdatedPacket.Packet.GetType().Name);
             return;
         }
 
-        RunOnUi(() => UpsertHistoryAndRefresh(e.PortId, positionPacket));
+        RunOnUi(RebuildVisibleLayer);
     }
 
     private void OnPortsChanged(object? sender, EventArgs e)
@@ -94,35 +95,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         Dispatcher.UIThread.Post(action);
     }
 
-    private void UpsertHistoryAndRefresh(Guid portId, PositionPacket positionPacket)
-    {
-        var callsign = positionPacket.Source.ToString();
-        _history[(portId, callsign)] = new BeaconHistoryEntry
-        {
-            Packet = positionPacket,
-            ReceivedAt = DateTimeOffset.UtcNow
-        };
-
-        var port = _portService.Ports.FirstOrDefault(p => p.Id == portId);
-        if (port is { ShowOnMap: false })
-        {
-            _logger.LogDebug(
-                "ShowOnMap hides beacon for {Callsign} on port {PortId}; buffering in history.",
-                callsign,
-                portId);
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Adding/updating map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
-                callsign,
-                positionPacket.Latitude,
-                positionPacket.Longitude);
-        }
-
-        RebuildVisibleLayer();
-    }
-
     private void RebuildVisibleLayer()
     {
         var visiblePortIds = _portService.Ports
@@ -130,25 +102,29 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             .Select(p => p.Id)
             .ToHashSet();
 
-        // Drop history for ports that no longer exist.
-        var knownPortIds = _portService.Ports.Select(p => p.Id).ToHashSet();
-        foreach (var key in _history.Keys.Where(k => !knownPortIds.Contains(k.PortId)).ToArray())
-        {
-            _history.Remove(key);
-        }
+        // Get position packets from cache
+        var positionPackets = _packetCacheService.GetPositionPackets();
 
-        var latestByCallsign = _history
-            .Where(pair => visiblePortIds.Contains(pair.Key.PortId))
-            .GroupBy(pair => pair.Key.Callsign)
-            .Select(group => group.OrderByDescending(pair => pair.Value.ReceivedAt).First())
+        // Filter by visible ports
+        var visiblePackets = positionPackets.Values
+            .Where(cp => visiblePortIds.Contains(cp.PortId))
             .ToList();
 
         _beaconsLayer.Clear();
 
-        foreach (var pair in latestByCallsign)
+        foreach (var cachedPacket in visiblePackets)
         {
-            var feature = CreateFeature(pair.Value.Packet, pair.Key.Callsign);
-            _beaconsLayer.Add(feature);
+            if (cachedPacket.Packet is PositionPacket positionPacket)
+            {
+                _logger.LogDebug(
+                    "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
+                    cachedPacket.Source,
+                    positionPacket.Latitude,
+                    positionPacket.Longitude);
+
+                var feature = CreateFeature(positionPacket, cachedPacket.Source);
+                _beaconsLayer.Add(feature);
+            }
         }
 
         _beaconsLayer.DataHasChanged();
@@ -195,18 +171,10 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         }
 
         _disposed = true;
-        _portService.PacketReceived -= OnPortServicePacketReceived;
+        _packetCacheService.CacheUpdated -= OnCacheUpdated;
         _portService.PortsChanged -= OnPortsChanged;
         _beaconsLayer.Clear();
-        _history.Clear();
         _symbolStyleCache.Clear();
         _symbolConverter.Dispose();
-    }
-
-    private sealed class BeaconHistoryEntry
-    {
-        public required PositionPacket Packet { get; set; }
-
-        public required DateTimeOffset ReceivedAt { get; set; }
     }
 }

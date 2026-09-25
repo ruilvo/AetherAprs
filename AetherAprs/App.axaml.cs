@@ -62,7 +62,16 @@ public partial class App : Application
     {
         AvaloniaXamlLoader.Load(this);
 #if DEBUG
-        this.AttachDeveloperTools();
+        try
+        {
+            this.AttachDeveloperTools();
+        }
+        catch (Exception ex)
+        {
+            // Developer tools may fail to connect on some platforms (e.g., Android).
+            // This is not critical, so we just log and continue.
+            Console.WriteLine($"Failed to attach developer tools: {ex.Message}");
+        }
 #endif
     }
 

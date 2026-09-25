@@ -160,7 +160,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         }
         
         var symbolProvider = new TestSymbolBitmapProvider();
-        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
+        var packetCache = new PacketCacheService(portService, NullLogger<PacketCacheService>.Instance);
+        var receivedBeacons = new ReceivedBeaconsViewModel(portService, packetCache, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);
         
         var locationTracking = new LocationTrackingViewModel(

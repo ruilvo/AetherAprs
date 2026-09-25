@@ -103,7 +103,8 @@ public sealed class MainViewModelTests
         var provider = services.BuildServiceProvider();
 
         var symbolProvider = new TestSymbolBitmapProvider();
-        var receivedBeacons = new ReceivedBeaconsViewModel(portService, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
+        var packetCache = new PacketCacheService(portService, NullLogger<PacketCacheService>.Instance);
+        var receivedBeacons = new ReceivedBeaconsViewModel(portService, packetCache, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
             NullLogger<LocationTrackingViewModel>.Instance);
@@ -126,12 +127,10 @@ public sealed class MainViewModelTests
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, provider);
         
-        using var tempDb = TempAppDatabase.CreateEmpty();
         var packets = new PacketsViewModel(
-            tempDb.Factory,
+            packetCache,
             navigation,
             provider,
-            portService,
             NullLogger<PacketsViewModel>.Instance);
         var ports = new PortsViewModel(portService, configuration, navigation, NullLogger<PortsViewModel>.Instance);
         var settings = new SettingsViewModel(configuration, navigation, symbolProvider);
