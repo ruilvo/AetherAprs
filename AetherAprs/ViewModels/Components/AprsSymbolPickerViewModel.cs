@@ -22,6 +22,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
 {
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
     private readonly ILogger<AprsSymbolPickerViewModel>? _logger;
+    private bool _suppressPropertyNotifications;
 
     [ObservableProperty]
     public partial string TableCharacter { get; set; } = "/";
@@ -88,8 +89,35 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Temporarily suppress property change notifications during bulk updates.
+    /// Used when initializing from saved settings to avoid triggering unwanted events.
+    /// </summary>
+    public void BeginSuppressNotifications()
+    {
+        _suppressPropertyNotifications = true;
+    }
+
+    /// <summary>
+    /// Resume property change notifications and trigger preview update.
+    /// </summary>
+    public void EndSuppressNotifications()
+    {
+        _suppressPropertyNotifications = false;
+        // Trigger preview update now that all properties are set
+        if (TableCharacter.Length == 1 && CodeCharacter.Length == 1)
+        {
+            UpdatePreviews();
+        }
+    }
+
     private void UpdatePreviews()
     {
+        if (_suppressPropertyNotifications)
+        {
+            return;
+        }
+
         if (TableCharacter.Length != 1 || CodeCharacter.Length != 1)
         {
             BaseSymbolPreview = null;

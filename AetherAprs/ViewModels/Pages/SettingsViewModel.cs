@@ -7,6 +7,7 @@ using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using System;
 
 namespace AetherAprs.ViewModels;
@@ -15,13 +16,15 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
+    private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
+    private bool _isInitializing = true;
 
     [ObservableProperty]
     public partial string Callsign { get; set; } = "N0CALL";
 
     [ObservableProperty]
-    public partial int? DefaultSsid { get; set; }
+    public partial int Ssid { get; set; }
 
     [ObservableProperty]
     public partial string DefaultSymbolTableCharacter { get; set; } = "/";
@@ -38,40 +41,63 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public SettingsViewModel(
         IConfigurationService configurationService,
         INavigationService navigationService,
-        AprsSymbolPickerViewModel aprsSymbolPicker)
+        AprsSymbolPickerViewModel aprsSymbolPicker,
+        ILogger<SettingsViewModel>? logger = null)
     {
         _configurationService = configurationService;
         _navigationService = navigationService;
+        _logger = logger;
         SymbolPicker = aprsSymbolPicker;
 
         var aprs = _configurationService.Settings.Aprs;
         Callsign = aprs.Callsign;
-        DefaultSsid = aprs.DefaultSsid;
+        Ssid = aprs.DefaultSsid;
         DefaultSymbolTableCharacter = aprs.DefaultSymbolTableCharacter;
         DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
         DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
 
+        _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
+            DefaultSymbolTableCharacter, DefaultSymbolCodeCharacter, DefaultSymbolOverlayCharacter);
+
+        // Suppress symbol picker notifications during initialization to prevent async preview updates
+        // from triggering property changed events that would overwrite our loaded settings
+        SymbolPicker.BeginSuppressNotifications();
+        
         // Initialize symbol picker with settings values
         SymbolPicker.TableCharacter = DefaultSymbolTableCharacter;
         SymbolPicker.CodeCharacter = DefaultSymbolCodeCharacter;
         SymbolPicker.OverlayCharacter = DefaultSymbolOverlayCharacter;
 
-        // Sync symbol picker changes back to settings
+        _logger?.LogDebug("Set in SymbolPicker: Table={Table}, Code={Code}, Overlay={Overlay}", 
+            SymbolPicker.TableCharacter, SymbolPicker.CodeCharacter, SymbolPicker.OverlayCharacter);
+
+        // Resume notifications and update previews
+        SymbolPicker.EndSuppressNotifications();
+
+        // Sync symbol picker changes back to settings (subscribe AFTER initialization)
         SymbolPicker.PropertyChanged += OnSymbolPickerPropertyChanged;
+
+        // Initialization complete - enable auto-save AFTER everything is set up
+        _isInitializing = false;
     }
 
     private void OnSymbolPickerPropertyChanged(object? s, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        _logger?.LogDebug("SymbolPicker property changed: {PropertyName}", e.PropertyName);
+        
         if (e.PropertyName == nameof(AprsSymbolPickerViewModel.TableCharacter))
         {
+            _logger?.LogDebug("Syncing TableCharacter from SymbolPicker: {Value}", SymbolPicker.TableCharacter);
             DefaultSymbolTableCharacter = SymbolPicker.TableCharacter;
         }
         else if (e.PropertyName == nameof(AprsSymbolPickerViewModel.CodeCharacter))
         {
+            _logger?.LogDebug("Syncing CodeCharacter from SymbolPicker: {Value}", SymbolPicker.CodeCharacter);
             DefaultSymbolCodeCharacter = SymbolPicker.CodeCharacter;
         }
         else if (e.PropertyName == nameof(AprsSymbolPickerViewModel.OverlayCharacter))
         {
+            _logger?.LogDebug("Syncing OverlayCharacter from SymbolPicker: {Value}", SymbolPicker.OverlayCharacter);
             DefaultSymbolOverlayCharacter = SymbolPicker.OverlayCharacter;
         }
     }
@@ -82,7 +108,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
-    partial void OnDefaultSsidChanged(int? value)
+    partial void OnSsidChanged(int value)
     {
         SaveSettings();
     }
@@ -104,8 +130,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     private void SaveSettings()
     {
+        // Don't auto-save during initialization
+        if (_isInitializing)
+        {
+            return;
+        }
+
         _configurationService.Settings.Aprs.Callsign = Callsign;
-        _configurationService.Settings.Aprs.DefaultSsid = DefaultSsid ?? 0;
+        _configurationService.Settings.Aprs.DefaultSsid = Ssid;
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;

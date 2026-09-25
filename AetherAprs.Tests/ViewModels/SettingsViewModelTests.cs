@@ -43,7 +43,7 @@ public sealed class SettingsViewModelTests
         var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
 
         viewModel.Callsign = "CT7ALW";
-        viewModel.DefaultSsid = 7;
+        viewModel.Ssid = 7;
         viewModel.DefaultSymbolTableCharacter = "\\";
         viewModel.DefaultSymbolCodeCharacter = ">";
         
@@ -55,23 +55,6 @@ public sealed class SettingsViewModelTests
         Assert.Equal("\\", configuration.Settings.Aprs.DefaultSymbolTableCharacter);
         Assert.Equal(">", configuration.Settings.Aprs.DefaultSymbolCodeCharacter);
         Assert.True(configuration.SaveCount >= 4);
-    }
-
-    [Fact]
-    public async Task ChangingDefaultSsidToNullSavesZero()
-    {
-        var configuration = new TestConfigurationService();
-        configuration.Settings.Aprs.DefaultSsid = 7;
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(configuration, new TestNavigationService(), symbolPicker);
-
-        viewModel.DefaultSsid = null;
-        
-        // Give async save a moment to complete
-        await Task.Delay(100, TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, configuration.Settings.Aprs.DefaultSsid);
-        Assert.True(configuration.SaveCount > 0);
     }
 
     [Fact]

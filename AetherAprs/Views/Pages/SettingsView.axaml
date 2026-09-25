@@ -49,9 +49,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc Callsign}"
                      UseFloatingPlaceholder="True" />
 
-            <!-- Default SSID -->
+            <!-- SSID -->
             <TextBox x:Name="SsidBox"
-                     Text="{Binding DefaultSsid, TargetNullValue=''}"
+                     Text="{Binding Ssid}"
                      PlaceholderText="0"
                      wpf:TextFieldAssist.Label="{loc:Loc DefaultSsidLabel}"
                      UseFloatingPlaceholder="True" />

@@ -61,10 +61,11 @@ public partial class AprsSymbolPickerView : UserControl
         {
             _currentViewModel = viewModel;
 
-            // Sync property values to ViewModel
-            viewModel.TableCharacter = TableCharacter;
-            viewModel.CodeCharacter = CodeCharacter;
-            viewModel.OverlayCharacter = OverlayCharacter;
+            // Sync property values FROM ViewModel to View (not the other way around)
+            // The ViewModel is the source of truth, already initialized by parent
+            TableCharacter = viewModel.TableCharacter;
+            CodeCharacter = viewModel.CodeCharacter;
+            OverlayCharacter = viewModel.OverlayCharacter;
 
             // Subscribe to ViewModel events
             viewModel.OpenSymbolSelectorRequested += OnOpenSymbolSelectorRequested;
