@@ -16,8 +16,8 @@ internal static class PacketRecordMapper
             Source = packet.Source.ToString(),
             Destination = packet.Destination.ToString(),
             PacketType = packet.GetType().Name.Replace("Packet", ""),
-            ReceivedAt = receivedAt,
-            PacketTimestamp = packet.Timestamp,
+            ReceivedAt = receivedAt.UtcDateTime,
+            PacketTimestamp = packet.Timestamp?.UtcDateTime,
             PortId = portId,
             RawInfo = packet.Raw
         };
@@ -58,5 +58,108 @@ internal static class PacketRecordMapper
         }
 
         return record;
+    }
+
+    public static AprsPacket? MapToPacket(PacketRecord record)
+    {
+        try
+        {
+            if (!Callsign.TryParse(record.Source, out var source))
+            {
+                return null;
+            }
+            
+            if (!Callsign.TryParse(record.Destination, out var destination))
+            {
+                return null;
+            }
+
+            AprsPacket packet = record.PacketType switch
+            {
+                "Position" when record.Latitude.HasValue && record.Longitude.HasValue =>
+                    new PositionPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Latitude = record.Latitude.Value,
+                        Longitude = record.Longitude.Value,
+                        Altitude = record.Altitude,
+                        Course = record.Course,
+                        Speed = record.Speed,
+                        Symbol = new Symbol(
+                            (record.SymbolTable ?? "/")[0].ToSymbolTable(),
+                            (record.SymbolCode ?? "[")[0].ToSymbolCode()
+                        ),
+                        Comment = record.Comment,
+                        Raw = record.RawInfo ?? "",
+                        Timestamp = record.PacketTimestamp.HasValue 
+                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
+                            : null
+                    },
+
+                "Message" when !string.IsNullOrEmpty(record.MessageAddressee) && 
+                               Callsign.TryParse(record.MessageAddressee, out var addressee) =>
+                    new MessagePacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Addressee = addressee,
+                        Text = record.MessageText ?? "",
+                        MessageNumber = record.MessageNumber,
+                        Raw = record.RawInfo ?? "",
+                        Timestamp = record.PacketTimestamp.HasValue 
+                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
+                            : null
+                    },
+
+                "Status" =>
+                    new StatusPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Text = record.StatusText ?? "",
+                        Raw = record.RawInfo ?? "",
+                        Timestamp = record.PacketTimestamp.HasValue 
+                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
+                            : null
+                    },
+
+                "Weather" =>
+                    new WeatherPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Temperature = record.Temperature,
+                        WindSpeed = record.WindSpeed,
+                        WindDirection = record.WindDirection,
+                        Humidity = record.Humidity,
+                        Pressure = record.Pressure,
+                        Rain1h = record.RainLastHour,
+                        Rain24h = record.RainLast24Hours,
+                        Raw = record.RawInfo ?? "",
+                        Timestamp = record.PacketTimestamp.HasValue 
+                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
+                            : null
+                    },
+
+                _ =>
+                    new UnknownPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Raw = record.RawInfo ?? "",
+                        Timestamp = record.PacketTimestamp.HasValue 
+                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
+                            : null
+                    }
+            };
+
+            return packet;
+        }
+        catch
+        {
+            // If we can't parse the record, return null
+            return null;
+        }
     }
 }

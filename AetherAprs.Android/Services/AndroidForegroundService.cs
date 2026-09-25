@@ -66,14 +66,14 @@ public class AetherAprsForegroundService : Service
             stopIntent, 
             PendingIntentFlags.Immutable);
 
-        var notification = new NotificationCompat.Builder(this, ChannelId)
-            .SetContentTitle("AetherAprs Active")
-            .SetContentText("Receiving and transmitting APRS packets")
-            .SetSmallIcon(Resource.Drawable.icon_400px)
-            .SetContentIntent(pendingIntent)
-            .AddAction(Resource.Drawable.icon_400px, "Stop", stopPendingIntent)
-            .SetOngoing(true)
-            .Build();
+        var builder = new NotificationCompat.Builder(this, ChannelId);
+        builder.SetContentTitle("AetherAprs Active");
+        builder.SetContentText("Receiving and transmitting APRS packets");
+        builder.SetSmallIcon(Resource.Drawable.icon_400px);
+        builder.SetContentIntent(pendingIntent);
+        builder.AddAction(Resource.Drawable.icon_400px, "Stop", stopPendingIntent);
+        builder.SetOngoing(true);
+        var notification = builder.Build();
 
         if (notification != null)
         {

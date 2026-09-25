@@ -62,7 +62,7 @@ public sealed class PacketStorageService(
         try
         {
             var retentionDays = configurationService.Settings.Aprs.PacketRetentionDays;
-            var cutoffDate = DateTimeOffset.UtcNow.AddDays(-retentionDays);
+            var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 

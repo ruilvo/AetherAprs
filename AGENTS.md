@@ -406,7 +406,16 @@ public void Dispose()
 - Creating child ViewModels directly instead of injecting them via constructor
 - Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
 - **Adding hardcoded user-facing text in AXAML or code without using localization** - ALL user-facing strings MUST use `{loc:Loc StringKey}` in AXAML or `Strings.Get("StringKey")` in code
-- **Using `DateTimeOffset` directly in EF Core LINQ queries with SQLite** - SQLite doesn't support DateTimeOffset comparisons or ORDER BY operations. Always use `.UtcTicks` for filtering and sorting
+
+## Database Best Practices
+
+### SQLite and EF Core Compatibility
+
+**Use `DateTime` (UTC) instead of `DateTimeOffset` for database timestamps:**
+- SQLite stores both as TEXT in ISO 8601 format, but EF Core has poor LINQ translation support for `DateTimeOffset`
+- `DateTimeOffset` comparisons and ORDER BY operations often fail to translate to SQL
+- Store timestamps as `DateTime` in UTC, convert to `DateTimeOffset` for UI display when needed
+- Example: `record.ReceivedAt = receivedAt.UtcDateTime;` when storing, `new DateTimeOffset(record.ReceivedAt, TimeSpan.Zero)` when displaying
 
 ## Localization Requirements
 

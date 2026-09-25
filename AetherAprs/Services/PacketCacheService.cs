@@ -39,6 +39,52 @@ public sealed class PacketCacheService : IPacketCacheService, IDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _portService.PacketReceived += OnPacketReceived;
+        
+        // Load historical packets from database on startup
+        _ = LoadFromDatabaseAsync();
+    }
+
+    private async Task LoadFromDatabaseAsync()
+    {
+        try
+        {
+            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            
+            // Load the most recent packet per source from the database
+            // This populates the cache with historical data
+            var recentPackets = await context.Packets
+                .AsNoTracking()
+                .GroupBy(p => p.Source)
+                .Select(g => g.OrderByDescending(p => p.ReceivedAt).First())
+                .ToListAsync();
+
+            _logger.LogInformation("Loading {Count} historical packets into cache", recentPackets.Count);
+            
+            lock (_lock)
+            {
+                foreach (var record in recentPackets)
+                {
+                    var packet = PacketRecordMapper.MapToPacket(record);
+                    if (packet != null)
+                    {
+                        var cachedPacket = new CachedPacket
+                        {
+                            Packet = packet,
+                            PortId = record.PortId ?? Guid.Empty,
+                            ReceivedAt = new DateTimeOffset(record.ReceivedAt, TimeSpan.Zero),
+                            Source = record.Source
+                        };
+                        _packetsBySource[record.Source] = cachedPacket;
+                    }
+                }
+            }
+
+            _logger.LogInformation("Cache initialized with {Count} packets from database", _packetsBySource.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load historical packets from database");
+        }
     }
 
     private void OnPacketReceived(object? sender, PortPacketReceivedEventArgs e)

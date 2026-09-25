@@ -15,7 +15,6 @@ using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Nts;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using System;
 using System.Collections.Generic;
@@ -34,7 +33,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
     private readonly IPortService _portService;
     private readonly IPacketCacheService _packetCacheService;
     private readonly IConfigurationService _configurationService;
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly WritableLayer _beaconsLayer;
@@ -57,14 +55,12 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         IPortService portService,
         IPacketCacheService packetCacheService,
         IConfigurationService configurationService,
-        IDbContextFactory<AppDbContext> dbContextFactory,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
         ILogger<ReceivedBeaconsViewModel> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
         _packetCacheService = packetCacheService ?? throw new ArgumentNullException(nameof(packetCacheService));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-        _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         _symbolConverter = new AprsSymbolMapConverter(
             symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -133,66 +129,53 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
             var cutoffTime = GetCutoffTime(timeRange, customHours);
 
-            // Query database for position packets within time range
-            await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+            // Get position packets from cache
+            var allPositionPackets = _packetCacheService.GetPositionPackets();
             
-            var query = dbContext.Packets
-                .AsNoTracking()
-                .Where(p => p.Latitude != null && p.Longitude != null);
-
             // Apply time filter
-            // Convert to ticks for SQLite compatibility - SQLite doesn't support DateTimeOffset comparisons
-            if (cutoffTime.HasValue)
-            {
-                var cutoffTicks = cutoffTime.Value.UtcTicks;
-                query = query.Where(p => p.ReceivedAt.UtcTicks >= cutoffTicks);
-            }
+            var filteredPackets = allPositionPackets.Values
+                .Where(cp => !cutoffTime.HasValue || cp.ReceivedAt >= cutoffTime.Value);
 
-            // Apply port filter - only include non-null PortIds that are in visiblePortIds
-            if (visiblePortIds.Any())
-            {
-                query = query.Where(p => p.PortId.HasValue && visiblePortIds.Contains(p.PortId.Value));
-            }
+            // Apply port filter - only include packets from visible ports
+            // If no ports are visible, show nothing
+            filteredPackets = filteredPackets.Where(cp => visiblePortIds.Contains(cp.PortId));
 
-            var packets = await query.ToListAsync();
-
-            // Group by source to get most recent position for markers
-            var latestBySource = packets
-                .GroupBy(p => p.Source)
-                .Select(g => g.OrderByDescending(p => p.ReceivedAt).First())
-                .ToList();
+            var cachedPackets = filteredPackets.ToList();
 
             // Clear layers
             _beaconsLayer.Clear();
             _trailsLayer.Clear();
 
-            // Add markers for latest positions
-            foreach (var record in latestBySource)
+            // Add markers for latest positions from cache
+            foreach (var cached in cachedPackets)
             {
-                if (record.Latitude.HasValue && record.Longitude.HasValue)
+                if (cached.Packet is PositionPacket pos)
                 {
                     _logger.LogDebug(
                         "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
-                        record.Source,
-                        record.Latitude,
-                        record.Longitude);
+                        cached.Source,
+                        pos.Latitude,
+                        pos.Longitude);
 
-                    var feature = CreateFeature(record);
+                    var feature = CreateFeatureFromPacket(cached.Source, pos, cached.ReceivedAt);
                     _beaconsLayer.Add(feature);
                 }
             }
 
-            // Add trails for each station
-            foreach (var source in latestBySource.Select(p => p.Source))
+            // Add trails - query historical positions from database for each visible station
+            foreach (var cached in cachedPackets)
             {
-                var trail = packets
-                    .Where(p => p.Source == source && p.Latitude.HasValue && p.Longitude.HasValue)
-                    .OrderBy(p => p.ReceivedAt)
+                var trailRecords = await _packetCacheService.GetPacketsByCallsignAsync(cached.Source, limit: 100);
+                
+                var trailPositions = trailRecords
+                    .Where(r => r.Latitude.HasValue && r.Longitude.HasValue)
+                    .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.ReceivedAt, TimeSpan.Zero) >= cutoffTime.Value)
+                    .OrderBy(r => r.ReceivedAt)
                     .ToList();
 
-                if (trail.Count > 1)
+                if (trailPositions.Count > 1)
                 {
-                    var trailFeature = CreateTrailFeature(trail);
+                    var trailFeature = CreateTrailFeature(trailPositions);
                     if (trailFeature != null)
                     {
                         _trailsLayer.Add(trailFeature);
@@ -254,6 +237,37 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         });
 
         return feature;
+    }
+
+    private PointFeature CreateFeatureFromPacket(string source, PositionPacket pos, DateTimeOffset receivedAt)
+    {
+        var (x, y) = SphericalMercator.FromLonLat(pos.Longitude, pos.Latitude);
+        var mapPoint = new MPoint(x, y);
+
+        var symbolKey = $"{pos.Symbol.Table}{pos.Symbol.Code}";
+        if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
+            cachedStyle.symbol != pos.Symbol)
+        {
+            var imageStyle = _symbolConverter.CreateImageStyle(pos.Symbol, scale: 0.25);
+            cachedStyle = (pos.Symbol, imageStyle);
+            _symbolStyleCache[symbolKey] = cachedStyle;
+        }
+
+        var labelStyle = new LabelStyle
+        {
+            Text = source,
+            Offset = new Offset(45, 0),
+            Font = new Font { FontFamily = "Arial", Size = 14, Bold = true },
+            ForeColor = Color.Black,
+            BackColor = new Brush(new Color(255, 255, 255, 200)),
+            Halo = new Pen(Color.White, 2)
+        };
+
+        return new PointFeature(mapPoint)
+        {
+            Styles = [cachedStyle.imageStyle, labelStyle],
+            ["Callsign"] = source // Store for click handling
+        };
     }
 
     private PointFeature CreateFeature(PacketRecord record)

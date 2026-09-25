@@ -169,7 +169,6 @@ public sealed class HomeViewModelTests : TestFixtureBase
             portService, 
             packetCache, 
             configuration, 
-            dbContextFactory, 
             symbolProvider, 
             NullLogger<ReceivedBeaconsViewModel>.Instance);
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);

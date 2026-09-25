@@ -112,7 +112,6 @@ public sealed class MainViewModelTests
             portService, 
             packetCache, 
             configuration, 
-            dbContextFactory, 
             symbolProvider, 
             NullLogger<ReceivedBeaconsViewModel>.Instance);
         var locationTracking = new LocationTrackingViewModel(
@@ -143,7 +142,6 @@ public sealed class MainViewModelTests
             navigation,
             packetDetailsFactory,
             configuration,
-            dbContextFactory,
             NullLogger<PacketsViewModel>.Instance);
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
         var ports = new PortsViewModel(portService, configuration, navigation, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
@@ -153,7 +151,7 @@ public sealed class MainViewModelTests
         return new MainViewModel(navigation, home, messages, packets, ports, settings);
     }
 
-    private sealed class OverlayStubViewModel : ViewModelBase;
+    public sealed class OverlayStubViewModel : ViewModelBase;
 
     private sealed class TestNavigationService : INavigationService
     {

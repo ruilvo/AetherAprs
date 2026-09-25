@@ -48,6 +48,15 @@ public class MainActivity : AvaloniaMainActivity
         // Store instance for permission requests
         Instance = this;
 
+        // Request notification permission on Android 13+ if not already granted
+        if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
+        {
+            if (CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications) != Permission.Granted)
+            {
+                RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, 1000);
+            }
+        }
+
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
 

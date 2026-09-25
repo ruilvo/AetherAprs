@@ -121,5 +121,5 @@ public sealed class NavigationServiceTests
         return provider.GetRequiredService<INavigationService>();
     }
 
-    private sealed class OverlayViewModel : ViewModelBase;
+    public sealed class OverlayViewModel : ViewModelBase;
 }

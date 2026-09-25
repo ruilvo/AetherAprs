@@ -24,7 +24,6 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
     private readonly IPortService _portService;
     private readonly IPacketCacheService _packetCacheService;
     private readonly IConfigurationService _configurationService;
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly ReceivedBeaconsViewModel _viewModel;
@@ -35,7 +34,6 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         _portService = Substitute.For<IPortService>();
         _packetCacheService = Substitute.For<IPacketCacheService>();
         _configurationService = Substitute.For<IConfigurationService>();
-        _dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         _symbolBitmapProvider = Substitute.For<IAprsSymbolBitmapProvider>();
         _logger = Substitute.For<ILogger<ReceivedBeaconsViewModel>>();
         
@@ -51,10 +49,6 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
             }
         };
         _configurationService.Settings.Returns(appSettings);
-
-        // Setup mock DbContext
-        var mockDbContext = Substitute.For<AppDbContext>();
-        _dbContextFactory.CreateDbContextAsync(default).ReturnsForAnyArgs(Task.FromResult(mockDbContext));
         
         // Use a shared dictionary that tests can modify
         _cachedPackets = new Dictionary<string, CachedPacket>();
@@ -67,7 +61,6 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
             _portService, 
             _packetCacheService, 
             _configurationService, 
-            _dbContextFactory, 
             _symbolBitmapProvider, 
             _logger);
     }

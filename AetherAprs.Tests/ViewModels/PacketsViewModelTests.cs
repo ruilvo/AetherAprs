@@ -26,7 +26,6 @@ public class PacketsViewModelTests : IDisposable
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly IConfigurationService _configurationService;
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly PacketsViewModel _viewModel;
     private readonly Dictionary<string, CachedPacket> _cachedPackets;
@@ -37,7 +36,6 @@ public class PacketsViewModelTests : IDisposable
         _navigationService = Substitute.For<INavigationService>();
         _packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         _configurationService = Substitute.For<IConfigurationService>();
-        _dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         _logger = Substitute.For<ILogger<PacketsViewModel>>();
 
         // Setup configuration service with default settings
@@ -51,10 +49,6 @@ public class PacketsViewModelTests : IDisposable
         };
         _configurationService.Settings.Returns(appSettings);
 
-        // Setup mock DbContext - return empty result set
-        var mockDbContext = Substitute.For<AppDbContext>();
-        _dbContextFactory.CreateDbContextAsync(default).ReturnsForAnyArgs(Task.FromResult(mockDbContext));
-
         _cachedPackets = new Dictionary<string, CachedPacket>();
         _packetCacheService.GetAllPackets().Returns(_ => _cachedPackets);
 
@@ -63,7 +57,6 @@ public class PacketsViewModelTests : IDisposable
             _navigationService,
             _packetDetailsFactory,
             _configurationService,
-            _dbContextFactory,
             _logger);
     }
 
@@ -437,7 +430,6 @@ public class PacketsViewModelTests : IDisposable
             _navigationService,
             _packetDetailsFactory,
             _configurationService,
-            _dbContextFactory,
             _logger);
     }
 }

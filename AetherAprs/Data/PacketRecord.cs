@@ -29,14 +29,14 @@ public sealed class PacketRecord
     public string PacketType { get; set; } = string.Empty;
 
     /// <summary>
-    /// Timestamp when the packet was received.
+    /// Timestamp when the packet was received (UTC).
     /// </summary>
-    public DateTimeOffset ReceivedAt { get; set; }
+    public DateTime ReceivedAt { get; set; }
 
     /// <summary>
-    /// Timestamp embedded in the packet, if available.
+    /// Timestamp embedded in the packet, if available (UTC).
     /// </summary>
-    public DateTimeOffset? PacketTimestamp { get; set; }
+    public DateTime? PacketTimestamp { get; set; }
 
     /// <summary>
     /// Port ID that received this packet.
