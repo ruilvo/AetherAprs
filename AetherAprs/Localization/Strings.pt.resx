@@ -210,4 +210,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="RespondToWide2" xml:space="preserve"><value>Responder a WIDE2-N (Full Digi)</value></data>
   <data name="BeaconSettings" xml:space="preserve"><value>Definições de Beacon</value></data>
   <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configurar comentário e caminho predefinidos para beacons de posição.</value></data>
+  <data name="ValidationCallsignRequired" xml:space="preserve"><value>Indicativo é obrigatório</value></data>
+  <data name="ValidationCallsignFormat" xml:space="preserve"><value>Indicativo deve ter 1-6 caracteres alfanuméricos</value></data>
+  <data name="ValidationSsidRange" xml:space="preserve"><value>SSID deve estar entre 0 e 15</value></data>
+  <data name="ValidationDisplayHoursRange" xml:space="preserve"><value>Horas de visualização devem estar entre 1 e 100</value></data>
+  <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Máximo de tentativas deve estar entre 0 e 20</value></data>
+  <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Timeout de tentativa deve estar entre 5 e 300 segundos</value></data>
+  <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Comentário não pode exceder 43 caracteres</value></data>
 </root>

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Localization;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
@@ -9,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace AetherAprs.ViewModels;
 
@@ -21,9 +23,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _isInitializing = true;
 
     [ObservableProperty]
+    [Required(ErrorMessageResourceName = nameof(Strings.ValidationCallsignRequired), ErrorMessageResourceType = typeof(Strings))]
+    [RegularExpression(@"^[A-Z0-9]{1,6}$", ErrorMessageResourceName = nameof(Strings.ValidationCallsignFormat), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial string Callsign { get; set; } = "N0CALL";
 
     [ObservableProperty]
+    [Range(0, 15, ErrorMessageResourceName = nameof(Strings.ValidationSsidRange), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial int Ssid { get; set; }
 
     [ObservableProperty]
@@ -42,6 +49,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial Configuration.PacketDisplayTimeRange DisplayTimeRange { get; set; } = Configuration.PacketDisplayTimeRange.LastDay;
 
     [ObservableProperty]
+    [Range(1, 100, ErrorMessageResourceName = nameof(Strings.ValidationDisplayHoursRange), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     [ObservableProperty]
@@ -57,15 +66,21 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool EnableRfToAprsIsGate { get; set; } = true;
 
     [ObservableProperty]
+    [Range(0, 20, ErrorMessageResourceName = nameof(Strings.ValidationMaxRetriesRange), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial int MessageMaxRetries { get; set; } = 5;
 
     [ObservableProperty]
+    [Range(5, 300, ErrorMessageResourceName = nameof(Strings.ValidationRetryTimeoutRange), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial int MessageRetryTimeoutSeconds { get; set; } = 30;
 
     [ObservableProperty]
     public partial bool AutoAcknowledgeMessages { get; set; } = true;
 
     [ObservableProperty]
+    [MaxLength(43, ErrorMessageResourceName = nameof(Strings.ValidationCommentMaxLength), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial string? DefaultBeaconComment { get; set; }
 
     [ObservableProperty]
@@ -256,27 +271,41 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _configurationService.Settings.Aprs.Callsign = Callsign;
-        _configurationService.Settings.Aprs.DefaultSsid = Ssid;
-        _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
-        _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
-        _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
-        _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
-        _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
-        _configurationService.Settings.Aprs.EnableDigipeater = EnableDigipeater;
-        _configurationService.Settings.Aprs.DigipeaterInsertCallsign = DigipeaterInsertCallsign;
-        _configurationService.Settings.Aprs.EnableAprsIsToRfGate = EnableAprsIsToRfGate;
-        _configurationService.Settings.Aprs.EnableRfToAprsIsGate = EnableRfToAprsIsGate;
-        _configurationService.Settings.Aprs.MessageMaxRetries = MessageMaxRetries;
-        _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
-        _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
-        _configurationService.Settings.Aprs.DefaultBeaconComment = DefaultBeaconComment;
-        _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
-        _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
-        _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
+        // Don't save if there are validation errors
+        if (HasErrors)
+        {
+            _logger?.LogDebug("Skipping save due to validation errors");
+            return;
+        }
 
-        // Fire-and-forget is acceptable here as we don't need to wait for save completion
-        _ = _configurationService.SaveSettingsAsync();
+        try
+        {
+            _configurationService.Settings.Aprs.Callsign = Callsign;
+            _configurationService.Settings.Aprs.DefaultSsid = Ssid;
+            _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
+            _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
+            _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
+            _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
+            _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
+            _configurationService.Settings.Aprs.EnableDigipeater = EnableDigipeater;
+            _configurationService.Settings.Aprs.DigipeaterInsertCallsign = DigipeaterInsertCallsign;
+            _configurationService.Settings.Aprs.EnableAprsIsToRfGate = EnableAprsIsToRfGate;
+            _configurationService.Settings.Aprs.EnableRfToAprsIsGate = EnableRfToAprsIsGate;
+            _configurationService.Settings.Aprs.MessageMaxRetries = MessageMaxRetries;
+            _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
+            _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
+            _configurationService.Settings.Aprs.DefaultBeaconComment = DefaultBeaconComment;
+            _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
+            _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
+            _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
+
+            // Fire-and-forget is acceptable here as we don't need to wait for save completion
+            _ = _configurationService.SaveSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error saving settings");
+        }
     }
 
     [RelayCommand]

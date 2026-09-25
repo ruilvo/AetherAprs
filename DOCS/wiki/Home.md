@@ -18,6 +18,7 @@ AetherAprs is a modern, cross-platform ham radio APRS (Automatic Packet Reportin
 - **[Getting Started](Getting-Started.md)** - First-time setup and basic configuration
 - **[Port Configuration](Port-Configuration.md)** - Configure APRS-IS, KISS TNC connections
 - **[Beaconing Setup](Beaconing-Setup.md)** - Configure position reporting
+- **[APRS Path and Beacon Comments](APRS-Path-and-Comments.md)** - Configure digipeater paths and beacon comments
 - **[Messaging Guide](Messaging.md)** - Send and receive APRS messages
 - **[Map Usage](Map-Usage.md)** - Using the interactive map
 - **[Digipeater Configuration](Digipeater-Configuration.md)** - Set up digipeating and gating

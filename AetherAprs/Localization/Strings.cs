@@ -21,4 +21,13 @@ public static class Strings
     {
         return string.Format(CultureInfo.CurrentUICulture, Get(name), args);
     }
+
+    // Validation error messages - static properties for DataAnnotations
+    public static string ValidationCallsignRequired => Get(nameof(ValidationCallsignRequired));
+    public static string ValidationCallsignFormat => Get(nameof(ValidationCallsignFormat));
+    public static string ValidationSsidRange => Get(nameof(ValidationSsidRange));
+    public static string ValidationDisplayHoursRange => Get(nameof(ValidationDisplayHoursRange));
+    public static string ValidationMaxRetriesRange => Get(nameof(ValidationMaxRetriesRange));
+    public static string ValidationRetryTimeoutRange => Get(nameof(ValidationRetryTimeoutRange));
+    public static string ValidationCommentMaxLength => Get(nameof(ValidationCommentMaxLength));
 }

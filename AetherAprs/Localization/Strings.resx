@@ -210,4 +210,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="RespondToWide2" xml:space="preserve"><value>Respond to WIDE2-N (Full Digi)</value></data>
   <data name="BeaconSettings" xml:space="preserve"><value>Beacon Settings</value></data>
   <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configure default comment and path for position beacons.</value></data>
+  <data name="ValidationCallsignRequired" xml:space="preserve"><value>Callsign is required</value></data>
+  <data name="ValidationCallsignFormat" xml:space="preserve"><value>Callsign must be 1-6 alphanumeric characters</value></data>
+  <data name="ValidationSsidRange" xml:space="preserve"><value>SSID must be between 0 and 15</value></data>
+  <data name="ValidationDisplayHoursRange" xml:space="preserve"><value>Display hours must be between 1 and 100</value></data>
+  <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Max retries must be between 0 and 20</value></data>
+  <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Retry timeout must be between 5 and 300 seconds</value></data>
+  <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Comment cannot exceed 43 characters</value></data>
 </root>
