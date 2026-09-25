@@ -142,4 +142,21 @@ public partial class ConversationViewModel(
             Messages.Add(message);
         }
     }
+
+    public string GetDeliveryStatusText(StoredMessage message)
+    {
+        if (!message.IsOutbound || !message.DeliveryStatus.HasValue)
+        {
+            return string.Empty;
+        }
+
+        return message.DeliveryStatus.Value switch
+        {
+            MessageDeliveryStatus.Pending => $"⏱ {Strings.Get("Pending")}",
+            MessageDeliveryStatus.Acknowledged => $"✓ {Strings.Get("Acknowledged")}",
+            MessageDeliveryStatus.Rejected => $"✗ {Strings.Get("Rejected")}",
+            MessageDeliveryStatus.Timeout => $"⌛ {Strings.Get("Timeout")}",
+            _ => string.Empty
+        };
+    }
 }

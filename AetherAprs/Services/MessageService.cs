@@ -26,6 +26,8 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly ILogger<MessageService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
     private readonly Lock _gate = new();
+    private readonly Dictionary<int, StoredMessage> _pendingMessages = new();
+    private readonly Timer _retryTimer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
@@ -44,6 +46,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _logger = logger;
         _dbContextFactory = dbContextFactory;
         _portService.PacketReceived += OnPacketReceived;
+        _retryTimer = new Timer(ProcessRetries, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
         LoadMessages();
     }
 
@@ -64,23 +67,52 @@ public sealed class MessageService : IMessageService, IDisposable
             throw new ArgumentException("APRS message text must be 67 characters or fewer.", nameof(text));
         }
 
+        var messageNumber = Interlocked.Increment(ref _nextMessageNumber);
+        var timestamp = DateTimeOffset.UtcNow;
+        var settings = _configurationService.Settings.Aprs;
+
+        var stored = new StoredMessage
+        {
+            Peer = addressee,
+            Text = text,
+            Timestamp = timestamp,
+            IsOutbound = true,
+            MessageNumber = messageNumber,
+            DeliveryStatus = MessageDeliveryStatus.Pending,
+            RetryCount = 0,
+            NextRetryTime = timestamp.AddSeconds(settings.MessageRetryTimeoutSeconds)
+        };
+
+        await PersistMessageAsync(stored, cancellationToken).ConfigureAwait(false);
+
+        lock (_gate)
+        {
+            _pendingMessages[messageNumber] = stored;
+        }
+
+        await SendMessagePacketAsync(stored, cancellationToken).ConfigureAwait(false);
+
+        RunOnUi(() =>
+        {
+            lock (_gate)
+            {
+                var thread = GetOrCreateConversationUnlocked(addressee);
+                thread.Messages.Add(stored);
+                MoveConversationToFront(thread);
+            }
+        });
+    }
+
+    private async Task SendMessagePacketAsync(StoredMessage message, CancellationToken cancellationToken = default)
+    {
         var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
         if (txPorts.Count == 0)
         {
-            var totalPorts = _portService.Ports.Count;
-            var enabledPorts = _portService.Ports.Count(p => p.IsEnabled);
-            var isTxPorts = _portService.Ports.Count(p => p.IsTx);
-            _logger.LogWarning(
-                "No enabled TX ports available to send message. Ports={TotalPorts}, Enabled={EnabledPorts}, IsTx={IsTxPorts}",
-                totalPorts,
-                enabledPorts,
-                isTxPorts);
-            throw new InvalidOperationException("No enabled TX ports are available to send the message.");
+            _logger.LogWarning("No enabled TX ports available to send message.");
+            return;
         }
 
         var baseCallsign = _configurationService.Settings.Aprs.Callsign;
-        var messageNumber = Interlocked.Increment(ref _nextMessageNumber);
-        var timestamp = DateTimeOffset.UtcNow;
         Exception? lastError = null;
         var sent = 0;
 
@@ -94,19 +126,20 @@ public sealed class MessageService : IMessageService, IDisposable
                 {
                     Source = sourceCallsign,
                     Destination = new Callsign("APRS"),
-                    Addressee = addressee,
-                    Text = text,
-                    MessageNumber = messageNumber,
-                    Timestamp = timestamp
+                    Addressee = message.Peer,
+                    Text = message.Text,
+                    MessageNumber = message.MessageNumber,
+                    Timestamp = message.Timestamp
                 };
 
                 await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
                 sent++;
                 _logger.LogInformation(
-                    "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber})",
-                    addressee,
+                    "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, retry {RetryCount})",
+                    message.Peer,
                     port.Name,
-                    messageNumber);
+                    message.MessageNumber,
+                    message.RetryCount);
             }
             catch (Exception ex)
             {
@@ -115,49 +148,84 @@ public sealed class MessageService : IMessageService, IDisposable
             }
         }
 
-        if (sent == 0)
+        if (sent == 0 && lastError != null)
         {
-            throw lastError ?? new InvalidOperationException("Failed to send APRS message.");
+            _logger.LogError(lastError, "Failed to send APRS message to {Addressee}", message.Peer);
         }
+    }
 
-        var stored = new StoredMessage
+    private async Task SendAckAsync(Callsign addressee, int messageNumber, Guid? portId)
+    {
+        var baseCallsign = _configurationService.Settings.Aprs.Callsign;
+        var sourceCallsign = ParsePortCallsign(_portSettingsResolver.GetCallsign(baseCallsign));
+
+        var ackText = $"ack{messageNumber}";
+        var packet = new MessagePacket
         {
-            Peer = addressee,
-            Text = text,
-            Timestamp = timestamp,
-            IsOutbound = true,
-            MessageNumber = messageNumber
+            Source = sourceCallsign,
+            Destination = new Callsign("APRS"),
+            Addressee = addressee,
+            Text = ackText,
+            Timestamp = DateTimeOffset.UtcNow
         };
-        await PersistMessageAsync(stored, cancellationToken).ConfigureAwait(false);
 
-        RunOnUi(() =>
+        try
         {
-            lock (_gate)
+            if (portId.HasValue)
             {
-                var thread = GetOrCreateConversationUnlocked(addressee);
-                thread.Messages.Add(stored);
-                MoveConversationToFront(thread);
+                await _portService.SendPacketAsync(portId.Value, packet).ConfigureAwait(false);
+                _logger.LogInformation("Sent ACK to {Addressee} for message #{MessageNumber}", addressee, messageNumber);
             }
-        });
+            else
+            {
+                var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+                foreach (var port in txPorts)
+                {
+                    await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
+                }
+                _logger.LogInformation("Sent ACK to {Addressee} for message #{MessageNumber} on all TX ports", addressee, messageNumber);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send ACK to {Addressee} for message #{MessageNumber}", addressee, messageNumber);
+        }
     }
 
     private void OnPacketReceived(object? sender, PortPacketReceivedEventArgs e)
     {
-        if (e.Packet is not MessagePacket message)
-        {
-            return;
-        }
-
         var ownBase = _configurationService.Settings.Aprs.Callsign.Trim().ToUpperInvariant();
-        var addressedToUs = string.Equals(message.Addressee.Base, ownBase, StringComparison.Ordinal);
-        var fromUs = string.Equals(message.Source.Base, ownBase, StringComparison.Ordinal);
 
-        // Only store inbound messages addressed to us. Outbound is recorded in SendAsync.
-        if (!addressedToUs || fromUs)
+        if (e.Packet is MessagePacket message)
         {
-            return;
-        }
+            var addressedToUs = string.Equals(message.Addressee.Base, ownBase, StringComparison.Ordinal);
+            var fromUs = string.Equals(message.Source.Base, ownBase, StringComparison.Ordinal);
 
+            if (addressedToUs && !fromUs)
+            {
+                HandleIncomingMessage(message, e.PortId);
+            }
+        }
+        else if (e.Packet is MessageAckPacket ack)
+        {
+            var addressedToUs = string.Equals(ack.Addressee.Base, ownBase, StringComparison.Ordinal);
+            if (addressedToUs)
+            {
+                HandleAck(ack);
+            }
+        }
+        else if (e.Packet is MessageRejPacket rej)
+        {
+            var addressedToUs = string.Equals(rej.Addressee.Base, ownBase, StringComparison.Ordinal);
+            if (addressedToUs)
+            {
+                HandleRej(rej);
+            }
+        }
+    }
+
+    private void HandleIncomingMessage(MessagePacket message, Guid portId)
+    {
         var peer = message.Source;
         var stored = new StoredMessage
         {
@@ -166,13 +234,13 @@ public sealed class MessageService : IMessageService, IDisposable
             Timestamp = message.Timestamp ?? DateTimeOffset.UtcNow,
             IsOutbound = false,
             MessageNumber = message.MessageNumber,
-            PortId = e.PortId
+            PortId = portId
         };
 
         _logger.LogInformation(
-            "Stored inbound APRS message from {Peer} on port {PortId}: {Text}",
+            "Received APRS message from {Peer} on port {PortId}: {Text}",
             peer,
-            e.PortId,
+            portId,
             message.Text);
 
         PersistMessage(stored);
@@ -186,6 +254,128 @@ public sealed class MessageService : IMessageService, IDisposable
                 MoveConversationToFront(thread);
             }
         });
+
+        // Auto-send ACK if enabled and message has a number
+        if (_configurationService.Settings.Aprs.AutoAcknowledgeMessages && message.MessageNumber.HasValue)
+        {
+            _ = SendAckAsync(peer, message.MessageNumber.Value, portId);
+        }
+    }
+
+    private void HandleAck(MessageAckPacket ack)
+    {
+        _logger.LogInformation("Received ACK from {Source} for message #{MessageNumber}", ack.Source, ack.MessageNumber);
+
+        lock (_gate)
+        {
+            if (_pendingMessages.TryGetValue(ack.MessageNumber, out var message))
+            {
+                message.DeliveryStatus = MessageDeliveryStatus.Acknowledged;
+                _pendingMessages.Remove(ack.MessageNumber);
+                UpdateMessageStatus(message);
+            }
+        }
+    }
+
+    private void HandleRej(MessageRejPacket rej)
+    {
+        _logger.LogInformation("Received REJ from {Source} for message #{MessageNumber}", rej.Source, rej.MessageNumber);
+
+        lock (_gate)
+        {
+            if (_pendingMessages.TryGetValue(rej.MessageNumber, out var message))
+            {
+                message.DeliveryStatus = MessageDeliveryStatus.Rejected;
+                _pendingMessages.Remove(rej.MessageNumber);
+                UpdateMessageStatus(message);
+            }
+        }
+    }
+
+    private void ProcessRetries(object? state)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var settings = _configurationService.Settings.Aprs;
+        List<StoredMessage> toRetry = new();
+
+        lock (_gate)
+        {
+            foreach (var kvp in _pendingMessages.ToList())
+            {
+                var message = kvp.Value;
+                if (message.NextRetryTime.HasValue && message.NextRetryTime.Value <= now)
+                {
+                    if (message.RetryCount >= settings.MessageMaxRetries)
+                    {
+                        // Timeout
+                        message.DeliveryStatus = MessageDeliveryStatus.Timeout;
+                        _pendingMessages.Remove(kvp.Key);
+                        UpdateMessageStatus(message);
+                        _logger.LogWarning("Message #{MessageNumber} to {Peer} timed out after {RetryCount} retries",
+                            message.MessageNumber, message.Peer, message.RetryCount);
+                    }
+                    else
+                    {
+                        // Schedule retry
+                        message.RetryCount++;
+                        var backoff = settings.MessageRetryTimeoutSeconds * Math.Pow(2, message.RetryCount - 1);
+                        message.NextRetryTime = now.AddSeconds(backoff);
+                        toRetry.Add(message);
+                        UpdateMessageStatus(message);
+                    }
+                }
+            }
+        }
+
+        // Retry outside the lock
+        foreach (var message in toRetry)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await SendMessagePacketAsync(message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error retrying message #{MessageNumber}", message.MessageNumber);
+                }
+            });
+        }
+    }
+
+    private void UpdateMessageStatus(StoredMessage message)
+    {
+        if (_dbContextFactory is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var db = _dbContextFactory.CreateDbContext();
+            var record = db.Messages.FirstOrDefault(m =>
+                m.Peer == message.Peer.ToString() &&
+                m.Timestamp == message.Timestamp &&
+                m.IsOutbound == message.IsOutbound);
+
+            if (record != null)
+            {
+                record.DeliveryStatus = message.DeliveryStatus.HasValue ? (int)message.DeliveryStatus.Value : null;
+                record.RetryCount = message.RetryCount;
+                record.NextRetryTime = message.NextRetryTime;
+                db.SaveChanges();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update message status for {Peer}", message.Peer);
+        }
     }
 
     private ConversationThread GetOrCreateConversationUnlocked(Callsign peer)
@@ -266,6 +456,15 @@ public sealed class MessageService : IMessageService, IDisposable
             }
 
             thread.Messages.Add(stored);
+            
+            // Re-add pending messages to retry queue
+            if (stored.IsOutbound && 
+                stored.MessageNumber.HasValue && 
+                stored.DeliveryStatus == MessageDeliveryStatus.Pending)
+            {
+                _pendingMessages[stored.MessageNumber.Value] = stored;
+            }
+
             if (stored.MessageNumber is { } number && number > maxMessageNumber)
             {
                 maxMessageNumber = number;
@@ -277,7 +476,6 @@ public sealed class MessageService : IMessageService, IDisposable
             Conversations.Add(thread);
         }
 
-        // Start from next message number after the highest found
         _nextMessageNumber = maxMessageNumber + 1;
     }
 
@@ -320,8 +518,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         _disposed = true;
+        _retryTimer.Dispose();
         _portService.PacketReceived -= OnPacketReceived;
     }
 }
-
-

@@ -151,4 +151,22 @@ public class AprsSettings
     /// Default is 12 hours.
     /// </summary>
     public int CustomDisplayTimeRangeHours { get; set; } = 12;
+
+    /// <summary>
+    /// Gets or sets the maximum number of retry attempts for unacknowledged messages.
+    /// Default is 5.
+    /// </summary>
+    public int MessageMaxRetries { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the initial retry timeout in seconds for unacknowledged messages.
+    /// Default is 30 seconds.
+    /// </summary>
+    public int MessageRetryTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets whether to automatically send ACK/REJ for incoming messages.
+    /// Default is true.
+    /// </summary>
+    public bool AutoAcknowledgeMessages { get; set; } = true;
 }

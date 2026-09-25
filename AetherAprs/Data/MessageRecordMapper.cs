@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
+using System;
 
 namespace AetherAprs.Data;
 
@@ -18,7 +19,10 @@ internal static class MessageRecordMapper
             Timestamp = message.Timestamp,
             IsOutbound = message.IsOutbound,
             MessageNumber = message.MessageNumber,
-            PortId = message.PortId
+            PortId = message.PortId,
+            DeliveryStatus = message.DeliveryStatus.HasValue ? (int)message.DeliveryStatus.Value : null,
+            RetryCount = message.RetryCount,
+            NextRetryTime = message.NextRetryTime
         };
     }
 
@@ -36,7 +40,12 @@ internal static class MessageRecordMapper
             Timestamp = record.Timestamp,
             IsOutbound = record.IsOutbound,
             MessageNumber = record.MessageNumber,
-            PortId = record.PortId
+            PortId = record.PortId,
+            DeliveryStatus = record.DeliveryStatus.HasValue && Enum.IsDefined(typeof(MessageDeliveryStatus), record.DeliveryStatus.Value)
+                ? (MessageDeliveryStatus)record.DeliveryStatus.Value
+                : null,
+            RetryCount = record.RetryCount,
+            NextRetryTime = record.NextRetryTime
         };
     }
 }

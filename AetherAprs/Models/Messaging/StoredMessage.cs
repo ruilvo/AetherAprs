@@ -23,4 +23,19 @@ public sealed class StoredMessage
     public int? MessageNumber { get; init; }
 
     public Guid? PortId { get; init; }
+
+    /// <summary>
+    /// Delivery status for outbound messages. Null for inbound messages.
+    /// </summary>
+    public MessageDeliveryStatus? DeliveryStatus { get; set; }
+
+    /// <summary>
+    /// Number of retry attempts for outbound messages.
+    /// </summary>
+    public int RetryCount { get; set; }
+
+    /// <summary>
+    /// Next retry time for outbound messages.
+    /// </summary>
+    public DateTimeOffset? NextRetryTime { get; set; }
 }

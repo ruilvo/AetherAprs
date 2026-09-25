@@ -24,4 +24,10 @@ public sealed class MessageRecord
     public int? MessageNumber { get; set; }
 
     public Guid? PortId { get; set; }
+
+    public int? DeliveryStatus { get; set; }
+
+    public int RetryCount { get; set; }
+
+    public DateTimeOffset? NextRetryTime { get; set; }
 }

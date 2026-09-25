@@ -537,9 +537,11 @@ public static class AprsInfoFieldParser
     // Message parser
     // ---------------------------------------------------------------
 
-    private static MessagePacket ParseMessage(string info, Callsign source, Callsign dest)
+    private static AprsPacket ParseMessage(string info, Callsign source, Callsign dest)
     {
         // Format: :ADDRESSEE :message text{msgid}
+        // ACK format: :ADDRESSEE :ack{msgid}
+        // REJ format: :ADDRESSEE :rej{msgid}
         var addresseeStr = "APRS";
         var addrEnd = info.IndexOf(':', 1);
 
@@ -563,6 +565,50 @@ public static class AprsInfoFieldParser
 
         var textStart = addrEnd >= 0 ? addrEnd + 1 : info.Length;
         var text = textStart < info.Length ? info[textStart..] : string.Empty;
+
+        // Check for ACK format: ack{msgid} or ackN
+        if (text.StartsWith("ack", StringComparison.OrdinalIgnoreCase))
+        {
+            var ackNumStr = text[3..];
+            if (ackNumStr.StartsWith('{') && ackNumStr.EndsWith('}') && ackNumStr.Length > 2)
+            {
+                ackNumStr = ackNumStr[1..^1];
+            }
+            
+            if (int.TryParse(ackNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out var ackNum))
+            {
+                return new MessageAckPacket
+                {
+                    Source = source,
+                    Destination = dest,
+                    Raw = info,
+                    Addressee = addressee,
+                    MessageNumber = ackNum
+                };
+            }
+        }
+
+        // Check for REJ format: rej{msgid} or rejN
+        if (text.StartsWith("rej", StringComparison.OrdinalIgnoreCase))
+        {
+            var rejNumStr = text[3..];
+            if (rejNumStr.StartsWith('{') && rejNumStr.EndsWith('}') && rejNumStr.Length > 2)
+            {
+                rejNumStr = rejNumStr[1..^1];
+            }
+            
+            if (int.TryParse(rejNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out var rejNum))
+            {
+                return new MessageRejPacket
+                {
+                    Source = source,
+                    Destination = dest,
+                    Raw = info,
+                    Addressee = addressee,
+                    MessageNumber = rejNum
+                };
+            }
+        }
 
         int? msgNumber = null;
         if (text.Length > 0)
