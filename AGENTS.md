@@ -406,6 +406,7 @@ public void Dispose()
 - Creating child ViewModels directly instead of injecting them via constructor
 - Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
 - **Adding hardcoded user-facing text in AXAML or code without using localization** - ALL user-facing strings MUST use `{loc:Loc StringKey}` in AXAML or `Strings.Get("StringKey")` in code
+- **Using `DateTimeOffset` directly in EF Core LINQ queries with SQLite** - SQLite doesn't support DateTimeOffset comparisons or ORDER BY operations. Always use `.UtcTicks` for filtering and sorting
 
 ## Localization Requirements
 
