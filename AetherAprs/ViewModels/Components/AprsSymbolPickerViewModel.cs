@@ -7,6 +7,7 @@ using AetherAprs.Models.Aprs;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 using System;
 using System.IO;
@@ -20,6 +21,7 @@ namespace AetherAprs.ViewModels.Components;
 public partial class AprsSymbolPickerViewModel : ViewModelBase
 {
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
+    private readonly ILogger<AprsSymbolPickerViewModel>? _logger;
 
     [ObservableProperty]
     public partial string TableCharacter { get; set; } = "/";
@@ -51,25 +53,39 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
     public event EventHandler? OpenSymbolSelectorRequested;
     public event EventHandler? OpenOverlaySelectorRequested;
 
-    public AprsSymbolPickerViewModel(IAprsSymbolBitmapProvider symbolBitmapProvider)
+    public AprsSymbolPickerViewModel(IAprsSymbolBitmapProvider symbolBitmapProvider, ILogger<AprsSymbolPickerViewModel>? logger = null)
     {
         _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
-        UpdatePreviews();
+        _logger = logger;
+        // Don't call UpdatePreviews() in constructor - let property setters handle it
+        // This avoids Avalonia platform dependencies during construction (important for tests and design-time)
     }
 
     partial void OnTableCharacterChanged(string value)
     {
-        UpdatePreviews();
+        // Only update previews if we have valid character (avoid updates during initialization)
+        if (value.Length == 1 && CodeCharacter.Length == 1)
+        {
+            UpdatePreviews();
+        }
     }
 
     partial void OnCodeCharacterChanged(string value)
     {
-        UpdatePreviews();
+        // Only update previews if we have valid character (avoid updates during initialization)
+        if (value.Length == 1 && TableCharacter.Length == 1)
+        {
+            UpdatePreviews();
+        }
     }
 
     partial void OnOverlayCharacterChanged(string? value)
     {
-        UpdatePreviews();
+        // Only update previews if base symbols are valid
+        if (TableCharacter.Length == 1 && CodeCharacter.Length == 1)
+        {
+            UpdatePreviews();
+        }
     }
 
     private void UpdatePreviews()
@@ -134,7 +150,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
         var table = TableCharacter.Length == 1 ? TableCharacter[0].ToSymbolTable() : SymbolTable.Primary;
         var code = CodeCharacter.Length == 1 ? CodeCharacter[0].ToSymbolCode() : SymbolCode.LeftSquareBracket;
 
-        SymbolSelectorViewModel = new SymbolSelectorViewModel(table, code);
+        SymbolSelectorViewModel = new SymbolSelectorViewModel(_symbolBitmapProvider, table, code);
         OpenSymbolSelectorRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -150,7 +166,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
             ? OverlayCharacter[0].ToSymbolCode()
             : SymbolCode.Digit0;
 
-        OverlaySelectorViewModel = new SymbolSelectorViewModel(SymbolTable.Alternate, currentCode, isOverlayMode: true);
+        OverlaySelectorViewModel = new SymbolSelectorViewModel(_symbolBitmapProvider, SymbolTable.Alternate, currentCode, isOverlayMode: true);
         OpenOverlaySelectorRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -183,5 +199,14 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         using var stream = new MemoryStream(data.ToArray());
         return new Bitmap(stream);
+    }
+
+    /// <summary>
+    /// Reports dialog errors from the View to the ViewModel for logging.
+    /// Called by AprsSymbolPickerView when dialog operations fail.
+    /// </summary>
+    public void ReportDialogError(string operation, Exception exception)
+    {
+        _logger?.LogError(exception, "Failed to {Operation} in symbol picker", operation);
     }
 }

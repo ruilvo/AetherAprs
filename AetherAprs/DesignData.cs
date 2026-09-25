@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Factories;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -61,6 +62,11 @@ public static class DesignData
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
 
+        // Register factories
+        services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
+        services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
+        services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
+
         // Register logging
         services.AddLogging(builder =>
         {
@@ -74,6 +80,7 @@ public static class DesignData
         services.AddTransient<LocationTrackingViewModel>();
         services.AddTransient<BeaconTransmissionViewModel>();
         services.AddTransient<MapViewModel>();
+        services.AddTransient<AprsSymbolPickerViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
         services.AddSingleton<PacketsViewModel>();
@@ -137,7 +144,8 @@ public static class DesignData
     {
         get
         {
-            return new SymbolSelectorViewModel(SymbolTable.Primary, SymbolCode.LeftSquareBracket);
+            var symbolBitmapProvider = _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>();
+            return new SymbolSelectorViewModel(symbolBitmapProvider, SymbolTable.Primary, SymbolCode.LeftSquareBracket);
         }
     }
 

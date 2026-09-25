@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
@@ -23,7 +23,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 {
     private readonly IPacketCacheService _packetCacheService;
     private readonly INavigationService _navigationService;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly DispatcherTimer _refreshTimer;
     private bool _pendingRefresh;
@@ -41,12 +41,12 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     public PacketsViewModel(
         IPacketCacheService packetCacheService,
         INavigationService navigationService,
-        IServiceProvider serviceProvider,
+        IPacketDetailsViewModelFactory packetDetailsFactory,
         ILogger<PacketsViewModel> logger)
     {
         _packetCacheService = packetCacheService;
         _navigationService = navigationService;
-        _serviceProvider = serviceProvider;
+        _packetDetailsFactory = packetDetailsFactory;
         _logger = logger;
 
         // Throttle UI updates to every 500ms to avoid overwhelming the UI thread
@@ -150,8 +150,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var vm = _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
-        vm.Initialize(summary.Source);
+        var vm = _packetDetailsFactory.Create(summary.Source);
         _navigationService.NavigateTo(vm);
     }
 

@@ -39,19 +39,15 @@ public partial class SymbolSelectorViewModel : ViewModelBase
     public IReadOnlyList<SymbolGridItem> PrimarySymbols { get; }
     public IReadOnlyList<SymbolGridItem> AlternateSymbols { get; }
 
-    public SymbolSelectorViewModel(SymbolTable currentTable, SymbolCode currentCode, bool isOverlayMode = false)
+    public SymbolSelectorViewModel(
+        IAprsSymbolBitmapProvider? symbolBitmapProvider,
+        SymbolTable currentTable, 
+        SymbolCode currentCode, 
+        bool isOverlayMode = false)
     {
+        _symbolBitmapProvider = symbolBitmapProvider;
         _previewFactory = CreatePreviewBitmap;
         _isOverlayMode = isOverlayMode;
-
-        try
-        {
-            _symbolBitmapProvider = App.GetService<IAprsSymbolBitmapProvider>();
-        }
-        catch (InvalidOperationException)
-        {
-            _symbolBitmapProvider = null;
-        }
 
         SelectedTable = currentTable;
         SelectedSymbolCode = currentCode;

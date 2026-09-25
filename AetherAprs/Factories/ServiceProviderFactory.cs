@@ -71,6 +71,11 @@ public static class ServiceProviderFactory
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
 
+        // Register factories
+        services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
+        services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
+        services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
+
         // Register logging with deferred configuration resolution
         services.AddLogging(builder =>
         {
@@ -103,6 +108,7 @@ public static class ServiceProviderFactory
         services.AddTransient<LocationTrackingViewModel>(); // Sub-component, created per HomeViewModel
         services.AddTransient<BeaconTransmissionViewModel>(); // Sub-component, created per HomeViewModel
         services.AddTransient<MapViewModel>(); // Sub-component, created per HomeViewModel
+        services.AddTransient<AprsSymbolPickerViewModel>(); // Sub-component, created per SettingsViewModel
         services.AddSingleton<HomeViewModel>(); // Main page state
         services.AddSingleton<MessagesViewModel>(); // Main page state
         services.AddSingleton<PacketsViewModel>(); // Main page state

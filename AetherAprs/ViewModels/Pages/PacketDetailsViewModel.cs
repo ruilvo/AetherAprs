@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Factories;
+using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
@@ -23,7 +24,7 @@ namespace AetherAprs.ViewModels.Pages;
 public partial class PacketDetailsViewModel(
     IDbContextFactory<AppDbContext> dbContextFactory,
     INavigationService navigationService,
-    IServiceProvider serviceProvider,
+    IConversationViewModelFactory conversationFactory,
     ILogger<PacketDetailsViewModel> logger) : ViewModelBase
 {
     [ObservableProperty]
@@ -81,9 +82,6 @@ public partial class PacketDetailsViewModel(
         // Navigate to messages page and open conversation with this callsign
         navigationService.NavigateTo<MessagesViewModel>();
 
-        // Open conversation with the callsign
-        var conversationVm = serviceProvider.GetRequiredService<ConversationViewModel>();
-
         // Parse callsign to extract base callsign (remove SSID if present)
         var callsignStr = Callsign;
         var dashIndex = callsignStr.IndexOf('-');
@@ -95,7 +93,7 @@ public partial class PacketDetailsViewModel(
         try
         {
             var callsign = new Callsign(callsignStr);
-            conversationVm.Initialize(callsign);
+            var conversationVm = conversationFactory.Create(callsign);
             navigationService.NavigateTo(conversationVm);
         }
         catch (Exception ex)

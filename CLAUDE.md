@@ -78,6 +78,15 @@ dotnet build AetherAprs.slnx
 
 If the build fails, fix errors before presenting the result.
 
+### After Test-Related Changes
+
+```powershell
+# Run tests to verify functionality
+dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
+```
+
+If tests fail, diagnose and fix before presenting the result.
+
 ### After Creating New Files
 
 ```powershell
@@ -250,6 +259,150 @@ var resource = _resource;
 _resource = null;
 resource?.Dispose();
 ```
+
+---
+
+## 6. Dependency Injection Patterns
+
+**Never use service locator. Use constructor injection or factory pattern.**
+
+Service locator anti-pattern:
+```csharp
+// WRONG - Service locator
+var vm = App.GetService<AddEditPortViewModel>();
+vm.Initialize(callsign, portNumber, config);
+navigationService.NavigateTo(vm);
+```
+
+Factory pattern (for transient ViewModels requiring initialization):
+```csharp
+// CORRECT - Factory pattern
+public interface IAddEditPortViewModelFactory
+{
+    AddEditPortViewModel CreateForAdd(Callsign callsign, int portNumber);
+    AddEditPortViewModel CreateForEdit(Callsign callsign, int portNumber, PortConfig config);
+}
+
+public class AddEditPortViewModelFactory : IAddEditPortViewModelFactory
+{
+    private readonly IServiceProvider _serviceProvider;
+    
+    public AddEditPortViewModelFactory(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
+    
+    public AddEditPortViewModel CreateForAdd(Callsign callsign, int portNumber)
+    {
+        var vm = _serviceProvider.GetRequiredService<AddEditPortViewModel>();
+        vm.Initialize(callsign, portNumber, existingConfig: null);
+        return vm;
+    }
+    
+    // ... CreateForEdit implementation
+}
+
+// Usage in consumer
+private readonly IAddEditPortViewModelFactory _factory;
+
+public PortsViewModel(IAddEditPortViewModelFactory factory, ...)
+{
+    _factory = factory;
+}
+
+private void OnEditPort(PortItemViewModel item)
+{
+    var vm = _factory.CreateForEdit(callsign, portNumber, config);
+    _navigationService.NavigateTo(vm);
+}
+```
+
+**Child ViewModel injection:**
+```csharp
+// CORRECT - Inject child ViewModels
+public SettingsViewModel(AprsSymbolPickerViewModel symbolPicker, ...)
+{
+    SymbolPicker = symbolPicker;
+    SymbolPicker.TableCharacter = config.Symbol.Table.ToChar().ToString();
+}
+
+// WRONG - Create child ViewModels directly
+public SettingsViewModel(IAprsSymbolBitmapProvider provider, ...)
+{
+    SymbolPicker = new AprsSymbolPickerViewModel(provider); // Anti-pattern
+}
+```
+
+When to use each pattern:
+- **Constructor injection**: For all regular dependencies and child ViewModels
+- **Factory pattern**: For transient ViewModels that need `Initialize(contextData)` called after construction
+- **Service locator**: Never (except in code-behind static methods where DI unavailable)
+
+---
+
+## 7. Async/Await Error Handling
+
+**Fire-and-forget is only acceptable with proper error handling and state recovery.**
+
+Property change handlers calling async methods:
+```csharp
+// Pattern: Async callback with error recovery
+private readonly Func<PortItemViewModel, Task> _onToggle;
+
+partial void OnIsEnabledChanged(bool value)
+{
+    if (!_isInitializing)
+        _ = HandleToggleAsync();
+}
+
+private async Task HandleToggleAsync()
+{
+    try
+    {
+        await _onToggle(this);
+    }
+    catch (Exception ex)
+    {
+        _logger?.LogError(ex, "Error toggling port {PortName} (ID: {PortId})", Name, Id);
+        // Revert UI state on failure
+        _isInitializing = true;
+        IsEnabled = !IsEnabled;
+        _isInitializing = false;
+    }
+}
+```
+
+The parent provides async implementation:
+```csharp
+private async Task OnTogglePortAsync(PortItemViewModel item)
+{
+    await _portService.SetPortEnabledAsync(item.Id, item.IsEnabled);
+}
+```
+
+Key principles:
+- Wrap fire-and-forget in try-catch with error logging
+- Revert UI state on failure to maintain consistency
+- Use structured logging with context (`ILogger<T>`, not `Debug.WriteLine`)
+- Pass exceptions that user should see to UI layer (snackbar, dialog)
+
+---
+
+## 8. Logging Consistency
+
+**Always use `ILogger<T>` for error logging. Never use `Debug.WriteLine` or `Console.WriteLine`.**
+
+```csharp
+// CORRECT - Structured logging
+_logger?.LogError(ex, "Failed to {Operation} for port {PortName}", operation, portName);
+
+// WRONG - Unstructured, lost in production
+System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}");
+```
+
+Acceptable exceptions:
+- `App.axaml.cs` startup failures (before logging initialized)
+- Temporary debugging during development (must be removed before commit)
 
 ---
 

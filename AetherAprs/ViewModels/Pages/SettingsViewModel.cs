@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Imaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
@@ -39,10 +38,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public SettingsViewModel(
         IConfigurationService configurationService,
         INavigationService navigationService,
-        IAprsSymbolBitmapProvider symbolBitmapProvider)
+        AprsSymbolPickerViewModel aprsSymbolPicker)
     {
         _configurationService = configurationService;
         _navigationService = navigationService;
+        SymbolPicker = aprsSymbolPicker;
 
         var aprs = _configurationService.Settings.Aprs;
         Callsign = aprs.Callsign;
@@ -51,13 +51,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
         DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
 
-        // Initialize symbol picker ViewModel
-        SymbolPicker = new AprsSymbolPickerViewModel(symbolBitmapProvider)
-        {
-            TableCharacter = DefaultSymbolTableCharacter,
-            CodeCharacter = DefaultSymbolCodeCharacter,
-            OverlayCharacter = DefaultSymbolOverlayCharacter
-        };
+        // Initialize symbol picker with settings values
+        SymbolPicker.TableCharacter = DefaultSymbolTableCharacter;
+        SymbolPicker.CodeCharacter = DefaultSymbolCodeCharacter;
+        SymbolPicker.OverlayCharacter = DefaultSymbolOverlayCharacter;
 
         // Sync symbol picker changes back to settings
         SymbolPicker.PropertyChanged += OnSymbolPickerPropertyChanged;

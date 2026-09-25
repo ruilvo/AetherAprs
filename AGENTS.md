@@ -112,15 +112,45 @@ Mirror the source namespace structure under `AetherAprs.Tests/`:
 
 **Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`).
 
+**Factory Pattern for Transient ViewModels**: When a ViewModel requires post-construction initialization with context-specific data, use the factory pattern instead of service locator:
+- Create `IViewModelFactory` interface with `Create(...)` methods accepting context parameters
+- Implementation uses `IServiceProvider.GetRequiredService<>()` to get transient ViewModel, calls `Initialize()`, returns initialized instance
+- Register factory as singleton in both `ServiceProviderFactory.cs` and `DesignData.cs`
+- Examples: `IAddEditPortViewModelFactory`, `IPacketDetailsViewModelFactory`, `IConversationViewModelFactory`
+
 **MVVM**: Uses CommunityToolkit.Mvvm. ViewModels resolved from DI container and assigned to DataContext.
 
 **ViewLocator Pattern**: `ViewLocator.cs` provides automatic ViewModel-to-View mapping. The ViewLocator is registered in `App.axaml` as an application-level DataTemplate.
 
 When creating new ViewModels:
-1. Register in `ServiceProviderFactory.cs` (runtime DI)
+1. Register in `ServiceProviderFactory.cs` (runtime DI) - use appropriate lifetime (Singleton/Transient)
 2. Register in `DesignData.cs` (design-time DI)
 3. Add public property to expose the ViewModel instance in DesignData
 4. Add ViewModel → View mapping in `ViewLocator.cs`
+
+**ViewModel Lifetime Guidelines:**
+- **Singleton**: Page-level ViewModels that persist across app lifetime (MainViewModel, HomeViewModel, PortsViewModel, etc.)
+- **Transient**: Sub-components created on-demand (LocationTrackingViewModel, BeaconTransmissionViewModel, dialog ViewModels)
+- **Transient with Factory**: ViewModels requiring post-construction initialization with context data (AddEditPortViewModel, PacketDetailsViewModel, ConversationViewModel)
+
+**Child ViewModel Injection**: Parent ViewModels should inject child ViewModels via constructor, not create them directly:
+```csharp
+// CORRECT - Inject child ViewModel
+public HomeViewModel(
+    LocationTrackingViewModel locationTracking,
+    MapViewModel map,
+    ...)
+{
+    LocationTracking = locationTracking;
+    Map = map;
+}
+
+// WRONG - Don't create child ViewModels directly
+public SettingsViewModel(...)
+{
+    SymbolPicker = new AprsSymbolPickerViewModel(...); // Anti-pattern
+}
+```
 
 When binding ViewModels to UI:
 - ALWAYS use `<ContentControl Content="{Binding ViewModelProperty}" />`
@@ -370,5 +400,57 @@ public void Dispose()
 - Using backing field approach with `[ObservableProperty]` instead of partial properties
 - Subscribing to events without unsubscribing (memory leaks)
 - Using lambda subscriptions to own PropertyChanged event (memory leaks)
-- Fire-and-forget async operations without cancellation tokens
+- Fire-and-forget async operations without cancellation tokens or error handling
 - Missing try-catch in async void event handlers (app crashes on exception)
+- Using service locator pattern (`App.GetService<>()` or `IServiceProvider.GetRequiredService<>()`) instead of constructor injection or factory pattern
+- Creating child ViewModels directly instead of injecting them via constructor
+- Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
+
+## Async/Await Best Practices
+
+**Fire-and-Forget Pattern**: Only acceptable when properly wrapped with error handling and cancellation:
+```csharp
+// ACCEPTABLE - Fire-and-forget with error recovery
+private async Task HandleToggleAsync()
+{
+    try
+    {
+        await _onToggle(this);
+    }
+    catch (Exception ex)
+    {
+        _logger?.LogError(ex, "Error toggling port {PortName}", Name);
+        // Revert UI state on failure
+        _isInitializing = true;
+        IsEnabled = !IsEnabled;
+        _isInitializing = false;
+    }
+}
+
+partial void OnIsEnabledChanged(bool value)
+{
+    if (!_isInitializing)
+        _ = HandleToggleAsync(); // Fire-and-forget with error handling
+}
+```
+
+**Async Callbacks**: When property change handlers need to call async methods, use async callbacks:
+```csharp
+// Callback signature
+private readonly Func<PortItemViewModel, Task> _onToggle;
+
+// Usage in parent
+private async Task OnTogglePortAsync(PortItemViewModel item)
+{
+    await _portService.SetPortEnabledAsync(item.Id, item.IsEnabled);
+}
+```
+
+**Logging Best Practices**: Use structured logging with `ILogger<T>` consistently:
+```csharp
+// CORRECT - Structured logging
+_logger?.LogError(ex, "Error toggling port {PortName} (ID: {PortId})", Name, Id);
+
+// WRONG - Debug.WriteLine (inconsistent, no structure)
+System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}");
+```

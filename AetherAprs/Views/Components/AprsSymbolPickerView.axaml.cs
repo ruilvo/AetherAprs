@@ -134,7 +134,10 @@ public partial class AprsSymbolPickerView : UserControl
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to show symbol selector: {ex}");
+            if (DataContext is AprsSymbolPickerViewModel viewModel)
+            {
+                viewModel.ReportDialogError("show symbol selector", ex);
+            }
         }
     }
 
@@ -174,7 +177,10 @@ public partial class AprsSymbolPickerView : UserControl
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to show overlay selector: {ex}");
+            if (DataContext is AprsSymbolPickerViewModel viewModel)
+            {
+                viewModel.ReportDialogError("show overlay selector", ex);
+            }
         }
     }
 }

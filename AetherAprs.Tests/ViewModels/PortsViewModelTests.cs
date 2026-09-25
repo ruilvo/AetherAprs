@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
@@ -23,7 +24,9 @@ public sealed class PortsViewModelTests
         var first = CreatePort(new AprsIsSettings(), "First");
         var second = CreatePort(new KissSettings { Transport = new TcpKissTransportSettings() }, "Second");
         var portService = new TestPortService(first, second);
-        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, NullLogger<PortsViewModel>.Instance);
+        var navService = Substitute.For<INavigationService>();
+        var factory = Substitute.For<IAddEditPortViewModelFactory>();
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
 
         Assert.Collection(
             viewModel.PortItems,
@@ -38,7 +41,9 @@ public sealed class PortsViewModelTests
         var original = CreatePort(new AprsIsSettings(), "Original");
         var replacement = CreatePort(new AprsIsSettings(), "Replacement");
         var portService = new TestPortService(original);
-        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, NullLogger<PortsViewModel>.Instance);
+        var navService = Substitute.For<INavigationService>();
+        var factory = Substitute.For<IAddEditPortViewModelFactory>();
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
 
         portService.ReplacePorts(replacement);
 
@@ -51,7 +56,9 @@ public sealed class PortsViewModelTests
     {
         var port = CreatePort(new AprsIsSettings(), "Port");
         var portService = new TestPortService(port);
-        var navService = Substitute.For<INavigationService>();var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, NullLogger<PortsViewModel>.Instance);
+        var navService = Substitute.For<INavigationService>();
+        var factory = Substitute.For<IAddEditPortViewModelFactory>();
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var item = Assert.Single(viewModel.PortItems);
 
         item.IsEnabled = true;

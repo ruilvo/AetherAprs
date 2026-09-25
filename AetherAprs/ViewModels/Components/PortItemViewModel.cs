@@ -5,18 +5,21 @@
 using AetherAprs.Configuration;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels;
 
 public partial class PortItemViewModel : ViewModelBase
 {
     private readonly PortConfig _config;
-    private readonly Action<PortItemViewModel> _onToggle;
-    private readonly Action<PortItemViewModel> _onShowOnMapToggle;
-    private readonly Action<PortItemViewModel> _onDelete;
+    private readonly Func<PortItemViewModel, Task> _onToggle;
+    private readonly Func<PortItemViewModel, Task> _onShowOnMapToggle;
+    private readonly Func<PortItemViewModel, Task> _onDelete;
     private readonly Action<PortItemViewModel> _onEdit;
-    private readonly bool _isInitializing;
+    private readonly ILogger<PortItemViewModel>? _logger;
+    private bool _isInitializing;
 
     public Guid Id => _config.Id;
 
@@ -41,16 +44,18 @@ public partial class PortItemViewModel : ViewModelBase
 
     public PortItemViewModel(
         PortConfig config,
-        Action<PortItemViewModel> onToggle,
-        Action<PortItemViewModel> onShowOnMapToggle,
-        Action<PortItemViewModel> onDelete,
-        Action<PortItemViewModel> onEdit)
+        Func<PortItemViewModel, Task> onToggle,
+        Func<PortItemViewModel, Task> onShowOnMapToggle,
+        Func<PortItemViewModel, Task> onDelete,
+        Action<PortItemViewModel> onEdit,
+        ILogger<PortItemViewModel>? logger = null)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _onToggle = onToggle;
         _onShowOnMapToggle = onShowOnMapToggle;
         _onDelete = onDelete;
         _onEdit = onEdit;
+        _logger = logger;
 
         _isInitializing = true;
         IsEnabled = config.IsEnabled;
@@ -63,7 +68,7 @@ public partial class PortItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(StatusText));
         if (!_isInitializing)
         {
-            _onToggle(this);
+            _ = HandleToggleAsync();
         }
     }
 
@@ -71,7 +76,39 @@ public partial class PortItemViewModel : ViewModelBase
     {
         if (!_isInitializing)
         {
-            _onShowOnMapToggle(this);
+            _ = HandleShowOnMapToggleAsync();
+        }
+    }
+
+    private async Task HandleToggleAsync()
+    {
+        try
+        {
+            await _onToggle(this);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error toggling port {PortName} (ID: {PortId})", Name, Id);
+            // Revert the toggle on failure
+            _isInitializing = true;
+            IsEnabled = !IsEnabled;
+            _isInitializing = false;
+        }
+    }
+
+    private async Task HandleShowOnMapToggleAsync()
+    {
+        try
+        {
+            await _onShowOnMapToggle(this);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error toggling ShowOnMap for port {PortName} (ID: {PortId})", Name, Id);
+            // Revert on failure
+            _isInitializing = true;
+            ShowOnMap = !ShowOnMap;
+            _isInitializing = false;
         }
     }
 
@@ -82,9 +119,9 @@ public partial class PortItemViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Delete()
+    private async Task DeleteAsync()
     {
-        _onDelete(this);
+        await _onDelete(this);
     }
 
     [RelayCommand]

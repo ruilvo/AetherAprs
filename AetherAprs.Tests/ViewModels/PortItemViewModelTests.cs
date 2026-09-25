@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.ViewModels;
 using Xunit;
+using Xunit.Sdk;
 
 namespace AetherAprs.Tests.ViewModels;
 
@@ -15,7 +17,7 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     public void Constructor_NullConfig_Throws()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new PortItemViewModel(null!, _ => { }, _ => { }, _ => { }, _ => { }));
+            new PortItemViewModel(null!, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => { }, logger: null));
     }
 
     [Fact]
@@ -52,7 +54,7 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public void PropertyChanges_InvokeCallbacks()
+    public async Task PropertyChanges_InvokeCallbacks()
     {
         PortItemViewModel? toggled = null;
         PortItemViewModel? mapToggled = null;
@@ -60,31 +62,36 @@ public sealed class PortItemViewModelTests : TestFixtureBase
 
         var vm = new PortItemViewModel(
             config,
-            item => toggled = item,
-            item => mapToggled = item,
+            item => { toggled = item; return Task.CompletedTask; },
+            item => { mapToggled = item; return Task.CompletedTask; },
+            _ => Task.CompletedTask,
             _ => { },
-            _ => { });
+            logger: null);
 
         vm.IsEnabled = true;
         vm.ShowOnMap = true;
+
+        // Give async handlers time to complete
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         Assert.Same(vm, toggled);
         Assert.Same(vm, mapToggled);
     }
 
     [Fact]
-    public void DeleteAndEdit_InvokeCallbacks()
+    public async Task DeleteAndEdit_InvokeCallbacks()
     {
         PortItemViewModel? deleted = null;
         PortItemViewModel? edited = null;
         var vm = new PortItemViewModel(
             new PortConfig { Name = "Port" },
-            _ => { },
-            _ => { },
-            item => deleted = item,
-            item => edited = item);
+            _ => Task.CompletedTask,
+            _ => Task.CompletedTask,
+            item => { deleted = item; return Task.CompletedTask; },
+            item => edited = item,
+            logger: null);
 
-        vm.DeleteCommand.Execute(null);
+        await vm.DeleteCommand.ExecuteAsync(null);
         vm.EditCommand.Execute(null);
 
         Assert.Same(vm, deleted);
@@ -123,10 +130,11 @@ public sealed class PortItemViewModelTests : TestFixtureBase
 
         var vm = new PortItemViewModel(
             config,
-            _ => toggleCount++,
-            _ => mapToggleCount++,
+            _ => { toggleCount++; return Task.CompletedTask; },
+            _ => { mapToggleCount++; return Task.CompletedTask; },
+            _ => Task.CompletedTask,
             _ => { },
-            _ => { });
+            logger: null);
 
         // Callbacks should NOT have been invoked during construction
         Assert.Equal(0, toggleCount);
@@ -138,7 +146,7 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public void PropertyChanges_AfterInitialization_InvokeCallbacks()
+    public async Task PropertyChanges_AfterInitialization_InvokeCallbacks()
     {
         // This test ensures callbacks ARE invoked after initialization
         var toggleCount = 0;
@@ -147,10 +155,11 @@ public sealed class PortItemViewModelTests : TestFixtureBase
 
         var vm = new PortItemViewModel(
             config,
-            _ => toggleCount++,
-            _ => mapToggleCount++,
+            _ => { toggleCount++; return Task.CompletedTask; },
+            _ => { mapToggleCount++; return Task.CompletedTask; },
+            _ => Task.CompletedTask,
             _ => { },
-            _ => { });
+            logger: null);
 
         // Verify no callbacks during construction
         Assert.Equal(0, toggleCount);
@@ -158,14 +167,16 @@ public sealed class PortItemViewModelTests : TestFixtureBase
 
         // Now change properties - callbacks SHOULD be invoked
         vm.IsEnabled = true;
+        await Task.Delay(50, TestContext.Current.CancellationToken); // Give async handler time to complete
         Assert.Equal(1, toggleCount);
         Assert.Equal(0, mapToggleCount);
 
         vm.ShowOnMap = true;
+        await Task.Delay(50, TestContext.Current.CancellationToken); // Give async handler time to complete
         Assert.Equal(1, toggleCount);
         Assert.Equal(1, mapToggleCount);
     }
 
     private static PortItemViewModel Create(PortConfig config) =>
-        new(config, _ => { }, _ => { }, _ => { }, _ => { });
+        new(config, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => { }, logger: null);
 }

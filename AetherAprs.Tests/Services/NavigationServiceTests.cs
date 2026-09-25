@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
+using AetherAprs.Factories;
 using AetherAprs.Imaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
@@ -94,11 +96,21 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<ILogger<HomeViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<LocationTrackingViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<BeaconTransmissionViewModel>>());
+        services.AddSingleton(Substitute.For<ILogger<ReceivedBeaconsViewModel>>());
+        
+        // Register IPacketCacheService - required by ReceivedBeaconsViewModel
+        var packetCache = Substitute.For<IPacketCacheService>();
+        packetCache.GetPositionPackets().Returns(new Dictionary<string, CachedPacket>());
+        services.AddSingleton(packetCache);
+
+        // Register IAddEditPortViewModelFactory - required by PortsViewModel
+        services.AddSingleton(Substitute.For<IAddEditPortViewModelFactory>());
 
         services.AddSingleton<ReceivedBeaconsViewModel>();
         services.AddSingleton<LocationTrackingViewModel>();
         services.AddSingleton<BeaconTransmissionViewModel>();
         services.AddSingleton<MapViewModel>();
+        services.AddTransient<AprsSymbolPickerViewModel>(); // Required by SettingsViewModel
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
         services.AddSingleton<PortsViewModel>();

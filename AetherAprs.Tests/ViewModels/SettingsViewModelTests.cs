@@ -8,6 +8,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Imaging;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using SkiaSharp;
 using Xunit;
@@ -21,8 +22,8 @@ public sealed class SettingsViewModelTests
     {
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
-        var symbolProvider = new TestSymbolBitmapProvider();
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolProvider);
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
 
         viewModel.Callsign = "CT7ALW";
         
@@ -38,8 +39,8 @@ public sealed class SettingsViewModelTests
     {
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
-        var symbolProvider = new TestSymbolBitmapProvider();
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolProvider);
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
 
         viewModel.Callsign = "CT7ALW";
         viewModel.DefaultSsid = 7;
@@ -61,8 +62,8 @@ public sealed class SettingsViewModelTests
     {
         var configuration = new TestConfigurationService();
         configuration.Settings.Aprs.DefaultSsid = 7;
-        var symbolProvider = new TestSymbolBitmapProvider();
-        var viewModel = new SettingsViewModel(configuration, new TestNavigationService(), symbolProvider);
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(configuration, new TestNavigationService(), symbolPicker);
 
         viewModel.DefaultSsid = null;
         
@@ -77,8 +78,8 @@ public sealed class SettingsViewModelTests
     public void OpenBeaconingSettingsNavigatesToDynamicBeaconingViewModel()
     {
         var navigation = new TestNavigationService();
-        var symbolProvider = new TestSymbolBitmapProvider();
-        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation, symbolProvider);
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation, symbolPicker);
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
 

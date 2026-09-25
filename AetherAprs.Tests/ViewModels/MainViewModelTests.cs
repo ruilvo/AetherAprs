@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
+using AetherAprs.Factories;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -20,6 +21,7 @@ using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using SkiaSharp;
 using Xunit;
 
@@ -127,13 +129,16 @@ public sealed class MainViewModelTests
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, provider);
         
+        var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         var packets = new PacketsViewModel(
             packetCache,
             navigation,
-            provider,
+            packetDetailsFactory,
             NullLogger<PacketsViewModel>.Instance);
-        var ports = new PortsViewModel(portService, configuration, navigation, NullLogger<PortsViewModel>.Instance);
-        var settings = new SettingsViewModel(configuration, navigation, symbolProvider);
+        var factory = Substitute.For<IAddEditPortViewModelFactory>();
+        var ports = new PortsViewModel(portService, configuration, navigation, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);
+        var settings = new SettingsViewModel(configuration, navigation, symbolPicker);
 
         return new MainViewModel(navigation, home, messages, packets, ports, settings);
     }
