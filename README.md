@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 # AetherAprs
 
 <p align="center">
-  <img src="AetherAprs.Android/Resources/drawable/icon_400px.png" alt="AetherAprs Logo" width="200"/>
+  <img src="AetherAprs.Android/Assets/icon_400px.png" alt="AetherAprs Logo" width="200"/>
 </p>
 
 **AetherAprs** is a modern, cross-platform ham radio APRS (Automatic Packet Reporting System) application built with Avalonia UI and .NET 10. It brings together RF and Internet connectivity, intelligent beaconing, messaging, and digipeater functionality in a clean, Material Design interface.
@@ -67,6 +67,18 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 ### 🌍 Localization
 - Multi-language support (English, Portuguese)
 - Easy to add new translations
+
+## Documentation
+
+📚 **[Visit the Wiki](https://github.com/RuiOliveira/AetherAprs/wiki)** for comprehensive documentation:
+
+- [Getting Started Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Getting-Started)
+- [Port Configuration](https://github.com/RuiOliveira/AetherAprs/wiki/Port-Configuration)
+- [Beaconing Setup](https://github.com/RuiOliveira/AetherAprs/wiki/Beaconing-Setup)
+- [Messaging Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Messaging)
+- [Digipeater Configuration](https://github.com/RuiOliveira/AetherAprs/wiki/Digipeater-Configuration)
+- [Android Release Setup](https://github.com/RuiOliveira/AetherAprs/wiki/Android-Release-Setup)
+- [Developer Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Developer-Guide)
 
 ## Platform Support
 
@@ -137,18 +149,6 @@ dotnet build AetherAprs.Android/AetherAprs.Android.csproj -c Release
 ```bash
 dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 ```
-
-## Documentation
-
-📚 **[Visit the Wiki](https://github.com/RuiOliveira/AetherAprs/wiki)** for comprehensive documentation:
-
-- [Getting Started Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Getting-Started)
-- [Port Configuration](https://github.com/RuiOliveira/AetherAprs/wiki/Port-Configuration)
-- [Beaconing Setup](https://github.com/RuiOliveira/AetherAprs/wiki/Beaconing-Setup)
-- [Messaging Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Messaging)
-- [Digipeater Configuration](https://github.com/RuiOliveira/AetherAprs/wiki/Digipeater-Configuration)
-- [Android Release Setup](https://github.com/RuiOliveira/AetherAprs/wiki/Android-Release-Setup)
-- [Developer Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Developer-Guide)
 
 ## Architecture
 
