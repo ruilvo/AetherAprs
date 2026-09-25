@@ -38,6 +38,15 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial AprsSymbolPickerViewModel SymbolPicker { get; set; }
 
+    [ObservableProperty]
+    public partial Configuration.PacketDisplayTimeRange DisplayTimeRange { get; set; } = Configuration.PacketDisplayTimeRange.LastDay;
+
+    [ObservableProperty]
+    public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
+
+    public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
+        (Configuration.PacketDisplayTimeRange[])Enum.GetValues(typeof(Configuration.PacketDisplayTimeRange));
+
     public SettingsViewModel(
         IConfigurationService configurationService,
         INavigationService navigationService,
@@ -55,6 +64,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         DefaultSymbolTableCharacter = aprs.DefaultSymbolTableCharacter;
         DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
         DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
+        DisplayTimeRange = aprs.DisplayTimeRange;
+        CustomDisplayTimeRangeHours = aprs.CustomDisplayTimeRangeHours;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             DefaultSymbolTableCharacter, DefaultSymbolCodeCharacter, DefaultSymbolOverlayCharacter);
@@ -128,6 +139,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
+    partial void OnDisplayTimeRangeChanged(Configuration.PacketDisplayTimeRange value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnCustomDisplayTimeRangeHoursChanged(int value)
+    {
+        SaveSettings();
+    }
+
     private void SaveSettings()
     {
         // Don't auto-save during initialization
@@ -141,6 +162,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
         _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
+        _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
+        _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
 
         // Fire-and-forget is acceptable here as we don't need to wait for save completion
         _ = _configurationService.SaveSettingsAsync();

@@ -92,6 +92,9 @@ public partial class App : Application
 
         ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
 
+        // Start database cleanup task
+        _ = StartDatabaseCleanupAsync();
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow
@@ -122,6 +125,38 @@ public partial class App : Application
         catch (Exception exception)
         {
             Console.Error.WriteLine($"Failed to start enabled ports: {exception}");
+        }
+    }
+
+    private async Task StartDatabaseCleanupAsync()
+    {
+        try
+        {
+            var storageService = ServiceProvider.GetRequiredService<IPacketStorageService>();
+
+            // Run cleanup immediately on startup
+            await storageService.CleanupOldPacketsAsync();
+
+            // Schedule periodic cleanup every 24 hours
+            _ = Task.Run(async () =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromHours(24));
+                        await storageService.CleanupOldPacketsAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"Database cleanup failed: {ex}");
+                    }
+                }
+            });
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine($"Failed to start database cleanup: {exception}");
         }
     }
 }

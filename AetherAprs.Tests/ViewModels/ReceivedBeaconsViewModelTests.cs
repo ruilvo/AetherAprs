@@ -5,11 +5,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Data;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
@@ -20,6 +23,8 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
 {
     private readonly IPortService _portService;
     private readonly IPacketCacheService _packetCacheService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
     private readonly ILogger<ReceivedBeaconsViewModel> _logger;
     private readonly ReceivedBeaconsViewModel _viewModel;
@@ -29,10 +34,27 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
     {
         _portService = Substitute.For<IPortService>();
         _packetCacheService = Substitute.For<IPacketCacheService>();
+        _configurationService = Substitute.For<IConfigurationService>();
+        _dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         _symbolBitmapProvider = Substitute.For<IAprsSymbolBitmapProvider>();
         _logger = Substitute.For<ILogger<ReceivedBeaconsViewModel>>();
         
         _portService.Ports.Returns(new List<PortConfig>());
+        
+        // Setup configuration service with default settings
+        var appSettings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                DisplayTimeRange = PacketDisplayTimeRange.LastDay,
+                CustomDisplayTimeRangeHours = 12
+            }
+        };
+        _configurationService.Settings.Returns(appSettings);
+
+        // Setup mock DbContext
+        var mockDbContext = Substitute.For<AppDbContext>();
+        _dbContextFactory.CreateDbContextAsync(default).ReturnsForAnyArgs(Task.FromResult(mockDbContext));
         
         // Use a shared dictionary that tests can modify
         _cachedPackets = new Dictionary<string, CachedPacket>();
@@ -41,7 +63,13 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         // Configure mock to return a valid bitmap
         _symbolBitmapProvider.GetSymbolBitmap(Arg.Any<Symbol>()).Returns(callInfo => new SkiaSharp.SKBitmap(64, 64));
         
-        _viewModel = new ReceivedBeaconsViewModel(_portService, _packetCacheService, _symbolBitmapProvider, _logger);
+        _viewModel = new ReceivedBeaconsViewModel(
+            _portService, 
+            _packetCacheService, 
+            _configurationService, 
+            _dbContextFactory, 
+            _symbolBitmapProvider, 
+            _logger);
     }
 
     [Fact]

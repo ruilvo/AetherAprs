@@ -5,13 +5,17 @@
 using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
+using AetherAprs.Data;
+using AetherAprs.Configuration;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -24,6 +28,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly IPacketCacheService _packetCacheService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly IConfigurationService _configurationService;
+    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly DispatcherTimer _refreshTimer;
     private bool _pendingRefresh;
@@ -42,11 +48,15 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         IPacketCacheService packetCacheService,
         INavigationService navigationService,
         IPacketDetailsViewModelFactory packetDetailsFactory,
+        IConfigurationService configurationService,
+        IDbContextFactory<AppDbContext> dbContextFactory,
         ILogger<PacketsViewModel> logger)
     {
         _packetCacheService = packetCacheService;
         _navigationService = navigationService;
         _packetDetailsFactory = packetDetailsFactory;
+        _configurationService = configurationService;
+        _dbContextFactory = dbContextFactory;
         _logger = logger;
 
         // Throttle UI updates to every 500ms to avoid overwhelming the UI thread
@@ -66,7 +76,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         if (_pendingRefresh)
         {
             _pendingRefresh = false;
-            await Dispatcher.UIThread.InvokeAsync(LoadPacketsFromCache);
+            await Dispatcher.UIThread.InvokeAsync(() => LoadPacketsAsync());
         }
     }
 
@@ -77,44 +87,91 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _pendingRefresh = true;
     }
 
-    private void LoadPacketsFromCache()
+    private async Task LoadPacketsAsync()
     {
         try
         {
-            var allPackets = _packetCacheService.GetAllPackets();
+            IsLoading = true;
 
-            _logger.LogInformation("Loading {Count} packets from cache", allPackets.Count);
+            // Get the time range filter from configuration
+            var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
+            var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
+            
+            DateTimeOffset? cutoffTime = GetCutoffTime(timeRange, customHours);
 
-            // Sort by most recent first and take top 100
-            var sortedPackets = allPackets.Values
-                .OrderByDescending(cp => cp.ReceivedAt)
+            await using var dbContext = await _dbContextFactory.CreateDbContextAsync();
+            
+            var query = dbContext.Packets
+                .AsNoTracking()
+                .OrderByDescending(p => p.ReceivedAt);
+
+            // Apply time filter if not "All"
+            if (cutoffTime.HasValue)
+            {
+                query = (IOrderedQueryable<PacketRecord>)query.Where(p => p.ReceivedAt >= cutoffTime.Value);
+            }
+
+            // Group by source and take the most recent packet for each
+            var packets = await query
+                .GroupBy(p => p.Source)
+                .Select(g => g.First())
                 .Take(100)
-                .ToList();
+                .ToListAsync();
+
+            _logger.LogInformation("Loaded {Count} packets from database with time filter {TimeRange}", packets.Count, timeRange);
 
             // Build the list of summaries
-            var summaries = sortedPackets
-                .Select(cp => new PacketSummary
+            var summaries = packets
+                .Select(record => new PacketSummary
                 {
-                    Source = cp.Source,
-                    PacketType = GetPacketTypeName(cp.Packet),
-                    ReceivedAt = cp.ReceivedAt,
-                    Preview = GetPacketPreview(cp.Packet)
+                    Source = record.Source,
+                    PacketType = record.PacketType,
+                    ReceivedAt = record.ReceivedAt,
+                    Preview = GetPacketPreview(record)
                 })
                 .ToList();
 
-            // Update observable collection
-            Packets.Clear();
-            foreach (var summary in summaries)
+            // Update observable collection on UI thread
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                Packets.Add(summary);
-            }
+                Packets.Clear();
+                foreach (var summary in summaries)
+                {
+                    Packets.Add(summary);
+                }
+            });
 
             _logger.LogInformation("Displayed {Count} packets in UI", Packets.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load packets from cache");
+            _logger.LogError(ex, "Failed to load packets from database");
         }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private static DateTimeOffset? GetCutoffTime(PacketDisplayTimeRange timeRange, int customHours)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return timeRange switch
+        {
+            PacketDisplayTimeRange.LastHour => now.AddHours(-1),
+            PacketDisplayTimeRange.LastDay => now.AddDays(-1),
+            PacketDisplayTimeRange.LastWeek => now.AddDays(-7),
+            PacketDisplayTimeRange.LastMonth => now.AddDays(-30),
+            PacketDisplayTimeRange.Custom => now.AddHours(-customHours),
+            PacketDisplayTimeRange.All => null,
+            _ => now.AddDays(-1) // Default to last day
+        };
+    }
+
+    private void LoadPacketsFromCache()
+    {
+        // Trigger async load
+        _ = LoadPacketsAsync();
     }
 
     private static string GetPacketTypeName(AprsPacket packet)
@@ -128,6 +185,29 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             UnknownPacket => "Unknown",
             _ => packet.GetType().Name
         };
+    }
+
+    private static string GetPacketPreview(PacketRecord record)
+    {
+        // For database records, we build preview from stored fields
+        if (record.PacketType == "Position" && record.Latitude.HasValue && record.Longitude.HasValue)
+        {
+            return $"Lat: {record.Latitude.Value:F4}, Lon: {record.Longitude.Value:F4}";
+        }
+        else if (record.PacketType == "Message" && !string.IsNullOrEmpty(record.MessageAddressee))
+        {
+            return $"To {record.MessageAddressee}: {record.MessageText ?? ""}";
+        }
+        else if (record.PacketType == "Weather" && record.Temperature.HasValue)
+        {
+            return $"Temp: {record.Temperature}°F";
+        }
+        else if (!string.IsNullOrEmpty(record.RawInfo))
+        {
+            return record.RawInfo.Length > 40 ? record.RawInfo[..40] + "..." : record.RawInfo;
+        }
+        
+        return "";
     }
 
     private static string GetPacketPreview(AprsPacket packet)

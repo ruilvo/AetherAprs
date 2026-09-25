@@ -165,7 +165,13 @@ public sealed class HomeViewModelTests : TestFixtureBase
         var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var symbolProvider = new TestSymbolBitmapProvider();
         var packetCache = new PacketCacheService(portService, dbContextFactory, NullLogger<PacketCacheService>.Instance);
-        var receivedBeacons = new ReceivedBeaconsViewModel(portService, packetCache, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
+        var receivedBeacons = new ReceivedBeaconsViewModel(
+            portService, 
+            packetCache, 
+            configuration, 
+            dbContextFactory, 
+            symbolProvider, 
+            NullLogger<ReceivedBeaconsViewModel>.Instance);
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);
         
         var locationTracking = new LocationTrackingViewModel(

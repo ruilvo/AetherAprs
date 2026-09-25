@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
+             xmlns:config="using:AetherAprs.Configuration"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
@@ -57,6 +58,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
             <components:AprsSymbolPickerComponent
               DataContext="{Binding SymbolPicker}" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Display Settings Section -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="Display Settings" />
+
+          <TextBlock Classes="Body2"
+                     Text="Configure what time range of packets to show in the list and on the map."
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <StackPanel Spacing="12">
+            <!-- Time Range Selection -->
+            <ComboBox ItemsSource="{Binding AvailableTimeRanges}"
+                      SelectedItem="{Binding DisplayTimeRange}"
+                      MinHeight="48"
+                      wpf:ComboBoxAssist.Label="Packet Display Time Range"
+                      HorizontalAlignment="Stretch" />
+
+            <!-- Custom Hours -->
+            <TextBox Text="{Binding CustomDisplayTimeRangeHours}"
+                     PlaceholderText="12"
+                     wpf:TextFieldAssist.Label="Custom Time Range (hours) - used when Custom is selected"
+                     UseFloatingPlaceholder="True" />
           </StackPanel>
         </StackPanel>
 

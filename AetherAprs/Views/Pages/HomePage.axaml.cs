@@ -4,13 +4,18 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+using AetherAprs.Factories;
 using Avalonia.Controls;
+using Avalonia.Input;
 using BruTile.Cache;
 using Mapsui;
 using Mapsui.Tiling;
+using Mapsui.UI;
+using Mapsui.UI.Avalonia;
 
 namespace AetherAprs.Views.Pages;
 
@@ -27,6 +32,7 @@ public partial class HomePage : UserControl
         InitializeComponent();
         InitializeMap();
         DataContextChanged += OnDataContextChanged;
+        MapControl.PointerPressed += OnMapPointerPressed;
     }
 
     private void InitializeMap()
@@ -61,6 +67,7 @@ public partial class HomePage : UserControl
 
         if (viewModel.ReceivedBeacons != null && MapControl.Map != null)
         {
+            MapControl.Map.Layers.Add(viewModel.ReceivedBeacons.TrailsLayer, group: 0);
             MapControl.Map.Layers.Add(viewModel.ReceivedBeacons.BeaconsLayer, group: 1);
         }
 
@@ -94,6 +101,50 @@ public partial class HomePage : UserControl
         {
             navigator.CenterOn(mapPoint);
             navigator.ZoomTo(2000);
+        }
+    }
+
+    private void OnMapPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_currentViewModel == null || MapControl.Map == null)
+        {
+            return;
+        }
+
+        var screenPosition = e.GetPosition(MapControl);
+        var viewport = MapControl.Map.Navigator.Viewport;
+        
+        // Convert screen to world coordinates manually
+        var worldX = viewport.CenterX + (screenPosition.X - viewport.Width / 2.0) * viewport.Resolution;
+        var worldY = viewport.CenterY - (screenPosition.Y - viewport.Height / 2.0) * viewport.Resolution;
+        
+        // Query features at clicked position (with tolerance)
+        var tolerance = viewport.Resolution * 20; // 20 pixel tolerance
+        var clickedFeatures = MapControl.Map.Layers
+            .SelectMany(layer => layer.GetFeatures(new MRect(
+                worldX - tolerance,
+                worldY - tolerance,
+                worldX + tolerance,
+                worldY + tolerance), viewport.Resolution))
+            .ToList();
+
+        // Find the first beacon feature with a callsign
+        foreach (var feature in clickedFeatures)
+        {
+            if (feature.Fields != null && feature.Fields.Contains("Callsign"))
+            {
+                var callsign = feature["Callsign"] as string;
+                if (!string.IsNullOrEmpty(callsign))
+                {
+                    // Navigate to packet details
+                    var factory = App.GetService<IPacketDetailsViewModelFactory>();
+                    var navigationService = App.GetService<INavigationService>();
+                    var vm = factory.Create(callsign);
+                    navigationService.NavigateTo(vm);
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
     }
 

@@ -139,4 +139,16 @@ public class AprsSettings
     /// Packets older than this will be automatically deleted. Default is 30 days.
     /// </summary>
     public int PacketRetentionDays { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets the time range for displaying packets in the list and on the map.
+    /// Default is LastDay (24 hours).
+    /// </summary>
+    public PacketDisplayTimeRange DisplayTimeRange { get; set; } = PacketDisplayTimeRange.LastDay;
+
+    /// <summary>
+    /// Gets or sets the custom time range in hours when DisplayTimeRange is set to Custom.
+    /// Default is 12 hours.
+    /// </summary>
+    public int CustomDisplayTimeRangeHours { get; set; } = 12;
 }

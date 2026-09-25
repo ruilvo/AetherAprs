@@ -108,7 +108,13 @@ public sealed class MainViewModelTests
         var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var symbolProvider = new TestSymbolBitmapProvider();
         var packetCache = new PacketCacheService(portService, dbContextFactory, NullLogger<PacketCacheService>.Instance);
-        var receivedBeacons = new ReceivedBeaconsViewModel(portService, packetCache, symbolProvider, NullLogger<ReceivedBeaconsViewModel>.Instance);
+        var receivedBeacons = new ReceivedBeaconsViewModel(
+            portService, 
+            packetCache, 
+            configuration, 
+            dbContextFactory, 
+            symbolProvider, 
+            NullLogger<ReceivedBeaconsViewModel>.Instance);
         var locationTracking = new LocationTrackingViewModel(
             new TestLocationService(),
             NullLogger<LocationTrackingViewModel>.Instance);
@@ -136,6 +142,8 @@ public sealed class MainViewModelTests
             packetCache,
             navigation,
             packetDetailsFactory,
+            configuration,
+            dbContextFactory,
             NullLogger<PacketsViewModel>.Instance);
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
         var ports = new PortsViewModel(portService, configuration, navigation, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);

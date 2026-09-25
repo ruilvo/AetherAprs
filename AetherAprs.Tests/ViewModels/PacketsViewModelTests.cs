@@ -6,6 +6,7 @@ using AetherAprs.Data;
 using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
+using AetherAprs.Configuration;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,8 @@ public class PacketsViewModelTests : IDisposable
     private readonly IPacketCacheService _packetCacheService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly IConfigurationService _configurationService;
+    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly PacketsViewModel _viewModel;
     private readonly Dictionary<string, CachedPacket> _cachedPackets;
@@ -33,7 +36,24 @@ public class PacketsViewModelTests : IDisposable
         _packetCacheService = Substitute.For<IPacketCacheService>();
         _navigationService = Substitute.For<INavigationService>();
         _packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        _configurationService = Substitute.For<IConfigurationService>();
+        _dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         _logger = Substitute.For<ILogger<PacketsViewModel>>();
+
+        // Setup configuration service with default settings
+        var appSettings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                DisplayTimeRange = PacketDisplayTimeRange.LastDay,
+                CustomDisplayTimeRangeHours = 12
+            }
+        };
+        _configurationService.Settings.Returns(appSettings);
+
+        // Setup mock DbContext - return empty result set
+        var mockDbContext = Substitute.For<AppDbContext>();
+        _dbContextFactory.CreateDbContextAsync(default).ReturnsForAnyArgs(Task.FromResult(mockDbContext));
 
         _cachedPackets = new Dictionary<string, CachedPacket>();
         _packetCacheService.GetAllPackets().Returns(_ => _cachedPackets);
@@ -42,6 +62,8 @@ public class PacketsViewModelTests : IDisposable
             _packetCacheService,
             _navigationService,
             _packetDetailsFactory,
+            _configurationService,
+            _dbContextFactory,
             _logger);
     }
 
@@ -116,11 +138,7 @@ public class PacketsViewModelTests : IDisposable
         _cachedPackets["N0CALL-1"] = cachedPacket;
 
         // Recreate ViewModel to trigger initial load
-        using var vm = new PacketsViewModel(
-            _packetCacheService,
-            _navigationService,
-            _packetDetailsFactory,
-            _logger);
+        using var vm = CreateViewModel();
 
         // Assert
         Assert.Single(vm.Packets);
@@ -159,11 +177,7 @@ public class PacketsViewModelTests : IDisposable
         _cachedPackets["N0CALL-1"] = cachedPacket;
 
         // Recreate ViewModel to trigger initial load
-        using var vm = new PacketsViewModel(
-            _packetCacheService,
-            _navigationService,
-            _packetDetailsFactory,
-            _logger);
+        using var vm = CreateViewModel();
 
         // Assert
         Assert.Single(vm.Packets);
@@ -197,11 +211,7 @@ public class PacketsViewModelTests : IDisposable
         _cachedPackets["N0CALL-1"] = cachedPacket;
 
         // Recreate ViewModel to trigger initial load
-        using var vm = new PacketsViewModel(
-            _packetCacheService,
-            _navigationService,
-            _packetDetailsFactory,
-            _logger);
+        using var vm = CreateViewModel();
 
         // Assert
         Assert.Single(vm.Packets);
@@ -234,11 +244,7 @@ public class PacketsViewModelTests : IDisposable
         _cachedPackets["N0CALL-1"] = cachedPacket;
 
         // Recreate ViewModel to trigger initial load
-        using var vm = new PacketsViewModel(
-            _packetCacheService,
-            _navigationService,
-            _packetDetailsFactory,
-            _logger);
+        using var vm = CreateViewModel();
 
         // Assert
         Assert.Single(vm.Packets);
@@ -291,11 +297,7 @@ public class PacketsViewModelTests : IDisposable
         };
 
         // Recreate ViewModel to trigger initial load
-        using var vm = new PacketsViewModel(
-            _packetCacheService,
-            _navigationService,
-            _packetDetailsFactory,
-            _logger);
+        using var vm = CreateViewModel();
 
         // Assert - Most recent first
         Assert.Equal(2, vm.Packets.Count);
@@ -330,11 +332,7 @@ public class PacketsViewModelTests : IDisposable
         }
 
         // Recreate ViewModel to trigger initial load
-        using var vm = new PacketsViewModel(
-            _packetCacheService,
-            _navigationService,
-            _packetDetailsFactory,
-            _logger);
+        using var vm = CreateViewModel();
 
         // Assert - Only 100 packets displayed
         Assert.Equal(100, vm.Packets.Count);
@@ -430,5 +428,16 @@ public class PacketsViewModelTests : IDisposable
     public void Dispose()
     {
         _viewModel?.Dispose();
+    }
+
+    private PacketsViewModel CreateViewModel()
+    {
+        return new PacketsViewModel(
+            _packetCacheService,
+            _navigationService,
+            _packetDetailsFactory,
+            _configurationService,
+            _dbContextFactory,
+            _logger);
     }
 }
