@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
+             xmlns:loc="using:AetherAprs.Localization"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
@@ -27,7 +28,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch">
 
-          <ContentPage Header="Home" Icon="{ext:MaterialIconGeometryExt Home}">
+          <ContentPage Header="{loc:Loc Home}" Icon="{ext:MaterialIconGeometryExt Home}">
             <ContentControl Content="{Binding HomeViewModel}"
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"
@@ -35,7 +36,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             VerticalContentAlignment="Stretch" />
           </ContentPage>
 
-          <ContentPage Header="Messages" Icon="{ext:MaterialIconGeometryExt Message}">
+          <ContentPage Header="{loc:Loc Messages}" Icon="{ext:MaterialIconGeometryExt Message}">
             <ContentControl Content="{Binding MessagesViewModel}"
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"
@@ -43,7 +44,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             VerticalContentAlignment="Stretch" />
           </ContentPage>
 
-          <ContentPage Header="Packets" Icon="{ext:MaterialIconGeometryExt PackageVariant}">
+          <ContentPage Header="{loc:Loc Packets}" Icon="{ext:MaterialIconGeometryExt PackageVariant}">
             <ContentControl Content="{Binding PacketsViewModel}"
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"
@@ -51,7 +52,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             VerticalContentAlignment="Stretch" />
           </ContentPage>
 
-          <ContentPage Header="Ports" Icon="{ext:MaterialIconGeometryExt Lan}">
+          <ContentPage Header="{loc:Loc Ports}" Icon="{ext:MaterialIconGeometryExt Lan}">
             <ContentControl Content="{Binding PortsViewModel}"
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"
@@ -59,7 +60,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                             VerticalContentAlignment="Stretch" />
           </ContentPage>
 
-          <ContentPage Header="Settings" Icon="{ext:MaterialIconGeometryExt Cog}">
+          <ContentPage Header="{loc:Loc Settings}" Icon="{ext:MaterialIconGeometryExt Cog}">
             <ContentControl Content="{Binding SettingsViewModel}"
                             HorizontalAlignment="Stretch"
                             VerticalAlignment="Stretch"

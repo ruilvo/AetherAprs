@@ -46,14 +46,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBox x:Name="CallsignBox"
                      Text="{Binding Callsign}"
                      PlaceholderText="e.g. N0CALL"
-                     wpf:TextFieldAssist.Label="Callsign"
+                     wpf:TextFieldAssist.Label="{loc:Loc Callsign}"
                      UseFloatingPlaceholder="True" />
 
             <!-- Default SSID -->
             <TextBox x:Name="SsidBox"
                      Text="{Binding DefaultSsid, TargetNullValue=''}"
                      PlaceholderText="0"
-                     wpf:TextFieldAssist.Label="Default SSID"
+                     wpf:TextFieldAssist.Label="{loc:Loc DefaultSsidLabel}"
                      UseFloatingPlaceholder="True" />
 
             <components:AprsSymbolPickerView

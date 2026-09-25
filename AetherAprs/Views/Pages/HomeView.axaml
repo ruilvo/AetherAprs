@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
+             xmlns:loc="using:AetherAprs.Localization"
              xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
@@ -29,7 +30,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Margin="0,0,16,16"
                                  MinHeight="56"
                                  MinWidth="56"
-                                 ToolTip.Tip="Center on my location"
+                                 ToolTip.Tip="{loc:Loc CenterOnMyLocationTooltip}"
                                  Command="{Binding MapViewModel.CenterOnUserCommand}">
             <Viewbox Width="24" Height="24">
                 <avalonia:MaterialIcon Kind="CrosshairsGps" Width="24" Height="24" />

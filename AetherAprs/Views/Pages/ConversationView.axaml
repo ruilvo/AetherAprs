@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:messaging="using:AetherAprs.Models.Messaging"
              xmlns:local="using:AetherAprs"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.ConversationView"
              x:DataType="vm:ConversationViewModel"
@@ -24,8 +25,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
       <TextBox Text="{Binding DestinationCallsign}"
                IsEnabled="{Binding IsDestinationEditable}"
-               PlaceholderText="Destination callsign (e.g. N0CALL-1)"
-               wpf:TextFieldAssist.Label="To"
+               PlaceholderText="{loc:Loc DestinationCallsignPlaceholder}"
+               wpf:TextFieldAssist.Label="{loc:Loc To}"
                UseFloatingPlaceholder="True" />
     </StackPanel>
 
@@ -44,11 +45,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
               <StackPanel Spacing="4">
                 <TextBlock Classes="Caption"
                            Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
-                           Text="You"
+                           Text="{loc:Loc You}"
                            IsVisible="{Binding IsOutbound}" />
                 <TextBlock Classes="Caption"
                            Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
-                           Text="Received"
+                           Text="{loc:Loc Received}"
                            IsVisible="{Binding !IsOutbound}" />
                 <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
               </StackPanel>
@@ -74,11 +75,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
         <TextBox Grid.Column="0"
                  Text="{Binding MessageText}"
-                 PlaceholderText="Message text"
+                 PlaceholderText="{loc:Loc MessageTextPlaceholder}"
                  AcceptsReturn="False"
                  MaxLength="67" />
         <Button Grid.Column="1"
-                Content="Send"
+                Content="{loc:Loc Send}"
                 MinWidth="80"
                 MinHeight="48"
                 Command="{Binding SendCommand}" />

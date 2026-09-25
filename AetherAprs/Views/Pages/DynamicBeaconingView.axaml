@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:models="using:AetherAprs.Models"
              xmlns:local="using:AetherAprs"
+             xmlns:loc="using:AetherAprs.Localization"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:assists="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
@@ -35,10 +36,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Header -->
         <StackPanel Spacing="8">
           <TextBlock Classes="Headline5"
-                     Text="Dynamic Beaconing"
+                     Text="{loc:Loc DynamicBeaconing}"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
           <TextBlock Classes="Body2"
-                     Text="Configure intelligent position beaconing with smart transmit intervals based on your movement speed and direction."
+                     Text="{loc:Loc DynamicBeaconingDescriptionLong}"
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
         </StackPanel>
@@ -46,19 +47,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Active Mode Selection -->
         <StackPanel Spacing="12">
           <TextBlock Classes="Subtitle2"
-                     Text="Active Beacon Mode"
+                     Text="{loc:Loc ActiveBeaconMode}"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <ComboBox Theme="{StaticResource MaterialOutlineComboBox}"
-                    assists:ComboBoxAssist.Label="Mode"
+                    assists:ComboBoxAssist.Label="{loc:Loc Mode}"
                     x:CompileBindings="False"
                     SelectedValue="{Binding ActiveMode, Mode=TwoWay}"
                     SelectedValueBinding="{Binding Tag}">
-            <ComboBoxItem Content="Walk (Pedestrian)"
+            <ComboBoxItem Content="{loc:Loc WalkPedestrian}"
                           Tag="{x:Static models:DynamicBeaconMode.Walk}" />
-            <ComboBoxItem Content="Drive (Vehicular)"
+            <ComboBoxItem Content="{loc:Loc DriveVehicular}"
                           Tag="{x:Static models:DynamicBeaconMode.Drive}" />
-            <ComboBoxItem Content="Custom"
+            <ComboBoxItem Content="{loc:Loc Custom}"
                           Tag="{x:Static models:DynamicBeaconMode.Custom}" />
           </ComboBox>
         </StackPanel>
@@ -67,8 +68,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <controls:Card Padding="16">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
-                    <TextBlock Classes="Subtitle1" Text="Walk Mode" VerticalAlignment="Center" />
-              <Button Content="Reset to Default"
+                    <TextBlock Classes="Subtitle1" Text="{loc:Loc WalkMode}" VerticalAlignment="Center" />
+              <Button Content="{loc:Loc ResetToDefault}"
                       Command="{Binding ResetWalkToDefaultCommand}"
                       Padding="8,4"
                       MinHeight="48"
@@ -78,49 +79,49 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </StackPanel>
 
             <TextBlock Classes="Caption"
-                       Text="Optimized for pedestrian movement with longer intervals and sensitive to direction changes."
+                       Text="{loc:Loc WalkModeDescription}"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
             <StackPanel Spacing="12">
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Slow Speed Interval (stationary or very slow)" />
+                <TextBlock Classes="Body2" Text="{loc:Loc SlowSpeedIntervalStationary}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.SlowIntervalSeconds}"
                                  Minimum="60"
                                  Maximum="3600"
                                  Increment="60" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Normal Speed Interval" />
+                <TextBlock Classes="Body2" Text="{loc:Loc NormalSpeedInterval}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.NormalIntervalSeconds}"
                                  Minimum="60"
                                  Maximum="1800"
                                  Increment="60" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Fast Speed Interval (moving quickly)" />
+                <TextBlock Classes="Body2" Text="{loc:Loc FastSpeedIntervalMovingQuickly}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.FastIntervalSeconds}"
                                  Minimum="30"
                                  Maximum="600"
                                  Increment="30" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Slow Speed Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc SlowSpeedThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.SlowSpeedThresholdKmh}"
@@ -128,12 +129,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Maximum="30"
                                  Increment="0.5"
                                  FormatString="F1" />
-                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc KilometersPerHour}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Fast Speed Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc FastSpeedThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.FastSpeedThresholdKmh}"
@@ -141,37 +142,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Maximum="100"
                                  Increment="5"
                                  FormatString="F1" />
-                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc KilometersPerHour}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Course Change Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc CourseChangeThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.CourseChangeThresholdDegrees}"
                                  Minimum="0"
                                  Maximum="180"
                                  Increment="5" />
-                  <TextBlock Grid.Column="1" Text="degrees" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Degrees}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Minimum Distance" />
+                <TextBlock Classes="Body2" Text="{loc:Loc MinimumDistance}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding WalkConfiguration.MinimumDistanceMeters}"
                                  Minimum="10"
                                  Maximum="500"
                                  Increment="10" />
-                  <TextBlock Grid.Column="1" Text="meters" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Meters}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <TextBox Text="{Binding WalkConfiguration.BeaconComment}"
-                       PlaceholderText="Optional beacon comment"
-                       assists:TextFieldAssist.Label="Beacon Comment"
+                       PlaceholderText="{loc:Loc OptionalBeaconComment}"
+                       assists:TextFieldAssist.Label="{loc:Loc BeaconComment}"
                        UseFloatingPlaceholder="True" />
             </StackPanel>
           </StackPanel>
@@ -181,8 +182,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <controls:Card Padding="16">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
-                    <TextBlock Classes="Subtitle1" Text="Drive Mode" VerticalAlignment="Center" />
-              <Button Content="Reset to Default"
+                    <TextBlock Classes="Subtitle1" Text="{loc:Loc DriveMode}" VerticalAlignment="Center" />
+              <Button Content="{loc:Loc ResetToDefault}"
                       Command="{Binding ResetDriveToDefaultCommand}"
                       Padding="8,4"
                       MinHeight="48"
@@ -192,49 +193,49 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </StackPanel>
 
             <TextBlock Classes="Caption"
-                       Text="Optimized for vehicular movement with shorter intervals for real-time tracking."
+                       Text="{loc:Loc DriveModeDescription}"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
             <StackPanel Spacing="12">
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Slow Speed Interval (stationary or very slow)" />
+                <TextBlock Classes="Body2" Text="{loc:Loc SlowSpeedIntervalStationary}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.SlowIntervalSeconds}"
                                  Minimum="60"
                                  Maximum="3600"
                                  Increment="60" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Normal Speed Interval" />
+                <TextBlock Classes="Body2" Text="{loc:Loc NormalSpeedInterval}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.NormalIntervalSeconds}"
                                  Minimum="30"
                                  Maximum="1800"
                                  Increment="30" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Fast Speed Interval (highway speeds)" />
+                <TextBlock Classes="Body2" Text="{loc:Loc FastSpeedIntervalHighway}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.FastIntervalSeconds}"
                                  Minimum="10"
                                  Maximum="300"
                                  Increment="10" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Slow Speed Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc SlowSpeedThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.SlowSpeedThresholdKmh}"
@@ -242,12 +243,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Maximum="50"
                                  Increment="1"
                                  FormatString="F1" />
-                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc KilometersPerHour}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Fast Speed Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc FastSpeedThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.FastSpeedThresholdKmh}"
@@ -255,37 +256,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Maximum="200"
                                  Increment="10"
                                  FormatString="F1" />
-                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc KilometersPerHour}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Course Change Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc CourseChangeThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.CourseChangeThresholdDegrees}"
                                  Minimum="0"
                                  Maximum="180"
                                  Increment="5" />
-                  <TextBlock Grid.Column="1" Text="degrees" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Degrees}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Minimum Distance" />
+                <TextBlock Classes="Body2" Text="{loc:Loc MinimumDistance}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding DriveConfiguration.MinimumDistanceMeters}"
                                  Minimum="20"
                                  Maximum="500"
                                  Increment="20" />
-                  <TextBlock Grid.Column="1" Text="meters" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Meters}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <TextBox Text="{Binding DriveConfiguration.BeaconComment}"
-                       PlaceholderText="Optional beacon comment"
-                       assists:TextFieldAssist.Label="Beacon Comment"
+                       PlaceholderText="{loc:Loc OptionalBeaconComment}"
+                       assists:TextFieldAssist.Label="{loc:Loc BeaconComment}"
                        UseFloatingPlaceholder="True" />
             </StackPanel>
           </StackPanel>
@@ -295,8 +296,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <controls:Card Padding="16">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4" Orientation="Horizontal">
-                    <TextBlock Classes="Subtitle1" Text="Custom Mode" VerticalAlignment="Center" />
-              <Button Content="Reset to Default"
+                    <TextBlock Classes="Subtitle1" Text="{loc:Loc CustomMode}" VerticalAlignment="Center" />
+              <Button Content="{loc:Loc ResetToDefault}"
                       Command="{Binding ResetCustomToDefaultCommand}"
                       Padding="8,4"
                       MinHeight="48"
@@ -306,49 +307,49 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </StackPanel>
 
             <TextBlock Classes="Caption"
-                       Text="Fully customizable beacon configuration for advanced users."
+                       Text="{loc:Loc CustomModeDescription}"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
             <StackPanel Spacing="12">
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Slow Speed Interval (stationary or very slow)" />
+                <TextBlock Classes="Body2" Text="{loc:Loc SlowSpeedIntervalStationary}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.SlowIntervalSeconds}"
                                  Minimum="60"
                                  Maximum="3600"
                                  Increment="60" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Normal Speed Interval" />
+                <TextBlock Classes="Body2" Text="{loc:Loc NormalSpeedInterval}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.NormalIntervalSeconds}"
                                  Minimum="30"
                                  Maximum="1800"
                                  Increment="30" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Fast Speed Interval" />
+                <TextBlock Classes="Body2" Text="{loc:Loc FastSpeedInterval}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.FastIntervalSeconds}"
                                  Minimum="10"
                                  Maximum="600"
                                  Increment="10" />
-                  <TextBlock Grid.Column="1" Text="seconds" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Seconds}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Slow Speed Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc SlowSpeedThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.SlowSpeedThresholdKmh}"
@@ -356,12 +357,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Maximum="50"
                                  Increment="0.5"
                                  FormatString="F1" />
-                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc KilometersPerHour}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Fast Speed Threshold" />
+                <TextBlock Classes="Body2" Text="{loc:Loc FastSpeedThreshold}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.FastSpeedThresholdKmh}"
@@ -369,37 +370,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  Maximum="200"
                                  Increment="5"
                                  FormatString="F1" />
-                  <TextBlock Grid.Column="1" Text="km/h" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc KilometersPerHour}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Course Change Threshold (0 = disabled)" />
+                <TextBlock Classes="Body2" Text="{loc:Loc CourseChangeThresholdDisabled}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.CourseChangeThresholdDegrees}"
                                  Minimum="0"
                                  Maximum="180"
                                  Increment="5" />
-                  <TextBlock Grid.Column="1" Text="degrees" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Degrees}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <StackPanel Spacing="4">
-                <TextBlock Classes="Body2" Text="Minimum Distance" />
+                <TextBlock Classes="Body2" Text="{loc:Loc MinimumDistance}" />
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                   <NumericUpDown Grid.Column="0"
                                  Value="{Binding CustomConfiguration.MinimumDistanceMeters}"
                                  Minimum="10"
                                  Maximum="500"
                                  Increment="10" />
-                  <TextBlock Grid.Column="1" Text="meters" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Text="{loc:Loc Meters}" VerticalAlignment="Center" />
                 </Grid>
               </StackPanel>
 
               <TextBox Text="{Binding CustomConfiguration.BeaconComment}"
-                       PlaceholderText="Optional beacon comment"
-                       assists:TextFieldAssist.Label="Beacon Comment"
+                       PlaceholderText="{loc:Loc OptionalBeaconComment}"
+                       assists:TextFieldAssist.Label="{loc:Loc BeaconComment}"
                        UseFloatingPlaceholder="True" />
             </StackPanel>
           </StackPanel>
@@ -417,7 +418,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <StackPanel Orientation="Horizontal"
                   HorizontalAlignment="Right"
                   Spacing="8">
-        <Button Content="CLOSE"
+        <Button Content="{loc:Loc Close}"
                 Command="{Binding CloseCommand}"
                 MinWidth="80"
                 MinHeight="48" />

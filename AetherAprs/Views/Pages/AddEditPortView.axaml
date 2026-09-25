@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:local="using:AetherAprs"
+             xmlns:loc="using:AetherAprs.Localization"
              xmlns:converters="using:AetherAprs.Converters"
              xmlns:bt="using:AetherAprs.Services.Bluetooth"
               xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
@@ -41,7 +42,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <TextBlock Text="{Binding Title}"
                  Classes="Headline5"
                  FontWeight="Bold" />
-      <TextBlock Text="Configure your APRS port settings"
+      <TextBlock Text="{loc:Loc ConfigureAprsPortSettings}"
                  Classes="Body2"
                  TextWrapping="Wrap"
                  Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
@@ -54,26 +55,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Port Name Section -->
         <StackPanel Spacing="8">
           <TextBox Text="{Binding Name}"
-                   PlaceholderText="e.g. APRS-IS Port 1"
-                   wpf:TextFieldAssist.Label="Port Name"
+                   PlaceholderText="{loc:Loc PortNamePlaceholder}"
+                   wpf:TextFieldAssist.Label="{loc:Loc PortName}"
                    UseFloatingPlaceholder="True" />
         </StackPanel>
 
         <!-- Port Direction Section -->
         <StackPanel Spacing="12">
           <TextBlock Classes="Subtitle2"
-                     Text="Port Direction"
+                     Text="{loc:Loc PortDirection}"
                      Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
           <StackPanel Spacing="8" Margin="0,4,0,0">
-            <CheckBox Content="Receive (Rx)"
+            <CheckBox Content="{loc:Loc ReceiveRx}"
                       IsChecked="{Binding IsRx}"
                       MinHeight="48"
                       VerticalContentAlignment="Center" />
-            <CheckBox Content="Transmit (Tx)"
+            <CheckBox Content="{loc:Loc TransmitTx}"
                       IsChecked="{Binding IsTx}"
                       MinHeight="48"
                       VerticalContentAlignment="Center" />
-            <CheckBox Content="Show on map"
+            <CheckBox Content="{loc:Loc ShowOnMap}"
                       IsChecked="{Binding ShowOnMap}"
                       MinHeight="48"
                       VerticalContentAlignment="Center" />
@@ -84,7 +85,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="8">
           <ComboBox ItemsSource="{Binding PortTypes}"
                     SelectedItem="{Binding SelectedPortSettingsType}"
-                    wpf:ComboBoxAssist.Label="Select a port type">
+                    wpf:ComboBoxAssist.Label="{loc:Loc SelectPortType}">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:Object">
                 <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
@@ -97,28 +98,28 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="12"
                     IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=AprsIsSettings}">
           <TextBlock Classes="Subtitle2"
-                     Text="APRS-IS Settings"
+                     Text="{loc:Loc AprsIsSettings}"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <StackPanel Spacing="12">
             <TextBox Text="{Binding Server}"
-                     PlaceholderText="e.g. euro.aprs2.net"
-                     wpf:TextFieldAssist.Label="Server"
+                     PlaceholderText="{loc:Loc ServerPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc Server}"
                      UseFloatingPlaceholder="True" />
 
             <TextBox Text="{Binding ServerPort}"
-                     PlaceholderText="14580"
-                     wpf:TextFieldAssist.Label="Port"
+                     PlaceholderText="{loc:Loc PortPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc Port}"
                      UseFloatingPlaceholder="True" />
 
             <TextBox Text="{Binding Passcode}"
-                     PlaceholderText="Auto-filled from callsign"
-                     wpf:TextFieldAssist.Label="Passcode"
+                     PlaceholderText="{loc:Loc PasscodePlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc Passcode}"
                      UseFloatingPlaceholder="True" />
 
             <TextBox Text="{Binding Filter}"
-                     PlaceholderText="e.g. m/50"
-                     wpf:TextFieldAssist.Label="Filter (optional)"
+                     PlaceholderText="{loc:Loc FilterPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc FilterOptional}"
                      UseFloatingPlaceholder="True" />
           </StackPanel>
         </StackPanel>
@@ -127,12 +128,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="12"
                     IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=KissSettings}">
           <TextBlock Classes="Subtitle2"
-                     Text="KISS Settings"
+                     Text="{loc:Loc KissSettings}"
                      Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
           <ComboBox ItemsSource="{Binding AvailableKissTransportTypes}"
                     SelectedItem="{Binding SelectedKissTransportType}"
-                    wpf:ComboBoxAssist.Label="Transport">
+                    wpf:ComboBoxAssist.Label="{loc:Loc Transport}">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="x:Object">
                 <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
@@ -144,12 +145,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <StackPanel Spacing="12"
                       IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=TcpKissTransportSettings}">
             <TextBox Text="{Binding TcpHost}"
-                     PlaceholderText="127.0.0.1"
-                     wpf:TextFieldAssist.Label="Host"
+                     PlaceholderText="{loc:Loc HostPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc Host}"
                      UseFloatingPlaceholder="True" />
             <TextBox Text="{Binding TcpPort}"
-                     PlaceholderText="8001"
-                     wpf:TextFieldAssist.Label="Port"
+                     PlaceholderText="{loc:Loc SerialPortPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc Port}"
                      UseFloatingPlaceholder="True" />
           </StackPanel>
 
@@ -164,7 +165,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       Classes="Outline">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <avalonia:MaterialIcon Kind="Bluetooth" Width="20" Height="20" />
-                  <TextBlock Text="Scan" VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Loc Scan}" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
               <Button MinHeight="48"
@@ -174,7 +175,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       Classes="Outline">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <avalonia:MaterialIcon Kind="Stop" Width="20" Height="20" />
-                  <TextBlock Text="Stop" VerticalAlignment="Center" />
+                  <TextBlock Text="{loc:Loc Stop}" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
             </StackPanel>
@@ -190,7 +191,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="bt:BluetoothLeAdvertisement">
                     <StackPanel Spacing="4" Margin="0,4">
-                      <TextBlock Text="{Binding Name, TargetNullValue='(unnamed)'}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="SemiBold" />
                       <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
                       <TextBlock Text="{Binding Rssi, StringFormat='RSSI: {0} dBm'}" Opacity="0.7" FontSize="12" />
                     </StackPanel>
@@ -210,7 +211,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     Classes="Outline">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <avalonia:MaterialIcon Kind="Refresh" Width="20" Height="20" />
-                <TextBlock Text="Refresh" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc Refresh}" VerticalAlignment="Center" />
               </StackPanel>
             </Button>
             <TextBlock Text="{Binding SppStatusText}"
@@ -225,7 +226,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="bt:BluetoothClassicDevice">
                     <StackPanel Spacing="4" Margin="0,4">
-                      <TextBlock Text="{Binding Name, TargetNullValue='(unnamed)'}" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="SemiBold" />
                       <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
                     </StackPanel>
                   </DataTemplate>
@@ -246,12 +247,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <StackPanel Orientation="Horizontal"
                   HorizontalAlignment="Right"
                   Spacing="8">
-        <Button Content="Cancel"
+        <Button Content="{loc:Loc Cancel}"
                 MinWidth="80"
                 MinHeight="48"
                 Command="{Binding CancelCommand}"
                 Classes="Outline" />
-        <Button Content="Save"
+        <Button Content="{loc:Loc Save}"
                 MinWidth="80"
                 MinHeight="48"
                 Command="{Binding SaveCommand}" />

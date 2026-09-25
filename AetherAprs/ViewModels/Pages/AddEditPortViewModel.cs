@@ -27,6 +27,8 @@ public partial class AddEditPortViewModel : ViewModelBase
     private readonly IBluetoothClassicDeviceProvider _classicDeviceProvider;
     private CancellationTokenSource? _bleScanCts;
     private PortConfig? _existingConfig;
+    private bool _isNameManuallyEdited;
+    private int _portNumber;
 
     [ObservableProperty]
     public partial string Name { get; set; }
@@ -121,19 +123,30 @@ public partial class AddEditPortViewModel : ViewModelBase
     public void Initialize(string globalCallsign, int nextPortNumber, PortConfig? existingConfig = null)
     {
         _existingConfig = existingConfig;
+        _portNumber = nextPortNumber;
         OnPropertyChanged(nameof(IsEditing));
 
         if (existingConfig != null)
         {
             PopulateFrom(existingConfig);
+            _isNameManuallyEdited = true; // Existing ports have user-defined names
         }
         else
         {
-            Name = Strings.Format("DefaultAprsIsPortName", nextPortNumber);
+            _isNameManuallyEdited = false;
+            Name = GenerateDefaultPortName();
             Passcode = AprsPasscode.Compute(globalCallsign);
         }
 
         OnPropertyChanged(nameof(Title));
+    }
+
+    private string GenerateDefaultPortName()
+    {
+        var key = SelectedPortSettingsType == typeof(AprsIsSettings)
+            ? "DefaultAprsIsPortName"
+            : "DefaultKissPortName";
+        return Strings.Format(key, _portNumber);
     }
 
     [RelayCommand]
@@ -267,6 +280,16 @@ public partial class AddEditPortViewModel : ViewModelBase
     partial void OnNameChanged(string value)
     {
         OnPropertyChanged(nameof(Title));
+        
+        // Track if user manually edited the name (unless we're initializing)
+        if (_portNumber > 0 && !string.IsNullOrEmpty(value))
+        {
+            var expectedDefault = GenerateDefaultPortName();
+            if (value != expectedDefault)
+            {
+                _isNameManuallyEdited = true;
+            }
+        }
     }
 
     partial void OnSelectedKissTransportTypeChanged(Type value)
@@ -282,6 +305,12 @@ public partial class AddEditPortViewModel : ViewModelBase
         if (value != typeof(KissSettings))
         {
             StopBleScan();
+        }
+        
+        // Auto-update port name when type changes, but only if user hasn't manually edited it
+        if (!_isNameManuallyEdited && _portNumber > 0)
+        {
+            Name = GenerateDefaultPortName();
         }
     }
 

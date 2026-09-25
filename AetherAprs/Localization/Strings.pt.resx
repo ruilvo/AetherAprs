@@ -64,6 +64,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="TransportBluetoothClassicSpp" xml:space="preserve"><value>Bluetooth clássico (SPP)</value></data>
   <data name="TransportBluetoothLe" xml:space="preserve"><value>Bluetooth LE</value></data>
   <data name="DefaultAprsIsPortName" xml:space="preserve"><value>Porta APRS-IS {0}</value></data>
+  <data name="DefaultKissPortName" xml:space="preserve"><value>Porta KISS {0}</value></data>
   <data name="Cancel" xml:space="preserve"><value>Cancelar</value></data>
   <data name="Save" xml:space="preserve"><value>Guardar</value></data>
   <data name="StationSettings" xml:space="preserve"><value>Definições da estação</value></data>
@@ -156,4 +157,30 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SymbolBoat" xml:space="preserve"><value>Barco</value></data>
   <data name="SymbolEmergency" xml:space="preserve"><value>Emergência</value></data>
   <data name="SymbolHospital" xml:space="preserve"><value>Hospital</value></data>
+  <data name="BaseSymbol" xml:space="preserve"><value>Símbolo base</value></data>
+  <data name="Overlay" xml:space="preserve"><value>Sobreposição</value></data>
+  <data name="Result" xml:space="preserve"><value>Resultado</value></data>
+  <data name="SymbolPickerDescription" xml:space="preserve"><value>Selecione um símbolo base da tabela primária ou alternativa. Se selecionar da tabela alternativa, também pode adicionar um carácter de sobreposição.</value></data>
+  <data name="PrimaryTable" xml:space="preserve"><value>Primária (/)</value></data>
+  <data name="AlternateTable" xml:space="preserve"><value>Alternativa (\)</value></data>
+  <data name="Packets" xml:space="preserve"><value>Pacotes</value></data>
+  <data name="PacketDetails" xml:space="preserve"><value>Detalhes do pacote</value></data>
+  <data name="SendMessage" xml:space="preserve"><value>Enviar mensagem</value></data>
+  <data name="NoPacketsFound" xml:space="preserve"><value>Nenhum pacote encontrado</value></data>
+  <data name="NoPacketsReceivedYet" xml:space="preserve"><value>Ainda não foram recebidos pacotes</value></data>
+  <data name="Time" xml:space="preserve"><value>Hora</value></data>
+  <data name="Type" xml:space="preserve"><value>Tipo</value></data>
+  <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
+  <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
+  <data name="Comment" xml:space="preserve"><value>Comentário</value></data>
+  <data name="Message" xml:space="preserve"><value>Mensagem</value></data>
+  <data name="BackTooltip" xml:space="preserve"><value>Voltar</value></data>
+  <data name="CenterOnMyLocationTooltip" xml:space="preserve"><value>Centrar na minha localização</value></data>
+  <data name="ShowOnMapTooltip" xml:space="preserve"><value>Mostrar no mapa</value></data>
+  <data name="DeletePortTooltip" xml:space="preserve"><value>Eliminar porta</value></data>
+  <data name="PortPlaceholder" xml:space="preserve"><value>14580</value></data>
+  <data name="HostPlaceholder" xml:space="preserve"><value>127.0.0.1</value></data>
+  <data name="SerialPortPlaceholder" xml:space="preserve"><value>8001</value></data>
+  <data name="DefaultSsidLabel" xml:space="preserve"><value>SSID predefinido</value></data>
+  <data name="MessageTextPlaceholder" xml:space="preserve"><value>Texto da mensagem</value></data>
 </root>

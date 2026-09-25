@@ -64,6 +64,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="TransportBluetoothClassicSpp" xml:space="preserve"><value>Bluetooth Classic (SPP)</value></data>
   <data name="TransportBluetoothLe" xml:space="preserve"><value>Bluetooth LE</value></data>
   <data name="DefaultAprsIsPortName" xml:space="preserve"><value>APRS-IS Port {0}</value></data>
+  <data name="DefaultKissPortName" xml:space="preserve"><value>KISS Port {0}</value></data>
   <data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
   <data name="Save" xml:space="preserve"><value>Save</value></data>
   <data name="StationSettings" xml:space="preserve"><value>Station Settings</value></data>
@@ -162,4 +163,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SymbolPickerDescription" xml:space="preserve"><value>Select a base symbol from the primary or alternate table. If you select from the alternate table, you can also add an overlay character.</value></data>
   <data name="PrimaryTable" xml:space="preserve"><value>Primary (/)</value></data>
   <data name="AlternateTable" xml:space="preserve"><value>Alternate (\)</value></data>
+  <data name="Packets" xml:space="preserve"><value>Packets</value></data>
+  <data name="PacketDetails" xml:space="preserve"><value>Packet Details</value></data>
+  <data name="SendMessage" xml:space="preserve"><value>Send Message</value></data>
+  <data name="NoPacketsFound" xml:space="preserve"><value>No packets found</value></data>
+  <data name="NoPacketsReceivedYet" xml:space="preserve"><value>No packets received yet</value></data>
+  <data name="Time" xml:space="preserve"><value>Time</value></data>
+  <data name="Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
+  <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
+  <data name="Comment" xml:space="preserve"><value>Comment</value></data>
+  <data name="Message" xml:space="preserve"><value>Message</value></data>
+  <data name="BackTooltip" xml:space="preserve"><value>Back</value></data>
+  <data name="CenterOnMyLocationTooltip" xml:space="preserve"><value>Center on my location</value></data>
+  <data name="ShowOnMapTooltip" xml:space="preserve"><value>Show on map</value></data>
+  <data name="DeletePortTooltip" xml:space="preserve"><value>Delete port</value></data>
+  <data name="PortPlaceholder" xml:space="preserve"><value>14580</value></data>
+  <data name="HostPlaceholder" xml:space="preserve"><value>127.0.0.1</value></data>
+  <data name="SerialPortPlaceholder" xml:space="preserve"><value>8001</value></data>
+  <data name="DefaultSsidLabel" xml:space="preserve"><value>Default SSID</value></data>
+  <data name="MessageTextPlaceholder" xml:space="preserve"><value>Message text</value></data>
 </root>
