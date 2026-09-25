@@ -6,6 +6,7 @@ using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
+using Android.Views;
 using Android.Window;
 using Avalonia.Android;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ namespace AetherAprs.Android;
     Theme = "@style/AetherAprsTheme.NoActionBar",
     Icon = "@drawable/icon_400px",
     MainLauncher = true,
+    WindowSoftInputMode = SoftInput.AdjustResize,
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
 public class MainActivity : AvaloniaMainActivity
 {
