@@ -11,83 +11,107 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:data="using:AetherAprs.Data"
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PacketDetailsPage"
              x:DataType="vm:PacketDetailsViewModel"
              d:DataContext="{x:Static local:DesignData.PacketDetailsViewModel}">
 
-  <Grid RowDefinitions="Auto,Auto,*">
+  <Grid RowDefinitions="Auto,*">
     <!-- Header -->
-    <Border Grid.Row="0" Classes="PageHeader">
-      <TextBlock Text="{Binding Title}"
-                 Classes="Headline6" />
-    </Border>
-
-    <!-- Action buttons -->
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="16,8">
-      <Button Content="Send Message"
-              Command="{Binding SendMessageCommand}"
-              Classes="Flat">
-        <Button.ContentTemplate>
-          <DataTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <PathIcon Data="{ext:MaterialIconGeometryExt Message}" />
-              <TextBlock Text="Send Message" />
-            </StackPanel>
-          </DataTemplate>
-        </Button.ContentTemplate>
-      </Button>
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}" Classes="PageTitle" />
     </StackPanel>
 
-    <!-- Packets table -->
-    <ScrollViewer Grid.Row="2">
-      <StackPanel Spacing="8" Margin="16">
+    <!-- Content -->
+    <ScrollViewer Grid.Row="1" Classes="PageContent">
+      <StackPanel Classes="PageContainer">
         <!-- Loading indicator -->
         <ProgressBar IsIndeterminate="True"
                      IsVisible="{Binding IsLoading}"
                      Margin="0,8" />
 
-        <!-- DataGrid for packets -->
-        <DataGrid ItemsSource="{Binding Packets}"
-                  IsVisible="{Binding Packets.Count}"
-                  AutoGenerateColumns="False"
-                  IsReadOnly="True"
-                  GridLinesVisibility="Horizontal"
-                  HeadersVisibility="Column"
-                  CanUserReorderColumns="False"
-                  CanUserResizeColumns="True"
-                  CanUserSortColumns="True">
-          <DataGrid.Columns>
-            <DataGridTextColumn Header="Time"
-                                Binding="{Binding ReceivedAt, StringFormat='{}{0:HH:mm:ss}'}"
-                                Width="80" />
-            <DataGridTextColumn Header="Type"
-                                Binding="{Binding PacketType}"
-                                Width="80" />
-            <DataGridTextColumn Header="Lat"
-                                Binding="{Binding Latitude, StringFormat='{}{0:F4}'}"
-                                Width="70" />
-            <DataGridTextColumn Header="Lon"
-                                Binding="{Binding Longitude, StringFormat='{}{0:F4}'}"
-                                Width="70" />
-            <DataGridTextColumn Header="Comment"
-                                Binding="{Binding Comment}"
-                                Width="*" />
-            <DataGridTextColumn Header="Message"
-                                Binding="{Binding MessageText}"
-                                Width="*" />
-            <DataGridTextColumn Header="Status"
-                                Binding="{Binding StatusText}"
-                                Width="*" />
-          </DataGrid.Columns>
-        </DataGrid>
+        <!-- Action buttons -->
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+          <Button Content="Send Message"
+                  Command="{Binding SendMessageCommand}"
+                  Classes="Flat">
+            <Button.ContentTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{ext:MaterialIconGeometryExt Message}" />
+                  <TextBlock Text="Send Message" />
+                </StackPanel>
+              </DataTemplate>
+            </Button.ContentTemplate>
+          </Button>
+        </StackPanel>
+
+        <!-- Packet cards -->
+        <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="data:PacketRecord">
+              <controls:Card Classes="StandardCard">
+                <StackPanel Spacing="8">
+                  <!-- Header with time and type -->
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding ReceivedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                               Classes="Subtitle2"
+                               FontWeight="Bold" />
+                    <Border Grid.Column="1" Classes="TypeBadge">
+                      <TextBlock Text="{Binding PacketType}" />
+                    </Border>
+                  </Grid>
+
+                  <!-- Coordinates if available -->
+                  <StackPanel Spacing="4" IsVisible="{Binding Latitude, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <TextBlock Classes="Caption" Text="Location" Opacity="0.7" />
+                    <TextBlock Classes="Body2">
+                      <Run Text="Lat: " />
+                      <Run Text="{Binding Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                      <Run Text="  Lon: " />
+                      <Run Text="{Binding Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                    </TextBlock>
+                  </StackPanel>
+
+                  <!-- Comment if available -->
+                  <StackPanel Spacing="4" IsVisible="{Binding Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Classes="Caption" Text="Comment" Opacity="0.7" />
+                    <TextBlock Text="{Binding Comment}"
+                               Classes="Body2"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <!-- Message if available -->
+                  <StackPanel Spacing="4" IsVisible="{Binding MessageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Classes="Caption" Text="Message" Opacity="0.7" />
+                    <TextBlock Text="{Binding MessageText}"
+                               Classes="Body2"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+
+                  <!-- Status if available -->
+                  <StackPanel Spacing="4" IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Classes="Caption" Text="Status" Opacity="0.7" />
+                    <TextBlock Text="{Binding StatusText}"
+                               Classes="Body2"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+                </StackPanel>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
         <!-- Empty state -->
         <TextBlock Text="No packets found"
-                   Classes="Body1"
-                   HorizontalAlignment="Center"
-                   Margin="0,32"
-                   Opacity="0.5"
+                   Classes="EmptyState"
                    IsVisible="{Binding !Packets.Count}" />
       </StackPanel>
     </ScrollViewer>

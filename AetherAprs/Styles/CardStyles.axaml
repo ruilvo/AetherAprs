@@ -10,13 +10,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <!-- Standard card with consistent padding -->
   <Style Selector="controls|Card.StandardCard">
     <Setter Property="Padding" Value="16" />
-    <Setter Property="Margin" Value="0" />
+    <Setter Property="Margin" Value="4" />
   </Style>
 
   <!-- Clickable card (using Card with button inside) -->
   <Style Selector="controls|Card.ClickableCard">
     <Setter Property="Padding" Value="0" />
-    <Setter Property="Margin" Value="0" />
+    <Setter Property="Margin" Value="4" />
   </Style>
 
   <!-- Button inside clickable card -->
