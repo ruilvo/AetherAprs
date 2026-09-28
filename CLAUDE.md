@@ -406,4 +406,92 @@ Acceptable exceptions:
 
 ---
 
+## 9. Architecture Boundaries
+
+**Respect the two-flow architecture. Never bypass the service layers.**
+
+### Data Flow: RECEIVE (Port → Database)
+
+```
+Port → PortService → PacketStorageService → SQLite
+```
+
+**Rules:**
+- Ports MUST NOT access the database directly
+- PortService coordinates ports and delegates persistence to PacketStorageService
+- PacketStorageService is the ONLY component that writes packet data
+
+### Data Flow: READ (Database → UI)
+
+```
+SQLite → PacketQueryService → ViewModels → Views
+```
+
+**Rules:**
+- ViewModels MUST use PacketQueryService for database reads
+- ViewModels MUST NOT access EF Core or DbContext directly
+- Map and Packet Details MUST obtain data via PacketQueryService
+
+### Data Flow: TRANSMIT (UI → Port)
+
+```
+ViewModel → PortService → Port
+```
+
+**Rules:**
+- Use PortService.SendPacketAsync() for transmission
+- Never bypass PortService to access ports directly
+
+### Prohibited Patterns
+
+```
+❌ ViewModel → EF Core (bypass query service)
+❌ ViewModel → DbContext (bypass query service)
+❌ Map → Database (bypass query service)
+❌ Port → Database (bypass storage service)
+❌ View → Database (views are presentation only)
+```
+
+### ViewModels are UI-Layer Classes
+
+ViewModels should contain:
+- UI state (IsLoading, error messages)
+- Commands ([RelayCommand])
+- Presentation data
+- Service call orchestration
+
+ViewModels should NOT contain:
+- Database queries (use PacketQueryService)
+- Packet processing (belongs in services)
+- Port management (belongs in PortService)
+- Business logic (belongs in services)
+
+```csharp
+// CORRECT - ViewModel orchestrates service
+public class PacketsViewModel : ViewModelBase
+{
+    private readonly IPacketQueryService _queryService;
+    
+    private async Task LoadAsync()
+    {
+        var packets = await _queryService.GetMostRecentPacketsAsync();
+        UpdateUI(packets);
+    }
+}
+
+// WRONG - ViewModel queries database directly
+public class SomeViewModel : ViewModelBase
+{
+    private readonly IDbContextFactory<AppDbContext> _dbFactory; // ❌
+    
+    private async Task LoadAsync()
+    {
+        using var db = await _dbFactory.CreateDbContextAsync(); // ❌
+        var data = await db.Packets.ToListAsync(); // ❌
+    }
+}
+```
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

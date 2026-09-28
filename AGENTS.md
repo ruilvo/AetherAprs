@@ -108,7 +108,204 @@ Mirror the source namespace structure under `AetherAprs.Tests/`:
 - Source: `AetherAprs/Modems/Kiss/KissSerializer.cs` → Tests: `AetherAprs.Tests/Kiss/KissSerializerTests.cs`
 - Namespace for tests: `AetherAprs.Tests.<Subnamespace>` (e.g. `AetherAprs.Tests.Kiss`)
 
-## Architecture Notes
+## Architecture Overview
+
+AetherAprs follows a clean two-flow architecture with clear separation between packet reception/persistence and packet querying/display.
+
+### Data Flow: RECEIVE (Port → Database)
+
+Incoming packets flow through a strictly enforced pipeline:
+
+```
+Port (RF/APRS-IS)
+  ↓ receives packet, fires PacketReceived event
+PortService (coordinates all ports)
+  ↓ handles PacketReceived event
+  ↓ calls PacketStorageService.StorePacketAsync()
+PacketStorageService
+  ↓ creates PacketRecord via PacketRecordMapper.ToRecord()
+  ↓ saves to database via EF Core
+SQLite Database
+  ↓ PacketStored event raised after successful save
+ViewModels subscribe to PacketStored event
+```
+
+**Key Rules:**
+- Ports MUST NOT directly access the database
+- Ports MUST NOT persist received data themselves
+- PortService coordinates all port operations and delegates persistence to PacketStorageService
+- PacketStorageService is the ONLY component that writes packet data to the database
+
+### Data Flow: READ (Database → Consumers)
+
+Database-backed packet information is accessed through the query service:
+
+```
+SQLite Database
+  ↑ EF Core queries
+PacketQueryService (IPacketQueryService)
+  ↑ provides read-only query methods:
+    - GetMostRecentPacketsAsync() - latest packet per callsign
+    - GetMostRecentPositionPacketsAsync() - latest position per callsign  
+    - GetPacketsByPortAsync() - packets from specific port
+    - GetPacketsByCallsignAsync() - historical packets for trail display
+  ↑
+Consumers (ViewModels)
+  - ReceivedBeaconsViewModel: queries for map display
+  - PacketsViewModel: queries for packet list
+  - PacketDetailsViewModel: queries for callsign history
+```
+
+**Key Rules:**
+- ViewModels MUST NOT access EF Core or DbContext directly
+- ViewModels MUST use PacketQueryService for all database reads
+- Map display MUST obtain data via PacketQueryService (not direct database access)
+- Packet details MUST obtain data via PacketQueryService (not direct database access)
+- PacketQueryService provides read-only access - no data modification
+
+### Data Flow: TRANSMIT (Consumer → Port)
+
+Outgoing packets flow through PortService:
+
+```
+Consumer/ViewModel
+  ↓ calls PortService.SendPacketAsync(portId, packet)
+PortService
+  ↓ routes to appropriate Port
+Port (RF/APRS-IS)
+  ↓ transmits packet
+```
+
+**Key Rules:**
+- Consumers MUST use PortService.SendPacketAsync() for transmission
+- Direct Port access for transmission is prohibited
+- PortService handles port routing and coordination
+
+### Architecture Boundaries - PROHIBITED
+
+The following patterns violate the architecture and MUST NOT be used:
+
+```
+❌ ViewModel → EF Core (bypass query service)
+❌ ViewModel → DbContext (bypass query service)
+❌ Map → Database (bypass query service)
+❌ PacketDetails → Database (bypass query service)
+❌ Port → Database (bypass storage service)
+❌ View → Database (views are presentation only)
+❌ Consumer → Port directly (bypass port service)
+```
+
+### Service Responsibilities
+
+**PortService** (`IPortService`):
+- Manages port lifecycle (start, stop, add, remove, update)
+- Receives packets from ports via event callbacks
+- Delegates persistence to PacketStorageService
+- Raises PacketReceived event for application-level consumers
+- Handles outgoing transmission via SendPacketAsync()
+- Coordinates digipeater service
+
+**PacketStorageService** (`IPacketStorageService`):
+- Writes received packets to database via EF Core
+- Raises PacketStored event after successful storage
+- Handles packet retention/cleanup based on configuration
+- ONLY service that writes packet data
+
+**PacketQueryService** (`IPacketQueryService`):
+- Provides read-only database queries for packet data
+- Aggregates data (most recent per callsign, etc.)
+- Provides historical data for trails and details
+- Used by ViewModels to obtain database-backed information
+
+**MessageService** (`IMessageService`):
+- Manages APRS messaging conversations
+- Persists messages via EF Core (message-specific data)
+- Coordinates message transmission via PortService
+- Handles message acknowledgments and retries
+
+**BeaconService** (`IBeaconService`):
+- Manages beacon configurations
+- Persists beacon configs via EF Core
+- Coordinates beacon transmission via PortService
+
+**DigipeaterService** (`IDigipeaterService`):
+- Implements APRS digipeater functionality
+- Coordinates with PortService for packet forwarding
+
+## MVVM Architecture
+
+AetherAprs uses Avalonia UI with the MVVM pattern via CommunityToolkit.Mvvm.
+
+### ViewModels are UI-Layer Classes
+
+**ViewModels represent UI state and user interaction.**
+
+ViewModels should contain:
+- UI state (IsLoading, IsEnabled, validation errors)
+- User interaction commands ([RelayCommand])
+- Presentation data (formatted strings, display collections)
+- Orchestration of service calls
+- UI-specific validation
+- Navigation logic
+
+**ViewModels are NOT general-purpose service classes.**
+
+ViewModels should NOT contain:
+- Database access logic (use PacketQueryService instead)
+- Packet processing algorithms (belongs in services)
+- Port management (belongs in PortService)
+- Network operations (belongs in ports/transports)
+- Business rule engines (belongs in services)
+- Infrastructure logic (belongs in services)
+
+**Correct ViewModel responsibility:**
+```csharp
+public partial class PacketsViewModel : ViewModelBase
+{
+    private readonly IPacketQueryService _packetQueryService;
+    
+    [ObservableProperty]
+    public partial ObservableCollection<PacketSummary> Packets { get; set; }
+    
+    private async Task LoadPacketsAsync()
+    {
+        // ViewModel orchestrates service call and updates UI state
+        IsLoading = true;
+        var packets = await _packetQueryService.GetMostRecentPacketsAsync();
+        Packets.Clear();
+        foreach (var packet in packets.Values)
+        {
+            Packets.Add(CreateSummary(packet)); // UI presentation logic
+        }
+        IsLoading = false;
+    }
+}
+```
+
+**WRONG - ViewModel with business/database logic:**
+```csharp
+public partial class SomeViewModel : ViewModelBase
+{
+    private readonly IDbContextFactory<AppDbContext> _dbFactory; // ❌ NO
+    
+    private async Task LoadDataAsync()
+    {
+        // ❌ ViewModels should not query database directly
+        using var context = await _dbFactory.CreateDbContextAsync();
+        var data = await context.Packets.Where(...).ToListAsync();
+    }
+}
+```
+
+### Views and ViewModels
+
+**Every relevant View should have a corresponding ViewModel.**
+
+- Page Views (HomeView, PacketsView, PortsView) → Page ViewModels
+- Dialog Views (AddEditPortView, PacketDetailsView) → Dialog ViewModels  
+- Component Views (LocationTrackingComponent, BeaconTransmissionComponent) → Component ViewModels
+
+Simple presentational controls without logic may not need ViewModels.
 
 **Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`).
 
@@ -157,6 +354,67 @@ When binding ViewModels to UI:
 - NEVER manually instantiate views with `<views:SomeView DataContext="{Binding ...}" />`
 - NEVER use inline DataTemplates for ViewModel-to-View mapping
 - Let the ViewLocator handle all ViewModel-to-View resolution automatically
+
+Without proper registration in all three places (ServiceProviderFactory, DesignData, ViewLocator), views won't work at runtime or in the designer.
+
+## Design-Time Support
+
+**Design-time previewing is a project requirement.** Avalonia designer must be able to preview Views without runtime dependencies.
+
+### Design-Time Architecture
+
+- `DesignData.cs` provides a design-time service provider with mock/fake services
+- All ViewModels MUST be registered in both `ServiceProviderFactory.cs` (runtime) and `DesignData.cs` (design-time)
+- `ViewLocator.cs` maps ViewModels to Views for both runtime and design-time
+
+### Design-Time Requirements
+
+Design-time support MUST NOT require:
+- Production database connections
+- Live network ports (RF/APRS-IS)
+- Network services
+- Authentication
+- File system access beyond app data directory
+- Platform-specific APIs unavailable in the designer
+
+### Providing Design-Time Data
+
+Use fake/mock implementations in `DesignData.cs`:
+
+```csharp
+// Runtime uses real location service
+services.AddSingleton<ILocationService, GeolocatorLocationService>();
+
+// Design-time uses fake that doesn't require GPS hardware
+services.AddSingleton<ILocationService, DesignTimeLocationService>();
+```
+
+Provide realistic preview data where useful:
+```csharp
+public class DesignTimeLocationService : ILocationService
+{
+    public Task<LocationData?> GetCurrentLocationAsync(CancellationToken ct = default)
+    {
+        // Realistic preview location
+        return Task.FromResult<LocationData?>(new LocationData
+        {
+            Latitude = 37.7749,
+            Longitude = -122.4194,
+            Altitude = 50,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+    }
+}
+```
+
+### Adding Design-Time Support to New Views
+
+When creating a new View/ViewModel:
+1. Register ViewModel in `ServiceProviderFactory.cs` with appropriate lifetime
+2. Register ViewModel in `DesignData.cs` with the same lifetime
+3. Add public property in `DesignData.cs` to expose the ViewModel instance
+4. Add ViewModel → View mapping in `ViewLocator.cs`
+5. Test the View in the Avalonia previewer
 
 Without proper registration in all three places (ServiceProviderFactory, DesignData, ViewLocator), views won't work at runtime or in the designer.
 

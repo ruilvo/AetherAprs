@@ -152,6 +152,10 @@ dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 
 ## Architecture
 
+AetherAprs follows a clean two-flow architecture with clear separation between data persistence and querying.
+
+### Technology Stack
+
 - **UI Framework**: Avalonia UI with Material Design
 - **Pattern**: MVVM with CommunityToolkit.Mvvm
 - **Database**: SQLite with Entity Framework Core
@@ -159,6 +163,37 @@ dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 - **Configuration**: Microsoft.Extensions.Configuration (JSON)
 - **Mapping**: Mapsui library
 - **Logging**: Microsoft.Extensions.Logging
+
+### Data Flows
+
+**Receiving Packets (Port → Database)**:
+```
+RF/APRS-IS Port → PortService → PacketStorageService → SQLite
+```
+Ports receive packets and fire events. PortService coordinates persistence through PacketStorageService, which writes to the database via EF Core.
+
+**Querying Packets (Database → UI)**:
+```
+SQLite → PacketQueryService → ViewModels → Views
+```
+ViewModels query packet data through PacketQueryService, which provides read-only database access via EF Core. ViewModels never access the database directly.
+
+**Transmitting Packets (UI → Port)**:
+```
+ViewModel → PortService → RF/APRS-IS Port
+```
+ViewModels use PortService to coordinate packet transmission through the appropriate port.
+
+### Key Architectural Rules
+
+- **Ports** handle transport/protocol communication only (no persistence)
+- **PortService** coordinates ports and delegates packet persistence
+- **PacketStorageService** writes received packets to database (exclusive writer)
+- **PacketQueryService** provides read-only database queries
+- **ViewModels** are UI-layer classes that orchestrate service calls
+- **Views** contain only presentation logic and bindings
+
+For detailed architecture documentation, see [`AGENTS.md`](AGENTS.md).
 
 ## Contributing
 
