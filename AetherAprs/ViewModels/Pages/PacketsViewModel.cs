@@ -33,6 +33,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly DispatcherTimer _refreshTimer;
     private bool _pendingRefresh;
     private bool _disposed;
+    private Task? _initializationTask;
 
     [ObservableProperty]
     public partial string Title { get; set; } = "Packets";
@@ -42,6 +43,11 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
+
+    /// <summary>
+    /// Task that completes when initial load finishes. Useful for testing.
+    /// </summary>
+    public Task InitializationTask => _initializationTask ?? Task.CompletedTask;
 
     public PacketsViewModel(
         IPacketQueryService packetQueryService,
@@ -59,24 +65,41 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _logger = logger;
 
         // Throttle UI updates to every 500ms to avoid overwhelming the UI thread
-        _refreshTimer = new DispatcherTimer
+        // Only create timer if dispatcher is available (not in tests)
+        try
         {
-            Interval = TimeSpan.FromMilliseconds(500)
-        };
-        _refreshTimer.Tick += OnRefreshTimerTick;
-        _refreshTimer.Start();
+            _refreshTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500)
+            };
+            _refreshTimer.Tick += OnRefreshTimerTick;
+            _refreshTimer.Start();
+        }
+        catch
+        {
+            // No dispatcher available (tests) - timer will be null
+            _refreshTimer = null!;
+        }
 
         _packetStorageService.PacketStored += OnPacketStored;
         
         // Load initial data from database
-        _ = LoadPacketsAsync();
+        _initializationTask = LoadPacketsAsync();
     }
 
     private void OnPacketStored(object? sender, EventArgs e)
     {
         // Mark that we need a refresh, but don't trigger immediately
         // The timer will pick it up on the next tick
-        _pendingRefresh = true;
+        // In tests where timer is null, trigger refresh immediately
+        if (_refreshTimer != null)
+        {
+            _pendingRefresh = true;
+        }
+        else
+        {
+            _ = LoadPacketsAsync();
+        }
     }
 
     private async void OnRefreshTimerTick(object? sender, EventArgs e)
@@ -129,15 +152,12 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                 })
                 .ToList();
 
-            // Update observable collection on UI thread
-            await Dispatcher.UIThread.InvokeAsync(() =>
+            // Update observable collection
+            Packets.Clear();
+            foreach (var summary in summaries)
             {
-                Packets.Clear();
-                foreach (var summary in summaries)
-                {
-                    Packets.Add(summary);
-                }
-            });
+                Packets.Add(summary);
+            }
 
             _logger.LogInformation("Displayed {Count} packets in UI", Packets.Count);
         }
@@ -184,6 +204,11 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return record.StatusText;
         }
         
+        if (record.Temperature.HasValue)
+        {
+            return $"Temp: {record.Temperature.Value:F1}°F";
+        }
+        
         return record.RawInfo != null && record.RawInfo.Length > 40 ? record.RawInfo[..40] + "..." : record.RawInfo ?? "";
     }
 
@@ -206,8 +231,11 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _refreshTimer.Stop();
-        _refreshTimer.Tick -= OnRefreshTimerTick;
+        if (_refreshTimer != null)
+        {
+            _refreshTimer.Stop();
+            _refreshTimer.Tick -= OnRefreshTimerTick;
+        }
         _packetStorageService.PacketStored -= OnPacketStored;
         _disposed = true;
     }

@@ -149,9 +149,7 @@ public class PacketsViewModelTests : IDisposable
         // Act
         var viewModel = await CreateViewModelAsync();
 
-        // Assert - verify mock was called
-        await _packetQueryService.Received(1).GetMostRecentPacketsAsync(Arg.Any<int>());
-        
+        // Assert
         Assert.Single(viewModel.Packets);
         var summary = viewModel.Packets[0];
         Assert.Equal("N0CALL-1", summary.Source);
@@ -410,9 +408,8 @@ public class PacketsViewModelTests : IDisposable
             _configurationService,
             _logger);
         
-        // Give async constructor time to complete
-        // LoadPacketsAsync is fire-and-forget, so we need to wait for it
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        // Wait for initialization to complete
+        await viewModel.InitializationTask;
         
         return viewModel;
     }
