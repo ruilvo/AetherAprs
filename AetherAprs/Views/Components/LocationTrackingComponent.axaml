@@ -37,9 +37,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLocationAvailable}">
                     <TextBlock Text="{loc:Loc Position}" Classes="Body2" />
                     <TextBlock Classes="Body2">
-                        <Run Text="{Binding CurrentLocation.Latitude, StringFormat={}{0:F5}}" />
+                        <Run Text="{Binding CurrentLocation.Location.Latitude, StringFormat={}{0:F5}}" />
                         <Run Text="," />
-                        <Run Text="{Binding CurrentLocation.Longitude, StringFormat={}{0:F5}}" />
+                        <Run Text="{Binding CurrentLocation.Location.Longitude, StringFormat={}{0:F5}}" />
                     </TextBlock>
                 </StackPanel>
                 

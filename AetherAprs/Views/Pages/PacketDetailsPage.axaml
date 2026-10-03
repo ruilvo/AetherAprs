@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <!-- Header with time and type -->
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Grid.Column="0"
-                               Text="{Binding ReceivedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                               Text="{Binding Timestamp, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
                                Classes="Subtitle2"
                                FontWeight="Bold" />
                     <Border Grid.Column="1" Classes="TypeBadge">
@@ -70,41 +70,41 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   </Grid>
 
                   <!-- Coordinates if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding Latitude, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  <StackPanel Spacing="4" IsVisible="{Binding Position, Converter={x:Static ObjectConverters.IsNotNull}}">
                     <TextBlock Classes="Caption" Text="{loc:Loc Location}" Opacity="0.7" />
                     <TextBlock Classes="Body2">
                       <Run Text="{loc:Loc Latitude}" />
                       <Run Text=": " />
-                      <Run Text="{Binding Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                      <Run Text="{Binding Position.Location.Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
                       <Run Text="  " />
                       <Run Text="{loc:Loc Longitude}" />
                       <Run Text=": " />
-                      <Run Text="{Binding Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                      <Run Text="{Binding Position.Location.Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
                     </TextBlock>
                   </StackPanel>
 
                   <!-- Comment if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                  <StackPanel Spacing="4" IsVisible="{Binding Position.Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock Classes="Caption" Text="{loc:Loc Comment}" Opacity="0.7" />
-                    <TextBlock Text="{Binding Comment}"
+                    <TextBlock Text="{Binding Position.Comment}"
                                Classes="Body2"
                                TextWrapping="Wrap" />
                   </StackPanel>
 
                   <!-- Message if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding MessageText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                  <StackPanel Spacing="4" IsVisible="{Binding Message.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock Classes="Caption" Text="{loc:Loc Message}" Opacity="0.7" />
-                    <TextBlock Text="{Binding MessageText}"
+                    <TextBlock Text="{Binding Message.Text}"
                                Classes="Body2"
                                TextWrapping="Wrap" />
                   </StackPanel>
 
                   <!-- Status if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                  <StackPanel Spacing="4" IsVisible="{Binding Status.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock Classes="Caption" Opacity="0.7">
                       <Run Text="{loc:Loc Status}" />
                     </TextBlock>
-                    <TextBlock Text="{Binding StatusText}"
+                    <TextBlock Text="{Binding Status.Text}"
                                Classes="Body2"
                                TextWrapping="Wrap" />
                   </StackPanel>

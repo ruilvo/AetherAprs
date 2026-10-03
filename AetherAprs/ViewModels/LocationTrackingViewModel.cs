@@ -97,7 +97,7 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
                     CurrentLocation = location;
                     LocationUpdated?.Invoke(this, location);
 
-                    _logger.LogInformation("Location updated: {Lat}, {Lon}", location.Latitude, location.Longitude);
+                    _logger.LogInformation("Location updated: {Lat}, {Lon}", location.Location.Latitude, location.Location.Longitude);
 
                     // Wait 5 seconds before next update
                     await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);

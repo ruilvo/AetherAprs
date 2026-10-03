@@ -81,8 +81,8 @@ public partial class BeaconTransmissionViewModel(
                     logger.LogInformation(
                         "Beacon transmitted on port {PortName}: {Lat}, {Lon} (Speed: {Speed:F1}km/h, Course: {Course:F0}°)",
                         port.Name,
-                        currentLocation.Latitude,
-                        currentLocation.Longitude,
+                        currentLocation.Location.Latitude,
+                        currentLocation.Location.Longitude,
                         decision.CurrentSpeedKmh ?? 0,
                         decision.CurrentCourseDegrees ?? 0);
                 }

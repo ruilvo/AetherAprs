@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.ComponentModel.DataAnnotations;
+using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.ViewModels;
 
@@ -29,18 +30,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial string Callsign { get; set; } = "N0CALL";
 
     [ObservableProperty]
-    [Range(0, 15, ErrorMessageResourceName = nameof(Strings.ValidationSsidRange), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
-    public partial int Ssid { get; set; }
+    public partial AprsSsid Ssid { get; set; }
 
     [ObservableProperty]
-    public partial string DefaultSymbolTableCharacter { get; set; } = "/";
+    public partial string SymbolTableCharacter { get; set; } = "/";
 
     [ObservableProperty]
-    public partial string DefaultSymbolCodeCharacter { get; set; } = "[";
+    public partial string SymbolCodeCharacter { get; set; } = "[";
 
     [ObservableProperty]
-    public partial string? DefaultSymbolOverlayCharacter { get; set; }
+    public partial string? SymbolOverlayCharacter { get; set; }
 
     [ObservableProperty]
     public partial AprsSymbolPickerViewModel SymbolPicker { get; set; }
@@ -81,7 +80,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     [MaxLength(43, ErrorMessageResourceName = nameof(Strings.ValidationCommentMaxLength), ErrorMessageResourceType = typeof(Strings))]
     [NotifyDataErrorInfo]
-    public partial string? DefaultBeaconComment { get; set; } = "Using AetherAPRS!";
+    public partial string? BeaconComment { get; set; } = "Using AetherAPRS!";
 
     [ObservableProperty]
     public partial string? DigipeaterPath { get; set; } = "WIDE1-1,WIDE2-1";
@@ -94,6 +93,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
         (Configuration.PacketDisplayTimeRange[])Enum.GetValues(typeof(Configuration.PacketDisplayTimeRange));
+
+    public AprsSsid[] AvailableSsids { get; } = 
+        (AprsSsid[])Enum.GetValues(typeof(AprsSsid));
 
     public SettingsViewModel(
         IConfigurationService configurationService,
@@ -108,10 +110,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
         var aprs = _configurationService.Settings.Aprs;
         Callsign = aprs.Callsign;
-        Ssid = aprs.DefaultSsid;
-        DefaultSymbolTableCharacter = aprs.DefaultSymbolTableCharacter;
-        DefaultSymbolCodeCharacter = aprs.DefaultSymbolCodeCharacter;
-        DefaultSymbolOverlayCharacter = aprs.DefaultSymbolOverlayCharacter;
+        Ssid = aprs.Ssid;
+        SymbolTableCharacter = aprs.SymbolTable.ToChar().ToString();
+        SymbolCodeCharacter = aprs.SymbolCode.ToChar().ToString();
+        SymbolOverlayCharacter = aprs.SymbolOverlay?.ToChar().ToString();
         DisplayTimeRange = aprs.DisplayTimeRange;
         CustomDisplayTimeRangeHours = aprs.CustomDisplayTimeRangeHours;
         EnableDigipeater = aprs.EnableDigipeater;
@@ -121,22 +123,22 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         MessageMaxRetries = aprs.MessageMaxRetries;
         MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
         AutoAcknowledgeMessages = aprs.AutoAcknowledgeMessages;
-        DefaultBeaconComment = aprs.DefaultBeaconComment;
+        BeaconComment = aprs.BeaconComment;
         DigipeaterPath = aprs.DigipeaterPath;
         DigipeaterRespondToWide1 = aprs.DigipeaterRespondToWide1;
         DigipeaterRespondToWide2 = aprs.DigipeaterRespondToWide2;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
-            DefaultSymbolTableCharacter, DefaultSymbolCodeCharacter, DefaultSymbolOverlayCharacter);
+            SymbolTableCharacter, SymbolCodeCharacter, SymbolOverlayCharacter);
 
         // Suppress symbol picker notifications during initialization to prevent async preview updates
         // from triggering property changed events that would overwrite our loaded settings
         SymbolPicker.BeginSuppressNotifications();
         
         // Initialize symbol picker with settings values
-        SymbolPicker.TableCharacter = DefaultSymbolTableCharacter;
-        SymbolPicker.CodeCharacter = DefaultSymbolCodeCharacter;
-        SymbolPicker.OverlayCharacter = DefaultSymbolOverlayCharacter;
+        SymbolPicker.TableCharacter = SymbolTableCharacter;
+        SymbolPicker.CodeCharacter = SymbolCodeCharacter;
+        SymbolPicker.OverlayCharacter = SymbolOverlayCharacter;
 
         _logger?.LogDebug("Set in SymbolPicker: Table={Table}, Code={Code}, Overlay={Overlay}", 
             SymbolPicker.TableCharacter, SymbolPicker.CodeCharacter, SymbolPicker.OverlayCharacter);
@@ -158,17 +160,17 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         if (e.PropertyName == nameof(AprsSymbolPickerViewModel.TableCharacter))
         {
             _logger?.LogDebug("Syncing TableCharacter from SymbolPicker: {Value}", SymbolPicker.TableCharacter);
-            DefaultSymbolTableCharacter = SymbolPicker.TableCharacter;
+            SymbolTableCharacter = SymbolPicker.TableCharacter;
         }
         else if (e.PropertyName == nameof(AprsSymbolPickerViewModel.CodeCharacter))
         {
             _logger?.LogDebug("Syncing CodeCharacter from SymbolPicker: {Value}", SymbolPicker.CodeCharacter);
-            DefaultSymbolCodeCharacter = SymbolPicker.CodeCharacter;
+            SymbolCodeCharacter = SymbolPicker.CodeCharacter;
         }
         else if (e.PropertyName == nameof(AprsSymbolPickerViewModel.OverlayCharacter))
         {
             _logger?.LogDebug("Syncing OverlayCharacter from SymbolPicker: {Value}", SymbolPicker.OverlayCharacter);
-            DefaultSymbolOverlayCharacter = SymbolPicker.OverlayCharacter;
+            SymbolOverlayCharacter = SymbolPicker.OverlayCharacter;
         }
     }
 
@@ -178,22 +180,22 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
-    partial void OnSsidChanged(int value)
+    partial void OnSsidChanged(AprsSsid value)
     {
         SaveSettings();
     }
 
-    partial void OnDefaultSymbolTableCharacterChanged(string value)
+    partial void OnSymbolTableCharacterChanged(string value)
     {
         SaveSettings();
     }
 
-    partial void OnDefaultSymbolCodeCharacterChanged(string value)
+    partial void OnSymbolCodeCharacterChanged(string value)
     {
         SaveSettings();
     }
 
-    partial void OnDefaultSymbolOverlayCharacterChanged(string? value)
+    partial void OnSymbolOverlayCharacterChanged(string? value)
     {
         SaveSettings();
     }
@@ -243,7 +245,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
-    partial void OnDefaultBeaconCommentChanged(string? value)
+    partial void OnBeaconCommentChanged(string? value)
     {
         SaveSettings();
     }
@@ -281,10 +283,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         try
         {
             _configurationService.Settings.Aprs.Callsign = Callsign;
-            _configurationService.Settings.Aprs.DefaultSsid = Ssid;
-            _configurationService.Settings.Aprs.DefaultSymbolTableCharacter = DefaultSymbolTableCharacter;
-            _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter = DefaultSymbolCodeCharacter;
-            _configurationService.Settings.Aprs.DefaultSymbolOverlayCharacter = DefaultSymbolOverlayCharacter;
+            _configurationService.Settings.Aprs.Ssid = Ssid;
+            _configurationService.Settings.Aprs.SymbolTable =
+                SymbolTableCharacter[0].ToSymbolTable();
+            _configurationService.Settings.Aprs.SymbolCode =
+                SymbolCodeCharacter[0].ToSymbolCode();
+            _configurationService.Settings.Aprs.SymbolOverlay =
+                SymbolOverlayCharacter?[0].ToSymbolCode();
             _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
             _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
             _configurationService.Settings.Aprs.EnableDigipeater = EnableDigipeater;
@@ -294,7 +299,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             _configurationService.Settings.Aprs.MessageMaxRetries = MessageMaxRetries;
             _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
             _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
-            _configurationService.Settings.Aprs.DefaultBeaconComment = DefaultBeaconComment;
+            _configurationService.Settings.Aprs.BeaconComment = BeaconComment;
             _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;

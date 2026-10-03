@@ -54,7 +54,7 @@ public partial class MapViewModel : ViewModelBase, IDisposable
         UserLocation = location;
 
         // Convert lat/lon to map coordinates (Web Mercator)
-        var (x, y) = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
+        var (x, y) = SphericalMercator.FromLonLat(location.Location.Longitude, location.Location.Latitude);
         var mapPoint = new MPoint(x, y);
         _lastUserMapPoint = mapPoint;
 

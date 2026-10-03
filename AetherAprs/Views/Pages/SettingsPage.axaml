@@ -23,6 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
   <UserControl.Resources>
     <converters:PacketDisplayTimeRangeConverter x:Key="TimeRangeConverter" />
+    <converters:AprsSsidConverter x:Key="SsidConverter" />
   </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="TextBox">
@@ -54,11 +55,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      UseFloatingPlaceholder="True" />
 
             <!-- SSID -->
-            <TextBox x:Name="SsidBox"
-                     Text="{Binding Ssid}"
-                     PlaceholderText="0"
-                     wpf:TextFieldAssist.Label="{loc:Loc DefaultSsidLabel}"
-                     UseFloatingPlaceholder="True" />
+            <ComboBox x:Name="SsidBox"
+                      ItemsSource="{Binding AvailableSsids}"
+                      SelectedItem="{Binding Ssid}"
+                      MinHeight="48"
+                      wpf:ComboBoxAssist.Label="{loc:Loc DefaultSsidLabel}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Converter={StaticResource SsidConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
 
             <components:AprsSymbolPickerComponent
               DataContext="{Binding SymbolPicker}" />
@@ -127,7 +135,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
 
           <StackPanel Spacing="12">
-            <TextBox Text="{Binding DefaultBeaconComment}"
+            <TextBox Text="{Binding BeaconComment}"
                      PlaceholderText="{loc:Loc DefaultBeaconCommentPlaceholder}"
                      wpf:TextFieldAssist.Label="{loc:Loc DefaultBeaconComment}"
                      UseFloatingPlaceholder="True"

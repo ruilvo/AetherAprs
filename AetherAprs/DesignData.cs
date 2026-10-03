@@ -112,8 +112,7 @@ public static class DesignData
             // Return a fake location (Lisbon, Portugal coordinates as example)
             return Task.FromResult(new LocationData
             {
-                Latitude = 38.7223,
-                Longitude = -9.1393,
+                Location = new Geo.Coordinate(38.7223, -9.1393),
                 Altitude = 100,
                 Accuracy = 10,
                 Timestamp = DateTimeOffset.Now

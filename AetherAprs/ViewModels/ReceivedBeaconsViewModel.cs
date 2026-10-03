@@ -128,7 +128,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             
             // Apply time filter
             var filteredPackets = allPositionPackets.Values
-                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.ReceivedAt, TimeSpan.Zero) >= cutoffTime.Value);
+                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
 
             // Apply port filter - only include packets from visible ports
             // If no ports are visible, show nothing
@@ -143,13 +143,14 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             // Add markers for latest positions
             foreach (var record in packetRecords)
             {
-                if (record.Latitude.HasValue && record.Longitude.HasValue)
+                if (record.Position != null)
                 {
+                    var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
                     _logger.LogDebug(
                         "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
-                        record.Source,
-                        record.Latitude.Value,
-                        record.Longitude.Value);
+                        callsign,
+                        record.Position.Location.Latitude,
+                        record.Position.Location.Longitude);
 
                     var feature = CreateFeatureFromRecord(record);
                     _beaconsLayer.Add(feature);
@@ -159,12 +160,13 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             // Add trails - query historical positions from database for each visible station
             foreach (var record in packetRecords)
             {
-                var trailRecords = await _packetQueryService.GetPacketsByCallsignAsync(record.Source, limit: 100);
+                var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
+                var trailRecords = await _packetQueryService.GetPacketsByCallsignAsync(callsign, limit: 100);
                 
                 var trailPositions = trailRecords
-                    .Where(r => r.Latitude.HasValue && r.Longitude.HasValue)
-                    .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.ReceivedAt, TimeSpan.Zero) >= cutoffTime.Value)
-                    .OrderBy(r => r.ReceivedAt)
+                    .Where(r => r.Position != null)
+                    .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
+                    .OrderBy(r => r.Timestamp)
                     .ToList();
 
                 if (trailPositions.Count > 1)
@@ -209,10 +211,10 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         }
 
         var coordinates = trail
-            .Where(p => p.Latitude.HasValue && p.Longitude.HasValue)
+            .Where(p => p.Position != null)
             .Select(p =>
             {
-                var (x, y) = SphericalMercator.FromLonLat(p.Longitude!.Value, p.Latitude!.Value);
+                var (x, y) = SphericalMercator.FromLonLat(p.Position!.Location.Longitude, p.Position!.Location.Latitude);
                 return new Coordinate(x, y);
             })
             .ToArray();
@@ -236,16 +238,14 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
     private PointFeature CreateFeatureFromRecord(PacketRecord record)
     {
         var (x, y) = SphericalMercator.FromLonLat(
-            record.Longitude!.Value,
-            record.Latitude!.Value);
+            record.Position!.Location.Longitude,
+            record.Position!.Location.Latitude);
         var mapPoint = new MPoint(x, y);
 
         // Get symbol from record or use default
-        var symbolTable = record.SymbolTable ?? "/";
-        var symbolCode = record.SymbolCode ?? "[";
-        var symbol = new Symbol(symbolTable[0].ToSymbolTable(), symbolCode[0].ToSymbolCode());
+        var symbol = new Symbol(record.Position.SymbolTable, record.Position.SymbolCode);
 
-        var symbolKey = $"{symbolTable}{symbolCode}";
+        var symbolKey = $"{record.Position.SymbolTable.ToChar()}{record.Position.SymbolCode.ToChar()}";
         if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
             cachedStyle.symbol != symbol)
         {
@@ -254,9 +254,10 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             _symbolStyleCache[symbolKey] = cachedStyle;
         }
 
+        var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
         var labelStyle = new LabelStyle
         {
-            Text = record.Source,
+            Text = callsign,
             Offset = new Offset(45, 0),
             Font = new Font { FontFamily = "Arial", Size = 14, Bold = true },
             ForeColor = Color.Black,
@@ -267,8 +268,15 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         return new PointFeature(mapPoint)
         {
             Styles = [cachedStyle.imageStyle, labelStyle],
-            ["Callsign"] = record.Source // Store for click handling
+            ["Callsign"] = callsign // Store for click handling
         };
+    }
+
+    private static string FormatCallsign(string baseCallsign, AprsSsid? ssid)
+    {
+        return ssid.HasValue && ssid.Value != AprsSsid.PrimaryStation
+            ? $"{baseCallsign}-{(byte)ssid.Value}"
+            : baseCallsign;
     }
 
     /// <inheritdoc />

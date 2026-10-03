@@ -130,7 +130,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             var filteredPackets = allPackets.Values.AsEnumerable();
             if (cutoffTime.HasValue)
             {
-                filteredPackets = filteredPackets.Where(r => new DateTimeOffset(r.ReceivedAt, TimeSpan.Zero) >= cutoffTime.Value);
+                filteredPackets = filteredPackets.Where(r => new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
             }
 
             // Sort by most recent first and take top 100
@@ -145,9 +145,9 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             var summaries = packets
                 .Select(record => new PacketSummary
                 {
-                    Source = record.Source,
+                    Source = FormatCallsign(record.SourceBase, record.SourceSsid),
                     PacketType = record.PacketType,
-                    ReceivedAt = new DateTimeOffset(record.ReceivedAt, TimeSpan.Zero),
+                    ReceivedAt = new DateTimeOffset(record.Timestamp, TimeSpan.Zero),
                     Preview = GetPacketPreview(record)
                 })
                 .ToList();
@@ -188,28 +188,35 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
     private static string GetPacketPreview(PacketRecord record)
     {
-        if (record.Latitude.HasValue && record.Longitude.HasValue)
+        if (record.Position != null)
         {
-            return $"Lat: {record.Latitude.Value:F4}, Lon: {record.Longitude.Value:F4}";
+            return $"Lat: {record.Position.Location.Latitude:F4}, Lon: {record.Position.Location.Longitude:F4}";
         }
         
-        if (!string.IsNullOrEmpty(record.MessageText))
+        if (record.Message != null)
         {
-            var addressee = record.MessageAddressee ?? "Unknown";
-            return $"To {addressee}: {record.MessageText}";
+            var addressee = FormatCallsign(record.Message.AddresseeBase, record.Message.AddresseeSsid);
+            return $"To {addressee}: {record.Message.Text}";
         }
         
-        if (!string.IsNullOrEmpty(record.StatusText))
+        if (record.Status != null)
         {
-            return record.StatusText;
+            return record.Status.Text;
         }
         
-        if (record.Temperature.HasValue)
+        if (record.Weather?.Temperature != null)
         {
-            return $"Temp: {record.Temperature.Value:F1}°F";
+            return $"Temp: {record.Weather.Temperature.Value:F1}°F";
         }
         
         return record.RawInfo != null && record.RawInfo.Length > 40 ? record.RawInfo[..40] + "..." : record.RawInfo ?? "";
+    }
+
+    private static string FormatCallsign(string baseCallsign, AprsSsid? ssid)
+    {
+        return ssid.HasValue && ssid.Value != AprsSsid.PrimaryStation
+            ? $"{baseCallsign}-{(byte)ssid.Value}"
+            : baseCallsign;
     }
 
     [RelayCommand]

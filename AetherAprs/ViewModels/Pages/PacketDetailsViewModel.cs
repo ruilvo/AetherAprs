@@ -81,23 +81,17 @@ public partial class PacketDetailsViewModel(
         // Navigate to messages page and open conversation with this callsign
         navigationService.NavigateTo<MessagesViewModel>();
 
-        // Parse callsign to extract base callsign (remove SSID if present)
-        var callsignStr = Callsign;
-        var dashIndex = callsignStr.IndexOf('-');
-        if (dashIndex > 0)
+        // Parse callsign - try full format first, then extract base if needed
+        if (Models.Aprs.Callsign.TryParse(Callsign, out var callsign))
         {
-            callsignStr = callsignStr[..dashIndex];
-        }
-
-        try
-        {
-            var callsign = new Callsign(callsignStr);
-            var conversationVm = conversationFactory.Create(callsign);
+            // Use base callsign without SSID for messaging
+            var baseCallsign = new Callsign(callsign.Base);
+            var conversationVm = conversationFactory.Create(baseCallsign);
             navigationService.NavigateTo(conversationVm);
         }
-        catch (Exception ex)
+        else
         {
-            logger.LogError(ex, "Failed to parse callsign {Callsign}", Callsign);
+            logger.LogError("Failed to parse callsign {Callsign}", Callsign);
         }
     }
 }
