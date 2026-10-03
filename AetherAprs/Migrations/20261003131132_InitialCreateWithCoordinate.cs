@@ -7,10 +7,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AetherAprs.Data.Migrations
+namespace AetherAprs.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialCreateWithCoordinate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -49,21 +49,47 @@ namespace AetherAprs.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Messages",
+                name: "Packets",
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    Peer = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
-                    Text = table.Column<string>(type: "TEXT", maxLength: 67, nullable: false),
-                    Timestamp = table.Column<DateTimeOffset>(type: "TEXT", nullable: false),
+                    SourceBase = table.Column<string>(type: "TEXT", maxLength: 9, nullable: false),
+                    SourceSsid = table.Column<byte>(type: "INTEGER", nullable: false),
+                    DestinationBase = table.Column<string>(type: "TEXT", maxLength: 9, nullable: false),
+                    DestinationSsid = table.Column<byte>(type: "INTEGER", nullable: false),
+                    PacketType = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    PacketTimestamp = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    PortId = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsOutbound = table.Column<bool>(type: "INTEGER", nullable: false),
-                    MessageNumber = table.Column<int>(type: "INTEGER", nullable: true),
-                    PortId = table.Column<Guid>(type: "TEXT", nullable: true)
+                    RawInfo = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    Location = table.Column<string>(type: "TEXT", nullable: true),
+                    Position_Altitude = table.Column<double>(type: "REAL", nullable: true),
+                    Position_Course = table.Column<double>(type: "REAL", nullable: true),
+                    Position_Speed = table.Column<double>(type: "REAL", nullable: true),
+                    Position_SymbolTable = table.Column<byte>(type: "INTEGER", nullable: true),
+                    Position_SymbolCode = table.Column<byte>(type: "INTEGER", nullable: true),
+                    Position_Comment = table.Column<string>(type: "TEXT", maxLength: 43, nullable: true),
+                    Message_AddresseeBase = table.Column<string>(type: "TEXT", maxLength: 9, nullable: true),
+                    Message_AddresseeSsid = table.Column<byte>(type: "INTEGER", nullable: true),
+                    Message_Text = table.Column<string>(type: "TEXT", maxLength: 67, nullable: true),
+                    Message_Number = table.Column<int>(type: "INTEGER", nullable: true),
+                    Message_DeliveryStatus = table.Column<int>(type: "INTEGER", nullable: true),
+                    Message_RetryCount = table.Column<int>(type: "INTEGER", nullable: true),
+                    Message_NextRetryTime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Status_Text = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    Weather_Temperature = table.Column<double>(type: "REAL", nullable: true),
+                    Weather_WindSpeed = table.Column<double>(type: "REAL", nullable: true),
+                    Weather_WindDirection = table.Column<double>(type: "REAL", nullable: true),
+                    Weather_Humidity = table.Column<double>(type: "REAL", nullable: true),
+                    Weather_Pressure = table.Column<double>(type: "REAL", nullable: true),
+                    Weather_RainLastHour = table.Column<double>(type: "REAL", nullable: true),
+                    Weather_RainLast24Hours = table.Column<double>(type: "REAL", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Messages", x => x.Id);
+                    table.PrimaryKey("PK_Packets", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -76,10 +102,6 @@ namespace AetherAprs.Data.Migrations
                     IsRx = table.Column<bool>(type: "INTEGER", nullable: false),
                     IsTx = table.Column<bool>(type: "INTEGER", nullable: false),
                     ShowOnMap = table.Column<bool>(type: "INTEGER", nullable: false),
-                    Ssid = table.Column<int>(type: "INTEGER", nullable: true),
-                    SymbolTableCharacter = table.Column<string>(type: "TEXT", maxLength: 1, nullable: true),
-                    SymbolCodeCharacter = table.Column<string>(type: "TEXT", maxLength: 1, nullable: true),
-                    DynamicBeaconMode = table.Column<int>(type: "INTEGER", nullable: true),
                     Type = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true),
                     AprsIs_Server = table.Column<string>(type: "TEXT", maxLength: 255, nullable: true),
                     AprsIs_ServerPort = table.Column<int>(type: "INTEGER", nullable: true),
@@ -102,13 +124,28 @@ namespace AetherAprs.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Messages_Peer",
-                table: "Messages",
-                column: "Peer");
+                name: "IX_Packets_IsOutbound",
+                table: "Packets",
+                column: "IsOutbound");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Messages_Timestamp",
-                table: "Messages",
+                name: "IX_Packets_PacketType",
+                table: "Packets",
+                column: "PacketType");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Packets_SourceBase_SourceSsid",
+                table: "Packets",
+                columns: new[] { "SourceBase", "SourceSsid" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Packets_SourceBase_SourceSsid_Timestamp",
+                table: "Packets",
+                columns: new[] { "SourceBase", "SourceSsid", "Timestamp" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Packets_Timestamp",
+                table: "Packets",
                 column: "Timestamp");
         }
 
@@ -122,7 +159,7 @@ namespace AetherAprs.Data.Migrations
                 name: "BeaconingState");
 
             migrationBuilder.DropTable(
-                name: "Messages");
+                name: "Packets");
 
             migrationBuilder.DropTable(
                 name: "Ports");

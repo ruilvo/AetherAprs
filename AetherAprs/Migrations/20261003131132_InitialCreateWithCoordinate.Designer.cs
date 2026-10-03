@@ -12,11 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace AetherAprs.Data.Migrations
+namespace AetherAprs.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260925141141_AddMessageAcknowledgment")]
-    partial class AddMessageAcknowledgment
+    [Migration("20261003131132_InitialCreateWithCoordinate")]
+    partial class InitialCreateWithCoordinate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -78,94 +78,24 @@ namespace AetherAprs.Data.Migrations
                     b.ToTable("BeaconingState", (string)null);
                 });
 
-            modelBuilder.Entity("AetherAprs.Data.MessageRecord", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("DeliveryStatus")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("IsOutbound")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("MessageNumber")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset?>("NextRetryTime")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Peer")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("PortId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("RetryCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasMaxLength(67)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("Timestamp")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Peer");
-
-                    b.HasIndex("Timestamp");
-
-                    b.ToTable("Messages", (string)null);
-                });
-
             modelBuilder.Entity("AetherAprs.Data.PacketRecord", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<double?>("Altitude")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(43)
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("Course")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("Destination")
+                    b.Property<string>("DestinationBase")
                         .IsRequired()
-                        .HasMaxLength(16)
+                        .HasMaxLength(9)
                         .HasColumnType("TEXT");
 
-                    b.Property<double?>("Humidity")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("Latitude")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("Longitude")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("MessageAddressee")
-                        .HasMaxLength(16)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("MessageNumber")
+                    b.Property<byte>("DestinationSsid")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("MessageText")
-                        .HasMaxLength(67)
-                        .HasColumnType("TEXT");
+                    b.Property<bool>("IsOutbound")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<DateTimeOffset?>("PacketTimestamp")
+                    b.Property<DateTime?>("PacketTimestamp")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PacketType")
@@ -176,61 +106,33 @@ namespace AetherAprs.Data.Migrations
                     b.Property<Guid?>("PortId")
                         .HasColumnType("TEXT");
 
-                    b.Property<double?>("Pressure")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("RainLast24Hours")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("RainLastHour")
-                        .HasColumnType("REAL");
-
                     b.Property<string>("RawInfo")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("ReceivedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Source")
+                    b.Property<string>("SourceBase")
                         .IsRequired()
-                        .HasMaxLength(16)
+                        .HasMaxLength(9)
                         .HasColumnType("TEXT");
 
-                    b.Property<double?>("Speed")
-                        .HasColumnType("REAL");
+                    b.Property<byte>("SourceSsid")
+                        .HasColumnType("INTEGER");
 
-                    b.Property<string>("StatusText")
-                        .HasMaxLength(256)
+                    b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
-
-                    b.Property<string>("SymbolCode")
-                        .HasMaxLength(1)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SymbolTable")
-                        .HasMaxLength(1)
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("Temperature")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("WindDirection")
-                        .HasColumnType("REAL");
-
-                    b.Property<double?>("WindSpeed")
-                        .HasColumnType("REAL");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IsOutbound");
+
                     b.HasIndex("PacketType");
 
-                    b.HasIndex("ReceivedAt");
+                    b.HasIndex("Timestamp");
 
-                    b.HasIndex("Source");
+                    b.HasIndex("SourceBase", "SourceSsid");
 
-                    b.HasIndex("Source", "ReceivedAt");
+                    b.HasIndex("SourceBase", "SourceSsid", "Timestamp");
 
                     b.ToTable("Packets", (string)null);
                 });
@@ -265,6 +167,144 @@ namespace AetherAprs.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Ports", (string)null);
+                });
+
+            modelBuilder.Entity("AetherAprs.Data.PacketRecord", b =>
+                {
+                    b.OwnsOne("AetherAprs.Data.MessageDataRecord", "Message", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("AddresseeBase")
+                                .IsRequired()
+                                .HasMaxLength(9)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<byte>("AddresseeSsid")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<int?>("DeliveryStatus")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<DateTime?>("NextRetryTime")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int?>("Number")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<int>("RetryCount")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Text")
+                                .IsRequired()
+                                .HasMaxLength(67)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
+                    b.OwnsOne("AetherAprs.Data.PositionDataRecord", "Position", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<double?>("Altitude")
+                                .HasColumnType("REAL");
+
+                            b1.Property<string>("Comment")
+                                .HasMaxLength(43)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<double?>("Course")
+                                .HasColumnType("REAL");
+
+                            b1.Property<string>("Location")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Location");
+
+                            b1.Property<double?>("Speed")
+                                .HasColumnType("REAL");
+
+                            b1.Property<byte>("SymbolCode")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<byte>("SymbolTable")
+                                .HasColumnType("INTEGER");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
+                    b.OwnsOne("AetherAprs.Data.StatusDataRecord", "Status", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Text")
+                                .IsRequired()
+                                .HasMaxLength(256)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
+                    b.OwnsOne("AetherAprs.Data.WeatherDataRecord", "Weather", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<double?>("Humidity")
+                                .HasColumnType("REAL");
+
+                            b1.Property<double?>("Pressure")
+                                .HasColumnType("REAL");
+
+                            b1.Property<double?>("RainLast24Hours")
+                                .HasColumnType("REAL");
+
+                            b1.Property<double?>("RainLastHour")
+                                .HasColumnType("REAL");
+
+                            b1.Property<double?>("Temperature")
+                                .HasColumnType("REAL");
+
+                            b1.Property<double?>("WindDirection")
+                                .HasColumnType("REAL");
+
+                            b1.Property<double?>("WindSpeed")
+                                .HasColumnType("REAL");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
+                    b.Navigation("Message");
+
+                    b.Navigation("Position");
+
+                    b.Navigation("Status");
+
+                    b.Navigation("Weather");
                 });
 
             modelBuilder.Entity("AetherAprs.Data.PortRecord", b =>
