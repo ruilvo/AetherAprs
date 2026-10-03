@@ -6,6 +6,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using AetherAprs.Services;
+using AetherAprs.Models.Aprs;
 using Xunit;
 
 namespace AetherAprs.Tests.Services;
@@ -25,8 +26,8 @@ public sealed class ConfigurationServiceTests
             var service = new ConfigurationService(provider);
 
             service.Settings.Aprs.Callsign = "CT7ALW";
-            service.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
-            service.Settings.Aprs.DefaultSymbolCodeCharacter = ">";
+            service.Settings.Aprs.SymbolTable = SymbolTable.Alternate;
+            service.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
             await service.SaveSettingsAsync();
 
 #if DEBUG
@@ -35,10 +36,13 @@ public sealed class ConfigurationServiceTests
             var savedPath = Path.Combine(directory, "appsettings.json");
 #endif
             Assert.True(File.Exists(savedPath));
+            Assert.Contains(
+                "\"SymbolTableCharacter\"",
+                File.ReadAllText(savedPath));
             var reloaded = new ConfigurationService(provider);
             Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
-            Assert.Equal("\\", reloaded.Settings.Aprs.DefaultSymbolTableCharacter);
-            Assert.Equal(">", reloaded.Settings.Aprs.DefaultSymbolCodeCharacter);
+            Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
+            Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
         }
         finally
         {
@@ -57,8 +61,8 @@ public sealed class ConfigurationServiceTests
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
             var service = new ConfigurationService(new TestAppDataDirProvider(directory));
 
-            Assert.Equal("/", service.Settings.Aprs.DefaultSymbolTableCharacter);
-            Assert.Equal("[", service.Settings.Aprs.DefaultSymbolCodeCharacter);
+            Assert.Equal(SymbolTable.Primary, service.Settings.Aprs.SymbolTable);
+            Assert.Equal(SymbolCode.LeftSquareBracket, service.Settings.Aprs.SymbolCode);
         }
         finally
         {

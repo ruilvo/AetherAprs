@@ -7,10 +7,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Geo;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -245,8 +247,7 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
     {
         return new LocationData
         {
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Coordinate(latitude, longitude),
             Accuracy = 10,
             Timestamp = DateTimeOffset.UtcNow
         };
@@ -314,8 +315,7 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
-                Latitude = location.Latitude,
-                Longitude = location.Longitude,
+                Location = location.Location,
                 Precision = 2,
                 Symbol = new Symbol(
                     symbolTableCharacter[0].ToSymbolTable(),

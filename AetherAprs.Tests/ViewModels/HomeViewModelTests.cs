@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Factories;
 using AetherAprs.Imaging;
@@ -15,6 +16,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+using Geo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -40,8 +42,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         portService.RaisePortsChanged();
 
         Assert.Equal(port.Id, portService.LastSentPortId);
-        Assert.Equal(41.41764, packet.Latitude);
-        Assert.Equal(-8.52170, packet.Longitude);
+        Assert.Equal(41.41764, packet.Location.Latitude);
+        Assert.Equal(-8.52170, packet.Location.Longitude);
         Assert.Equal("N0CALL", packet.Source.Base);
         Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
         Assert.Contains("Initial beacon sent", viewModel.BeaconTransmission.BeaconStatus);
@@ -55,8 +57,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
         var portService = new TestPortService(port);
         var configuration = new TestConfigurationService();
         configuration.Settings.Aprs.Callsign = "N0CALL";
-        configuration.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
-        configuration.Settings.Aprs.DefaultSymbolCodeCharacter = ">";
+        configuration.Settings.Aprs.SymbolTable =
+            AetherAprs.Models.Aprs.SymbolTable.Alternate;
+        configuration.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
         var viewModel = CreateViewModel(portService, new TestBeaconService(), configuration);
         viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
 
@@ -122,7 +125,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         Assert.Equal(1, portService.SendCount);
-        Assert.Equal(41.41764, packet.Latitude);
+        Assert.Equal(41.41764, packet.Location.Latitude);
         Assert.Contains("Manual beacon sent", viewModel.BeaconTransmission.BeaconStatus);
     }
 
@@ -220,8 +223,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
     {
         return new LocationData
         {
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Coordinate(latitude, longitude),
             Accuracy = 5,
             Timestamp = DateTimeOffset.UtcNow
         };
@@ -293,8 +295,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
-                Latitude = location.Latitude,
-                Longitude = location.Longitude,
+                Location = location.Location,
                 Precision = 2,
                 Symbol = new Symbol(
                     symbolTableCharacter[0].ToSymbolTable(),

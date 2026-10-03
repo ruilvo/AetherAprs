@@ -6,6 +6,7 @@ using System;
 using System.Text;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Aprs;
@@ -27,8 +28,7 @@ public class AprsSerializerTests
             Source = Source,
             Destination = Dest,
             Raw = "!3830.00N/00906.00W#",
-            Latitude = 38.5,
-            Longitude = -9.1,
+            Location = new Coordinate(38.5, -9.1),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
@@ -47,8 +47,7 @@ public class AprsSerializerTests
         {
             Source = new Callsign("CT7ALW", 7),
             Destination = new Callsign("APRS"),
-            Latitude = 41.41764333333333,
-            Longitude = -8.521698333333333,
+            Location = new Coordinate(41.41764333333333, -8.521698333333333),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Comment = "Walking",
             Precision = 2
@@ -66,8 +65,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 41.999999,
-            Longitude = -8.999999,
+            Location = new Coordinate(41.999999, -8.999999),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
             Precision = 2
         };
@@ -84,8 +82,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = -0.01,
-            Longitude = 0.01,
+            Location = new Coordinate(-0.01, 0.01),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
             Precision = 2
         };
@@ -102,8 +99,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.1,
+            Location = new Coordinate(38.5, -9.1),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign, 'A'),
             Precision = 2
         };
@@ -120,17 +116,18 @@ public class AprsSerializerTests
     [InlineData(0, 180.1)]
     public void FormatInfoField_PositionPacket_InvalidCoordinatesThrow(double latitude, double longitude)
     {
-        var packet = new PositionPacket
+        // The Coordinate constructor validates ranges and throws ArgumentOutOfRangeException
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
-            Source = Source,
-            Destination = Dest,
-            Latitude = latitude,
-            Longitude = longitude,
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
-            Precision = 2
-        };
-
-        Assert.Throws<ArgumentOutOfRangeException>(() => AprsInfoFieldSerializer.FormatInfoField(packet));
+            var packet = new PositionPacket
+            {
+                Source = Source,
+                Destination = Dest,
+                Location = new Coordinate(latitude, longitude),
+                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterA),
+                Precision = 2
+            };
+        });
     }
 
     [Theory]
@@ -142,8 +139,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.1,
+            Location = new Coordinate(38.5, -9.1),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = precision
         };
@@ -158,8 +154,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.1,
+            Location = new Coordinate(38.5, -9.1),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Comment = "Test Comment",
             Precision = 2
@@ -177,8 +172,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = -33.5,
-            Longitude = 151.0,
+            Location = new Coordinate(-33.5, 151.0),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign),
             Precision = 2
         };
@@ -195,8 +189,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.1,
+            Location = new Coordinate(38.5, -9.1),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
@@ -205,8 +198,8 @@ public class AprsSerializerTests
         var parsed = Ax25Parser.ParseFrame(bytes);
 
         var pos = Assert.IsType<PositionPacket>(parsed);
-        Assert.Equal(38.5, pos.Latitude, 4);
-        Assert.Equal(-9.1, pos.Longitude, 4);
+        Assert.Equal(38.5, pos.Location.Latitude, 4);
+        Assert.Equal(-9.1, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
         Assert.Equal(SymbolCode.NumberSign, pos.Symbol.Code);
     }
@@ -460,8 +453,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };

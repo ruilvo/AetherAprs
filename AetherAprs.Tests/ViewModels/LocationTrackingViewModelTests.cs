@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using AetherAprs.Models;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Geo;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -74,8 +75,8 @@ public class LocationTrackingViewModelTests
         await Task.Delay(100, TestContext.Current.CancellationToken); // Wait for location update
 
         Assert.NotNull(viewModel.CurrentLocation);
-        Assert.Equal(expectedLocation.Latitude, viewModel.CurrentLocation.Latitude);
-        Assert.Equal(expectedLocation.Longitude, viewModel.CurrentLocation.Longitude);
+        Assert.Equal(expectedLocation.Location.Latitude, viewModel.CurrentLocation.Location.Latitude);
+        Assert.Equal(expectedLocation.Location.Longitude, viewModel.CurrentLocation.Location.Longitude);
         
         viewModel.Dispose();
     }
@@ -98,8 +99,8 @@ public class LocationTrackingViewModelTests
         await Task.Delay(100, TestContext.Current.CancellationToken); // Wait for event
 
         Assert.NotNull(receivedLocation);
-        Assert.Equal(expectedLocation.Latitude, receivedLocation.Latitude);
-        Assert.Equal(expectedLocation.Longitude, receivedLocation.Longitude);
+        Assert.Equal(expectedLocation.Location.Latitude, receivedLocation.Location.Latitude);
+        Assert.Equal(expectedLocation.Location.Longitude, receivedLocation.Location.Longitude);
         
         viewModel.Dispose();
     }
@@ -157,8 +158,7 @@ public class LocationTrackingViewModelTests
     {
         return new LocationData
         {
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Coordinate(latitude, longitude),
             Accuracy = 10,
             Timestamp = DateTimeOffset.UtcNow
         };
@@ -170,8 +170,7 @@ public class LocationTrackingViewModelTests
         public bool PermissionGranted { get; set; } = true;
         public LocationData LocationToReturn { get; set; } = new LocationData
         {
-            Latitude = 0,
-            Longitude = 0,
+            Location = new Coordinate(0, 0),
             Accuracy = 10,
             Timestamp = DateTimeOffset.UtcNow
         };

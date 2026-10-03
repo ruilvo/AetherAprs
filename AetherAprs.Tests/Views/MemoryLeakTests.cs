@@ -6,6 +6,7 @@ using System;
 using AetherAprs.Models;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Views;
@@ -82,8 +83,7 @@ public class MemoryLeakTests
         var viewModel = new MapViewModel();
         var location = new LocationData
         {
-            Latitude = 45.0,
-            Longitude = -122.0,
+            Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
             Accuracy = 10.0,
             Timestamp = DateTimeOffset.UtcNow
@@ -117,8 +117,7 @@ public class MemoryLeakTests
         var viewModel = new MapViewModel();
         var location = new LocationData
         {
-            Latitude = 45.0,
-            Longitude = -122.0,
+            Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
             Accuracy = 10.0,
             Timestamp = DateTimeOffset.UtcNow
@@ -141,8 +140,7 @@ public class MemoryLeakTests
         var viewModel = new MapViewModel();
         var location = new LocationData
         {
-            Latitude = 45.0,
-            Longitude = -122.0,
+            Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
             Accuracy = 10.0,
             Timestamp = DateTimeOffset.UtcNow
@@ -166,8 +164,7 @@ public class MemoryLeakTests
         var viewModel = new MapViewModel();
         var location = new LocationData
         {
-            Latitude = 45.0,
-            Longitude = -122.0,
+            Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
             Accuracy = 10.0,
             Timestamp = DateTimeOffset.UtcNow
@@ -178,7 +175,7 @@ public class MemoryLeakTests
 
         // Assert
         Assert.NotNull(viewModel.UserLocation);
-        Assert.Equal(45.0, viewModel.UserLocation.Latitude);
-        Assert.Equal(-122.0, viewModel.UserLocation.Longitude);
+        Assert.Equal(45.0, viewModel.UserLocation.Location.Latitude);
+        Assert.Equal(-122.0, viewModel.UserLocation.Location.Longitude);
     }
 }

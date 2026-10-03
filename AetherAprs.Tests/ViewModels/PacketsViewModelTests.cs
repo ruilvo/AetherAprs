@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Factories;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.Configuration;
 using AetherAprs.ViewModels.Pages;
+using Geo;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System;
@@ -52,7 +54,7 @@ public class PacketsViewModelTests : IDisposable
         _packetQueryService.GetMostRecentPacketsAsync(Arg.Any<int>())
             .Returns(callInfo => 
             {
-                var dict = _storedPackets.ToDictionary(p => p.Source, p => p);
+                var dict = _storedPackets.ToDictionary(p => $"{p.SourceBase}-{(int)p.SourceSsid}", p => p);
                 return Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(dict);
             });
     }
@@ -78,13 +80,18 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
-            Latitude = 45.5231,
-            Longitude = -122.6765,
             RawInfo = "Test info",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = Guid.NewGuid()
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5231, -122.6765),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
         };
         _storedPackets.Add(record);
 
@@ -109,10 +116,11 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 2,
-            Source = "K0OTH-1",
+            SourceBase = "K0OTH",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Message",
             RawInfo = "Test message",
-            ReceivedAt = DateTime.UtcNow,
+            Timestamp = DateTime.UtcNow,
             PortId = Guid.NewGuid()
         };
         _storedPackets.Add(record);
@@ -136,13 +144,18 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
-            Latitude = 45.5231,
-            Longitude = -122.6765,
             RawInfo = "Position info",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = Guid.NewGuid()
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5231, -122.6765),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
         };
         _storedPackets.Add(record);
 
@@ -167,13 +180,18 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Message",
-            MessageAddressee = "K0OTH",
-            MessageText = "Hello from N0CALL",
             RawInfo = "Message info",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = Guid.NewGuid()
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Message = new MessageDataRecord
+            {
+                AddresseeBase = "K0OTH",
+                AddresseeSsid = AprsSsid.PrimaryStation,
+                Text = "Hello from N0CALL"
+            }
         };
         _storedPackets.Add(record);
 
@@ -198,12 +216,16 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Status",
-            StatusText = "Testing status packet",
             RawInfo = "Status info",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = Guid.NewGuid()
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Status = new StatusDataRecord
+            {
+                Text = "Testing status packet"
+            }
         };
         _storedPackets.Add(record);
 
@@ -227,12 +249,16 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Weather",
-            Temperature = 72.0,
             RawInfo = "Weather info",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = Guid.NewGuid()
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Weather = new WeatherDataRecord
+            {
+                Temperature = 72.0
+            }
         };
         _storedPackets.Add(record);
 
@@ -258,25 +284,35 @@ public class PacketsViewModelTests : IDisposable
         _storedPackets.Add(new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
-            Latitude = 45.5,
-            Longitude = -122.5,
             RawInfo = "Info 1",
-            ReceivedAt = now.AddMinutes(-10), // Older
-            PortId = Guid.NewGuid()
+            Timestamp = now.AddMinutes(-10), // Older
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5, -122.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
         });
 
         _storedPackets.Add(new PacketRecord
         {
             Id = 2,
-            Source = "K0OTH-2",
+            SourceBase = "K0OTH",
+            SourceSsid = AprsSsid.AdditionalStation2,
             PacketType = "Position",
-            Latitude = 46.5,
-            Longitude = -123.5,
             RawInfo = "Info 2",
-            ReceivedAt = now, // Newer
-            PortId = Guid.NewGuid()
+            Timestamp = now, // Newer
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(46.5, -123.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
         });
 
         // Act
@@ -300,13 +336,18 @@ public class PacketsViewModelTests : IDisposable
             _storedPackets.Add(new PacketRecord
             {
                 Id = i + 1,
-                Source = $"{callsign}-1",
+                SourceBase = callsign,
+                SourceSsid = AprsSsid.AdditionalStation1,
                 PacketType = "Position",
-                Latitude = 45.5,
-                Longitude = -122.5,
                 RawInfo = $"Info {i}",
-                ReceivedAt = DateTime.UtcNow.AddMinutes(-i),
-                PortId = Guid.NewGuid()
+                Timestamp = DateTime.UtcNow.AddMinutes(-i),
+                PortId = Guid.NewGuid(),
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(45.5, -122.5),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.LatinCapitalLetterA
+                }
             });
         }
 
@@ -380,10 +421,11 @@ public class PacketsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 999,
-            Source = "N0CALL-2",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.SecondaryMobile,
             PacketType = "Position",
             RawInfo = "Info",
-            ReceivedAt = DateTime.UtcNow,
+            Timestamp = DateTime.UtcNow,
             PortId = Guid.NewGuid()
         };
 

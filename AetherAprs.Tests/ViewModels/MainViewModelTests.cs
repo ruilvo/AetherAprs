@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Factories;
 using AetherAprs.Imaging;
@@ -17,6 +18,7 @@ using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
+using Geo;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.EntityFrameworkCore;
@@ -224,8 +226,7 @@ public sealed class MainViewModelTests
         public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new LocationData
             {
-                Latitude = 0,
-                Longitude = 0,
+                Location = new Coordinate(0, 0),
                 Accuracy = 1,
                 Timestamp = DateTimeOffset.UtcNow
             });
@@ -275,8 +276,7 @@ public sealed class MainViewModelTests
             {
                 Source = new Callsign(callsign),
                 Destination = new Callsign("APRS"),
-                Latitude = location.Latitude,
-                Longitude = location.Longitude,
+                Location = location.Location,
                 Precision = 2,
                 Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket)
             };

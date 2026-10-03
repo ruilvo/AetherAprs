@@ -8,10 +8,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -38,9 +40,10 @@ public sealed class MessageServiceTests
 
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             configuration,
             resolver,
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         var addressee = new Callsign("K0OTH", 7);
         await service.SendAsync(addressee, "Hello", TestContext.Current.CancellationToken);
@@ -65,9 +68,10 @@ public sealed class MessageServiceTests
         var configuration = CreateConfiguration("N0CALL");
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             configuration,
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -104,9 +108,10 @@ public sealed class MessageServiceTests
         };
         var service = new MessageService(
             new FakePortService(port),
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SendAsync(new Callsign("K0OTH"), "Hello", TestContext.Current.CancellationToken));
@@ -118,9 +123,10 @@ public sealed class MessageServiceTests
         var portService = new FakePortService();
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SendAsync(new Callsign("K0OTH"), "Hello", TestContext.Current.CancellationToken));
@@ -139,9 +145,10 @@ public sealed class MessageServiceTests
         };
         var service = new MessageService(
             new FakePortService(port),
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         var longText = new string('A', 68);
         await Assert.ThrowsAsync<ArgumentException>(
@@ -154,9 +161,10 @@ public sealed class MessageServiceTests
         var portService = new FakePortService();
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -192,9 +200,10 @@ public sealed class MessageServiceTests
 
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL", defaultSsid: 1),
             resolver,
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         var addressee = new Callsign("K0OTH", 7);
 
@@ -222,9 +231,10 @@ public sealed class MessageServiceTests
         var portService = new FakePortService();
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         // Act - receive 100 packets concurrently from different callsigns
         var tasks = Enumerable.Range(1, 100)
@@ -265,9 +275,10 @@ public sealed class MessageServiceTests
         var portService = new FakePortService();
         var service = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>());
+            NullLogger<MessageService>.Instance);
 
         var callsign = new Callsign("K0OTH", 7);
         var conversations = new ConcurrentBag<ConversationThread>();
@@ -296,7 +307,11 @@ public sealed class MessageServiceTests
         var configuration = Substitute.For<IConfigurationService>();
         configuration.Settings.Returns(new AppSettings
         {
-            Aprs = new AprsSettings { Callsign = callsign, DefaultSsid = defaultSsid }
+            Aprs = new AprsSettings
+            {
+                Callsign = callsign,
+                Ssid = (AprsSsid)defaultSsid
+            }
         });
         return configuration;
     }

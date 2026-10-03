@@ -5,6 +5,7 @@
 using System;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Models;
@@ -22,8 +23,7 @@ public class PacketTests
             Source = Source,
             Destination = Dest,
             Raw = "!3850.00N/00910.00W#",
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
         };
 
@@ -43,8 +43,7 @@ public class PacketTests
             Source = Source,
             Destination = Dest,
             Raw = "!3850.00N/00910.00W#Test Comment",
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Comment = "Test Comment"
         };
@@ -166,8 +165,7 @@ public class PacketTests
             Source = Source,
             Destination = Dest,
             Raw = "!3850.00N/00910.00W#",
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
         };
 

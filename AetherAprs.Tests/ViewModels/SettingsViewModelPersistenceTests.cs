@@ -29,9 +29,9 @@ public sealed class SettingsViewModelPersistenceTests
                 @"{
                     ""Aprs"": {
                         ""Callsign"": ""CT7ALW"",
-                        ""DefaultSsid"": 5,
-                        ""DefaultSymbolTableCharacter"": ""\\"",
-                        ""DefaultSymbolCodeCharacter"": "">""
+                        ""Ssid"": 5,
+                        ""SymbolTableCharacter"": ""\\"",
+                        ""SymbolCodeCharacter"": "">""
                     }
                 }");
 
@@ -44,9 +44,9 @@ public sealed class SettingsViewModelPersistenceTests
 
             // Verify all settings were loaded correctly
             Assert.Equal("CT7ALW", viewModel.Callsign);
-            Assert.Equal(5, viewModel.Ssid);
-            Assert.Equal("\\", viewModel.DefaultSymbolTableCharacter);
-            Assert.Equal(">", viewModel.DefaultSymbolCodeCharacter);
+            Assert.Equal(AprsSsid.OtherNetworks, viewModel.Ssid);
+            Assert.Equal("\\", viewModel.SymbolTableCharacter);
+            Assert.Equal(">", viewModel.SymbolCodeCharacter);
 
             // Verify symbol picker was initialized with loaded values
             Assert.Equal("\\", viewModel.SymbolPicker.TableCharacter);
@@ -70,7 +70,7 @@ public sealed class SettingsViewModelPersistenceTests
                 @"{
                     ""Aprs"": {
                         ""Callsign"": ""N0CALL"",
-                        ""DefaultSsid"": 0
+                        ""Ssid"": 0
                     }
                 }");
 
@@ -81,7 +81,7 @@ public sealed class SettingsViewModelPersistenceTests
             var viewModel = new SettingsViewModel(configService, navService, symbolPicker);
 
             // Verify SSID = 0 is loaded correctly
-            Assert.Equal(0, viewModel.Ssid);
+            Assert.Equal(AprsSsid.PrimaryStation, viewModel.Ssid);
         }
         finally
         {

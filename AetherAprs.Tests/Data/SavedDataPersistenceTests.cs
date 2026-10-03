@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -14,6 +15,7 @@ using AetherAprs.Services;
 using AetherAprs.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
 
@@ -51,40 +53,53 @@ public sealed class SavedDataPersistenceTests
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });
 
-        using (var service = new MessageService(
-                   portService,
-                   configuration,
-                   Substitute.For<IAprsPortSettingsResolver>(),
-                   Substitute.For<ILogger<MessageService>>(),
-                   db.Factory))
+        var portId = Guid.NewGuid();
+        var packet = new MessagePacket
         {
-            portService.RaisePacketReceived(new PortPacketReceivedEventArgs
-            {
-                PortId = Guid.NewGuid(),
-                Packet = new MessagePacket
-                {
-                    Source = new Callsign("K0PEER", 1),
-                    Destination = new Callsign("APRS"),
-                    Addressee = new Callsign("N0CALL"),
-                    Text = "Ping",
-                    MessageNumber = 9
-                }
-            });
+            Source = new Callsign("K0PEER", 1),
+            Destination = new Callsign("APRS"),
+            Addressee = new Callsign("N0CALL"),
+            Text = "Ping",
+            MessageNumber = 9
+        };
 
-            Assert.Equal("Ping", Assert.Single(Assert.Single(service.Conversations).Messages).Text);
+        // Manually store the packet in the database (simulating what PacketStorageService would do)
+        using (var context = db.CreateContext())
+        {
+            var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: false);
+            context.Packets.Add(record);
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
+        using (var service = new MessageService(
+                   portService,
+                   Substitute.For<IPacketStorageService>(),
+                   configuration,
+                   Substitute.For<IAprsPortSettingsResolver>(),
+                   NullLogger<MessageService>.Instance,
+                   db.Factory))
+        {
+            // Verify the service loaded the message from database
+            var thread = Assert.Single(service.Conversations);
+            Assert.Equal(new Callsign("K0PEER", 1), thread.Peer);
+            var stored = Assert.Single(thread.Messages);
+            Assert.Equal("Ping", stored.Text);
+            Assert.Equal(9, stored.MessageNumber);
+        }
+
+        // Reload and verify persistence
         using var reloaded = new MessageService(
             portService,
+            Substitute.For<IPacketStorageService>(),
             configuration,
             Substitute.For<IAprsPortSettingsResolver>(),
-            Substitute.For<ILogger<MessageService>>(),
+            NullLogger<MessageService>.Instance,
             db.Factory);
-        var thread = Assert.Single(reloaded.Conversations);
-        Assert.Equal(new Callsign("K0PEER", 1), thread.Peer);
-        var stored = Assert.Single(thread.Messages);
-        Assert.Equal("Ping", stored.Text);
-        Assert.Equal(9, stored.MessageNumber);
+        var threadReloaded = Assert.Single(reloaded.Conversations);
+        Assert.Equal(new Callsign("K0PEER", 1), threadReloaded.Peer);
+        var storedReloaded = Assert.Single(threadReloaded.Messages);
+        Assert.Equal("Ping", storedReloaded.Text);
+        Assert.Equal(9, storedReloaded.MessageNumber);
     }
 
     private sealed class FakePortService : IPortService

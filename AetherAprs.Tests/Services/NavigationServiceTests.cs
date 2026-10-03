@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories;
 using AetherAprs.Imaging;
 using AetherAprs.Services;
@@ -77,7 +78,7 @@ public sealed class NavigationServiceTests
         portService.Ports.Returns(Array.Empty<AetherAprs.Configuration.PortConfig>());
         services.AddSingleton(portService);
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AetherAprs.Configuration.AppSettings());
+        configuration.Settings.Returns(new AppSettings());
         services.AddSingleton(configuration);
         var beaconService = Substitute.For<IBeaconService>();
         var walk = AetherAprs.Models.BeaconConfig.CreateWalkPreset();

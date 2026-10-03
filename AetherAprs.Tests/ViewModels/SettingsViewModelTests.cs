@@ -5,7 +5,9 @@
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
@@ -43,17 +45,21 @@ public sealed class SettingsViewModelTests
         var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
 
         viewModel.Callsign = "CT7ALW";
-        viewModel.Ssid = 7;
-        viewModel.DefaultSymbolTableCharacter = "\\";
-        viewModel.DefaultSymbolCodeCharacter = ">";
+        viewModel.Ssid = AprsSsid.HumanPortable;
+        viewModel.SymbolTableCharacter = "\\";
+        viewModel.SymbolCodeCharacter = ">";
         
         // Give async saves a moment to complete
         await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
-        Assert.Equal(7, configuration.Settings.Aprs.DefaultSsid);
-        Assert.Equal("\\", configuration.Settings.Aprs.DefaultSymbolTableCharacter);
-        Assert.Equal(">", configuration.Settings.Aprs.DefaultSymbolCodeCharacter);
+        Assert.Equal(
+            AetherAprs.Models.Aprs.AprsSsid.HumanPortable,
+            configuration.Settings.Aprs.Ssid);
+        Assert.Equal(
+            AetherAprs.Models.Aprs.SymbolTable.Alternate,
+            configuration.Settings.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, configuration.Settings.Aprs.SymbolCode);
         Assert.True(configuration.SaveCount >= 4);
     }
 

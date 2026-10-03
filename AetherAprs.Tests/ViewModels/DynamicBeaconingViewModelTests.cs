@@ -7,6 +7,7 @@ using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels.Pages;
+using Geo;
 using NSubstitute;
 using Xunit;
 
@@ -98,8 +99,7 @@ public sealed class DynamicBeaconingViewModelTests
             {
                 Source = new Callsign("N0CALL"),
                 Destination = new Callsign("APRS"),
-                Latitude = location.Latitude,
-                Longitude = location.Longitude
+                Location = location.Location
             };
     }
 }

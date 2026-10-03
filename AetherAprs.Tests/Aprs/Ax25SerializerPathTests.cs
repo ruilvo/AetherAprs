@@ -5,6 +5,7 @@
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
 using System;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Aprs;
@@ -19,8 +20,7 @@ public class Ax25SerializerPathTests
             Source = new Callsign("N0CALL", 5),
             Destination = new Callsign("APRS"),
             Path = Array.Empty<Callsign>(),
-            Latitude = 37.7749,
-            Longitude = -122.4194,
+            Location = new Coordinate(37.7749, -122.4194),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Precision = 2
         };
@@ -42,8 +42,7 @@ public class Ax25SerializerPathTests
             Source = new Callsign("N0CALL", 5),
             Destination = new Callsign("APRS"),
             Path = new[] { new Callsign("WIDE1", 1) },
-            Latitude = 37.7749,
-            Longitude = -122.4194,
+            Location = new Coordinate(37.7749, -122.4194),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Precision = 2
         };
@@ -68,8 +67,7 @@ public class Ax25SerializerPathTests
             Source = new Callsign("N0CALL", 5),
             Destination = new Callsign("APRS"),
             Path = new[] { new Callsign("WIDE1", 1), new Callsign("WIDE2", 1) },
-            Latitude = 37.7749,
-            Longitude = -122.4194,
+            Location = new Coordinate(37.7749, -122.4194),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Precision = 2
         };
@@ -97,8 +95,7 @@ public class Ax25SerializerPathTests
             Source = new Callsign("N0CALL", 5),
             Destination = new Callsign("APRS"),
             Path = Array.Empty<Callsign>(), // Empty in packet
-            Latitude = 37.7749,
-            Longitude = -122.4194,
+            Location = new Coordinate(37.7749, -122.4194),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Precision = 2
         };
@@ -121,8 +118,7 @@ public class Ax25SerializerPathTests
             Source = new Callsign("N0CALL", 5),
             Destination = new Callsign("APRS"),
             Path = new[] { new Callsign("WIDE1", 1), new Callsign("WIDE2", 1) },
-            Latitude = 37.7749,
-            Longitude = -122.4194,
+            Location = new Coordinate(37.7749, -122.4194),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
             Precision = 2
         };

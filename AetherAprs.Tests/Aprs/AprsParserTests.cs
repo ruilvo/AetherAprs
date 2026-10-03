@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Text;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Aprs;
@@ -26,8 +27,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(38.5, pos.Latitude, 6);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
         Assert.Equal(SymbolCode.NumberSign, pos.Symbol.Code);
         Assert.Equal("Test", pos.Comment);
@@ -42,8 +43,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(38.5, pos.Latitude, 6);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
     }
 
     [Fact]
@@ -53,8 +54,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(38.5, pos.Latitude, 6);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Equal(1, pos.Precision);
     }
 
@@ -65,8 +66,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(38.5, pos.Latitude, 6);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Null(pos.Comment);
     }
 
@@ -77,7 +78,7 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(-38.5, pos.Latitude, 6);
+        Assert.Equal(-38.5, pos.Location.Latitude, 6);
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
     }
 
 
@@ -98,8 +99,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.2419, pos.Latitude, 4);
-        Assert.Equal(-8.59665, pos.Longitude, 5);
+        Assert.Equal(42.2419, pos.Location.Latitude, 4);
+        Assert.Equal(-8.59665, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
         Assert.Equal('u'.ToSymbolCode(), pos.Symbol.Code);
         Assert.Null(pos.Symbol.Overlay);
@@ -119,8 +120,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.2419, pos.Latitude, 4);
-        Assert.Equal(-8.59665, pos.Longitude, 5);
+        Assert.Equal(42.2419, pos.Location.Latitude, 4);
+        Assert.Equal(-8.59665, pos.Location.Longitude, 5);
         Assert.Equal(180, pos.Course);
         Assert.NotNull(pos.Speed);
         Assert.Equal(1.1589, pos.Speed.Value, 3);
@@ -134,8 +135,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.2419, pos.Latitude, 4);
-        Assert.Equal(-8.59665, pos.Longitude, 5);
+        Assert.Equal(42.2419, pos.Location.Latitude, 4);
+        Assert.Equal(-8.59665, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
         Assert.Equal('u'.ToSymbolCode(), pos.Symbol.Code);
         Assert.Equal(";TESTOBJ  *123456z/9-pFL>:4uBkQ", pos.Raw);
@@ -149,8 +150,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(40.6453333, pos.Latitude, 6);
-        Assert.Equal(-7.79916667, pos.Longitude, 6);
+        Assert.Equal(40.6453333, pos.Location.Latitude, 6);
+        Assert.Equal(-7.79916667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('D', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
@@ -164,8 +165,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(40.9608333, pos.Latitude, 6);
-        Assert.Equal(-5.74550, pos.Longitude, 5);
+        Assert.Equal(40.9608333, pos.Location.Latitude, 6);
+        Assert.Equal(-5.74550, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('D', pos.Symbol.Overlay);
         Assert.Equal('a'.ToSymbolCode(), pos.Symbol.Code);
@@ -179,8 +180,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(43.35933333, pos.Latitude, 6);
-        Assert.Equal(-8.41966667, pos.Longitude, 6);
+        Assert.Equal(43.35933333, pos.Location.Latitude, 6);
+        Assert.Equal(-8.41966667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('E', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.Digit0, pos.Symbol.Code);
@@ -194,8 +195,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.21766667, pos.Latitude, 6);
-        Assert.Equal(-8.73500, pos.Longitude, 5);
+        Assert.Equal(42.21766667, pos.Location.Latitude, 6);
+        Assert.Equal(-8.73500, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('C', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.Digit0, pos.Symbol.Code);
@@ -209,8 +210,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(43.45816667, pos.Latitude, 6);
-        Assert.Equal(-8.14866667, pos.Longitude, 6);
+        Assert.Equal(43.45816667, pos.Location.Latitude, 6);
+        Assert.Equal(-8.14866667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
         Assert.Equal('K'.ToSymbolCode(), pos.Symbol.Code);
         Assert.Equal("Abierto viernes 19h-22h", pos.Comment);
@@ -223,8 +224,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.32, pos.Latitude, 6);
-        Assert.Equal(-6.36, pos.Longitude, 6);
+        Assert.Equal(42.32, pos.Location.Latitude, 6);
+        Assert.Equal(-6.36, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('D', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
@@ -238,8 +239,8 @@ public class AprsParserTests
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.35616667, pos.Latitude, 6);
-        Assert.Equal(-7.87016667, pos.Longitude, 6);
+        Assert.Equal(42.35616667, pos.Location.Latitude, 6);
+        Assert.Equal(-7.87016667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('D', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
@@ -341,8 +342,8 @@ public class AprsParserTests
 
         var pos = Assert.IsType<PositionPacket>(result);
         // Latitude and longitude are value types, just verify they're reasonable
-        Assert.InRange(pos.Latitude, -90, 90);
-        Assert.InRange(pos.Longitude, -180, 180);
+        Assert.InRange(pos.Location.Latitude, -90, 90);
+        Assert.InRange(pos.Location.Longitude, -180, 180);
     }
 
     [Fact]
@@ -549,8 +550,8 @@ public class AprsParserTests
         var pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
         Assert.Equal(new Callsign("APZ001"), pos.Destination);
-        Assert.Equal(38.5, pos.Latitude, 6);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
     }
 
     [Fact]
@@ -573,7 +574,7 @@ public class AprsParserTests
         var result = Ax25Parser.ParseFrame(frame);
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(38.5, pos.Latitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
     }
 
     [Fact]

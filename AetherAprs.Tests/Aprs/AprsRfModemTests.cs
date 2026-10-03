@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Aprs;
@@ -91,8 +92,7 @@ public class AprsRfModemTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
@@ -186,8 +186,8 @@ public class AprsRfModemTests
 
         var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(38.5, pos.Latitude, 4);
-        Assert.Equal(9.10, pos.Longitude, 4);
+        Assert.Equal(38.5, pos.Location.Latitude, 4);
+        Assert.Equal(9.10, pos.Location.Longitude, 4);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
     }
 
@@ -342,7 +342,7 @@ public class AprsRfModemTests
         [
             new PositionPacket
             {
-                Source = Source, Destination = Dest, Latitude = 38.5, Longitude = -9.10,
+                Source = Source, Destination = Dest, Location = new Coordinate(38.5, -9.10),
                 Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
             },
             new MessagePacket

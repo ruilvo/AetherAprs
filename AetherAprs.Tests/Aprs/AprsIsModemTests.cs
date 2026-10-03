@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Aprs;
@@ -94,8 +95,7 @@ public class AprsIsModemTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
@@ -140,8 +140,7 @@ public class AprsIsModemTests
         {
             Source = Source,
             Destination = Dest,
-            Latitude = 38.5,
-            Longitude = -9.10,
+            Location = new Coordinate(38.5, -9.10),
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
@@ -188,8 +187,8 @@ public class AprsIsModemTests
         var pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
         Assert.Equal(new Callsign("APZ001"), pos.Destination);
-        Assert.Equal(38.5, pos.Latitude, 6);
-        Assert.Equal(9.1, pos.Longitude, 6);
+        Assert.Equal(38.5, pos.Location.Latitude, 6);
+        Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Equal("Test", pos.Comment);
     }
 
@@ -311,8 +310,8 @@ public class AprsIsModemTests
         var position = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("APRS"), position.Source);
         Assert.Equal("7000TGI9", position.RawSource);
-        Assert.Equal(-0.330833, position.Latitude, 5);
-        Assert.Equal(120.297167, position.Longitude, 5);
+        Assert.Equal(-0.330833, position.Location.Latitude, 5);
+        Assert.Equal(120.297167, position.Location.Longitude, 5);
         Assert.Equal("Earthquake", position.Comment);
     }
 

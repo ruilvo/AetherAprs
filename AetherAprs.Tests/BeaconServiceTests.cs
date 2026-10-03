@@ -8,6 +8,7 @@ using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Services;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests;
@@ -21,8 +22,7 @@ public class BeaconServiceTests : TestFixtureBase
     {
         return new LocationData
         {
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Coordinate(latitude, longitude),
             Altitude = altitude,
             Accuracy = 10,
             Timestamp = timestamp ?? DateTimeOffset.UtcNow
@@ -198,8 +198,8 @@ public class BeaconServiceTests : TestFixtureBase
         Assert.Equal("N0CALL", packet.Source.Base);
         Assert.Equal(1, packet.Source.Ssid);
         Assert.Equal("APRS", packet.Destination.Base);
-        Assert.Equal(38.7223, packet.Latitude);
-        Assert.Equal(-9.1393, packet.Longitude);
+        Assert.Equal(38.7223, packet.Location.Latitude);
+        Assert.Equal(-9.1393, packet.Location.Longitude);
         // Altitude should be converted from meters to feet (~328 feet)
         Assert.NotNull(packet.Altitude);
         Assert.True(packet.Altitude > 300 && packet.Altitude < 350);

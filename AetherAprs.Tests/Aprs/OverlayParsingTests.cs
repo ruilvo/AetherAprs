@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.Modems.Aprs;
+using Geo;
 using Xunit;
 
 namespace AetherAprs.Tests.Aprs;
@@ -24,8 +25,8 @@ public class OverlayParsingTests
             new Callsign("APDG02"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(40.6453, pos.Latitude, 4);
-        Assert.Equal(-7.7992, pos.Longitude, 4);
+        Assert.Equal(40.6453, pos.Location.Latitude, 4);
+        Assert.Equal(-7.7992, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('D', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.Ampersand, pos.Symbol.Code);
@@ -45,8 +46,8 @@ public class OverlayParsingTests
             new Callsign("APCHP0"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(40.893, pos.Latitude, 3);
-        Assert.Equal(-8.4452, pos.Longitude, 4);
+        Assert.Equal(40.893, pos.Location.Latitude, 3);
+        Assert.Equal(-8.4452, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('W', pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.LatinSmallLetterI, pos.Symbol.Code);
@@ -63,8 +64,8 @@ public class OverlayParsingTests
             new Callsign("APHPIB"));
 
         var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(40.2167, pos.Latitude, 4);
-        Assert.Equal(-8.4130, pos.Longitude, 4);
+        Assert.Equal(40.2167, pos.Location.Latitude, 4);
+        Assert.Equal(-8.4130, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Null(pos.Symbol.Overlay);
         Assert.Equal(SymbolCode.LatinSmallLetterJ, pos.Symbol.Code);

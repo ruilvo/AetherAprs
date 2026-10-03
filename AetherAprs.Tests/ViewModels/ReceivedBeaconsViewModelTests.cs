@@ -7,11 +7,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.ViewModels;
+using Geo;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Xunit;
@@ -56,7 +58,7 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         _packetQueryService.GetMostRecentPositionPacketsAsync(Arg.Any<int>())
             .Returns(callInfo => 
             {
-                var dict = _storedPackets.ToDictionary(p => p.Source, p => p);
+                var dict = _storedPackets.ToDictionary(p => $"{p.SourceBase}-{(int)p.SourceSsid}", p => p);
                 return Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(dict);
             });
         _packetQueryService.GetPacketsByCallsignAsync(Arg.Any<string>(), Arg.Any<int>())
@@ -105,14 +107,17 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
-            Latitude = 45.5,
-            Longitude = -122.5,
-            SymbolTable = "/",
-            SymbolCode = "-",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = portId
+            Timestamp = DateTime.UtcNow,
+            PortId = portId,
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5, -122.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.HyphenMinus
+            }
         };
 
         // Act - Add to stored packets and raise event
@@ -145,14 +150,17 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
-            Latitude = 45.5,
-            Longitude = -122.5,
-            SymbolTable = "/",
-            SymbolCode = "-",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = portId
+            Timestamp = DateTime.UtcNow,
+            PortId = portId,
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5, -122.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.HyphenMinus
+            }
         };
 
         // Act - Add to stored packets and raise event
@@ -185,14 +193,17 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 1,
-            Source = "N0CALL-1",
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
-            Latitude = 45.5,
-            Longitude = -122.5,
-            SymbolTable = "/",
-            SymbolCode = "-",
-            ReceivedAt = DateTime.UtcNow,
-            PortId = portId
+            Timestamp = DateTime.UtcNow,
+            PortId = portId,
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5, -122.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.HyphenMinus
+            }
         };
 
         _storedPackets.Add(record);
@@ -229,26 +240,32 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
             new PacketRecord
             {
                 Id = 1,
-                Source = "N0CALL-1",
+                SourceBase = "N0CALL",
+                SourceSsid = AprsSsid.AdditionalStation1,
                 PacketType = "Position",
-                Latitude = 45.5,
-                Longitude = -122.5,
-                SymbolTable = "/",
-                SymbolCode = "-",
-                ReceivedAt = DateTime.UtcNow.AddMinutes(-5),
-                PortId = portId
+                Timestamp = DateTime.UtcNow.AddMinutes(-5),
+                PortId = portId,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(45.5, -122.5),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
             },
             new PacketRecord
             {
                 Id = 2,
-                Source = "K0OTH-2",
+                SourceBase = "K0OTH",
+                SourceSsid = AprsSsid.SecondaryMobile,
                 PacketType = "Position",
-                Latitude = 46.5,
-                Longitude = -123.5,
-                SymbolTable = "\\",
-                SymbolCode = ">",
-                ReceivedAt = DateTime.UtcNow,
-                PortId = portId
+                Timestamp = DateTime.UtcNow,
+                PortId = portId,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(46.5, -123.5),
+                    SymbolTable = SymbolTable.Alternate,
+                    SymbolCode = SymbolCode.GreaterThanSign
+                }
             }
         };
 
@@ -278,12 +295,17 @@ public sealed class ReceivedBeaconsViewModelTests : IDisposable
         var record = new PacketRecord
         {
             Id = 999,
-            Source = "TEST",
+            SourceBase = "TEST",
+            SourceSsid = AprsSsid.PrimaryStation,
             PacketType = "Position",
-            Latitude = 45.0,
-            Longitude = -122.0,
-            ReceivedAt = DateTime.UtcNow,
-            PortId = Guid.NewGuid()
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.0, -122.0),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
         };
         _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
 

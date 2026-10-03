@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Extensions;
 using AetherAprs.Models;
@@ -16,6 +17,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.Transports.Kiss;
+using Geo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -163,8 +165,7 @@ public sealed class PortServiceTests
         {
             Source = new Callsign("N0CALL", 1),
             Destination = new Callsign("APRS"),
-            Latitude = 0,
-            Longitude = 0
+            Location = new Coordinate(0, 0)
         };
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -267,7 +268,7 @@ public sealed class PortServiceTests
         public event EventHandler? PacketStored;
 #pragma warning restore CS0067
 
-        public Task StorePacketAsync(AprsPacket packet, Guid? portId, CancellationToken cancellationToken = default)
+        public Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }

@@ -4,7 +4,9 @@
 
 using System;
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Services;
 using NSubstitute;
 using Xunit;
@@ -17,7 +19,7 @@ public class AprsPortSettingsResolverTests
     public void GetSsid_ReturnsDefaultSsidWhenPositive()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.DefaultSsid = 3;
+        config.Settings.Aprs.Ssid = (AprsSsid)3;
         var resolver = CreateResolver(config);
 
         Assert.Equal(3, resolver.GetSsid());
@@ -36,7 +38,7 @@ public class AprsPortSettingsResolverTests
     public void GetCallsign_AppendsSsidWhenPositive()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.DefaultSsid = 7;
+        config.Settings.Aprs.Ssid = (AprsSsid)7;
         var resolver = CreateResolver(config);
 
         Assert.Equal("N0CALL-7", resolver.GetCallsign("N0CALL"));
@@ -55,7 +57,7 @@ public class AprsPortSettingsResolverTests
     public void GetSymbolTableCharacter_ReturnsDefault()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.DefaultSymbolTableCharacter = "\\";
+        config.Settings.Aprs.SymbolTable = AetherAprs.Models.Aprs.SymbolTable.Alternate;
         var resolver = CreateResolver(config);
 
         Assert.Equal("\\", resolver.GetSymbolTableCharacter());
@@ -65,7 +67,7 @@ public class AprsPortSettingsResolverTests
     public void GetSymbolCodeCharacter_ReturnsDefault()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.DefaultSymbolCodeCharacter = "k";
+        config.Settings.Aprs.SymbolCode = SymbolCode.LatinSmallLetterK;
         var resolver = CreateResolver(config);
 
         Assert.Equal("k", resolver.GetSymbolCodeCharacter());
