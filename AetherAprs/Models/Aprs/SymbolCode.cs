@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AetherAprs.Models.Aprs;
 
@@ -10,6 +12,7 @@ namespace AetherAprs.Models.Aprs;
 /// APRS symbol code character (printable ASCII 0x20-0x7E).
 /// Maps to the 94 APRS symbol codes used in position reports.
 /// </summary>
+[JsonConverter(typeof(SymbolCodeJsonConverter))]
 public enum SymbolCode : byte
 {
     /// <summary>ASCII character ' ' (space).</summary>
@@ -296,6 +299,39 @@ public enum SymbolCode : byte
 
     /// <summary>ASCII character '~' (~).</summary>
     Tilde = 0x7E,
+}
+
+/// <summary>
+/// Converts APRS symbol codes to and from their character representation.
+/// </summary>
+public sealed class SymbolCodeJsonConverter : JsonConverter<SymbolCode>
+{
+    public override SymbolCode Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException("Symbol code must be a single character.");
+        }
+
+        var value = reader.GetString();
+        if (value is null || value.Length != 1)
+        {
+            throw new JsonException("Symbol code must be a single character.");
+        }
+
+        return value[0].ToSymbolCode();
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        SymbolCode value,
+        JsonSerializerOptions options)
+    {
+        writer.WriteStringValue(value.ToChar().ToString());
+    }
 }
 
 /// <summary>
