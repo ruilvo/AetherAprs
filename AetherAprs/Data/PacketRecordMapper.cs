@@ -3,143 +3,174 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Messaging;
+using Geo;
 using System;
 
 namespace AetherAprs.Data;
 
 internal static class PacketRecordMapper
 {
-    public static PacketRecord ToRecord(AprsPacket packet, Guid? portId, DateTimeOffset receivedAt)
+    /// <summary>
+    /// Converts an APRS packet to a database record for storage.
+    /// </summary>
+    /// <param name="packet">The APRS packet to convert.</param>
+    /// <param name="portId">The port that received or will send the packet.</param>
+    /// <param name="timestamp">The timestamp when the packet was received or sent.</param>
+    /// <param name="isOutbound">True if this is a sent packet, false if received.</param>
+    public static PacketRecord ToRecord(
+        AprsPacket packet,
+        Guid? portId,
+        DateTimeOffset timestamp,
+        bool isOutbound)
     {
         var record = new PacketRecord
         {
-            Source = packet.Source.ToString(),
-            Destination = packet.Destination.ToString(),
+            SourceBase = packet.Source.Base,
+            SourceSsid = packet.Source.Ssid.HasValue 
+                ? (AprsSsid)packet.Source.Ssid.Value 
+                : AprsSsid.PrimaryStation,
+            DestinationBase = packet.Destination.Base,
+            DestinationSsid = packet.Destination.Ssid.HasValue 
+                ? (AprsSsid)packet.Destination.Ssid.Value 
+                : AprsSsid.PrimaryStation,
             PacketType = packet.GetType().Name.Replace("Packet", ""),
-            ReceivedAt = receivedAt.UtcDateTime,
+            Timestamp = timestamp.UtcDateTime,
             PacketTimestamp = packet.Timestamp?.UtcDateTime,
             PortId = portId,
+            IsOutbound = isOutbound,
             RawInfo = packet.Raw
         };
 
-        // Map type-specific fields
+        // Map type-specific fields to owned types
         switch (packet)
         {
             case PositionPacket pos:
-                record.Latitude = pos.Latitude;
-                record.Longitude = pos.Longitude;
-                record.Altitude = pos.Altitude;
-                record.Course = pos.Course;
-                record.Speed = pos.Speed;
-                record.SymbolTable = pos.Symbol.TableChar.ToString();
-                record.SymbolCode = pos.Symbol.CodeChar.ToString();
-                record.Comment = pos.Comment;
+                record.Position = new PositionDataRecord
+                {
+                    Location = pos.Location,
+                    Altitude = pos.Altitude,
+                    Course = pos.Course,
+                    Speed = pos.Speed,
+                    SymbolTable = pos.Symbol.Table,
+                    SymbolCode = pos.Symbol.Code,
+                    Comment = pos.Comment
+                };
                 break;
 
             case MessagePacket msg:
-                record.MessageAddressee = msg.Addressee.ToString();
-                record.MessageText = msg.Text;
-                record.MessageNumber = msg.MessageNumber;
+                record.Message = new MessageDataRecord
+                {
+                    AddresseeBase = msg.Addressee.Base,
+                    AddresseeSsid = msg.Addressee.Ssid.HasValue 
+                        ? (AprsSsid)msg.Addressee.Ssid.Value 
+                        : AprsSsid.PrimaryStation,
+                    Text = msg.Text,
+                    Number = msg.MessageNumber,
+                    // Delivery tracking fields are null for received messages
+                    DeliveryStatus = isOutbound ? MessageDeliveryStatus.Pending : null,
+                    RetryCount = 0,
+                    NextRetryTime = null
+                };
                 break;
 
             case StatusPacket status:
-                record.StatusText = status.Text;
+                record.Status = new StatusDataRecord
+                {
+                    Text = status.Text
+                };
                 break;
 
             case WeatherPacket weather:
-                record.Temperature = weather.Temperature;
-                record.WindSpeed = weather.WindSpeed;
-                record.WindDirection = weather.WindDirection;
-                record.Humidity = weather.Humidity;
-                record.Pressure = weather.Pressure;
-                record.RainLastHour = weather.Rain1h;
-                record.RainLast24Hours = weather.Rain24h;
+                record.Weather = new WeatherDataRecord
+                {
+                    Temperature = weather.Temperature,
+                    WindSpeed = weather.WindSpeed,
+                    WindDirection = weather.WindDirection,
+                    Humidity = weather.Humidity,
+                    Pressure = weather.Pressure,
+                    RainLastHour = weather.Rain1h,
+                    RainLast24Hours = weather.Rain24h
+                };
                 break;
         }
 
         return record;
     }
 
+    /// <summary>
+    /// Converts a database record back to an APRS packet.
+    /// </summary>
     public static AprsPacket? MapToPacket(PacketRecord record)
     {
         try
         {
-            if (!Callsign.TryParse(record.Source, out var source))
-            {
-                return null;
-            }
-            
-            if (!Callsign.TryParse(record.Destination, out var destination))
-            {
-                return null;
-            }
+            var source = new Callsign(record.SourceBase, (int)record.SourceSsid);
+            var destination = new Callsign(record.DestinationBase, (int)record.DestinationSsid);
+
+            DateTimeOffset? timestamp = record.PacketTimestamp.HasValue
+                ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero)
+                : null;
 
             AprsPacket packet = record.PacketType switch
             {
-                "Position" when record.Latitude.HasValue && record.Longitude.HasValue =>
+                "Position" when record.Position != null =>
                     new PositionPacket
                     {
                         Source = source,
                         Destination = destination,
-                        Latitude = record.Latitude.Value,
-                        Longitude = record.Longitude.Value,
-                        Altitude = record.Altitude,
-                        Course = record.Course,
-                        Speed = record.Speed,
+                        Location = record.Position.Location,
+                        Altitude = record.Position.Altitude,
+                        Course = record.Position.Course,
+                        Speed = record.Position.Speed,
                         Symbol = new Symbol(
-                            (record.SymbolTable ?? "/")[0].ToSymbolTable(),
-                            (record.SymbolCode ?? "[")[0].ToSymbolCode()
+                            record.Position.SymbolTable,
+                            record.Position.SymbolCode
                         ),
-                        Comment = record.Comment,
-                        Raw = record.RawInfo ?? "",
-                        Timestamp = record.PacketTimestamp.HasValue 
-                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
-                            : null
+                        Comment = record.Position.Comment,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
                     },
 
-                "Message" when !string.IsNullOrEmpty(record.MessageAddressee) && 
-                               Callsign.TryParse(record.MessageAddressee, out var addressee) =>
+                "Message" when record.Message != null =>
                     new MessagePacket
                     {
                         Source = source,
                         Destination = destination,
-                        Addressee = addressee,
-                        Text = record.MessageText ?? "",
-                        MessageNumber = record.MessageNumber,
-                        Raw = record.RawInfo ?? "",
-                        Timestamp = record.PacketTimestamp.HasValue 
-                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
-                            : null
+                        Addressee = new Callsign(
+                            record.Message.AddresseeBase,
+                            (int)record.Message.AddresseeSsid
+                        ),
+                        Text = record.Message.Text,
+                        MessageNumber = record.Message.Number,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
                     },
 
-                "Status" =>
+                "Status" when record.Status != null =>
                     new StatusPacket
                     {
                         Source = source,
                         Destination = destination,
-                        Text = record.StatusText ?? "",
-                        Raw = record.RawInfo ?? "",
-                        Timestamp = record.PacketTimestamp.HasValue 
-                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
-                            : null
+                        Text = record.Status.Text,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
                     },
 
-                "Weather" =>
+                "Weather" when record.Weather != null =>
                     new WeatherPacket
                     {
                         Source = source,
                         Destination = destination,
-                        Temperature = record.Temperature,
-                        WindSpeed = record.WindSpeed,
-                        WindDirection = record.WindDirection,
-                        Humidity = record.Humidity,
-                        Pressure = record.Pressure,
-                        Rain1h = record.RainLastHour,
-                        Rain24h = record.RainLast24Hours,
-                        Raw = record.RawInfo ?? "",
-                        Timestamp = record.PacketTimestamp.HasValue 
-                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
-                            : null
+                        Temperature = record.Weather.Temperature,
+                        WindSpeed = record.Weather.WindSpeed,
+                        WindDirection = record.Weather.WindDirection,
+                        Humidity = record.Weather.Humidity,
+                        Pressure = record.Weather.Pressure,
+                        Rain1h = record.Weather.RainLastHour,
+                        Rain24h = record.Weather.RainLast24Hours,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
                     },
 
                 _ =>
@@ -147,10 +178,8 @@ internal static class PacketRecordMapper
                     {
                         Source = source,
                         Destination = destination,
-                        Raw = record.RawInfo ?? "",
-                        Timestamp = record.PacketTimestamp.HasValue 
-                            ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero) 
-                            : null
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
                     }
             };
 

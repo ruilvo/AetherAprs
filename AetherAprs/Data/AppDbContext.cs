@@ -12,8 +12,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<PortRecord> Ports => Set<PortRecord>();
 
-    public DbSet<MessageRecord> Messages => Set<MessageRecord>();
-
     public DbSet<PacketRecord> Packets => Set<PacketRecord>();
 
     public DbSet<BeaconConfigRecord> BeaconConfigs => Set<BeaconConfigRecord>();
@@ -61,34 +59,59 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             });
         });
 
-        modelBuilder.Entity<MessageRecord>(entity =>
-        {
-            entity.ToTable("Messages");
-            entity.HasKey(message => message.Id);
-            entity.Property(message => message.Peer).IsRequired().HasMaxLength(16);
-            entity.Property(message => message.Text).IsRequired().HasMaxLength(67);
-            entity.HasIndex(message => message.Peer);
-            entity.HasIndex(message => message.Timestamp);
-        });
-
         modelBuilder.Entity<PacketRecord>(entity =>
         {
             entity.ToTable("Packets");
             entity.HasKey(packet => packet.Id);
-            entity.Property(packet => packet.Source).IsRequired().HasMaxLength(16);
-            entity.Property(packet => packet.Destination).IsRequired().HasMaxLength(16);
+            entity.Property(packet => packet.SourceBase).IsRequired().HasMaxLength(9);
+            entity.Property(packet => packet.SourceSsid).IsRequired();
+            entity.Property(packet => packet.DestinationBase).IsRequired().HasMaxLength(9);
+            entity.Property(packet => packet.DestinationSsid).IsRequired();
             entity.Property(packet => packet.PacketType).IsRequired().HasMaxLength(16);
             entity.Property(packet => packet.RawInfo).IsRequired().HasMaxLength(256);
-            entity.Property(packet => packet.SymbolTable).HasMaxLength(1);
-            entity.Property(packet => packet.SymbolCode).HasMaxLength(1);
-            entity.Property(packet => packet.Comment).HasMaxLength(43);
-            entity.Property(packet => packet.MessageAddressee).HasMaxLength(16);
-            entity.Property(packet => packet.MessageText).HasMaxLength(67);
-            entity.Property(packet => packet.StatusText).HasMaxLength(256);
-            entity.HasIndex(packet => packet.Source);
-            entity.HasIndex(packet => packet.ReceivedAt);
+            entity.Property(packet => packet.IsOutbound).IsRequired();
+
+            // Indexes for efficient querying
+            entity.HasIndex(packet => new { packet.SourceBase, packet.SourceSsid });
+            entity.HasIndex(packet => packet.Timestamp);
             entity.HasIndex(packet => packet.PacketType);
-            entity.HasIndex(packet => new { packet.Source, packet.ReceivedAt });
+            entity.HasIndex(packet => new { packet.SourceBase, packet.SourceSsid, packet.Timestamp });
+            entity.HasIndex(packet => packet.IsOutbound);
+
+            // Position data
+            entity.OwnsOne(packet => packet.Position, position =>
+            {
+                // Store Coordinate as "latitude,longitude" string using value converter
+                position.Property(p => p.Location)
+                    .HasConversion(new CoordinateValueConverter())
+                    .HasColumnName("Location")
+                    .IsRequired();
+                    
+                position.Property(p => p.SymbolTable).IsRequired();
+                position.Property(p => p.SymbolCode).IsRequired();
+                position.Property(p => p.Comment).HasMaxLength(43);
+            });
+
+            // Message data
+            entity.OwnsOne(packet => packet.Message, message =>
+            {
+                message.Property(m => m.AddresseeBase).IsRequired().HasMaxLength(9);
+                message.Property(m => m.AddresseeSsid).IsRequired();
+                message.Property(m => m.Text).IsRequired().HasMaxLength(67);
+                message.Property(m => m.RetryCount).IsRequired();
+            });
+
+            // Status data
+            entity.OwnsOne(packet => packet.Status, status =>
+            {
+                status.Property(s => s.Text).IsRequired().HasMaxLength(256);
+            });
+
+            // Weather data
+            entity.OwnsOne(packet => packet.Weather, weather =>
+            {
+                // All weather fields are nullable
+            });
         });
 
         modelBuilder.Entity<BeaconConfigRecord>(entity =>
