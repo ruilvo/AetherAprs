@@ -223,4 +223,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="TimeRangeLastMonth" xml:space="preserve"><value>Last Month</value></data>
   <data name="TimeRangeAll" xml:space="preserve"><value>All Packets</value></data>
   <data name="TimeRangeCustom" xml:space="preserve"><value>Custom</value></data>
+  <data name="SsidPrimaryStation" xml:space="preserve"><value>0 - Primary Station</value></data>
+  <data name="SsidAdditionalStation1" xml:space="preserve"><value>1 - Additional Station</value></data>
+  <data name="SsidAdditionalStation2" xml:space="preserve"><value>2 - Additional Station</value></data>
+  <data name="SsidAdditionalStation3" xml:space="preserve"><value>3 - Additional Station</value></data>
+  <data name="SsidAdditionalStation4" xml:space="preserve"><value>4 - Additional Station</value></data>
+  <data name="SsidOtherNetworks" xml:space="preserve"><value>5 - Other Networks (D-STAR, etc.)</value></data>
+  <data name="SsidSpecialActivity" xml:space="preserve"><value>6 - Special Activity (Satellite, etc.)</value></data>
+  <data name="SsidHumanPortable" xml:space="preserve"><value>7 - Handheld / Human Portable</value></data>
+  <data name="SsidSecondaryMobile" xml:space="preserve"><value>8 - Secondary Mobile (Boat, RV)</value></data>
+  <data name="SsidPrimaryMobile" xml:space="preserve"><value>9 - Primary Mobile</value></data>
+  <data name="SsidInternetGateway" xml:space="preserve"><value>10 - Internet / IGate</value></data>
+  <data name="SsidAircraft" xml:space="preserve"><value>11 - Aircraft / Balloon</value></data>
+  <data name="SsidDevices" xml:space="preserve"><value>12 - Tracker / Device</value></data>
+  <data name="SsidWeatherStation" xml:space="preserve"><value>13 - Weather Station</value></data>
+  <data name="SsidTrucker" xml:space="preserve"><value>14 - Trucker</value></data>
+  <data name="SsidAdditionalStation15" xml:space="preserve"><value>15 - Additional Station</value></data>
 </root>
