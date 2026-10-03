@@ -52,8 +52,8 @@ public static class AprsInfoFieldSerializer
         // The '/' or '\' between lat and lon IS the symbol table indicator.
         char typeId = '!';
 
-        string lat = FormatLatitude(packet.Latitude, packet.Precision);
-        string lon = FormatLongitude(packet.Longitude, packet.Precision);
+        string lat = FormatLatitude(packet.Location.Latitude, packet.Precision);
+        string lon = FormatLongitude(packet.Location.Longitude, packet.Precision);
 
         var info = new StringBuilder();
         info.Append(typeId);

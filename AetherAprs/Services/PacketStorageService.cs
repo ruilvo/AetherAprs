@@ -21,7 +21,11 @@ public interface IPacketStorageService
     /// <summary>
     /// Stores an APRS packet in the database.
     /// </summary>
-    Task StorePacketAsync(AprsPacket packet, Guid? portId, CancellationToken cancellationToken = default);
+    /// <param name="packet">The packet to store.</param>
+    /// <param name="portId">The port that received or sent the packet.</param>
+    /// <param name="isOutbound">True if this is a sent packet, false if received.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Removes packets older than the configured retention period.
@@ -41,21 +45,22 @@ public sealed class PacketStorageService(
 {
     public event EventHandler? PacketStored;
 
-    public async Task StorePacketAsync(AprsPacket packet, Guid? portId, CancellationToken cancellationToken = default)
+    public async Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default)
     {
         try
         {
-            logger.LogInformation("Attempting to store packet from {Source}, Type: {Type}", packet.Source, packet.GetType().Name);
+            logger.LogInformation("Attempting to store {Direction} packet from {Source}, Type: {Type}", 
+                isOutbound ? "outbound" : "inbound", packet.Source, packet.GetType().Name);
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-            var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow);
+            var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound);
             context.Packets.Add(record);
 
             var savedCount = await context.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation("Successfully stored {PacketType} packet from {Source} (SaveChanges returned {Count})",
-                record.PacketType, record.Source, savedCount);
+            logger.LogInformation("Successfully stored {Direction} {PacketType} packet from {Source} (SaveChanges returned {Count})",
+                isOutbound ? "outbound" : "inbound", record.PacketType, record.SourceBase, savedCount);
 
             // Raise event after successful storage
             PacketStored?.Invoke(this, EventArgs.Empty);
@@ -76,7 +81,7 @@ public sealed class PacketStorageService(
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-            var oldPackets = context.Packets.Where(p => p.ReceivedAt < cutoffDate);
+            var oldPackets = context.Packets.Where(p => p.Timestamp < cutoffDate);
             var count = await oldPackets.CountAsync(cancellationToken);
 
             if (count > 0)

@@ -36,7 +36,9 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                throw new ArgumentException("Host cannot be empty.", nameof(value));
+                throw new ArgumentException("Host cannot be empty.",
+                    nameof(value)
+                );
             }
 
             _host = value;
@@ -50,7 +52,9 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
         {
             if (value < 1 || value > 65535)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Port must be between 1 and 65535.");
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Port must be between 1 and 65535."
+                );
             }
 
             _port = value;
@@ -74,13 +78,16 @@ public sealed class BluetoothClassicKissTransportSettings : IKissTransportSettin
 /// </summary>
 public sealed class BluetoothLeKissTransportSettings : IKissTransportSettings
 {
-    public static readonly Guid DefaultServiceUuid = Guid.Parse("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
-    public static readonly Guid DefaultRxCharacteristicUuid = Guid.Parse("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
-    public static readonly Guid DefaultTxCharacteristicUuid = Guid.Parse("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
-
-    public string DeviceAddress { get; set; } = string.Empty;
+    public static readonly Guid DefaultServiceUuid =
+        Guid.Parse("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+    public static readonly Guid DefaultRxCharacteristicUuid =
+        Guid.Parse("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
+    public static readonly Guid DefaultTxCharacteristicUuid =
+        Guid.Parse("6E400003-B5A3-F393-E0A9-E50E24DCCA9E");
 
     public string? DeviceName { get; set; }
+
+    public string DeviceAddress { get; set; } = string.Empty;
 
     public Guid ServiceUuid { get; set; } = DefaultServiceUuid;
 

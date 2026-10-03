@@ -211,8 +211,8 @@ public class PortService : IPortService, IAsyncDisposable
                 "Transmitted APRS position on port {PortName} ({PortId}): Latitude={Latitude:F5}, Longitude={Longitude:F5}, Altitude={Altitude}, Course={Course}, Speed={Speed}, Comment={Comment}, RawPacket={RawPacket}",
                 portName,
                 id,
-                position.Latitude,
-                position.Longitude,
+                position.Location.Latitude,
+                position.Location.Longitude,
                 position.Altitude,
                 position.Course,
                 position.Speed,
@@ -314,8 +314,11 @@ public class PortService : IPortService, IAsyncDisposable
                 case AprsIsSettings aprsIsSettings:
                     {
                         var callsign = _configurationService.Settings.Aprs.Callsign;
-                        var ssid = _configurationService.Settings.Aprs.DefaultSsid;
-                        var fullCallsign = new Callsign(callsign, ssid > 0 ? ssid : null);
+                        var ssid = _configurationService.Settings.Aprs.Ssid;
+                        var ssidValue = (int)ssid;
+                        var fullCallsign = new Callsign(
+                            callsign,
+                            ssidValue > 0 ? ssidValue : null);
 
                         var modem = new AprsIsModem(
                             aprsIsSettings.Server,
@@ -425,7 +428,7 @@ public class PortService : IPortService, IAsyncDisposable
         {
             try
             {
-                await _packetStorageService.StorePacketAsync(packet, portId, _disposalCts.Token);
+                await _packetStorageService.StorePacketAsync(packet, portId, isOutbound: false, _disposalCts.Token);
             }
             catch (OperationCanceledException)
             {

@@ -346,7 +346,7 @@ public sealed class BeaconService : IBeaconService
         var comment = config.BeaconComment;
         if (string.IsNullOrWhiteSpace(comment) && _configurationService != null)
         {
-            comment = _configurationService.Settings.Aprs.DefaultBeaconComment;
+            comment = _configurationService.Settings.Aprs.BeaconComment;
         }
 
         // Get digipeater path from settings
@@ -365,8 +365,7 @@ public sealed class BeaconService : IBeaconService
             Source = new Callsign(callsignBase, ssid),
             Destination = new Callsign("APRS"),
             Path = path,
-            Latitude = location.Latitude,
-            Longitude = location.Longitude,
+            Location = location.Location,
             Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
             Course = lastCourse,
             Symbol = CreateSymbol(symbolTableCharacter, symbolCodeCharacter),
@@ -376,8 +375,8 @@ public sealed class BeaconService : IBeaconService
         _logger.LogDebug(
             "Created position packet for {Callsign}: Lat={Latitude:F5}, Lon={Longitude:F5}",
             callsign,
-            packet.Latitude,
-            packet.Longitude);
+            packet.Location.Latitude,
+            packet.Location.Longitude);
         return packet;
     }
 
@@ -409,10 +408,10 @@ public sealed class BeaconService : IBeaconService
     /// </summary>
     private static double CalculateDistance(LocationData from, LocationData to)
     {
-        var lat1 = ToRadians(from.Latitude);
-        var lat2 = ToRadians(to.Latitude);
-        var deltaLat = ToRadians(to.Latitude - from.Latitude);
-        var deltaLon = ToRadians(to.Longitude - from.Longitude);
+        var lat1 = ToRadians(from.Location.Latitude);
+        var lat2 = ToRadians(to.Location.Latitude);
+        var deltaLat = ToRadians(to.Location.Latitude - from.Location.Latitude);
+        var deltaLon = ToRadians(to.Location.Longitude - from.Location.Longitude);
 
         var a = Math.Sin(deltaLat / 2) * Math.Sin(deltaLat / 2) +
                 Math.Cos(lat1) * Math.Cos(lat2) *
@@ -427,9 +426,9 @@ public sealed class BeaconService : IBeaconService
     /// </summary>
     private static double CalculateCourse(LocationData from, LocationData to)
     {
-        var lat1 = ToRadians(from.Latitude);
-        var lat2 = ToRadians(to.Latitude);
-        var deltaLon = ToRadians(to.Longitude - from.Longitude);
+        var lat1 = ToRadians(from.Location.Latitude);
+        var lat2 = ToRadians(to.Location.Latitude);
+        var deltaLon = ToRadians(to.Location.Longitude - from.Location.Longitude);
 
         var y = Math.Sin(deltaLon) * Math.Cos(lat2);
         var x = Math.Cos(lat1) * Math.Sin(lat2) -

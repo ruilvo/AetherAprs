@@ -92,7 +92,9 @@ public class AprsIsSettings : IPortTypeSettings
         {
             if (value < 1 || value > 65535)
             {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Server port must be between 1 and 65535.");
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Server port must be between 1 and 65535."
+                );
             }
             _serverPort = value;
         }
@@ -108,7 +110,10 @@ public class AprsIsSettings : IPortTypeSettings
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                throw new ArgumentException("Passcode cannot be empty. Use \"-1\" for read-only access.", nameof(value));
+                throw new ArgumentException(
+                    "Passcode cannot be empty. Use \"-1\" for read-only access.",
+                    nameof(value)
+                );
             }
             _passcode = value;
         }

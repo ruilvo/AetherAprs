@@ -21,6 +21,7 @@ namespace AetherAprs.Services;
 public sealed class MessageService : IMessageService, IDisposable
 {
     private readonly IPortService _portService;
+    private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly ILogger<MessageService> _logger;
@@ -35,12 +36,14 @@ public sealed class MessageService : IMessageService, IDisposable
 
     public MessageService(
         IPortService portService,
+        IPacketStorageService packetStorageService,
         IConfigurationService configurationService,
         IAprsPortSettingsResolver portSettingsResolver,
         ILogger<MessageService> logger,
         IDbContextFactory<AppDbContext>? dbContextFactory = null)
     {
         _portService = portService;
+        _packetStorageService = packetStorageService;
         _configurationService = configurationService;
         _portSettingsResolver = portSettingsResolver;
         _logger = logger;
@@ -82,8 +85,6 @@ public sealed class MessageService : IMessageService, IDisposable
             RetryCount = 0,
             NextRetryTime = timestamp.AddSeconds(settings.MessageRetryTimeoutSeconds)
         };
-
-        await PersistMessageAsync(stored, cancellationToken).ConfigureAwait(false);
 
         lock (_gate)
         {
@@ -132,6 +133,10 @@ public sealed class MessageService : IMessageService, IDisposable
                 };
 
                 await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
+                
+                // Store sent packet in database
+                await _packetStorageService.StorePacketAsync(packet, port.Id, isOutbound: true, cancellationToken).ConfigureAwait(false);
+                
                 sent++;
                 _logger.LogInformation(
                     "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, retry {RetryCount})",
@@ -173,6 +178,7 @@ public sealed class MessageService : IMessageService, IDisposable
             if (portId.HasValue)
             {
                 await _portService.SendPacketAsync(portId.Value, packet).ConfigureAwait(false);
+                await _packetStorageService.StorePacketAsync(packet, portId.Value, isOutbound: true).ConfigureAwait(false);
                 _logger.LogInformation("Sent ACK to {Addressee} for message #{MessageNumber}", addressee, messageNumber);
             }
             else
@@ -181,6 +187,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 foreach (var port in txPorts)
                 {
                     await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
+                    await _packetStorageService.StorePacketAsync(packet, port.Id, isOutbound: true).ConfigureAwait(false);
                 }
                 _logger.LogInformation("Sent ACK to {Addressee} for message #{MessageNumber} on all TX ports", addressee, messageNumber);
             }
@@ -241,8 +248,6 @@ public sealed class MessageService : IMessageService, IDisposable
             peer,
             portId,
             message.Text);
-
-        PersistMessage(stored);
 
         RunOnUi(() =>
         {
@@ -358,16 +363,28 @@ public sealed class MessageService : IMessageService, IDisposable
         try
         {
             using var db = _dbContextFactory.CreateDbContext();
-            var record = db.Messages.FirstOrDefault(m =>
-                m.Peer == message.Peer.ToString() &&
-                m.Timestamp == message.Timestamp &&
-                m.IsOutbound == message.IsOutbound);
+            
+            // Convert SSID for database comparison
+            var addresseeSsid = message.Peer.Ssid.HasValue 
+                ? (AprsSsid)message.Peer.Ssid.Value 
+                : AprsSsid.PrimaryStation;
+            
+            // Find the message packet record
+            var record = db.Packets
+                .Include(p => p.Message)
+                .FirstOrDefault(p =>
+                    p.PacketType == "Message" &&
+                    p.Message != null &&
+                    p.Message.AddresseeBase == message.Peer.Base &&
+                    p.Message.AddresseeSsid == addresseeSsid &&
+                    p.Timestamp == message.Timestamp.UtcDateTime &&
+                    p.IsOutbound == message.IsOutbound);
 
-            if (record != null)
+            if (record?.Message != null)
             {
-                record.DeliveryStatus = message.DeliveryStatus.HasValue ? (int)message.DeliveryStatus.Value : null;
-                record.RetryCount = message.RetryCount;
-                record.NextRetryTime = message.NextRetryTime;
+                record.Message.DeliveryStatus = message.DeliveryStatus;
+                record.Message.RetryCount = message.RetryCount;
+                record.Message.NextRetryTime = message.NextRetryTime?.UtcDateTime;
                 db.SaveChanges();
             }
         }
@@ -431,27 +448,53 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         using var db = _dbContextFactory.CreateDbContext();
-        var records = db.Messages
+        
+        // Load message packets from the Packets table
+        var records = db.Packets
+            .Include(p => p.Message)
+            .Where(p => p.PacketType == "Message" && p.Message != null)
             .AsNoTracking()
             .AsEnumerable()
-            .OrderBy(message => message.Timestamp)
-            .ThenBy(message => message.Id)
+            .OrderBy(p => p.Timestamp)
+            .ThenBy(p => p.Id)
             .ToList();
 
         var threadsByPeer = new Dictionary<string, ConversationThread>();
         var maxMessageNumber = 1;
+        
         foreach (var record in records)
         {
-            var stored = MessageRecordMapper.ToStoredMessage(record);
-            if (stored is null)
+            if (record.Message == null)
             {
                 continue;
             }
 
-            if (!threadsByPeer.TryGetValue(stored.Peer.ToString(), out var thread))
+            var source = new Callsign(record.SourceBase, (int)record.SourceSsid);
+            var addressee = new Callsign(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
+            
+            // Determine peer (who we're talking to)
+            var ownBase = _configurationService.Settings.Aprs.Callsign.Trim().ToUpperInvariant();
+            var peer = record.IsOutbound ? addressee : source;
+
+            var stored = new StoredMessage
             {
-                thread = new ConversationThread(stored.Peer);
-                threadsByPeer[stored.Peer.ToString()] = thread;
+                Peer = peer,
+                Text = record.Message.Text,
+                Timestamp = new DateTimeOffset(record.Timestamp, TimeSpan.Zero),
+                IsOutbound = record.IsOutbound,
+                MessageNumber = record.Message.Number,
+                PortId = record.PortId,
+                DeliveryStatus = record.Message.DeliveryStatus,
+                RetryCount = record.Message.RetryCount,
+                NextRetryTime = record.Message.NextRetryTime.HasValue 
+                    ? new DateTimeOffset(record.Message.NextRetryTime.Value, TimeSpan.Zero) 
+                    : null
+            };
+
+            if (!threadsByPeer.TryGetValue(peer.ToString(), out var thread))
+            {
+                thread = new ConversationThread(peer);
+                threadsByPeer[peer.ToString()] = thread;
             }
 
             thread.Messages.Add(stored);
@@ -476,37 +519,6 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         _nextMessageNumber = maxMessageNumber + 1;
-    }
-
-    private void PersistMessage(StoredMessage message)
-    {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
-        try
-        {
-            using var db = _dbContextFactory.CreateDbContext();
-            db.Messages.Add(MessageRecordMapper.ToRecord(message));
-            db.SaveChanges();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to persist APRS message for {Peer}.", message.Peer);
-        }
-    }
-
-    private async Task PersistMessageAsync(StoredMessage message, CancellationToken cancellationToken)
-    {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
-        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        db.Messages.Add(MessageRecordMapper.ToRecord(message));
-        await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()

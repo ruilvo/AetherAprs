@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Data;
+using AetherAprs.Models.Aprs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -38,15 +39,22 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
         {
             await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-            // Group by source and get the most recent packet per source
+            // Group by source callsign (base + SSID) and get the most recent packet per source
             var packets = await context.Packets
-                .GroupBy(p => p.Source)
+                .GroupBy(p => new { p.SourceBase, p.SourceSsid })
                 .Select(g => g.OrderByDescending(p => p.Id).First())
                 .Take(limit)
-                .ToDictionaryAsync(p => p.Source, p => p);
+                .ToListAsync();
 
-            _logger.LogDebug("Retrieved {Count} most recent packets", packets.Count);
-            return packets;
+            // Create dictionary with "BASE-SSID" format keys
+            var result = packets.ToDictionary(
+                p => p.SourceSsid == AprsSsid.PrimaryStation 
+                    ? p.SourceBase 
+                    : $"{p.SourceBase}-{(int)p.SourceSsid}",
+                p => p);
+
+            _logger.LogDebug("Retrieved {Count} most recent packets", result.Count);
+            return result;
         }
         catch (Exception ex)
         {
@@ -63,16 +71,23 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
         {
             await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-            // Group by source and get the most recent position packet per source
+            // Group by source callsign and get the most recent position packet per source
             var packets = await context.Packets
-                .Where(p => p.Latitude.HasValue && p.Longitude.HasValue)
-                .GroupBy(p => p.Source)
+                .Where(p => p.Position != null)
+                .GroupBy(p => new { p.SourceBase, p.SourceSsid })
                 .Select(g => g.OrderByDescending(p => p.Id).First())
                 .Take(limit)
-                .ToDictionaryAsync(p => p.Source, p => p);
+                .ToListAsync();
 
-            _logger.LogDebug("Retrieved {Count} most recent position packets", packets.Count);
-            return packets;
+            // Create dictionary with "BASE-SSID" format keys
+            var result = packets.ToDictionary(
+                p => p.SourceSsid == AprsSsid.PrimaryStation 
+                    ? p.SourceBase 
+                    : $"{p.SourceBase}-{(int)p.SourceSsid}",
+                p => p);
+
+            _logger.LogDebug("Retrieved {Count} most recent position packets", result.Count);
+            return result;
         }
         catch (Exception ex)
         {
@@ -113,10 +128,39 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
         {
             await using var context = await _dbContextFactory.CreateDbContextAsync();
 
-            // Order by Id descending (auto-increment primary key) instead of DateTimeOffset
-            // This works because SQLite auto-increment ensures newer packets have higher IDs
-            var packets = await context.Packets
-                .Where(p => p.Source == callsign)
+            // Parse callsign to extract base and SSID
+            string baseCallsign;
+            int? ssid = null;
+            
+            var dashIndex = callsign.IndexOf('-');
+            if (dashIndex > 0 && dashIndex < callsign.Length - 1)
+            {
+                baseCallsign = callsign.Substring(0, dashIndex);
+                if (int.TryParse(callsign.Substring(dashIndex + 1), out var parsedSsid) && parsedSsid >= 0 && parsedSsid <= 15)
+                {
+                    ssid = parsedSsid;
+                }
+                else
+                {
+                    baseCallsign = callsign; // Invalid SSID format, treat as base
+                }
+            }
+            else
+            {
+                baseCallsign = callsign;
+            }
+
+            // Query by base and optionally SSID
+            IQueryable<PacketRecord> query = context.Packets
+                .Where(p => p.SourceBase == baseCallsign);
+
+            var sourceSsid = ssid.HasValue 
+                ? (AprsSsid)ssid.Value 
+                : AprsSsid.PrimaryStation;
+            
+            query = query.Where(p => p.SourceSsid == sourceSsid);
+
+            var packets = await query
                 .OrderByDescending(p => p.Id)
                 .Take(limit)
                 .ToListAsync();

@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
+using AetherAprs.Models.Aprs;
 using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -25,7 +28,12 @@ public class ConfigurationService : IConfigurationService
     {
         WriteIndented = true,
         PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter() }
+        Converters =
+        {
+            new SymbolTableJsonConverter(),
+            new SymbolCodeJsonConverter(),
+            new JsonStringEnumConverter()
+        }
     };
 
     /// <summary>
@@ -59,7 +67,75 @@ public class ConfigurationService : IConfigurationService
         var configuration = builder.Build();
 
         Settings = new AppSettings();
-        configuration.Bind(Settings);
+        var normalizedValues = new Dictionary<string, string?>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pair in configuration.AsEnumerable())
+        {
+            var value = pair.Value;
+            if (value != null
+                && (pair.Key.Equals(
+                    "Aprs:SymbolTableCharacter",
+                    StringComparison.OrdinalIgnoreCase)
+                    || pair.Key.Equals(
+                        "Aprs:SymbolCodeCharacter",
+                        StringComparison.OrdinalIgnoreCase)
+                    || pair.Key.Equals(
+                        "Aprs:SymbolOverlayCharacter",
+                        StringComparison.OrdinalIgnoreCase)
+                    // Legacy keys for migration
+                    || pair.Key.Equals(
+                        "Aprs:DefaultSymbolTableCharacter",
+                        StringComparison.OrdinalIgnoreCase)
+                    || pair.Key.Equals(
+                        "Aprs:DefaultSymbolCodeCharacter",
+                        StringComparison.OrdinalIgnoreCase)
+                    || pair.Key.Equals(
+                        "Aprs:DefaultSymbolOverlayCharacter",
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                var normalizedKey = pair.Key switch
+                {
+                    _ when pair.Key.Equals(
+                        "Aprs:SymbolTableCharacter",
+                        StringComparison.OrdinalIgnoreCase)
+                        || pair.Key.Equals(
+                            "Aprs:DefaultSymbolTableCharacter",
+                            StringComparison.OrdinalIgnoreCase)
+                        => "Aprs:SymbolTable",
+                    _ when pair.Key.Equals(
+                        "Aprs:SymbolCodeCharacter",
+                        StringComparison.OrdinalIgnoreCase)
+                        || pair.Key.Equals(
+                            "Aprs:DefaultSymbolCodeCharacter",
+                            StringComparison.OrdinalIgnoreCase)
+                        => "Aprs:SymbolCode",
+                    _ => "Aprs:SymbolOverlay"
+                };
+
+                normalizedValues[normalizedKey] =
+                    pair.Key.Contains("SymbolTable", StringComparison.OrdinalIgnoreCase)
+                        ? value switch
+                        {
+                            "/" => SymbolTable.Primary.ToString(),
+                            "\\" => SymbolTable.Alternate.ToString(),
+                            _ => throw new InvalidOperationException(
+                                $"Invalid APRS symbol table value '{value}'.")
+                        }
+                        : value.Length == 1
+                            ? value[0].ToSymbolCode().ToString()
+                            : throw new InvalidOperationException(
+                                $"Invalid APRS symbol value '{value}'.");
+                continue;
+            }
+
+            normalizedValues[pair.Key] = value;
+        }
+
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(normalizedValues)
+            .Build()
+            .Bind(Settings);
     }
 
     public async Task SaveSettingsAsync()

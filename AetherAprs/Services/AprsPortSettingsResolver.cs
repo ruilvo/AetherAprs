@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using AetherAprs.Models.Aprs;
+
 namespace AetherAprs.Services;
 
 /// <summary>
@@ -18,8 +21,9 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
 
     public int? GetSsid()
     {
-        var ssid = _configurationService.Settings.Aprs.DefaultSsid;
-        return ssid > 0 ? ssid : null;
+        var ssid = _configurationService.Settings.Aprs.Ssid;
+        var value = (int)ssid;
+        return value > 0 ? value : null;
     }
 
     public string GetCallsign(string baseCallsign)
@@ -29,10 +33,10 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
     }
 
     public string GetSymbolTableCharacter() =>
-        _configurationService.Settings.Aprs.DefaultSymbolTableCharacter;
+        _configurationService.Settings.Aprs.SymbolTable.ToChar().ToString();
 
     public string GetSymbolCodeCharacter() =>
-        _configurationService.Settings.Aprs.DefaultSymbolCodeCharacter;
+        _configurationService.Settings.Aprs.SymbolCode.ToChar().ToString();
 }
 
 /// <summary>

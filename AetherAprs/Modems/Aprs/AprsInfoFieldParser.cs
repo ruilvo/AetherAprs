@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models.Aprs;
+using Geo;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -215,8 +216,7 @@ public static class AprsInfoFieldParser
             Destination = dest,
             Path = path,
             Raw = info,
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Geo.Coordinate(latitude, longitude),
             Symbol = new Symbol(symbolTable, symbolCode, overlay),
             Comment = comment,
             Precision = Math.Min(latPrecision, lonPrecision),
@@ -346,8 +346,7 @@ public static class AprsInfoFieldParser
             Destination = dest,
             Path = Array.Empty<Callsign>(),
             Raw = info,
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Geo.Coordinate(latitude, longitude),
             Symbol = new Symbol(symbolTable, symbolCode, overlay),
             Comment = comment,
             Precision = 3,
@@ -864,8 +863,7 @@ public static class AprsInfoFieldParser
             Destination = dest,
             Path = path,
             Raw = info,
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = new Geo.Coordinate(latitude, longitude),
             Symbol = new Symbol(symbolTable, symbolCode, null),
             Comment = comment,
             Precision = 2, // MIC-E provides ~2 decimal places
