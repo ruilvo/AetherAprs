@@ -22,6 +22,10 @@
         "bruTile": {
             "repository": "BruTile/BruTile",
             "branch": "master"
+        },
+        "geo": {
+            "repository": "sibartlett/Geo",
+            "branch": "master"
         }
     },
     "lsp": true,
