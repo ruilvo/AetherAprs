@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using Geo;
+
 namespace AetherAprs.Models.Aprs;
 
 /// <summary>
@@ -10,14 +12,9 @@ namespace AetherAprs.Models.Aprs;
 public sealed record PositionPacket : AprsPacket
 {
     /// <summary>
-    /// Gets the latitude in decimal degrees.
+    /// Gets the geographic coordinate (latitude and longitude).
     /// </summary>
-    public double Latitude { get; init; }
-
-    /// <summary>
-    /// Gets the longitude in decimal degrees.
-    /// </summary>
-    public double Longitude { get; init; }
+    public Coordinate Location { get; init; } = new Coordinate();
 
     /// <summary>
     /// Gets the symbol for this position.

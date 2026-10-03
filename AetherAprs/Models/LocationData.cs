@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using Geo;
 using System;
 
 namespace AetherAprs.Models;
@@ -12,14 +13,9 @@ namespace AetherAprs.Models;
 public record LocationData
 {
     /// <summary>
-    /// Gets the latitude in decimal degrees.
+    /// Gets the geographic coordinate (latitude and longitude).
     /// </summary>
-    public double Latitude { get; init; }
-
-    /// <summary>
-    /// Gets the longitude in decimal degrees.
-    /// </summary>
-    public double Longitude { get; init; }
+    public Coordinate Location { get; init; } = new Coordinate();
 
     /// <summary>
     /// Gets the altitude in meters above sea level, if available.
