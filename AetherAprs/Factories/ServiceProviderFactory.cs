@@ -105,13 +105,10 @@ public static class ServiceProviderFactory
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<ReceivedBeaconsViewModel>();
 
-        // Register foreground service (platform-specific implementation registered in platform code)
-        // Default to no-op for desktop platforms
+        // Register platform services with default implementations (platform-specific implementations override in OverrideCoreServices)
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
-        
-        // Register location service stub for desktop (Android will override with real implementation)
-        // Desktop location service is not yet implemented
         services.AddSingleton<ILocationService, NoOpLocationService>();
+        services.AddSingleton<IPermissionService, NoOpPermissionService>();
 
         // Register factories
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();

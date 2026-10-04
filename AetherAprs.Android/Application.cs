@@ -24,12 +24,6 @@ namespace AetherAprs.Android
             
             services.AddSingleton<AetherAprs.Services.UI.IUiCultureProvider, AndroidUiCultureProvider>();
 
-            // Register Android permission service
-            services.AddSingleton<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
-
-            // Register Android foreground service
-            services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
-
             // Bluetooth Classic SPP + BLE KISS transports and device discovery
             services.AddSingleton<IKissStreamConnector, BluetoothClassicKissStreamConnector>();
             services.AddSingleton<IKissStreamConnector, BluetoothLeKissStreamConnector>();
@@ -43,6 +37,12 @@ namespace AetherAprs.Android
             
             // Replace NoOpLocationService with Android implementation
             services.AddSingleton<AetherAprs.Services.Platform.ILocationService, LocationService>();
+            
+            // Replace NoOpPermissionService with Android implementation
+            services.AddSingleton<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
+            
+            // Replace NoOpForegroundService with Android implementation
+            services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
         }
     }
 

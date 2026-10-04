@@ -18,6 +18,10 @@ namespace AetherAprs.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
+    // NOTE: SettingsViewModel is registered as a Singleton in ServiceProviderFactory.
+    // IDisposable is implemented to allow proper cleanup during testing or if the registration
+    // is changed to Transient in the future. In production, singletons are not disposed by
+    // the DI container until app shutdown, so Dispose() is primarily for testing scenarios.
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
     private readonly ILogger<SettingsViewModel>? _logger;

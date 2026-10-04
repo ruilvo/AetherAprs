@@ -3,15 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.IO;
 using System.Linq;
-using AetherAprs.Services.Platform;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
-using AetherAprs.Factories;
 using Avalonia.Controls;
 using Avalonia.Input;
-using BruTile.Cache;
 using Mapsui;
 using Mapsui.Tiling;
 using Mapsui.UI;
@@ -39,7 +35,7 @@ public partial class HomePage : UserControl
     {
         // Initialize the map with default OpenStreetMap tiles
         MapControl.Map = new Map();
-        EnsureOsmTileCache();
+        // OSM tile cache is initialized during app startup in App.axaml.cs
         MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer(OsmUserAgent), group: -1);
     }
 
@@ -143,23 +139,5 @@ public partial class HomePage : UserControl
                 }
             }
         }
-    }
-
-    private static void EnsureOsmTileCache()
-    {
-        if (Design.IsDesignMode || OpenStreetMap.DefaultCache is not null)
-        {
-            return;
-        }
-
-        var appDataDirService = App.GetService<IAppDataDirProviderService>();
-        if (appDataDirService == null)
-        {
-            return;
-        }
-
-        var appDataDir = appDataDirService.GetAppDataDirectory();
-        var cacheDir = Path.Combine(appDataDir, "osm-tile-cache");
-        OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
     }
 }

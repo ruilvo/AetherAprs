@@ -14,9 +14,12 @@ using AetherAprs.Views.Windows;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using BruTile.Cache;
+using Mapsui.Tiling;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using AetherAprs.Data;
 
@@ -46,7 +49,6 @@ public partial class App : Application
         // Register default implementation of IAppDataDirProviderService for desktop/core platforms
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
-        services.AddSingleton<IPermissionService, NoOpPermissionService>();
 
         // Desktop has no BLE/SPP stack yet — register unsupported placeholders.
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
@@ -99,6 +101,9 @@ public partial class App : Application
         Localization.UiCulture.Apply(ServiceProvider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
 
         ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
+
+        // Initialize OSM tile cache during app startup
+        InitializeOsmTileCache();
 
         // Start database cleanup task
         _ = StartDatabaseCleanupAsync();
@@ -210,6 +215,22 @@ public partial class App : Application
         catch (Exception exception)
         {
             _logger?.LogError(exception, "Failed to start database cleanup");
+        }
+    }
+
+    private void InitializeOsmTileCache()
+    {
+        try
+        {
+            var appDataDirService = ServiceProvider.GetRequiredService<IAppDataDirProviderService>();
+            var appDataDir = appDataDirService.GetAppDataDirectory();
+            var cacheDir = Path.Combine(appDataDir, "osm-tile-cache");
+            OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
+            _logger?.LogInformation("OSM tile cache initialized at {CacheDir}", cacheDir);
+        }
+        catch (Exception exception)
+        {
+            _logger?.LogError(exception, "Failed to initialize OSM tile cache");
         }
     }
 }
