@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
+using AetherAprs.Data.Mappers;
 using Microsoft.EntityFrameworkCore;
 
 namespace AetherAprs.Tests.Helpers;

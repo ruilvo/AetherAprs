@@ -5,6 +5,9 @@ using Android.App;
 using Android.Runtime;
 using Avalonia;
 using Avalonia.Android;
+using AetherAprs.Android.Services.Bluetooth;
+using AetherAprs.Android.Services.Platform;
+using AetherAprs.Android.Services.Transports;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,20 +20,20 @@ namespace AetherAprs.Android
         protected override void RegisterPlatformServices(IServiceCollection services)
         {
             // Register Android-specific implementation of IAppDataDirProviderService
-            services.AddSingleton<AetherAprs.Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+            services.AddSingleton<AetherAprs.Services.Platform.IAppDataDirProviderService, AppDataDirProviderService>();
             
             // Register Android-specific implementation of ILocationService
-            services.AddSingleton<AetherAprs.Services.ILocationService, Services.LocationService>();
-            services.AddSingleton<AetherAprs.Services.IUiCultureProvider, Services.AndroidUiCultureProvider>();
+            services.AddSingleton<AetherAprs.Services.Platform.ILocationService, LocationService>();
+            services.AddSingleton<AetherAprs.Services.UI.IUiCultureProvider, AndroidUiCultureProvider>();
 
             // Register Android foreground service
-            services.AddSingleton<AetherAprs.Services.IForegroundService, Services.AndroidForegroundService>();
+            services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
 
             // Bluetooth Classic SPP + BLE KISS transports and device discovery
-            services.AddSingleton<IKissStreamConnector, Services.BluetoothClassicKissStreamConnector>();
-            services.AddSingleton<IKissStreamConnector, Services.BluetoothLeKissStreamConnector>();
-            services.AddSingleton<IBluetoothLeScanner, Services.AndroidBluetoothLeScanner>();
-            services.AddSingleton<IBluetoothClassicDeviceProvider, Services.AndroidBluetoothClassicDeviceProvider>();
+            services.AddSingleton<IKissStreamConnector, BluetoothClassicKissStreamConnector>();
+            services.AddSingleton<IKissStreamConnector, BluetoothLeKissStreamConnector>();
+            services.AddSingleton<IBluetoothLeScanner, AndroidBluetoothLeScanner>();
+            services.AddSingleton<IBluetoothClassicDeviceProvider, AndroidBluetoothClassicDeviceProvider>();
         }
 
         protected override void OverrideCoreServices(IServiceCollection services)
@@ -59,13 +62,13 @@ namespace AetherAprs.Android
 
             base.OnCreate();
 
-            Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
+            Localization.UiCulture.Apply(new AetherAprs.Android.Services.Platform.AndroidUiCultureProvider().GetUiCulture());
         }
 
         private static void EnsureConfigurationFiles()
         {
             // Use the AppDataDirProviderService to get the directory
-            var appDataDirProvider = new Services.AppDataDirProviderService();
+            var appDataDirProvider = new AetherAprs.Android.Services.Platform.AppDataDirProviderService();
             var appDataDir = appDataDirProvider.GetAppDataDirectory();
 
             // Always extract base configuration file

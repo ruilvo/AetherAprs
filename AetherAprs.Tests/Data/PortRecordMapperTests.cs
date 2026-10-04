@@ -6,6 +6,7 @@ using System;
 using System.Linq;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
+using AetherAprs.Data.Mappers;
 using AetherAprs.Models;
 using AetherAprs.Tests.Helpers;
 using Microsoft.EntityFrameworkCore;

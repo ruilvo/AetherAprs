@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Localization;
-using AetherAprs.Services;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using CommunityToolkit.Mvvm.ComponentModel;

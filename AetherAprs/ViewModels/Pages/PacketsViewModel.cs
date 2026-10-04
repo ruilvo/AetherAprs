@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
-using AetherAprs.Factories;
+using AetherAprs.Data.Entities;
+using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Services;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Packets;
+using AetherAprs.Services.UI;
 using AetherAprs.Configuration;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;

@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Factories;
-using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
+using AetherAprs.Services.Packets;
+using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
+using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
@@ -39,7 +42,7 @@ public partial class App : Application
     protected virtual void RegisterPlatformServices(IServiceCollection services)
     {
         // Register default implementation of IAppDataDirProviderService for desktop/core platforms
-        services.AddSingleton<Services.IAppDataDirProviderService, Services.AppDataDirProviderService>();
+        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
 
         // Desktop has no BLE/SPP stack yet — register unsupported placeholders.

@@ -5,7 +5,7 @@
 using System;
 using System.IO;
 using System.Linq;
-using AetherAprs.Services;
+using AetherAprs.Services.Platform;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.Factories;

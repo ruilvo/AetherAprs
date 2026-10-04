@@ -10,7 +10,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:config="using:AetherAprs.Configuration"
-             xmlns:converters="using:AetherAprs.Converters"
+             xmlns:converters="using:AetherAprs.Converters.UI"
+             xmlns:aprsConverters="using:AetherAprs.Converters.Aprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
@@ -23,7 +24,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
   <UserControl.Resources>
     <converters:PacketDisplayTimeRangeConverter x:Key="TimeRangeConverter" />
-    <converters:AprsSsidConverter x:Key="SsidConverter" />
+    <aprsConverters:AprsSsidConverter x:Key="SsidConverter" />
   </UserControl.Resources>
   <UserControl.Styles>
     <Style Selector="TextBox">

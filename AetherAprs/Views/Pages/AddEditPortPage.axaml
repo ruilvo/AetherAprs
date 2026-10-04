@@ -10,7 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:local="using:AetherAprs"
              xmlns:loc="using:AetherAprs.Localization"
-             xmlns:converters="using:AetherAprs.Converters"
+             xmlns:converters="using:AetherAprs.Converters.UI"
              xmlns:bt="using:AetherAprs.Services.Bluetooth"
               xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
               xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"

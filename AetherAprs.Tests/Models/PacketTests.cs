@@ -4,6 +4,7 @@
 
 using System;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
 using Geo;
 using Xunit;

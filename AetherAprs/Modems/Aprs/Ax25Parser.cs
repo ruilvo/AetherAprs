@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Aprs.Packets;
 using System;
 using System.Text;
 

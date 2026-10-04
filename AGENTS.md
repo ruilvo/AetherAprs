@@ -91,6 +91,20 @@ Package versions are centralized in `Directory.Packages.props`. When adding a ne
 
 Do NOT specify versions in individual project files.
 
+## Codebase Structure
+
+**See [CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md) for comprehensive folder organization and file placement guidelines.**
+
+Key structural patterns:
+- Services organized by domain: `Services/{Beaconing|Messaging|Packets|Ports|Platform|UI}/`
+- Data layer separated: `Data/{Entities|Mappers|Converters|Migrations}/`
+- APRS packets grouped: `Models/Aprs/Packets/`
+- Factories categorized: `Factories/ViewModels/`
+- Converters categorized: `Converters/{Aprs|UI}/`
+- Namespace MUST match folder structure exactly
+
+When adding new files, consult CODEBASE_STRUCTURE.md for proper placement and namespace conventions.
+
 ## Test Project
 
 Tests use **xUnit v3** (`xunit.v3` package, **not** `xunit` v2). Important differences from v2:
@@ -664,6 +678,8 @@ public void Dispose()
 - Creating child ViewModels directly instead of injecting them via constructor
 - Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
 - **Adding hardcoded user-facing text in AXAML or code without using localization** - ALL user-facing strings MUST use `{loc:Loc StringKey}` in AXAML or `Strings.Get("StringKey")` in code
+- **Placing files in wrong folders** - consult CODEBASE_STRUCTURE.md for proper organization
+- **Using wrong namespace** - namespace MUST match folder structure exactly (e.g., `Data/Entities/` → `AetherAprs.Data.Entities`)
 
 ## Database Best Practices
 

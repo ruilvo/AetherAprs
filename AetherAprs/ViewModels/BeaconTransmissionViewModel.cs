@@ -5,7 +5,10 @@
 using AetherAprs.Localization;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Services;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Services.Beaconing;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Ports;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;

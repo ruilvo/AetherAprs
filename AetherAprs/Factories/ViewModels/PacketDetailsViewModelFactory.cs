@@ -1,0 +1,29 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using System;
+using AetherAprs.ViewModels.Pages;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace AetherAprs.Factories.ViewModels;
+
+/// <summary>
+/// Factory implementation for creating and initializing PacketDetailsViewModel instances.
+/// </summary>
+public class PacketDetailsViewModelFactory : IPacketDetailsViewModelFactory
+{
+    private readonly IServiceProvider _serviceProvider;
+
+    public PacketDetailsViewModelFactory(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+    }
+
+    public PacketDetailsViewModel Create(string source)
+    {
+        var viewModel = _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
+        viewModel.Initialize(source);
+        return viewModel;
+    }
+}

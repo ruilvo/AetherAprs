@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
-             xmlns:data="using:AetherAprs.Data"
+             xmlns:data="using:AetherAprs.Data.Entities"
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"

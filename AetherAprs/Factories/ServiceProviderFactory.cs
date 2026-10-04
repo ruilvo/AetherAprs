@@ -3,8 +3,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
-using AetherAprs.Services;
+using AetherAprs.Services.Beaconing;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Packets;
+using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
+using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;

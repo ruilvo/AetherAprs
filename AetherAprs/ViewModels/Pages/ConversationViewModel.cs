@@ -5,7 +5,7 @@
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
-using AetherAprs.Services;
+using AetherAprs.Services.Messaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;

@@ -5,8 +5,9 @@
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Localization;
-using AetherAprs.Services;
 using AetherAprs.Services.Bluetooth;
+using AetherAprs.Services.Ports;
+using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;

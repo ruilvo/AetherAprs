@@ -67,6 +67,22 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## Codebase Structure
+
+**Consult [CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md) for comprehensive file organization.**
+
+Key rules:
+- **Namespace MUST match folder structure** - `Data/Entities/` → `AetherAprs.Data.Entities`
+- Services organized by domain: `Services/{Beaconing|Messaging|Packets|Ports|Platform|UI}/`
+- APRS packets: `Models/Aprs/Packets/`
+- Data layer: `Data/{Entities|Mappers|Converters|Migrations}/`
+- Factories: `Factories/ViewModels/`
+- Converters: `Converters/{Aprs|UI}/`
+
+When creating new files, check CODEBASE_STRUCTURE.md for proper placement.
+
+---
+
 ## AetherAprs-Specific Verification
 
 ### After Every Code Change

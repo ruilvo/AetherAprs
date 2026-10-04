@@ -4,9 +4,13 @@
 
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Services;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Packets;
+using AetherAprs.Services.Ports;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
+using AetherAprs.Data.Entities;
 using Avalonia;
 using Avalonia.Threading;
 using Mapsui;

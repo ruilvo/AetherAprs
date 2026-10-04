@@ -10,7 +10,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels"
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
-             xmlns:converters="using:AetherAprs.Converters"
+             xmlns:converters="using:AetherAprs.Converters.UI"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="150"
              x:Class="AetherAprs.Views.Components.LocationTrackingComponent"

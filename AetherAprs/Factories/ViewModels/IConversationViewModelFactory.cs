@@ -1,0 +1,27 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Models.Aprs;
+using AetherAprs.ViewModels.Pages;
+
+namespace AetherAprs.Factories.ViewModels;
+
+/// <summary>
+/// Factory for creating and initializing ConversationViewModel instances.
+/// </summary>
+public interface IConversationViewModelFactory
+{
+    /// <summary>
+    /// Creates a ConversationViewModel initialized with the specified callsign.
+    /// </summary>
+    /// <param name="callsign">The callsign to start a conversation with.</param>
+    /// <returns>An initialized ConversationViewModel.</returns>
+    ConversationViewModel Create(Callsign callsign);
+
+    /// <summary>
+    /// Creates a new ConversationViewModel for starting a new conversation.
+    /// </summary>
+    /// <returns>A ConversationViewModel initialized for a new conversation.</returns>
+    ConversationViewModel CreateNew();
+}

@@ -1,7 +1,8 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using AetherAprs.Services;
+using AetherAprs.Services.Platform;
+using AetherAprs.Services.UI;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -43,7 +44,7 @@ public class MainActivity : AvaloniaMainActivity
     {
         base.OnCreate(savedInstanceState);
 
-        Localization.UiCulture.Apply(new Services.AndroidUiCultureProvider().GetUiCulture());
+        Localization.UiCulture.Apply(new AetherAprs.Android.Services.Platform.AndroidUiCultureProvider().GetUiCulture());
 
         // Store instance for permission requests
         Instance = this;
@@ -175,7 +176,7 @@ public class MainActivity : AvaloniaMainActivity
                 var app = (App?)Avalonia.Application.Current;
                 if (app != null)
                 {
-                    var portService = app.ServiceProvider.GetService<IPortService>();
+                    var portService = app.ServiceProvider.GetService<AetherAprs.Services.Ports.IPortService>();
                     var logger = app.ServiceProvider.GetService<Microsoft.Extensions.Logging.ILogger<MainActivity>>();
                     
                     if (portService != null)

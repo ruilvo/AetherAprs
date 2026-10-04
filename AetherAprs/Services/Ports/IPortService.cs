@@ -1,0 +1,38 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Configuration;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Services.Contracts;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace AetherAprs.Services.Ports;
+
+public interface IPortService : IAsyncDisposable
+{
+    IReadOnlyList<PortConfig> Ports { get; }
+
+    event EventHandler? PortsChanged;
+
+    event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
+
+    Task AddPortAsync(PortConfig port);
+
+    Task UpdatePortAsync(PortConfig port);
+
+    Task RemovePortAsync(Guid id);
+
+    Task SetPortEnabledAsync(Guid id, bool enabled);
+
+    Task SetPortShowOnMapAsync(Guid id, bool showOnMap);
+
+    Task SendPacketAsync(Guid id, AprsPacket packet);
+
+    Task StartAllEnabledPortsAsync();
+
+    Task StopAllPortsAsync();
+}
