@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 namespace AetherAprs.Android;
 
 [Activity(
-    Label = "AetherAprs.Android",
+    Label = "AetherAprs",
     Theme = "@style/AetherAprsTheme.NoActionBar",
     Icon = "@drawable/icon_400px",
     MainLauncher = true,
@@ -30,6 +30,9 @@ public class MainActivity : AvaloniaMainActivity
     private BackInvokedCallback? backInvokedCallback;
     private StopPortsBroadcastReceiver? stopPortsReceiver;
 
+    private const int NotificationPermissionRequestCode = 1000;
+    private TaskCompletionSource<bool>? _notificationPermissionTcs;
+
     /// <summary>
     /// Gets the current MainActivity instance for permission requests.
     /// </summary>
@@ -40,6 +43,28 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public static event Action<int, string[], Permission[]>? OnPermissionResult;
 
+    /// <summary>
+    /// Requests notification permission and waits for user response.
+    /// </summary>
+    public async Task<bool> RequestNotificationPermissionAsync()
+    {
+        // Check if already granted
+        if (Build.VERSION.SdkInt < BuildVersionCodes.Tiramisu)
+        {
+            return true; // Not required on older versions
+        }
+
+        if (CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications) == Permission.Granted)
+        {
+            return true;
+        }
+
+        // Request permission and wait for result
+        _notificationPermissionTcs = new TaskCompletionSource<bool>();
+        RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, NotificationPermissionRequestCode);
+        return await _notificationPermissionTcs.Task;
+    }
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
@@ -48,15 +73,6 @@ public class MainActivity : AvaloniaMainActivity
 
         // Store instance for permission requests
         Instance = this;
-
-        // Request notification permission on Android 13+ if not already granted
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
-        {
-            if (CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications) != Permission.Granted)
-            {
-                RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, 1000);
-            }
-        }
 
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
@@ -153,6 +169,14 @@ public class MainActivity : AvaloniaMainActivity
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        // Handle notification permission result
+        if (requestCode == NotificationPermissionRequestCode && _notificationPermissionTcs != null)
+        {
+            var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
+            _notificationPermissionTcs.TrySetResult(granted);
+            _notificationPermissionTcs = null;
+        }
 
         // Notify any listeners about permission results
         OnPermissionResult?.Invoke(requestCode, permissions, grantResults);

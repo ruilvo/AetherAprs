@@ -22,9 +22,10 @@ namespace AetherAprs.Android
             // Register Android-specific implementation of IAppDataDirProviderService
             services.AddSingleton<AetherAprs.Services.Platform.IAppDataDirProviderService, AppDataDirProviderService>();
             
-            // Register Android-specific implementation of ILocationService
-            services.AddSingleton<AetherAprs.Services.Platform.ILocationService, LocationService>();
             services.AddSingleton<AetherAprs.Services.UI.IUiCultureProvider, AndroidUiCultureProvider>();
+
+            // Register Android permission service
+            services.AddSingleton<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
 
             // Register Android foreground service
             services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
@@ -38,8 +39,10 @@ namespace AetherAprs.Android
 
         protected override void OverrideCoreServices(IServiceCollection services)
         {
-            // Add any core service overrides here if needed. For now, we don't
-            // have any specific overrides for Android.
+            // Override core services with Android-specific implementations
+            
+            // Replace NoOpLocationService with Android implementation
+            services.AddSingleton<AetherAprs.Services.Platform.ILocationService, LocationService>();
         }
     }
 
@@ -67,31 +70,56 @@ namespace AetherAprs.Android
 
         private static void EnsureConfigurationFiles()
         {
-            // Use the AppDataDirProviderService to get the directory
-            var appDataDirProvider = new AetherAprs.Android.Services.Platform.AppDataDirProviderService();
-            var appDataDir = appDataDirProvider.GetAppDataDirectory();
+            try
+            {
+                // Use the AppDataDirProviderService to get the directory
+                var appDataDirProvider = new AetherAprs.Android.Services.Platform.AppDataDirProviderService();
+                var appDataDir = appDataDirProvider.GetAppDataDirectory();
 
-            // Always extract base configuration file
-            ExtractConfigFile(appDataDir, _appSettingsFileName);
+                // Ensure directory exists
+                if (!Directory.Exists(appDataDir))
+                {
+                    Directory.CreateDirectory(appDataDir);
+                }
+
+                // Extract base configuration file if it doesn't exist
+                ExtractConfigFile(appDataDir, _appSettingsFileName);
 
 #if DEBUG
-            // Only extract Development configuration in DEBUG builds
-            ExtractConfigFile(appDataDir, _appSettingsDevelopmentFileName);
+                // Extract Development configuration in DEBUG builds if it doesn't exist
+                ExtractConfigFile(appDataDir, _appSettingsDevelopmentFileName);
 #endif
+            }
+            catch (System.Exception ex)
+            {
+                // Log critical failure - without config files, app cannot start
+                System.Diagnostics.Debug.WriteLine($"CRITICAL: Failed to ensure configuration files: {ex}");
+                throw;
+            }
         }
 
         private static void ExtractConfigFile(string targetDirectory, string fileName)
         {
             var targetPath = Path.Combine(targetDirectory, fileName);
 
-            // Only extract if the file doesn't already exist
+            // Only extract if the file doesn't already exist (preserve user settings)
             if (!File.Exists(targetPath))
             {
-                using var stream = Context?.Assets?.Open(fileName);
-                if (stream != null)
+                try
                 {
+                    using var stream = Context?.Assets?.Open(fileName);
+                    if (stream == null)
+                    {
+                        throw new System.InvalidOperationException($"Asset {fileName} not found in APK");
+                    }
+
                     using var fileStream = File.Create(targetPath);
                     stream.CopyTo(fileStream);
+                    fileStream.Flush();
+                }
+                catch (System.Exception ex)
+                {
+                    throw new System.InvalidOperationException($"Failed to extract {fileName} to {targetPath}", ex);
                 }
             }
         }

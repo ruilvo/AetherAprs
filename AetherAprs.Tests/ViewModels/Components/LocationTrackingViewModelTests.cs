@@ -48,12 +48,12 @@ public class LocationTrackingViewModelTests
     }
 
     [Fact]
-    public async Task StartTrackingAsync_DoesNotStartWhenPermissionDenied()
+    public async Task RequestPermissionAndStartTrackingAsync_DoesNotStartWhenPermissionDenied()
     {
         var locationService = new TestLocationService { PermissionGranted = false };
         var viewModel = new LocationTrackingViewModel(locationService, NullLogger<LocationTrackingViewModel>.Instance);
 
-        await viewModel.StartTrackingAsync();
+        await viewModel.RequestPermissionAndStartTrackingAsync();
 
         Assert.False(viewModel.IsTracking);
         

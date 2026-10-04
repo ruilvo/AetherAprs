@@ -15,6 +15,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Data;
@@ -26,6 +27,7 @@ public partial class App : Application
     // Ignore the warning about the property being non-nullable, as it will
     // be initialized in OnFrameworkInitializationCompleted.
     public IServiceProvider ServiceProvider { get; private set; } = null!;
+    private ILogger<App>? _logger;
 
     /// <summary>
     /// This method is intended to be overridden in platform-specific
@@ -44,6 +46,7 @@ public partial class App : Application
         // Register default implementation of IAppDataDirProviderService for desktop/core platforms
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
         services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
+        services.AddSingleton<IPermissionService, NoOpPermissionService>();
 
         // Desktop has no BLE/SPP stack yet — register unsupported placeholders.
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
@@ -69,11 +72,10 @@ public partial class App : Application
         {
             this.AttachDeveloperTools();
         }
-        catch (Exception ex)
+        catch
         {
             // Developer tools may fail to connect on some platforms (e.g., Android).
-            // This is not critical, so we just log and continue.
-            Console.WriteLine($"Failed to attach developer tools: {ex.Message}");
+            // This is not critical, so we just continue.
         }
 #endif
     }
@@ -90,6 +92,9 @@ public partial class App : Application
     {
         // Configure dependency injection
         ServiceProvider = ServiceProviderFactory.CreateServiceProvider(RegisterPlatformServices, OverrideCoreServices);
+
+        // Get logger after service provider is initialized
+        _logger = ServiceProvider.GetRequiredService<ILogger<App>>();
 
         Localization.UiCulture.Apply(ServiceProvider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
 
@@ -115,8 +120,53 @@ public partial class App : Application
         }
 
         _ = StartEnabledPortsAsync();
+        _ = RequestPermissionsAndStartTrackingAsync();
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task RequestPermissionsAndStartTrackingAsync()
+    {
+        try
+        {
+            // Request notification permission first (if required by platform)
+            var permissionService = ServiceProvider.GetRequiredService<IPermissionService>();
+            var notificationGranted = await permissionService.RequestNotificationPermissionAsync();
+            _logger?.LogInformation("Notification permission: {Granted}", notificationGranted);
+
+            // Small delay to avoid overlapping with location permission dialog
+            await Task.Delay(500);
+
+            // Now request location permission and start tracking
+            var locationService = ServiceProvider.GetRequiredService<ILocationService>();
+            
+            // Check if location is available
+            if (!locationService.IsLocationAvailable())
+            {
+                _logger?.LogWarning("Location services are not available on this device");
+                return;
+            }
+
+            // Request location permission
+            var locationGranted = await locationService.RequestLocationPermissionAsync();
+            _logger?.LogInformation("Location permission: {Granted}", locationGranted);
+            
+            if (!locationGranted)
+            {
+                _logger?.LogWarning("Location permission was denied by user");
+                return;
+            }
+
+            // Start location tracking through HomeViewModel
+            var homeViewModel = ServiceProvider.GetRequiredService<HomeViewModel>();
+            await homeViewModel.StartLocationTrackingAsync();
+            
+            _logger?.LogInformation("Location tracking started successfully");
+        }
+        catch (Exception exception)
+        {
+            _logger?.LogError(exception, "Failed to request permissions and start location tracking");
+        }
     }
 
     private async Task StartEnabledPortsAsync()
@@ -127,7 +177,7 @@ public partial class App : Application
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine($"Failed to start enabled ports: {exception}");
+            _logger?.LogError(exception, "Failed to start enabled ports");
         }
     }
 
@@ -152,14 +202,14 @@ public partial class App : Application
                     }
                     catch (Exception ex)
                     {
-                        Console.Error.WriteLine($"Database cleanup failed: {ex}");
+                        _logger?.LogError(ex, "Database cleanup failed");
                     }
                 }
             });
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine($"Failed to start database cleanup: {exception}");
+            _logger?.LogError(exception, "Failed to start database cleanup");
         }
     }
 }

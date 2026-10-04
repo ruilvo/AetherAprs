@@ -24,7 +24,7 @@ namespace AetherAprs.Android.Services.Platform;
 /// </summary>
 public class LocationService : ILocationService
 {
-    private const int LocationPermissionRequestCode = 1000;
+    private const int LocationPermissionRequestCode = 1001;
     private static readonly string[] RequiredPermissions =
     [
         Manifest.Permission.AccessFineLocation,

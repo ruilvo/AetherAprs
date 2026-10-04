@@ -47,8 +47,40 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
 
     /// <summary>
     /// Starts periodic location tracking.
+    /// Assumes location permission has already been granted.
     /// </summary>
     public async Task StartTrackingAsync()
+    {
+        if (IsTracking)
+        {
+            _logger.LogWarning("Location tracking already started");
+            return;
+        }
+
+        // Check if location services are available
+        if (!_locationService.IsLocationAvailable())
+        {
+            _logger.LogWarning("Location services are not available");
+            return;
+        }
+
+        // Cancel any existing tracking
+        _locationUpdateCancellation?.Cancel();
+        _locationUpdateCancellation = new CancellationTokenSource();
+
+        IsTracking = true;
+
+        // Start periodic location updates
+        _ = RunLocationUpdateLoopAsync(_locationUpdateCancellation.Token);
+        
+        _logger.LogInformation("Location tracking started");
+    }
+
+    /// <summary>
+    /// Requests location permission and starts tracking if granted.
+    /// Use this method when permission status is unknown.
+    /// </summary>
+    public async Task RequestPermissionAndStartTrackingAsync()
     {
         if (IsTracking)
         {
@@ -64,14 +96,7 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        // Cancel any existing tracking
-        _locationUpdateCancellation?.Cancel();
-        _locationUpdateCancellation = new CancellationTokenSource();
-
-        IsTracking = true;
-
-        // Start periodic location updates
-        _ = RunLocationUpdateLoopAsync(_locationUpdateCancellation.Token);
+        await StartTrackingAsync();
     }
 
     /// <summary>

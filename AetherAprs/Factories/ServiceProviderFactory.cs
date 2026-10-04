@@ -17,6 +17,7 @@ using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -43,10 +44,33 @@ public static class ServiceProviderFactory
         // Register platform-specific services first
         registerPlatformServices(services);
 
-        services.AddDbContextFactory<AppDbContext>((sp, options) =>
+        // Get the app data directory from the platform service that was just registered
+        // This is needed for both database path and configuration loading
+        var tempProvider = services.BuildServiceProvider();
+        var appDataDirectory = tempProvider.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
+        tempProvider.Dispose();
+
+        // Build configuration from files in app data directory
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(appDataDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+#if DEBUG
+            .AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: false)
+#endif
+            .Build();
+
+        // Register logging with configuration from appsettings
+        services.AddLogging(builder =>
         {
-            var directory = sp.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
-            var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
+            builder.AddConfiguration(configuration.GetSection("Logging"));
+            builder.AddDebug();
+            builder.AddConsole();
+        });
+
+        // Register database with app data directory
+        services.AddDbContextFactory<AppDbContext>(options =>
+        {
+            var path = Path.Combine(appDataDirectory, AppDbContext.DatabaseFileName);
             options.UseSqlite($"Data Source={path}");
         });
         services.AddSingleton<AppSavedDataInitializer>();
@@ -84,38 +108,15 @@ public static class ServiceProviderFactory
         // Register foreground service (platform-specific implementation registered in platform code)
         // Default to no-op for desktop platforms
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
+        
+        // Register location service stub for desktop (Android will override with real implementation)
+        // Desktop location service is not yet implemented
+        services.AddSingleton<ILocationService, NoOpLocationService>();
 
         // Register factories
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
-
-        // Register logging with deferred configuration resolution
-        services.AddLogging(builder =>
-        {
-            builder.AddDebug();
-            builder.AddConsole();
-        });
-
-        // Configure logging options - this callback receives the service provider automatically
-        services.AddOptions<LoggerFilterOptions>()
-            .Configure<IConfigurationService>((options, configService) =>
-            {
-                var appLoggingOptions = configService.Settings.Logging;
-                // Deep copy the settings from the configuration service's
-                // settings to the LoggerFilterOptions.
-                options.CaptureScopes = appLoggingOptions.CaptureScopes;
-                options.MinLevel = appLoggingOptions.MinLevel;
-                options.Rules.Clear();
-                foreach (var rule in appLoggingOptions.Rules)
-                {
-                    options.Rules.Add(new LoggerFilterRule(
-                        rule.ProviderName,
-                        rule.CategoryName,
-                        rule.LogLevel,
-                        rule.Filter));
-                }
-            });
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>(); // Application-wide navigation state
