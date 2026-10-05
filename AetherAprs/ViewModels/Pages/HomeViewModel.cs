@@ -91,7 +91,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             // Evaluate beacon transmission if enabled
             if (IsDynamicBeaconingEnabled)
             {
-                await BeaconTransmission.EvaluateAndTransmitBeaconAsync(currentLocation, _previousLocation);
+                BeaconTransmission.ProcessLocationUpdate(currentLocation);
             }
 
             _previousLocation = currentLocation;

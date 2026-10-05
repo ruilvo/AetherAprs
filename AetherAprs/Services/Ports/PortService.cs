@@ -4,16 +4,15 @@
 
 using AetherAprs.Configuration;
 using AetherAprs.Data;
-using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
+using AetherAprs.Modems.Kiss;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
-using AetherAprs.Modems.Kiss;
 using AetherAprs.Transports.Kiss;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -530,13 +529,13 @@ public class PortService : IPortService, IAsyncDisposable
         _logger.LogInformation("Disposing PortService and stopping all active ports.");
         _disposalCts.Cancel();
         await StopAllPortsAsync();
-        
+
         // Stop foreground service on disposal
         if (_foregroundService.IsRunning)
         {
             await _foregroundService.StopAsync();
         }
-        
+
         _disposalCts.Dispose();
     }
 

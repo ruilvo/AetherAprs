@@ -30,7 +30,7 @@ public sealed class ConversationThread : INotifyPropertyChanged
 
     public string PeerDisplay => Peer.ToString();
 
-    public ObservableCollection<StoredMessage> Messages { get; } = new();
+    public ObservableCollection<StoredMessage> Messages { get; } = [];
 
     public string Preview => Messages.LastOrDefault()?.Text ?? string.Empty;
 

@@ -13,16 +13,10 @@ namespace AetherAprs.Services.UI;
 /// <summary>
 /// Service that tracks on-screen keyboard visibility and provides padding adjustments.
 /// </summary>
-public class KeyboardInsetsService : IKeyboardInsetsService
+public class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null) : IKeyboardInsetsService
 {
-    private readonly ILogger<KeyboardInsetsService>? _logger;
     private Thickness _currentInsets = new(0);
     private IInputPane? _inputPane;
-
-    public KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null)
-    {
-        _logger = logger;
-    }
 
     public Thickness CurrentInsets
     {
@@ -41,24 +35,21 @@ public class KeyboardInsetsService : IKeyboardInsetsService
 
     public void Initialize(TopLevel topLevel)
     {
-        if (topLevel == null)
-        {
-            throw new ArgumentNullException(nameof(topLevel));
-        }
+        ArgumentNullException.ThrowIfNull(topLevel);
 
         // Get the InputPane (software keyboard) for this TopLevel
         _inputPane = topLevel.InputPane;
 
         if (_inputPane == null)
         {
-            _logger?.LogInformation("InputPane not supported on this platform");
+            logger?.LogInformation("InputPane not supported on this platform");
             return;
         }
 
         // Subscribe to keyboard state changes
         _inputPane.StateChanged += OnInputPaneStateChanged;
         
-        _logger?.LogInformation("Keyboard insets service initialized");
+        logger?.LogInformation("Keyboard insets service initialized");
     }
 
     private void OnInputPaneStateChanged(object? sender, InputPaneStateEventArgs e)
@@ -71,14 +62,14 @@ public class KeyboardInsetsService : IKeyboardInsetsService
             
             CurrentInsets = new Thickness(0, 0, 0, keyboardHeight);
             
-            _logger?.LogDebug(
+            logger?.LogDebug(
                 "Keyboard state changed: {State}, Height: {Height}",
                 e.NewState,
                 keyboardHeight);
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error handling keyboard state change");
+            logger?.LogError(ex, "Error handling keyboard state change");
         }
     }
 }

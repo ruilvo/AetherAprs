@@ -33,11 +33,11 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
         return ssid.HasValue ? $"{baseCallsign}-{ssid.Value}" : baseCallsign;
     }
 
-    public string GetSymbolTableCharacter() =>
-        _configurationService.Settings.Aprs.SymbolTable.ToChar().ToString();
+    public SymbolTable GetSymbolTable() =>
+        _configurationService.Settings.Aprs.SymbolTable;
 
-    public string GetSymbolCodeCharacter() =>
-        _configurationService.Settings.Aprs.SymbolCode.ToChar().ToString();
+    public SymbolCode GetSymbolCode() =>
+        _configurationService.Settings.Aprs.SymbolCode;
 }
 
 /// <summary>
@@ -57,12 +57,12 @@ public interface IAprsPortSettingsResolver
     string GetCallsign(string baseCallsign);
 
     /// <summary>
-    /// Gets the configured APRS symbol table character.
+    /// Gets the configured APRS symbol table.
     /// </summary>
-    string GetSymbolTableCharacter();
+    SymbolTable GetSymbolTable();
 
     /// <summary>
-    /// Gets the configured APRS symbol code character.
+    /// Gets the configured APRS symbol code.
     /// </summary>
-    string GetSymbolCodeCharacter();
+    SymbolCode GetSymbolCode();
 }

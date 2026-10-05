@@ -4,7 +4,6 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
-using Geo;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -32,7 +31,7 @@ public static class AprsInfoFieldParser
     /// <returns>A typed APRS packet.</returns>
     public static AprsPacket ParseInfoField(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign>? path = null)
     {
-        path ??= Array.Empty<Callsign>();
+        path ??= [];
 
         if (string.IsNullOrEmpty(info))
         {
@@ -56,8 +55,8 @@ public static class AprsInfoFieldParser
             '>' => ParseStatus(info, source, destination, path),
             '_' => ParseWeather(info, source, destination, path),
             '<' => ParseCapabilities(info, source, destination, path),
-            'T' => info.Length > 1 && info[1] == '#' 
-                ? ParseTelemetry(info, source, destination, path) 
+            'T' => info.Length > 1 && info[1] == '#'
+                ? ParseTelemetry(info, source, destination, path)
                 : new UnknownPacket { Source = source, Destination = destination, Path = path, Raw = info },
             '\'' or '`' => ParseMicE(info, source, destination, path),
             _ => new UnknownPacket
@@ -70,10 +69,15 @@ public static class AprsInfoFieldParser
         };
     }
 
-    // ---------------------------------------------------------------
-    // Position parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS position packet from the info field string.
+    /// </summary>
+    /// <param name="info">The APRS info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <param name="hasTimestamp">Indicates if the packet has a timestamp.</param>
+    /// <returns>The parsed APRS position packet.</returns>
     private static AprsPacket ParsePosition(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path, bool hasTimestamp)
     {
         int pos = 1; // skip type identifier
@@ -228,7 +232,15 @@ public static class AprsInfoFieldParser
         };
     }
 
-
+    /// <summary>
+    /// Tries to parse a compressed APRS position packet from the info field string.
+    /// </summary>
+    /// <param name="info">The APRS info field string.</param>
+    /// <param name="pos">The starting position in the info string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="packet">The parsed APRS position packet, if successful.</param>
+    /// <returns>True if the packet was successfully parsed, false otherwise.</returns>
     private static bool TryParseCompressedPosition(
         string info,
         int pos,
@@ -359,7 +371,12 @@ public static class AprsInfoFieldParser
         return true;
     }
 
-
+    /// <summary>
+    /// Checks if the info string at the given position looks like an uncompressed position (DDMM.mmN/S).
+    /// </summary>
+    /// <param name="info">The APRS info field string.</param>
+    /// <param name="pos">The starting position in the info string.</param>
+    /// <returns>True if the position looks like an uncompressed position, false otherwise.</returns>
     private static bool LooksLikeUncompressedPosition(string info, int pos)
     {
         if (info.Length - pos < 8 || !char.IsDigit(info[pos]) || !char.IsDigit(info[pos + 1]))
@@ -389,9 +406,22 @@ public static class AprsInfoFieldParser
         return false;
     }
 
+    /// <summary>
+    /// Checks if the character is a valid compressed overlay character (0-9, A-Z, a-j).
+    /// </summary>
+    /// <param name="c">The character to check.</param>
+    /// <returns>True if the character is a valid compressed overlay character, false otherwise.</returns>
     private static bool IsCompressedOverlayChar(char c) =>
         c is (>= '0' and <= '9') or (>= 'A' and <= 'Z') or (>= 'a' and <= 'j');
 
+    /// <summary>
+    /// Parses an APRS object position packet from the info field string.
+    /// </summary>
+    /// <param name="info">The APRS info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="destination">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns></returns>
     private static AprsPacket ParseObjectPosition(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
     {
         // Object format: ;objectnam*DDHHMMz<position> (or '_' for a killed object).
@@ -465,6 +495,13 @@ public static class AprsInfoFieldParser
         return true;
     }
 
+    /// <summary>
+    /// Tries to parse a longitude from the given segment.
+    /// </summary>
+    /// <param name="segment">The segment to parse.</param>
+    /// <param name="longitude">The parsed longitude.</param>
+    /// <param name="precision">The precision of the parsed longitude.</param>
+    /// <returns>True if the longitude was parsed successfully, false otherwise.</returns>
     private static bool TryParseLongitude(ReadOnlySpan<char> segment, out double longitude, out int precision)
     {
         longitude = 0;
@@ -522,7 +559,12 @@ public static class AprsInfoFieldParser
         return true;
     }
 
-
+    /// <summary>
+    /// Tries to decode a base91-encoded value from the given character span.
+    /// </summary>
+    /// <param name="chars">The character span to decode.</param>
+    /// <param name="value">The decoded value.</param>
+    /// <returns>True if the value was decoded successfully, false otherwise.</returns>
     private static bool TryDecodeBase91(ReadOnlySpan<char> chars, out int value)
     {
         value = 0;
@@ -540,10 +582,14 @@ public static class AprsInfoFieldParser
         return true;
     }
 
-    // ---------------------------------------------------------------
-    // Message parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS message packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS message packet.</returns>
     private static AprsPacket ParseMessage(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
         // Format: :ADDRESSEE :message text{msgid}
@@ -581,7 +627,7 @@ public static class AprsInfoFieldParser
             {
                 ackNumStr = ackNumStr[1..^1];
             }
-            
+
             if (int.TryParse(ackNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out var ackNum))
             {
                 return new MessageAckPacket
@@ -604,7 +650,7 @@ public static class AprsInfoFieldParser
             {
                 rejNumStr = rejNumStr[1..^1];
             }
-            
+
             if (int.TryParse(rejNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out var rejNum))
             {
                 return new MessageRejPacket
@@ -661,10 +707,14 @@ public static class AprsInfoFieldParser
         };
     }
 
-    // ---------------------------------------------------------------
-    // Status parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS status packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS status packet.</returns>
     private static StatusPacket ParseStatus(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
         string text = info.Length > 1 ? info[1..] : string.Empty;
@@ -679,10 +729,14 @@ public static class AprsInfoFieldParser
         };
     }
 
-    // ---------------------------------------------------------------
-    // Weather parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS weather packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS weather packet.</returns>
     private static WeatherPacket ParseWeather(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
         var w = new WeatherPacket
@@ -727,6 +781,13 @@ public static class AprsInfoFieldParser
         return w;
     }
 
+    /// <summary>
+    /// Applies a weather field value to the given WeatherPacket based on the field identifier.
+    /// </summary>
+    /// <param name="w">The WeatherPacket to apply the field to.</param>
+    /// <param name="fieldId">The identifier of the weather field.</param>
+    /// <param name="value">The value of the weather field.</param>
+    /// <returns>The updated WeatherPacket.</returns>
     private static WeatherPacket ApplyWeatherField(WeatherPacket w, char fieldId, double value)
     {
         return fieldId switch
@@ -743,16 +804,20 @@ public static class AprsInfoFieldParser
         };
     }
 
-    // ---------------------------------------------------------------
-    // MIC-E parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS MIC-E packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS MIC-E packet.</returns>
     private static AprsPacket ParseMicE(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
         // MIC-E format: '`<longitude><speed/course><symbol table><symbol code><altitude?>
         // or '<longitude><speed/course><symbol table><symbol code><altitude?>
         // Latitude is encoded in the destination address
-        
+
         if (info.Length < 9)
         {
             return AsUnknown(info, source, dest);
@@ -875,6 +940,14 @@ public static class AprsInfoFieldParser
         };
     }
 
+    /// <summary>
+    /// Tries to decode the MIC-E latitude from the destination address.
+    /// </summary>
+    /// <param name="destAddress">The destination address.</param>
+    /// <param name="latitude">The decoded latitude.</param>
+    /// <param name="isNorth">Indicates if the latitude is north.</param>
+    /// <param name="offset">The longitude offset.</param>
+    /// <returns>True if the latitude was successfully decoded, otherwise false.</returns>
     private static bool TryDecodeMicELatitude(string destAddress, out double latitude, out bool isNorth, out int offset)
     {
         latitude = 0;
@@ -889,11 +962,11 @@ public static class AprsInfoFieldParser
         // MIC-E latitude encoding in destination address (6 characters)
         // Each character encodes a digit and metadata bits
         var digits = new int[6];
-        
+
         for (int i = 0; i < 6; i++)
         {
             char c = destAddress[i];
-            
+
             if (c >= '0' && c <= '9')
             {
                 digits[i] = c - '0';
@@ -934,7 +1007,7 @@ public static class AprsInfoFieldParser
         }
 
         latitude = degrees + (minutes + hundredths / 100.0) / 60.0;
-        
+
         if (!isNorth)
         {
             latitude = -latitude;
@@ -943,10 +1016,14 @@ public static class AprsInfoFieldParser
         return true;
     }
 
-    // ---------------------------------------------------------------
-    // Capabilities parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS capabilities packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS capabilities packet.</returns>
     private static CapabilitiesPacket ParseCapabilities(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
         string text = info.Length > 1 ? info[1..] : string.Empty;
@@ -961,10 +1038,14 @@ public static class AprsInfoFieldParser
         };
     }
 
-    // ---------------------------------------------------------------
-    // Telemetry parser
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Parses an APRS telemetry packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS telemetry packet.</returns>
     private static AprsPacket ParseTelemetry(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
         // Format: T#nnn,v1,v2,v3,v4,v5,bbbbbbbb
@@ -1015,10 +1096,13 @@ public static class AprsInfoFieldParser
         };
     }
 
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Creates an UnknownPacket with the given info, source, and destination.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="dest">The destination callsign.</param>
+    /// <returns>The created UnknownPacket.</returns>
     private static UnknownPacket AsUnknown(string info, Callsign source, Callsign dest)
     {
         return new UnknownPacket

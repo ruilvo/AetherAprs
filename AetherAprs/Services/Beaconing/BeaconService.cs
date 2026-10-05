@@ -2,15 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Configuration;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
-using AetherAprs.Localization;
 using AetherAprs.Models;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Services.Configuration;
+using Geo.Abstractions.Interfaces;
+using Geo.Geodesy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,45 +15,55 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Beaconing;
 
 /// <summary>
-/// Implementation of dynamic beacon service with smart transmit intervals.
-/// This service is thread-safe for concurrent calls to EvaluateLocationUpdate.
+/// Implementation of dynamic beacon service with timer-based state machine.
+/// Evaluates beacon conditions periodically and on location updates.
 /// </summary>
-public sealed class BeaconService : IBeaconService
+public sealed class BeaconService : IBeaconService, IAsyncDisposable
 {
     private readonly ILogger<BeaconService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
-    private readonly IConfigurationService? _configurationService;
+    private readonly IGeodeticCalculator _geodeticCalculator;
     private readonly Lock _lock = new();
+    private readonly Timer _evaluationTimer;
+    private readonly CancellationTokenSource _disposalCts = new();
+
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
     private BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
     private DateTime _lastTransmitTime = DateTime.UtcNow;
     private double? _lastCourseDegrees;
+    private LocationData? _currentLocation;
+    private LocationData? _previousLocation;
+    private BeaconTransmitDecision? _currentDecision;
+    private bool _disposed;
 
-    // Physical constants
-    private const double EarthRadiusMeters = 6371000.0;
+    public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
+
     private const double MetersPerSecondToKilometersPerHour = 3.6;
-    private const double MetersToFeet = 3.28084;
+    private const int EvaluationIntervalMilliseconds = 1000; // Check every second
 
     public BeaconService(ILogger<BeaconService>? logger = null)
     {
         _logger = logger ?? NullLogger<BeaconService>.Instance;
+        _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
+        _evaluationTimer = new Timer(OnEvaluationTimer, null, EvaluationIntervalMilliseconds, EvaluationIntervalMilliseconds);
     }
 
     public BeaconService(
         IDbContextFactory<AppDbContext> dbContextFactory,
-        IConfigurationService configurationService,
         ILogger<BeaconService> logger)
     {
         _dbContextFactory = dbContextFactory;
-        _configurationService = configurationService;
         _logger = logger ?? NullLogger<BeaconService>.Instance;
+        _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
         LoadFromDatabase();
+        _evaluationTimer = new Timer(OnEvaluationTimer, null, EvaluationIntervalMilliseconds, EvaluationIntervalMilliseconds);
     }
 
     public BeaconConfig CurrentConfiguration
@@ -82,8 +89,29 @@ public sealed class BeaconService : IBeaconService
         {
             lock (_lock)
             {
-                // Return copies to prevent external modification of internal state
                 return [_walkConfig, _driveConfig, _customConfig];
+            }
+        }
+    }
+
+    public double? LastCourseDegrees
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _lastCourseDegrees;
+            }
+        }
+    }
+
+    public BeaconTransmitDecision? CurrentDecision
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _currentDecision;
             }
         }
     }
@@ -122,6 +150,82 @@ public sealed class BeaconService : IBeaconService
             }
 
             PersistUnlocked();
+        }
+    }
+
+    public void ProcessLocationUpdate(LocationData currentLocation)
+    {
+        lock (_lock)
+        {
+            _previousLocation = _currentLocation;
+            _currentLocation = currentLocation;
+        }
+
+        // Force immediate evaluation
+        EvaluateBeaconConditions();
+    }
+
+    private void OnEvaluationTimer(object? state)
+    {
+        if (_disposalCts.Token.IsCancellationRequested)
+            return;
+
+        EvaluateBeaconConditions();
+    }
+
+    private void EvaluateBeaconConditions()
+    {
+        BeaconRequestedEventArgs? eventArgs = null;
+
+        lock (_lock)
+        {
+            if (_currentLocation == null)
+            {
+                // No location available yet
+                _currentDecision = new BeaconTransmitDecision
+                {
+                    ShouldTransmit = false,
+                    Reason = new BeaconTransmitReason.NoLocationAvailable(),
+                    ActiveIntervalSeconds = 0,
+                    SecondsUntilNextBeacon = 0
+                };
+                return;
+            }
+
+            var decision = EvaluateLocationUpdateInternal(_currentLocation, _previousLocation);
+            _currentDecision = decision;
+
+            _logger.LogDebug(
+                "Beacon evaluate: ShouldTransmit={ShouldTransmit}, Reason={Reason}, Interval={Interval}s",
+                decision.ShouldTransmit,
+                decision.Reason.GetLocalizedString(),
+                decision.ActiveIntervalSeconds);
+
+            if (decision.ShouldTransmit)
+            {
+                // Reset timer automatically when beacon is requested
+                _lastTransmitTime = DateTime.UtcNow;
+
+                // Prepare event args to raise outside the lock
+                eventArgs = new BeaconRequestedEventArgs
+                {
+                    Location = _currentLocation,
+                    Decision = decision
+                };
+            }
+        }
+
+        // Raise event outside the lock to prevent deadlocks
+        if (eventArgs is not null)
+        {
+            try
+            {
+                BeaconRequested?.Invoke(this, eventArgs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in BeaconRequested event handler");
+            }
         }
     }
 
@@ -195,20 +299,6 @@ public sealed class BeaconService : IBeaconService
         }
     }
 
-    public BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation)
-    {
-        lock (_lock)
-        {
-            var decision = EvaluateLocationUpdateInternal(currentLocation, previousLocation);
-            _logger.LogDebug(
-                "Beacon evaluate: ShouldTransmit={ShouldTransmit}, Reason={Reason}, Interval={Interval}s",
-                decision.ShouldTransmit,
-                decision.Reason,
-                decision.ActiveIntervalSeconds);
-            return decision;
-        }
-    }
-
     private BeaconTransmitDecision EvaluateLocationUpdateInternal(LocationData currentLocation, LocationData? previousLocation)
     {
         var timeSinceLastTransmit = DateTime.UtcNow - _lastTransmitTime;
@@ -228,15 +318,32 @@ public sealed class BeaconService : IBeaconService
             {
                 ShouldTransmit = isTimeExpired,
                 Reason = isTimeExpired
-                    ? Strings.Get("ReasonInitialOrIntervalExceeded")
-                    : Strings.Get("ReasonAwaitingTimeInterval"),
+                    ? new BeaconTransmitReason.InitialOrIntervalExceeded()
+                    : new BeaconTransmitReason.AwaitingTimeInterval(),
                 ActiveIntervalSeconds = config.SlowIntervalSeconds,
                 SecondsUntilNextBeacon = Math.Max(0, config.SlowIntervalSeconds - (int)timeSinceLastTransmit.TotalSeconds)
             };
         }
 
-        // Calculate distance between locations
-        var distanceMeters = CalculateDistance(previousLocation, currentLocation);
+        // Use Geo package to calculate distance and bearing
+        var line = _geodeticCalculator.CalculateOrthodromicLine(
+            previousLocation.Location,
+            currentLocation.Location);
+
+        if (line == null)
+        {
+            // Points are identical or calculation failed
+            return new BeaconTransmitDecision
+            {
+                ShouldTransmit = false,
+                Reason = new BeaconTransmitReason.AwaitingTimeInterval(),
+                ActiveIntervalSeconds = GetActiveInterval(config, 0),
+                SecondsUntilNextBeacon = (int)Math.Max(1, config.SlowIntervalSeconds - timeSinceLastTransmit.TotalSeconds)
+            };
+        }
+
+        var distanceMeters = line.Distance.SiValue;
+        var courseDegrees = line.Bearing12;
 
         // Ignore if distance is below minimum threshold (GPS jitter)
         if (distanceMeters < config.MinimumDistanceMeters)
@@ -244,7 +351,11 @@ public sealed class BeaconService : IBeaconService
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = false,
-                Reason = Strings.Format("ReasonDistanceBelowMinimum", distanceMeters, config.MinimumDistanceMeters),
+                Reason = new BeaconTransmitReason.DistanceBelowMinimum
+                {
+                    ActualDistanceMeters = distanceMeters,
+                    MinimumDistanceMeters = config.MinimumDistanceMeters
+                },
                 ActiveIntervalSeconds = GetActiveInterval(config, 0),
                 SecondsUntilNextBeacon = (int)Math.Max(1, config.SlowIntervalSeconds - timeSinceLastTransmit.TotalSeconds)
             };
@@ -254,8 +365,6 @@ public sealed class BeaconService : IBeaconService
         var timeDelta = (currentLocation.Timestamp - previousLocation.Timestamp).TotalSeconds;
         var speedKmh = timeDelta > 0 ? (distanceMeters / timeDelta) * MetersPerSecondToKilometersPerHour : 0;
 
-        // Calculate course if possible
-        var courseDegrees = CalculateCourse(previousLocation, currentLocation);
         var courseChangeThreshold = config.CourseChangeThresholdDegrees;
 
         // Check if course changed significantly
@@ -270,7 +379,10 @@ public sealed class BeaconService : IBeaconService
                 return new BeaconTransmitDecision
                 {
                     ShouldTransmit = true,
-                    Reason = Strings.Format("ReasonCourseChanged", courseDelta),
+                    Reason = new BeaconTransmitReason.CourseChanged
+                    {
+                        CourseDeltaDegrees = courseDelta
+                    },
                     CurrentSpeedKmh = speedKmh,
                     CurrentCourseDegrees = courseDegrees,
                     ActiveIntervalSeconds = activeInterval,
@@ -292,7 +404,10 @@ public sealed class BeaconService : IBeaconService
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = true,
-                Reason = Strings.Format("ReasonIntervalExceeded", activeInterval2),
+                Reason = new BeaconTransmitReason.IntervalExceeded
+                {
+                    IntervalSeconds = activeInterval2
+                },
                 CurrentSpeedKmh = speedKmh,
                 CurrentCourseDegrees = courseDegrees,
                 ActiveIntervalSeconds = activeInterval2,
@@ -305,95 +420,15 @@ public sealed class BeaconService : IBeaconService
         return new BeaconTransmitDecision
         {
             ShouldTransmit = false,
-            Reason = Strings.Format("ReasonWaitingForNextInterval", secondsUntilNext),
+            Reason = new BeaconTransmitReason.WaitingForNextInterval
+            {
+                SecondsUntilNext = secondsUntilNext
+            },
             CurrentSpeedKmh = speedKmh,
             CurrentCourseDegrees = courseDegrees,
             ActiveIntervalSeconds = activeInterval2,
             SecondsUntilNextBeacon = secondsUntilNext
         };
-    }
-
-    public void ResetTransmissionTimer()
-    {
-        lock (_lock)
-        {
-            _lastTransmitTime = DateTime.UtcNow;
-        }
-    }
-
-    public PositionPacket CreatePositionPacket(
-        LocationData location,
-        string callsign,
-        string symbolTableCharacter = "/",
-        string symbolCodeCharacter = "[")
-    {
-        BeaconConfig config;
-        double? lastCourse;
-
-        lock (_lock)
-        {
-            config = _activeMode switch
-            {
-                DynamicBeaconMode.Walk => _walkConfig,
-                DynamicBeaconMode.Drive => _driveConfig,
-                DynamicBeaconMode.Custom => _customConfig,
-                _ => _walkConfig
-            };
-            lastCourse = _lastCourseDegrees;
-        }
-
-        var callsignParts = callsign.Split('-');
-        var callsignBase = callsignParts[0];
-        var ssid = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssidValue) ? ssidValue : (int?)null;
-
-        // Use beacon-specific comment if set, otherwise fall back to default comment from settings
-        var comment = config.BeaconComment;
-        if (string.IsNullOrWhiteSpace(comment) && _configurationService != null)
-        {
-            comment = _configurationService.Settings.Aprs.BeaconComment;
-        }
-
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        if (_configurationService != null)
-        {
-            var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-            if (!string.IsNullOrWhiteSpace(pathString))
-            {
-                path = PathHelper.ParsePath(pathString).ToArray();
-            }
-        }
-
-        var packet = new PositionPacket
-        {
-            Source = new Callsign(callsignBase, ssid),
-            Destination = new Callsign("APRS"),
-            Path = path,
-            Location = location.Location,
-            Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
-            Course = lastCourse,
-            Symbol = CreateSymbol(symbolTableCharacter, symbolCodeCharacter),
-            Comment = comment,
-            Precision = 2
-        };
-        _logger.LogDebug(
-            "Created position packet for {Callsign}: Lat={Latitude:F5}, Lon={Longitude:F5}",
-            callsign,
-            packet.Location.Latitude,
-            packet.Location.Longitude);
-        return packet;
-    }
-
-    private static Symbol CreateSymbol(string tableCharacter, string codeCharacter)
-    {
-        if (tableCharacter.Length != 1 || codeCharacter.Length != 1)
-        {
-            throw new ArgumentException("APRS symbol table and code must each contain exactly one character.");
-        }
-
-        return new Symbol(
-            tableCharacter[0].ToSymbolTable(),
-            codeCharacter[0].ToSymbolCode());
     }
 
     private static int GetActiveInterval(BeaconConfig config, double speedKmh)
@@ -407,53 +442,24 @@ public sealed class BeaconService : IBeaconService
         return config.FastIntervalSeconds;
     }
 
-    /// <summary>
-    /// Calculates the great-circle distance between two locations in meters using Haversine formula.
-    /// </summary>
-    private static double CalculateDistance(LocationData from, LocationData to)
+    private static double NormalizeAngleDifference(double angleDegrees)
     {
-        var lat1 = ToRadians(from.Location.Latitude);
-        var lat2 = ToRadians(to.Location.Latitude);
-        var deltaLat = ToRadians(to.Location.Latitude - from.Location.Latitude);
-        var deltaLon = ToRadians(to.Location.Longitude - from.Location.Longitude);
-
-        var a = Math.Sin(deltaLat / 2) * Math.Sin(deltaLat / 2) +
-                Math.Cos(lat1) * Math.Cos(lat2) *
-                Math.Sin(deltaLon / 2) * Math.Sin(deltaLon / 2);
-
-        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-        return EarthRadiusMeters * c;
+        while (angleDegrees > 180)
+            angleDegrees -= 360;
+        while (angleDegrees < -180)
+            angleDegrees += 360;
+        return angleDegrees;
     }
 
-    /// <summary>
-    /// Calculates the initial bearing (course) from one location to another in degrees (0-360).
-    /// </summary>
-    private static double CalculateCourse(LocationData from, LocationData to)
+    public async ValueTask DisposeAsync()
     {
-        var lat1 = ToRadians(from.Location.Latitude);
-        var lat2 = ToRadians(to.Location.Latitude);
-        var deltaLon = ToRadians(to.Location.Longitude - from.Location.Longitude);
+        if (_disposed)
+            return;
 
-        var y = Math.Sin(deltaLon) * Math.Cos(lat2);
-        var x = Math.Cos(lat1) * Math.Sin(lat2) -
-                Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(deltaLon);
+        _disposed = true;
+        _disposalCts.Cancel();
 
-        var bearing = Math.Atan2(y, x);
-        var course = (ToGradians(bearing) + 360) % 360;
-        return course;
+        await _evaluationTimer.DisposeAsync();
+        _disposalCts.Dispose();
     }
-
-    /// <summary>
-    /// Normalizes an angle difference to the range [0, 180).
-    /// </summary>
-    private static double NormalizeAngleDifference(double angleDiff)
-    {
-        angleDiff = angleDiff % 360;
-        if (angleDiff > 180)
-            angleDiff = 360 - angleDiff;
-        return Math.Abs(angleDiff);
-    }
-
-    private static double ToRadians(double degrees) => degrees * Math.PI / 180;
-    private static double ToGradians(double radians) => radians * 180 / Math.PI;
 }

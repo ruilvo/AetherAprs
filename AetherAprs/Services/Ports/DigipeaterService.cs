@@ -15,31 +15,22 @@ namespace AetherAprs.Services.Ports;
 /// <summary>
 /// Implements digipeater functionality for APRS packets.
 /// </summary>
-public class DigipeaterService : IDigipeaterService
+public class DigipeaterService(
+    IConfigurationService configurationService,
+    ILogger<DigipeaterService> logger) : IDigipeaterService
 {
-    private readonly IConfigurationService _configurationService;
-    private readonly ILogger<DigipeaterService> _logger;
-
-    public DigipeaterService(
-        IConfigurationService configurationService,
-        ILogger<DigipeaterService> logger)
-    {
-        _configurationService = configurationService;
-        _logger = logger;
-    }
-
     public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
         AprsPacket packet,
         Guid sourcePortId,
         bool sourcePortIsAprsIs,
         IReadOnlyList<PortInfo> availablePorts)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = configurationService.Settings.Aprs;
 
         // Check if digipeater is globally enabled
         if (!settings.EnableDigipeater)
         {
-            return Array.Empty<DigipeatTarget>();
+            return [];
         }
 
         var targets = new List<DigipeatTarget>();
@@ -97,7 +88,7 @@ public class DigipeaterService : IDigipeaterService
 
             targets.Add(new DigipeatTarget(port.Id, packet));
 
-            _logger.LogDebug(
+            logger.LogDebug(
                 "Digipeating packet from {Source} (port {SourcePortId}) to port {TargetPortId}",
                 packet.Source,
                 sourcePortId,

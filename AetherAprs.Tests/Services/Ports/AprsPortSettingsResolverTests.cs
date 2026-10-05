@@ -55,23 +55,23 @@ public class AprsPortSettingsResolverTests
     }
 
     [Fact]
-    public void GetSymbolTableCharacter_ReturnsDefault()
+    public void GetSymbolTable_ReturnsDefault()
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.SymbolTable = AetherAprs.Models.Aprs.SymbolTable.Alternate;
         var resolver = CreateResolver(config);
 
-        Assert.Equal("\\", resolver.GetSymbolTableCharacter());
+        Assert.Equal(AetherAprs.Models.Aprs.SymbolTable.Alternate, resolver.GetSymbolTable());
     }
 
     [Fact]
-    public void GetSymbolCodeCharacter_ReturnsDefault()
+    public void GetSymbolCode_ReturnsDefault()
     {
         var config = CreateConfiguration();
         config.Settings.Aprs.SymbolCode = SymbolCode.LatinSmallLetterK;
         var resolver = CreateResolver(config);
 
-        Assert.Equal("k", resolver.GetSymbolCodeCharacter());
+        Assert.Equal(SymbolCode.LatinSmallLetterK, resolver.GetSymbolCode());
     }
 
     private static TestConfigurationService CreateConfiguration()

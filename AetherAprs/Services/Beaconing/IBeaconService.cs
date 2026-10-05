@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Aprs.Packets;
+using System;
 using System.Collections.Generic;
 
 namespace AetherAprs.Services.Beaconing;
@@ -15,6 +14,11 @@ namespace AetherAprs.Services.Beaconing;
 public interface IBeaconService
 {
     /// <summary>
+    /// Event raised when the beacon service determines a beacon should be transmitted.
+    /// </summary>
+    event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
+
+    /// <summary>
     /// Gets the current active beacon configuration based on the selected mode.
     /// </summary>
     BeaconConfig CurrentConfiguration { get; }
@@ -23,6 +27,16 @@ public interface IBeaconService
     /// Gets all three beacon configurations (Walk, Drive, Custom).
     /// </summary>
     IReadOnlyList<BeaconConfig> AllConfigurations { get; }
+
+    /// <summary>
+    /// Gets the last calculated course in degrees (0-360), or null if not yet calculated.
+    /// </summary>
+    double? LastCourseDegrees { get; }
+
+    /// <summary>
+    /// Gets the current beacon decision information (updated on each location update).
+    /// </summary>
+    BeaconTransmitDecision? CurrentDecision { get; }
 
     /// <summary>
     /// Sets the active beacon mode (Walk, Drive, or Custom).
@@ -37,31 +51,27 @@ public interface IBeaconService
     void UpdateConfiguration(BeaconConfig configuration);
 
     /// <summary>
-    /// Processes a location update and determines if a beacon should be transmitted.
+    /// Processes a location update. Internally evaluates whether to transmit and raises
+    /// the BeaconRequested event if conditions are met.
     /// </summary>
     /// <param name="currentLocation">The current location data.</param>
-    /// <param name="previousLocation">The previous location data, if available.</param>
-    /// <returns>BeaconTransmitDecision indicating whether to transmit and why.</returns>
-    BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation);
+    void ProcessLocationUpdate(LocationData currentLocation);
+}
+
+/// <summary>
+/// Event arguments for when a beacon should be transmitted.
+/// </summary>
+public sealed class BeaconRequestedEventArgs : EventArgs
+{
+    /// <summary>
+    /// Gets the location data to beacon.
+    /// </summary>
+    public required LocationData Location { get; init; }
 
     /// <summary>
-    /// Resets the beacon transmission timer. Call this after successfully transmitting a beacon.
+    /// Gets the decision information explaining why the beacon was requested.
     /// </summary>
-    void ResetTransmissionTimer();
-
-    /// <summary>
-    /// Creates a position packet for transmission based on current beacon configuration.
-    /// </summary>
-    /// <param name="location">The location to beacon.</param>
-    /// <param name="callsign">The callsign to use in the packet.</param>
-    /// <param name="symbolTableCharacter">The APRS symbol table character (default "/").</param>
-    /// <param name="symbolCodeCharacter">The APRS symbol code character (default "[").</param>
-    /// <returns>A PositionPacket ready for transmission.</returns>
-    PositionPacket CreatePositionPacket(
-        LocationData location,
-        string callsign,
-        string symbolTableCharacter = "/",
-        string symbolCodeCharacter = "[");
+    public required BeaconTransmitDecision Decision { get; init; }
 }
 
 /// <summary>
@@ -75,9 +85,9 @@ public sealed record BeaconTransmitDecision
     public bool ShouldTransmit { get; init; }
 
     /// <summary>
-    /// Gets the reason for the decision (e.g., "Course changed 25°", "Time interval exceeded").
+    /// Gets the strongly-typed reason for the decision.
     /// </summary>
-    public string Reason { get; init; } = string.Empty;
+    public required BeaconTransmitReason Reason { get; init; }
 
     /// <summary>
     /// Gets the current speed in km/h, if calculated.

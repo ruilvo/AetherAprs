@@ -6,7 +6,6 @@ using AetherAprs.Services.UI;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Xaml.Interactivity;
-using System;
 
 namespace AetherAprs.Behaviors;
 
@@ -49,16 +48,10 @@ public class KeyboardInsetsBehavior : Behavior<Control>
 
     protected override void OnDetaching()
     {
-        if (_keyboardService != null)
-        {
-            _keyboardService.InsetsChanged -= OnKeyboardInsetsChanged;
-        }
+        _keyboardService?.InsetsChanged -= OnKeyboardInsetsChanged;
 
         // Restore original margin
-        if (AssociatedObject != null)
-        {
-            AssociatedObject.Margin = _originalMargin;
-        }
+        AssociatedObject?.Margin = _originalMargin;
 
         base.OnDetaching();
     }

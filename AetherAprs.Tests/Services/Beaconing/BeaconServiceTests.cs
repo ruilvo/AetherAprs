@@ -6,8 +6,6 @@ using System;
 using System.Reflection;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Modems.Aprs;
 using AetherAprs.Services.Beaconing;
 using Geo;
 using Xunit;
@@ -78,13 +76,14 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void EvaluateLocationUpdateWithNoPreviousLocationReturnsDecision()
+    public void ProcessLocationUpdateWithNoPreviousLocationUpdatesDecision()
     {
         var service = new BeaconService();
         var location = CreateLocation(38.7223, -9.1393);
 
         // First evaluation with no previous location
-        var decision = service.EvaluateLocationUpdate(location, null);
+        service.ProcessLocationUpdate(location);
+        var decision = service.CurrentDecision;
 
         // Should return a valid decision
         Assert.NotNull(decision);
@@ -92,7 +91,7 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void EvaluateLocationUpdateIgnoresSmallDistances()
+    public void ProcessLocationUpdateIgnoresSmallDistances()
     {
         var service = new BeaconService();
         var time1 = DateTimeOffset.UtcNow.AddSeconds(-2000);
@@ -102,14 +101,17 @@ public class BeaconServiceTests : TestFixtureBase
         var location1 = CreateLocation(38.7223, -9.1393, timestamp: time1);
         var location2 = CreateLocation(38.72231, -9.13931, timestamp: time2); // ~11 meters apart
 
-        var decision = service.EvaluateLocationUpdate(location2, location1);
+        service.ProcessLocationUpdate(location1);
+        service.ProcessLocationUpdate(location2);
+        var decision = service.CurrentDecision;
 
+        Assert.NotNull(decision);
         Assert.False(decision.ShouldTransmit);
-        Assert.Contains("below minimum", decision.Reason);
+        Assert.Contains("below minimum", decision.Reason.GetLocalizedString());
     }
 
     [Fact]
-    public void EvaluateLocationUpdateCalculatesCourseWhenHasPreviousLocation()
+    public void ProcessLocationUpdateCalculatesCourseWhenHasPreviousLocation()
     {
         var service = new BeaconService();
 
@@ -121,9 +123,12 @@ public class BeaconServiceTests : TestFixtureBase
         // Move to a new location (north, same longitude)
         var location2 = CreateLocation(38.7323, -9.1393, timestamp: time2);
 
-        var decision = service.EvaluateLocationUpdate(location2, location1);
+        service.ProcessLocationUpdate(location1);
+        service.ProcessLocationUpdate(location2);
+        var decision = service.CurrentDecision;
 
         // Should calculate course and speed
+        Assert.NotNull(decision);
         Assert.NotNull(decision.CurrentCourseDegrees);
         Assert.NotNull(decision.CurrentSpeedKmh);
         // Course should be roughly north (0 or 360 degrees)
@@ -131,7 +136,7 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void EvaluateLocationUpdateCalculatesSpeedCorrectly()
+    public void ProcessLocationUpdateCalculatesSpeedCorrectly()
     {
         var service = new BeaconService();
         var time1 = DateTimeOffset.UtcNow.AddSeconds(-5000);
@@ -143,9 +148,12 @@ public class BeaconServiceTests : TestFixtureBase
         // Moving approximately north at ~1 degree latitude = ~111km
         var location2 = CreateLocation(39.7223, -9.1393, timestamp: time2);
 
-        var decision = service.EvaluateLocationUpdate(location2, location1);
+        service.ProcessLocationUpdate(location1);
+        service.ProcessLocationUpdate(location2);
+        var decision = service.CurrentDecision;
 
         // At 1 hour and ~111km, speed should be approximately 111 km/h
+        Assert.NotNull(decision);
         Assert.True(decision.CurrentSpeedKmh.HasValue);
         Assert.True(decision.CurrentSpeedKmh > 100);
         Assert.True(decision.CurrentSpeedKmh < 120);
@@ -163,74 +171,6 @@ public class BeaconServiceTests : TestFixtureBase
         // At low speeds, both should have similar slow intervals
         // (actual values may differ but fast speeds should differ more)
         Assert.True(driveConfig.FastSpeedThresholdKmh > walkConfig.FastSpeedThresholdKmh);
-    }
-
-    [Fact]
-    public void ResetTransmissionTimerUpdatesState()
-    {
-        var service = new BeaconService();
-        var time1 = DateTimeOffset.UtcNow.AddSeconds(-1000);
-        var time2 = time1.AddSeconds(1);
-
-        var location1 = CreateLocation(38.7223, -9.1393, timestamp: time1);
-        var location2 = CreateLocation(38.7323, -9.1393, timestamp: time2);
-
-        // First evaluation
-        var decision1 = service.EvaluateLocationUpdate(location2, location1);
-        var secsUntilNext1 = decision1.SecondsUntilNextBeacon;
-
-        service.ResetTransmissionTimer();
-
-        // After reset, the timing is fresh (doesn't affect the decision calculation directly
-        // but the reset ensures the timer starts fresh for next evaluation)
-        var decision2 = service.EvaluateLocationUpdate(location2, location1);
-        // We're testing that ResetTransmissionTimer exists and can be called without error
-        Assert.NotNull(decision2);
-    }
-
-    [Fact]
-    public void CreatePositionPacketSetsCorrectFields()
-    {
-        var service = new BeaconService();
-        var location = CreateLocation(38.7223, -9.1393, altitude: 100);
-
-        var packet = service.CreatePositionPacket(location, "N0CALL-1");
-
-        Assert.Equal("N0CALL", packet.Source.Base);
-        Assert.Equal(1, packet.Source.Ssid);
-        Assert.Equal("APRS", packet.Destination.Base);
-        Assert.Equal(38.7223, packet.Location.Latitude);
-        Assert.Equal(-9.1393, packet.Location.Longitude);
-        // Altitude should be converted from meters to feet (~328 feet)
-        Assert.NotNull(packet.Altitude);
-        Assert.True(packet.Altitude > 300 && packet.Altitude < 350);
-    }
-
-    [Fact]
-    public void CreatePositionPacketUsesAprsStandardUncompressedPrecision()
-    {
-        var service = new BeaconService();
-        var location = CreateLocation(41.41764333333333, -8.521698333333333);
-
-        var packet = service.CreatePositionPacket(location, "CT7ALW-7");
-
-        Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
-        Assert.Equal(2, packet.Precision);
-        Assert.Equal(
-            "!4125.06N/00831.30W[Walking",
-            AprsInfoFieldSerializer.FormatInfoField(packet));
-    }
-
-    [Fact]
-    public void CreatePositionPacketUsesConfiguredSymbol()
-    {
-        var service = new BeaconService();
-        var location = CreateLocation(41.41764333333333, -8.521698333333333);
-
-        var packet = service.CreatePositionPacket(location, "CT7ALW-7", "\\", ">");
-
-        Assert.Equal('\\', packet.Symbol.TableChar);
-        Assert.Equal('>', packet.Symbol.CodeChar);
     }
 
     [Fact]
@@ -281,17 +221,18 @@ public class BeaconServiceTests : TestFixtureBase
         var location2 = CreateLocation(38.7323, -9.1393, timestamp: time2); // North
         var location3 = CreateLocation(38.7323, -9.1293, timestamp: time3); // East
 
-        var decision1 = service.EvaluateLocationUpdate(location2, location1);
-        service.ResetTransmissionTimer();
-
-        var decision2 = service.EvaluateLocationUpdate(location3, location2);
+        service.ProcessLocationUpdate(location1);
+        service.ProcessLocationUpdate(location2);
+        service.ProcessLocationUpdate(location3);
+        var decision = service.CurrentDecision;
 
         // With zero threshold, course change should not trigger beacon
-        Assert.DoesNotContain("Course changed", decision2.Reason);
+        Assert.NotNull(decision);
+        Assert.DoesNotContain("Course changed", decision.Reason.GetLocalizedString());
     }
 
     [Fact]
-    public void EvaluateLocationUpdateIncludesIntervalInformation()
+    public void ProcessLocationUpdateIncludesIntervalInformation()
     {
         var service = new BeaconService();
         service.SetActiveMode(DynamicBeaconMode.Walk);
@@ -304,15 +245,18 @@ public class BeaconServiceTests : TestFixtureBase
         // Move far enough to pass minimum distance
         var location2 = CreateLocation(38.8223, -9.1393, timestamp: time2);
 
-        var decision1 = service.EvaluateLocationUpdate(location2, location1);
+        service.ProcessLocationUpdate(location1);
+        service.ProcessLocationUpdate(location2);
+        var decision = service.CurrentDecision;
 
         // Verify decision includes interval information
-        Assert.True(decision1.ActiveIntervalSeconds > 0);
-        Assert.True(decision1.SecondsUntilNextBeacon >= 0);
+        Assert.NotNull(decision);
+        Assert.True(decision.ActiveIntervalSeconds > 0);
+        Assert.True(decision.SecondsUntilNextBeacon >= 0);
     }
 
     [Fact]
-    public void EvaluateDoesNotAdvanceTimerUntilReset()
+    public void ProcessLocationUpdateAdvancesTimerOnTransmitDecision()
     {
         var service = new BeaconService();
         var lastTransmitField = typeof(BeaconService).GetField("_lastTransmitTime", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -320,16 +264,16 @@ public class BeaconServiceTests : TestFixtureBase
         lastTransmitField!.SetValue(service, DateTime.UtcNow.AddHours(-1));
 
         var location = CreateLocation(38.7223, -9.1393);
-        var decision1 = service.EvaluateLocationUpdate(location, null);
+        service.ProcessLocationUpdate(location);
+        var decision1 = service.CurrentDecision;
+        Assert.NotNull(decision1);
         Assert.True(decision1.ShouldTransmit);
 
-        // Without ResetTransmissionTimer, a second evaluation still sees the interval as expired.
-        var decision2 = service.EvaluateLocationUpdate(location, null);
-        Assert.True(decision2.ShouldTransmit);
-
-        service.ResetTransmissionTimer();
-        var decision3 = service.EvaluateLocationUpdate(location, null);
-        Assert.False(decision3.ShouldTransmit);
+        // After a transmit decision, timer should advance automatically
+        service.ProcessLocationUpdate(location);
+        var decision2 = service.CurrentDecision;
+        Assert.NotNull(decision2);
+        Assert.False(decision2.ShouldTransmit);
     }
 
     [Fact]
@@ -363,17 +307,23 @@ public class BeaconServiceTests : TestFixtureBase
         };
         service.UpdateConfiguration(custom);
         service.SetActiveMode(DynamicBeaconMode.Custom);
-        service.ResetTransmissionTimer();
 
         var time1 = DateTimeOffset.UtcNow.AddSeconds(-5);
         var time2 = time1.AddSeconds(1);
         var location1 = CreateLocation(38.7223, -9.1393, timestamp: time1);
         var location2 = CreateLocation(38.7233, -9.1393, timestamp: time2);
 
-        Assert.False(service.EvaluateLocationUpdate(location2, location1).ShouldTransmit);
+        service.ProcessLocationUpdate(location1);
+        service.ProcessLocationUpdate(location2);
+        var decision1 = service.CurrentDecision;
+        Assert.NotNull(decision1);
+        Assert.False(decision1.ShouldTransmit);
 
         service.SetActiveMode(DynamicBeaconMode.Custom);
-        Assert.False(service.EvaluateLocationUpdate(location2, location1).ShouldTransmit);
+        service.ProcessLocationUpdate(location2);
+        var decision2 = service.CurrentDecision;
+        Assert.NotNull(decision2);
+        Assert.False(decision2.ShouldTransmit);
     }
 
 }

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
+using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Models;
@@ -132,11 +133,13 @@ public sealed class MainViewModelTests
             new TestLocationService(),
             NullLogger<LocationTrackingViewModel>.Instance);
         var beaconService = new TestBeaconService();
+        var packetFactory = new TestPacketFactory();
         var beaconTransmission = new BeaconTransmissionViewModel(
             beaconService,
             portService,
             configuration,
             new AprsPortSettingsResolver(configuration),
+            packetFactory,
             NullLogger<BeaconTransmissionViewModel>.Instance);
 
         var mapViewModel = new MapViewModel();
@@ -245,6 +248,10 @@ public sealed class MainViewModelTests
 
     private sealed class TestBeaconService : IBeaconService
     {
+#pragma warning disable CS0067
+        public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
+#pragma warning restore CS0067
+
         public BeaconConfig CurrentConfiguration { get; private set; } = BeaconConfig.CreateWalkPreset();
         public IReadOnlyList<BeaconConfig> AllConfigurations =>
         [
@@ -252,6 +259,10 @@ public sealed class MainViewModelTests
             BeaconConfig.CreateDrivePreset(),
             BeaconConfig.CreateCustomPreset()
         ];
+
+        public double? LastCourseDegrees => null;
+
+        public BeaconTransmitDecision? CurrentDecision => null;
 
         public void SetActiveMode(DynamicBeaconMode mode)
         {
@@ -268,26 +279,9 @@ public sealed class MainViewModelTests
         {
         }
 
-        public BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation) =>
-            new() { ShouldTransmit = false };
-
-        public void ResetTransmissionTimer()
+        public void ProcessLocationUpdate(LocationData currentLocation)
         {
         }
-
-        public PositionPacket CreatePositionPacket(
-            LocationData location,
-            string callsign,
-            string symbolTableCharacter = "/",
-            string symbolCodeCharacter = "[") =>
-            new()
-            {
-                Source = new Callsign(callsign),
-                Destination = new Callsign("APRS"),
-                Location = location.Location,
-                Precision = 2,
-                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket)
-            };
     }
 
     private sealed class FakeMessageService : IMessageService
@@ -311,6 +305,93 @@ public sealed class MainViewModelTests
         public SKBitmap GetOverlayBitmap(SymbolCode overlayChar) => new(8, 8);
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class TestPacketFactory : IPacketFactory
+    {
+        public PositionPacket CreatePositionPacket(
+            LocationData location,
+            string callsign,
+            SymbolTable symbolTable,
+            SymbolCode symbolCode,
+            double? course = null,
+            string? comment = null)
+        {
+            var parts = callsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new PositionPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Location = location.Location,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Course = course,
+                Comment = comment ?? string.Empty,
+                Altitude = location.Altitude.HasValue ? (int)(location.Altitude.Value * 3.28084) : null
+            };
+        }
+
+        public MessagePacket CreateMessagePacket(
+            string sourceCallsign,
+            Callsign addressee,
+            string messageText,
+            int? messageNumber = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = messageText,
+                MessageNumber = messageNumber
+            };
+        }
+
+        public MessagePacket CreateAckPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"ack{messageNumber}"
+            };
+        }
+
+        public MessagePacket CreateRejPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"rej{messageNumber}"
+            };
         }
     }
 }

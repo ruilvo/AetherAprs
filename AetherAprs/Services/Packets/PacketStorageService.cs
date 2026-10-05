@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
-using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
-using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +51,7 @@ public sealed class PacketStorageService(
     {
         try
         {
-            logger.LogInformation("Attempting to store {Direction} packet from {Source}, Type: {Type}", 
+            logger.LogInformation("Attempting to store {Direction} packet from {Source}, Type: {Type}",
                 isOutbound ? "outbound" : "inbound", packet.Source, packet.GetType().Name);
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);

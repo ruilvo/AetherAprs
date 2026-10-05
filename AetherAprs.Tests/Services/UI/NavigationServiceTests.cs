@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
@@ -99,6 +100,7 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<IMessageService>());
         services.AddSingleton(Substitute.For<ILocationService>());
         services.AddSingleton(Substitute.For<IAprsPortSettingsResolver>());
+        services.AddSingleton(Substitute.For<IPacketFactory>());
         services.AddSingleton(Substitute.For<IAprsSymbolBitmapProvider>());
         services.AddSingleton(Substitute.For<ILogger<HomeViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<LocationTrackingViewModel>>());

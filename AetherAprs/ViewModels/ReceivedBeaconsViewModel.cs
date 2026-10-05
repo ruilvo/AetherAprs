@@ -2,22 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
+using AetherAprs.Data.Entities;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
-using AetherAprs.Configuration;
-using AetherAprs.Data;
-using AetherAprs.Data.Entities;
 using Avalonia;
 using Avalonia.Threading;
 using Mapsui;
 using Mapsui.Layers;
+using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
-using Mapsui.Nts;
 using Microsoft.Extensions.Logging;
 using NetTopologySuite.Geometries;
 using System;
@@ -129,7 +127,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
             // Get most recent position packets from database
             var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
-            
+
             // Apply time filter
             var filteredPackets = allPositionPackets.Values
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
@@ -166,7 +164,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             {
                 var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
                 var trailRecords = await _packetQueryService.GetPacketsByCallsignAsync(callsign, limit: 100);
-                
+
                 var trailPositions = trailRecords
                     .Where(r => r.Position != null)
                     .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
@@ -230,7 +228,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
 
         var lineString = new LineString(coordinates);
         var feature = new GeometryFeature { Geometry = lineString };
-        
+
         feature.Styles.Add(new VectorStyle
         {
             Line = new Pen(Color.FromArgb(200, 0, 120, 215), 2)

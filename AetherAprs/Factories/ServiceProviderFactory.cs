@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
@@ -114,6 +115,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<IPermissionService, NoOpPermissionService>();
 
         // Register factories
+        services.AddSingleton<IPacketFactory, PacketFactory>();
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();

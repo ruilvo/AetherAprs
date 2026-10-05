@@ -2,13 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Platform;
 using Microsoft.Extensions.Configuration;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;

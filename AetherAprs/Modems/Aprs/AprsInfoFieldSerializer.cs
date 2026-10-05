@@ -42,10 +42,11 @@ public static class AprsInfoFieldSerializer
         };
     }
 
-    // ---------------------------------------------------------------
-    // Position formatter
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Formats a <see cref="PositionPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The position packet to format.</param>
+    /// <returns>The APRS info field string.</returns>
     private static string FormatPosition(PositionPacket packet)
     {
         // Format: !DDMM.mmX[overlay]/DDDMM.mmYC[comment]
@@ -77,6 +78,12 @@ public static class AprsInfoFieldSerializer
         return info.ToString();
     }
 
+    /// <summary>
+    /// Formats a latitude value into APRS compressed format (DDMM.mmN/S).
+    /// </summary>
+    /// <param name="latitude">The latitude value to format.</param>
+    /// <param name="precision">The precision of the latitude value.</param>
+    /// <returns>The formatted latitude value.</returns>
     private static string FormatLatitude(double latitude, int precision)
     {
         ValidateCoordinate(latitude, -90, 90, nameof(latitude));
@@ -103,6 +110,12 @@ public static class AprsInfoFieldSerializer
         return $"{deg:D2}{min:D2}.{decValue.ToString(new string('0', precision))}{dir}";
     }
 
+    /// <summary>
+    /// Formats a longitude value into APRS compressed format (DDDMM.mmE/W).
+    /// </summary>
+    /// <param name="longitude">The longitude value to format.</param>
+    /// <param name="precision">The precision of the longitude value.</param>
+    /// <returns>The formatted longitude value.</returns>
     private static string FormatLongitude(double longitude, int precision)
     {
         ValidateCoordinate(longitude, -180, 180, nameof(longitude));
@@ -129,6 +142,14 @@ public static class AprsInfoFieldSerializer
         return $"{deg:D3}{min:D2}.{decValue.ToString(new string('0', precision))}{dir}";
     }
 
+    /// <summary>
+    /// Validates that a coordinate value is within the specified range and is finite.
+    /// </summary>
+    /// <param name="coordinate">The coordinate value to validate.</param>
+    /// <param name="minimum">The minimum allowed value.</param>
+    /// <param name="maximum">The maximum allowed value.</param>
+    /// <param name="parameterName">The name of the parameter being validated.</param>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
     private static void ValidateCoordinate(double coordinate, double minimum, double maximum, string parameterName)
     {
         if (!double.IsFinite(coordinate) || coordinate < minimum || coordinate > maximum)
@@ -137,6 +158,11 @@ public static class AprsInfoFieldSerializer
         }
     }
 
+    /// <summary>
+    /// Validates that the precision value is either 1 or 2, as required for APRS uncompressed positions.
+    /// </summary>
+    /// <param name="precision">The precision value to validate.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An ArgumentOutOfRangeException is thrown if the precision is not 1 or 2.</exception>
     private static void ValidatePrecision(int precision)
     {
         if (precision is < 1 or > 2)
@@ -145,10 +171,11 @@ public static class AprsInfoFieldSerializer
         }
     }
 
-    // ---------------------------------------------------------------
-    // Message formatter
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Formats a <see cref="MessagePacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The message packet to format.</param>
+    /// <returns>The formatted APRS info field string.</returns>
     private static string FormatMessage(MessagePacket packet)
     {
         // Format: :ADDRESSEE :message text{msgid}
@@ -169,20 +196,22 @@ public static class AprsInfoFieldSerializer
         return info.ToString();
     }
 
-    // ---------------------------------------------------------------
-    // Status formatter
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Formats a <see cref="StatusPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The status packet to format.</param>
+    /// <returns>The formatted APRS info field string.</returns>
     private static string FormatStatus(StatusPacket packet)
     {
         // Format: >status text
         return $">{packet.Text}";
     }
 
-    // ---------------------------------------------------------------
-    // Weather formatter
-    // ---------------------------------------------------------------
-
+    /// <summary>
+    /// Formats a <see cref="WeatherPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The weather packet to format.</param>
+    /// <returns>The formatted APRS info field string.</returns>
     private static string FormatWeather(WeatherPacket packet)
     {
         // Format: _c111s222g333t444h55b77777r111p222...

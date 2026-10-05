@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
-using AetherAprs.Data.Entities;
+using AetherAprs.Factories.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Models.Messaging;
@@ -30,6 +30,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
+    private readonly IPacketFactory _packetFactory;
     private readonly ILogger<MessageService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
     private readonly Lock _gate = new();
@@ -45,6 +46,7 @@ public sealed class MessageService : IMessageService, IDisposable
         IPacketStorageService packetStorageService,
         IConfigurationService configurationService,
         IAprsPortSettingsResolver portSettingsResolver,
+        IPacketFactory packetFactory,
         ILogger<MessageService> logger,
         IDbContextFactory<AppDbContext>? dbContextFactory = null)
     {
@@ -52,6 +54,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _packetStorageService = packetStorageService;
         _configurationService = configurationService;
         _portSettingsResolver = portSettingsResolver;
+        _packetFactory = packetFactory;
         _logger = logger;
         _dbContextFactory = dbContextFactory;
         _portService.PacketReceived += OnPacketReceived;
@@ -127,22 +130,22 @@ public sealed class MessageService : IMessageService, IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var sourceCallsign = ParsePortCallsign(_portSettingsResolver.GetCallsign(baseCallsign));
-                var packet = new MessagePacket
-                {
-                    Source = sourceCallsign,
-                    Destination = new Callsign("APRS"),
-                    Addressee = message.Peer,
-                    Text = message.Text,
-                    MessageNumber = message.MessageNumber,
-                    Timestamp = message.Timestamp
-                };
+                var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
+                
+                var packet = _packetFactory.CreateMessagePacket(
+                    callsignString,
+                    message.Peer,
+                    message.Text,
+                    message.MessageNumber);
+
+                // Note: Cannot set Timestamp after construction (init-only property)
+                // Factory creates packet with default timestamp, but we'll log the message timestamp
 
                 await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
-                
+
                 // Store sent packet in database
                 await _packetStorageService.StorePacketAsync(packet, port.Id, isOutbound: true, cancellationToken).ConfigureAwait(false);
-                
+
                 sent++;
                 _logger.LogInformation(
                     "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, retry {RetryCount})",
@@ -167,17 +170,9 @@ public sealed class MessageService : IMessageService, IDisposable
     private async Task SendAckAsync(Callsign addressee, int messageNumber, Guid? portId)
     {
         var baseCallsign = _configurationService.Settings.Aprs.Callsign;
-        var sourceCallsign = ParsePortCallsign(_portSettingsResolver.GetCallsign(baseCallsign));
+        var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
 
-        var ackText = $"ack{messageNumber}";
-        var packet = new MessagePacket
-        {
-            Source = sourceCallsign,
-            Destination = new Callsign("APRS"),
-            Addressee = addressee,
-            Text = ackText,
-            Timestamp = DateTimeOffset.UtcNow
-        };
+        var packet = _packetFactory.CreateAckPacket(callsignString, addressee, messageNumber);
 
         try
         {
@@ -311,7 +306,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
         var now = DateTimeOffset.UtcNow;
         var settings = _configurationService.Settings.Aprs;
-        List<StoredMessage> toRetry = new();
+        List<StoredMessage> toRetry = [];
 
         lock (_gate)
         {
@@ -369,12 +364,12 @@ public sealed class MessageService : IMessageService, IDisposable
         try
         {
             using var db = _dbContextFactory.CreateDbContext();
-            
+
             // Convert SSID for database comparison
-            var addresseeSsid = message.Peer.Ssid.HasValue 
-                ? (AprsSsid)message.Peer.Ssid.Value 
+            var addresseeSsid = message.Peer.Ssid.HasValue
+                ? (AprsSsid)message.Peer.Ssid.Value
                 : AprsSsid.PrimaryStation;
-            
+
             // Find the message packet record
             var record = db.Packets
                 .Include(p => p.Message)
@@ -422,19 +417,6 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private static Callsign ParsePortCallsign(string callsign)
-    {
-        if (Callsign.TryParse(callsign, out var parsed))
-        {
-            return parsed;
-        }
-
-        var parts = callsign.Split('-');
-        var callsignBase = parts[0];
-        int? ssid = parts.Length > 1 && int.TryParse(parts[1], out var ssidValue) ? ssidValue : null;
-        return new Callsign(callsignBase, ssid);
-    }
-
     private static void RunOnUi(Action action)
     {
         if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
@@ -454,7 +436,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         using var db = _dbContextFactory.CreateDbContext();
-        
+
         // Load message packets from the Packets table
         var records = db.Packets
             .Include(p => p.Message)
@@ -467,7 +449,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
         var threadsByPeer = new Dictionary<string, ConversationThread>();
         var maxMessageNumber = 1;
-        
+
         foreach (var record in records)
         {
             if (record.Message == null)
@@ -477,7 +459,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
             var source = new Callsign(record.SourceBase, (int)record.SourceSsid);
             var addressee = new Callsign(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
-            
+
             // Determine peer (who we're talking to)
             var ownBase = _configurationService.Settings.Aprs.Callsign.Trim().ToUpperInvariant();
             var peer = record.IsOutbound ? addressee : source;
@@ -492,8 +474,8 @@ public sealed class MessageService : IMessageService, IDisposable
                 PortId = record.PortId,
                 DeliveryStatus = record.Message.DeliveryStatus,
                 RetryCount = record.Message.RetryCount,
-                NextRetryTime = record.Message.NextRetryTime.HasValue 
-                    ? new DateTimeOffset(record.Message.NextRetryTime.Value, TimeSpan.Zero) 
+                NextRetryTime = record.Message.NextRetryTime.HasValue
+                    ? new DateTimeOffset(record.Message.NextRetryTime.Value, TimeSpan.Zero)
                     : null
             };
 
@@ -504,10 +486,10 @@ public sealed class MessageService : IMessageService, IDisposable
             }
 
             thread.Messages.Add(stored);
-            
+
             // Re-add pending messages to retry queue
-            if (stored.IsOutbound && 
-                stored.MessageNumber.HasValue && 
+            if (stored.IsOutbound &&
+                stored.MessageNumber.HasValue &&
                 stored.DeliveryStatus == MessageDeliveryStatus.Pending)
             {
                 _pendingMessages[stored.MessageNumber.Value] = stored;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
 using System.Collections.Generic;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -55,6 +56,10 @@ public sealed class DynamicBeaconingViewModelTests
         private BeaconConfig _drive = BeaconConfig.CreateDrivePreset();
         private BeaconConfig _custom = BeaconConfig.CreateCustomPreset();
 
+#pragma warning disable CS0067
+        public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
+#pragma warning restore CS0067
+
         public List<BeaconConfig> Updated { get; } = [];
 
         public BeaconConfig CurrentConfiguration => _mode switch
@@ -65,6 +70,10 @@ public sealed class DynamicBeaconingViewModelTests
         };
 
         public IReadOnlyList<BeaconConfig> AllConfigurations => [_walk, _drive, _custom];
+
+        public double? LastCourseDegrees => null;
+
+        public BeaconTransmitDecision? CurrentDecision => null;
 
         public void SetActiveMode(DynamicBeaconMode mode) => _mode = mode;
 
@@ -85,23 +94,8 @@ public sealed class DynamicBeaconingViewModelTests
             }
         }
 
-        public BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation) =>
-            new() { ShouldTransmit = false };
-
-        public void ResetTransmissionTimer()
+        public void ProcessLocationUpdate(LocationData currentLocation)
         {
         }
-
-        public PositionPacket CreatePositionPacket(
-            LocationData location,
-            string callsign,
-            string symbolTableCharacter = "/",
-            string symbolCodeCharacter = "[") =>
-            new()
-            {
-                Source = new Callsign("N0CALL"),
-                Destination = new Callsign("APRS"),
-                Location = location.Location
-            };
     }
 }

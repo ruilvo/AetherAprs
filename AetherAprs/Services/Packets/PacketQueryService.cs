@@ -2,15 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Models.Aprs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Packets;
 
@@ -18,19 +18,11 @@ namespace AetherAprs.Services.Packets;
 /// Service for querying packet data from the database.
 /// This service provides read-only access to packet data for all consumer features.
 /// </summary>
-public sealed class PacketQueryService : IPacketQueryService, IDisposable
+public sealed class PacketQueryService(
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    ILogger<PacketQueryService> logger) : IPacketQueryService, IDisposable
 {
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
-    private readonly ILogger<PacketQueryService> _logger;
     private bool _disposed;
-
-    public PacketQueryService(
-        IDbContextFactory<AppDbContext> dbContextFactory,
-        ILogger<PacketQueryService> logger)
-    {
-        _dbContextFactory = dbContextFactory;
-        _logger = logger;
-    }
 
     public async Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPacketsAsync(int limit = 1000)
     {
@@ -38,7 +30,7 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
 
         try
         {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            await using var context = await dbContextFactory.CreateDbContextAsync();
 
             // Group by source callsign (base + SSID) and get the most recent packet per source
             var packets = await context.Packets
@@ -49,17 +41,17 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
 
             // Create dictionary with "BASE-SSID" format keys
             var result = packets.ToDictionary(
-                p => p.SourceSsid == AprsSsid.PrimaryStation 
-                    ? p.SourceBase 
+                p => p.SourceSsid == AprsSsid.PrimaryStation
+                    ? p.SourceBase
                     : $"{p.SourceBase}-{(int)p.SourceSsid}",
                 p => p);
 
-            _logger.LogDebug("Retrieved {Count} most recent packets", result.Count);
+            logger.LogDebug("Retrieved {Count} most recent packets", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to retrieve most recent packets");
+            logger.LogError(ex, "Failed to retrieve most recent packets");
             throw;
         }
     }
@@ -70,7 +62,7 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
 
         try
         {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            await using var context = await dbContextFactory.CreateDbContextAsync();
 
             // Group by source callsign and get the most recent position packet per source
             var packets = await context.Packets
@@ -82,17 +74,17 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
 
             // Create dictionary with "BASE-SSID" format keys
             var result = packets.ToDictionary(
-                p => p.SourceSsid == AprsSsid.PrimaryStation 
-                    ? p.SourceBase 
+                p => p.SourceSsid == AprsSsid.PrimaryStation
+                    ? p.SourceBase
                     : $"{p.SourceBase}-{(int)p.SourceSsid}",
                 p => p);
 
-            _logger.LogDebug("Retrieved {Count} most recent position packets", result.Count);
+            logger.LogDebug("Retrieved {Count} most recent position packets", result.Count);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to retrieve most recent position packets");
+            logger.LogError(ex, "Failed to retrieve most recent position packets");
             throw;
         }
     }
@@ -103,7 +95,7 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
 
         try
         {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            await using var context = await dbContextFactory.CreateDbContextAsync();
 
             var packets = await context.Packets
                 .Where(p => p.PortId == portId)
@@ -111,12 +103,12 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
                 .Take(limit)
                 .ToListAsync();
 
-            _logger.LogDebug("Retrieved {Count} packets for port {PortId}", packets.Count, portId);
+            logger.LogDebug("Retrieved {Count} packets for port {PortId}", packets.Count, portId);
             return packets;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to retrieve packets for port {PortId}", portId);
+            logger.LogError(ex, "Failed to retrieve packets for port {PortId}", portId);
             throw;
         }
     }
@@ -127,12 +119,12 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
 
         try
         {
-            await using var context = await _dbContextFactory.CreateDbContextAsync();
+            await using var context = await dbContextFactory.CreateDbContextAsync();
 
             // Parse callsign to extract base and SSID
             string baseCallsign;
             int? ssid = null;
-            
+
             var dashIndex = callsign.IndexOf('-');
             if (dashIndex > 0 && dashIndex < callsign.Length - 1)
             {
@@ -155,10 +147,10 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
             IQueryable<PacketRecord> query = context.Packets
                 .Where(p => p.SourceBase == baseCallsign);
 
-            var sourceSsid = ssid.HasValue 
-                ? (AprsSsid)ssid.Value 
+            var sourceSsid = ssid.HasValue
+                ? (AprsSsid)ssid.Value
                 : AprsSsid.PrimaryStation;
-            
+
             query = query.Where(p => p.SourceSsid == sourceSsid);
 
             var packets = await query
@@ -166,13 +158,13 @@ public sealed class PacketQueryService : IPacketQueryService, IDisposable
                 .Take(limit)
                 .ToListAsync();
 
-            _logger.LogDebug("Retrieved {Count} historical packets for callsign {Callsign}", packets.Count, callsign);
+            logger.LogDebug("Retrieved {Count} historical packets for callsign {Callsign}", packets.Count, callsign);
 
             return packets;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to retrieve packets for callsign {Callsign}", callsign);
+            logger.LogError(ex, "Failed to retrieve packets for callsign {Callsign}", callsign);
             throw;
         }
     }

@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Factories.Packets;
+using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Models.Messaging;
@@ -42,12 +44,14 @@ public sealed class MessageServiceTests
         var configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
         var resolver = Substitute.For<IAprsPortSettingsResolver>();
         resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        var packetFactory = new TestPacketFactory();
 
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             configuration,
             resolver,
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         var addressee = new Callsign("K0OTH", 7);
@@ -71,11 +75,13 @@ public sealed class MessageServiceTests
     {
         var portService = new FakePortService();
         var configuration = CreateConfiguration("N0CALL");
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             configuration,
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
@@ -111,11 +117,13 @@ public sealed class MessageServiceTests
             IsRx = true,
             TypeSettings = new AprsIsSettings()
         };
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             new FakePortService(port),
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -126,11 +134,13 @@ public sealed class MessageServiceTests
     public async Task SendAsync_ThrowsWhenNoTxPorts()
     {
         var portService = new FakePortService();
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -148,11 +158,13 @@ public sealed class MessageServiceTests
             IsTx = true,
             TypeSettings = new AprsIsSettings()
         };
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             new FakePortService(port),
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         var longText = new string('A', 68);
@@ -164,11 +176,13 @@ public sealed class MessageServiceTests
     public void PacketReceived_IgnoresMessagesNotAddressedToUs()
     {
         var portService = new FakePortService();
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
@@ -202,12 +216,14 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var resolver = Substitute.For<IAprsPortSettingsResolver>();
         resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        var packetFactory = new TestPacketFactory();
 
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL", defaultSsid: 1),
             resolver,
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         var addressee = new Callsign("K0OTH", 7);
@@ -234,11 +250,13 @@ public sealed class MessageServiceTests
     {
         // Arrange
         var portService = new FakePortService();
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         // Act - receive 100 packets concurrently from different callsigns
@@ -278,11 +296,13 @@ public sealed class MessageServiceTests
     {
         // Arrange
         var portService = new FakePortService();
+        var packetFactory = new TestPacketFactory();
         var service = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
+            packetFactory,
             NullLogger<MessageService>.Instance);
 
         var callsign = new Callsign("K0OTH", 7);
@@ -356,5 +376,92 @@ public sealed class MessageServiceTests
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class TestPacketFactory : IPacketFactory
+    {
+        public PositionPacket CreatePositionPacket(
+            LocationData location,
+            string callsign,
+            SymbolTable symbolTable,
+            SymbolCode symbolCode,
+            double? course = null,
+            string? comment = null)
+        {
+            var parts = callsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new PositionPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Location = location.Location,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Course = course,
+                Comment = comment ?? string.Empty,
+                Altitude = location.Altitude.HasValue ? (int)(location.Altitude.Value * 3.28084) : null
+            };
+        }
+
+        public MessagePacket CreateMessagePacket(
+            string sourceCallsign,
+            Callsign addressee,
+            string messageText,
+            int? messageNumber = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = messageText,
+                MessageNumber = messageNumber
+            };
+        }
+
+        public MessagePacket CreateAckPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"ack{messageNumber}"
+            };
+        }
+
+        public MessagePacket CreateRejPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"rej{messageNumber}"
+            };
+        }
     }
 }

@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -89,33 +90,44 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public async Task EvaluateAndTransmitBeaconAsync_WhenShouldNotTransmit_UpdatesStatusOnly()
+    public void ProcessLocationUpdate_WhenShouldNotTransmit_UpdatesStatusOnly()
     {
-        var beaconService = new TestBeaconService { ShouldTransmit = false, SecondsUntilNext = 120, Reason = "Minimum time not elapsed" };
+        var beaconService = new TestBeaconService 
+        { 
+            ShouldTransmit = false, 
+            SecondsUntilNext = 120, 
+            Reason = new BeaconTransmitReason.AwaitingTimeInterval()
+        };
         var portService = new TestPortService();
         var viewModel = CreateViewModel(portService, beaconService: beaconService);
         var location = CreateLocation(40.7128, -74.0060);
 
-        await viewModel.EvaluateAndTransmitBeaconAsync(location, null);
+        viewModel.ProcessLocationUpdate(location);
 
-        Assert.Equal("Next beacon in 120s (Minimum time not elapsed)", viewModel.BeaconStatus);
+        Assert.Contains("120", viewModel.BeaconStatus);
         Assert.Equal(0, portService.SendCount);
     }
 
     [Fact]
-    public async Task EvaluateAndTransmitBeaconAsync_WhenShouldTransmit_SendsBeacon()
+    public async Task ProcessLocationUpdate_WhenShouldTransmit_SendsBeacon()
     {
-        var beaconService = new TestBeaconService { ShouldTransmit = true, Reason = "Significant movement" };
+        var beaconService = new TestBeaconService 
+        { 
+            ShouldTransmit = true, 
+            Reason = new BeaconTransmitReason.CourseChanged { CourseDeltaDegrees = 25 }
+        };
         var port = CreatePort(isTx: true);
         var portService = new TestPortService(port);
         var viewModel = CreateViewModel(portService, beaconService: beaconService);
         var location = CreateLocation(40.7128, -74.0060);
 
-        await viewModel.EvaluateAndTransmitBeaconAsync(location, null);
+        viewModel.ProcessLocationUpdate(location);
+        
+        // Wait a bit for the async event handler to complete
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, portService.SendCount);
         Assert.Contains("Beacon sent", viewModel.BeaconStatus);
-        Assert.Contains("Significant movement", viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -186,12 +198,12 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public async Task EvaluateAndTransmitBeaconAsync_UpdatesLastBeaconDecision()
+    public async Task ProcessLocationUpdate_UpdatesLastBeaconDecision()
     {
         var beaconService = new TestBeaconService 
         { 
             ShouldTransmit = true, 
-            Reason = "Test reason",
+            Reason = new BeaconTransmitReason.IntervalExceeded { IntervalSeconds = 60 },
             CurrentSpeedKmh = 45.5,
             CurrentCourseDegrees = 180
         };
@@ -200,11 +212,14 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
         var viewModel = CreateViewModel(portService, beaconService: beaconService);
         var location = CreateLocation(40.7128, -74.0060);
 
-        await viewModel.EvaluateAndTransmitBeaconAsync(location, null);
+        viewModel.ProcessLocationUpdate(location);
+        
+        // Wait a bit for the async event handler to complete
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         Assert.NotNull(viewModel.LastBeaconDecision);
         Assert.True(viewModel.LastBeaconDecision.ShouldTransmit);
-        Assert.Equal("Test reason", viewModel.LastBeaconDecision.Reason);
+        Assert.IsType<BeaconTransmitReason.IntervalExceeded>(viewModel.LastBeaconDecision.Reason);
         Assert.Equal(45.5, viewModel.LastBeaconDecision.CurrentSpeedKmh);
         Assert.Equal(180, viewModel.LastBeaconDecision.CurrentCourseDegrees);
     }
@@ -225,12 +240,14 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
         
         beaconService ??= new TestBeaconService();
         var portSettingsResolver = new AprsPortSettingsResolver(config);
+        var packetFactory = new TestPacketFactory();
 
         return new BeaconTransmissionViewModel(
             beaconService,
             portService,
             config,
             portSettingsResolver,
+            packetFactory,
             NullLogger<BeaconTransmissionViewModel>.Instance);
     }
 
@@ -268,14 +285,27 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
     {
         public bool ShouldTransmit { get; set; } = true;
         public int SecondsUntilNext { get; set; } = 0;
-        public string Reason { get; set; } = "Test";
+        public BeaconTransmitReason Reason { get; set; } = new BeaconTransmitReason.WaitingForNextInterval { SecondsUntilNext = 0 };
         public double? CurrentSpeedKmh { get; set; }
         public double? CurrentCourseDegrees { get; set; }
+
+        public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
 
         public BeaconConfig CurrentConfiguration { get; private set; } = BeaconConfig.CreateWalkPreset();
 
         public IReadOnlyList<BeaconConfig> AllConfigurations =>
             new[] { BeaconConfig.CreateWalkPreset(), BeaconConfig.CreateDrivePreset(), BeaconConfig.CreateCustomPreset() };
+
+        public double? LastCourseDegrees => CurrentCourseDegrees;
+
+        public BeaconTransmitDecision? CurrentDecision => new BeaconTransmitDecision
+        {
+            ShouldTransmit = ShouldTransmit,
+            Reason = Reason,
+            SecondsUntilNextBeacon = SecondsUntilNext,
+            CurrentSpeedKmh = CurrentSpeedKmh,
+            CurrentCourseDegrees = CurrentCourseDegrees
+        };
 
         public void SetActiveMode(DynamicBeaconMode mode)
         {
@@ -290,42 +320,17 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
 
         public void UpdateConfiguration(BeaconConfig configuration) { }
 
-        public BeaconTransmitDecision EvaluateLocationUpdate(LocationData currentLocation, LocationData? previousLocation)
+        public void ProcessLocationUpdate(LocationData currentLocation)
         {
-            return new BeaconTransmitDecision
+            // Simulate the beacon service behavior: raise event if ShouldTransmit is true
+            if (ShouldTransmit && CurrentDecision is not null)
             {
-                ShouldTransmit = ShouldTransmit,
-                Reason = Reason,
-                SecondsUntilNextBeacon = SecondsUntilNext,
-                CurrentSpeedKmh = CurrentSpeedKmh,
-                CurrentCourseDegrees = CurrentCourseDegrees
-            };
-        }
-
-        public void ResetTransmissionTimer() { }
-
-        public PositionPacket CreatePositionPacket(
-            LocationData location,
-            string callsign,
-            string symbolTableCharacter = "/",
-            string symbolCodeCharacter = "[")
-        {
-            var callsignParts = callsign.Split('-');
-            var source = callsignParts.Length > 1 && int.TryParse(callsignParts[1], out var ssid)
-                ? new Callsign(callsignParts[0], ssid)
-                : new Callsign(callsign);
-
-            return new PositionPacket
-            {
-                Source = source,
-                Destination = new Callsign("APRS"),
-                Location = location.Location,
-                Precision = 2,
-                Symbol = new Symbol(
-                    symbolTableCharacter[0].ToSymbolTable(),
-                    symbolCodeCharacter[0].ToSymbolCode()),
-                Comment = "Test"
-            };
+                BeaconRequested?.Invoke(this, new BeaconRequestedEventArgs
+                {
+                    Location = currentLocation,
+                    Decision = CurrentDecision
+                });
+            }
         }
     }
 
@@ -363,5 +368,92 @@ public class BeaconTransmissionViewModelTests : TestFixtureBase
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class TestPacketFactory : IPacketFactory
+    {
+        public PositionPacket CreatePositionPacket(
+            LocationData location,
+            string callsign,
+            SymbolTable symbolTable,
+            SymbolCode symbolCode,
+            double? course = null,
+            string? comment = null)
+        {
+            var parts = callsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new PositionPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Location = location.Location,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Course = course,
+                Comment = comment ?? string.Empty,
+                Altitude = location.Altitude.HasValue ? (int)(location.Altitude.Value * 3.28084) : null
+            };
+        }
+
+        public MessagePacket CreateMessagePacket(
+            string sourceCallsign,
+            Callsign addressee,
+            string messageText,
+            int? messageNumber = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = messageText,
+                MessageNumber = messageNumber
+            };
+        }
+
+        public MessagePacket CreateAckPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"ack{messageNumber}"
+            };
+        }
+
+        public MessagePacket CreateRejPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"rej{messageNumber}"
+            };
+        }
     }
 }

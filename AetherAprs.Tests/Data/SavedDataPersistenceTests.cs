@@ -10,6 +10,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Data.Mappers;
+using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -41,11 +42,11 @@ public sealed class SavedDataPersistenceTests
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });
         
-        var service = new BeaconService(db.Factory, configuration, Substitute.For<ILogger<BeaconService>>());
+        var service = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
         service.UpdateConfiguration(BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 });
         service.SetActiveMode(DynamicBeaconMode.Drive);
 
-        var reloaded = new BeaconService(db.Factory, configuration, Substitute.For<ILogger<BeaconService>>());
+        var reloaded = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
         Assert.Equal(DynamicBeaconMode.Drive, reloaded.CurrentConfiguration.Mode);
         Assert.Equal(1111, reloaded.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk).SlowIntervalSeconds);
     }
@@ -84,6 +85,7 @@ public sealed class SavedDataPersistenceTests
                    Substitute.For<IPacketStorageService>(),
                    configuration,
                    Substitute.For<IAprsPortSettingsResolver>(),
+                   new TestPacketFactory(),
                    NullLogger<MessageService>.Instance,
                    db.Factory))
         {
@@ -101,6 +103,7 @@ public sealed class SavedDataPersistenceTests
             Substitute.For<IPacketStorageService>(),
             configuration,
             Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
             db.Factory);
         var threadReloaded = Assert.Single(reloaded.Conversations);
@@ -132,5 +135,92 @@ public sealed class SavedDataPersistenceTests
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class TestPacketFactory : IPacketFactory
+    {
+        public PositionPacket CreatePositionPacket(
+            LocationData location,
+            string callsign,
+            SymbolTable symbolTable,
+            SymbolCode symbolCode,
+            double? course = null,
+            string? comment = null)
+        {
+            var parts = callsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new PositionPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Location = location.Location,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Course = course,
+                Comment = comment ?? string.Empty,
+                Altitude = location.Altitude.HasValue ? (int)(location.Altitude.Value * 3.28084) : null
+            };
+        }
+
+        public MessagePacket CreateMessagePacket(
+            string sourceCallsign,
+            Callsign addressee,
+            string messageText,
+            int? messageNumber = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = messageText,
+                MessageNumber = messageNumber
+            };
+        }
+
+        public MessagePacket CreateAckPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"ack{messageNumber}"
+            };
+        }
+
+        public MessagePacket CreateRejPacket(
+            string sourceCallsign,
+            Callsign addressee,
+            int messageNumber)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new MessagePacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Addressee = addressee,
+                Text = $"rej{messageNumber}"
+            };
+        }
     }
 }

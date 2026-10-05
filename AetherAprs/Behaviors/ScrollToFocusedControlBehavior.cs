@@ -22,18 +22,12 @@ public class ScrollToFocusedControlBehavior : Behavior<ScrollViewer>
     {
         base.OnAttached();
 
-        if (AssociatedObject != null)
-        {
-            AssociatedObject.AddHandler(InputElement.GotFocusEvent, OnGotFocus, handledEventsToo: true);
-        }
+        AssociatedObject?.AddHandler(InputElement.GotFocusEvent, OnGotFocus, handledEventsToo: true);
     }
 
     protected override void OnDetaching()
     {
-        if (AssociatedObject != null)
-        {
-            AssociatedObject.RemoveHandler(InputElement.GotFocusEvent, OnGotFocus);
-        }
+        AssociatedObject?.RemoveHandler(InputElement.GotFocusEvent, OnGotFocus);
 
         base.OnDetaching();
     }
