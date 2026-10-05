@@ -16,4 +16,16 @@ public interface IPermissionService
     /// </summary>
     /// <returns>True if permission is granted or not required, false if denied.</returns>
     Task<bool> RequestNotificationPermissionAsync();
+
+    /// <summary>
+    /// Requests Bluetooth permissions if required by the platform.
+    /// </summary>
+    /// <returns>True if permission is granted or not required, false if denied.</returns>
+    Task<bool> RequestBluetoothPermissionAsync();
+
+    /// <summary>
+    /// Requests location permissions if required by the platform.
+    /// </summary>
+    /// <returns>True if permission is granted or not required, false if denied.</returns>
+    Task<bool> RequestLocationPermissionAsync();
 }

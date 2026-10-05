@@ -134,31 +134,32 @@ public partial class App : Application
     {
         try
         {
-            // Request notification permission first (if required by platform)
             var permissionService = ServiceProvider.GetRequiredService<IPermissionService>();
-            var notificationGranted = await permissionService.RequestNotificationPermissionAsync();
-            _logger?.LogInformation("Notification permission: {Granted}", notificationGranted);
-
-            // Small delay to avoid overlapping with location permission dialog
-            await Task.Delay(500);
-
-            // Now request location permission and start tracking
             var locationService = ServiceProvider.GetRequiredService<ILocationService>();
             
-            // Check if location is available
-            if (!locationService.IsLocationAvailable())
-            {
-                _logger?.LogWarning("Location services are not available on this device");
-                return;
-            }
-
-            // Request location permission
-            var locationGranted = await locationService.RequestLocationPermissionAsync();
+            // Request all permissions (MainActivity handles actual dialogs on Android)
+            _logger?.LogInformation("Requesting notification permission...");
+            var notificationGranted = await permissionService.RequestNotificationPermissionAsync();
+            _logger?.LogInformation("Notification permission: {Granted}", notificationGranted);
+            
+            _logger?.LogInformation("Requesting Bluetooth permission...");
+            var bluetoothGranted = await permissionService.RequestBluetoothPermissionAsync();
+            _logger?.LogInformation("Bluetooth permission: {Granted}", bluetoothGranted);
+            
+            _logger?.LogInformation("Requesting location permission...");
+            var locationGranted = await permissionService.RequestLocationPermissionAsync();
             _logger?.LogInformation("Location permission: {Granted}", locationGranted);
             
             if (!locationGranted)
             {
                 _logger?.LogWarning("Location permission was denied by user");
+                return;
+            }
+            
+            // Check if location is available
+            if (!locationService.IsLocationAvailable())
+            {
+                _logger?.LogWarning("Location services are not available on this device");
                 return;
             }
 

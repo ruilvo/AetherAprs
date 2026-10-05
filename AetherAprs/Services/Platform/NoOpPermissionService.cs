@@ -17,4 +17,18 @@ public class NoOpPermissionService : IPermissionService
         // Desktop platforms don't require notification permission
         return Task.FromResult(true);
     }
+
+    /// <inheritdoc/>
+    public Task<bool> RequestBluetoothPermissionAsync()
+    {
+        // Desktop platforms don't require Bluetooth permission
+        return Task.FromResult(true);
+    }
+
+    /// <inheritdoc/>
+    public Task<bool> RequestLocationPermissionAsync()
+    {
+        // Desktop platforms don't require location permission
+        return Task.FromResult(true);
+    }
 }

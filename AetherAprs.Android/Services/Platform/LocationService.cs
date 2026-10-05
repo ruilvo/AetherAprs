@@ -59,8 +59,8 @@ public class LocationService : ILocationService
             return true;
         }
 
-        // For Android 6.0+ (API 23+), we need to request runtime permissions
-        // This requires an Activity context, which we get from MainActivity
+        // Permissions are requested by MainActivity.OnResume()
+        // If we get here and don't have permission, request it again
         var activity = MainActivity.Instance;
         if (activity == null)
         {
