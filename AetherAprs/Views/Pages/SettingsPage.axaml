@@ -33,9 +33,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <Grid>
-    <ScrollViewer Classes="PageContent">
-      <StackPanel Classes="SettingsContainer">
+  <components:ScrollablePageContent>
+    <StackPanel Classes="SettingsContainer">
 
         <!-- Station Section -->
         <StackPanel Spacing="16">
@@ -237,6 +236,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </StackPanel>
 
       </StackPanel>
-    </ScrollViewer>
-  </Grid>
+  </components:ScrollablePageContent>
 </UserControl>
