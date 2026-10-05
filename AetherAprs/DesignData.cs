@@ -11,10 +11,12 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
@@ -69,8 +71,15 @@ public static class DesignData
         services.AddSingleton<IPacketQueryService, PacketQueryService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
-        services.AddSingleton<ReceivedBeaconsViewModel>();
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
+
+        // Register map layer services
+        services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
+        services.AddSingleton<IUserLocationLayerService, UserLocationLayerService>();
+
+        // Register location and transmission services
+        services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
+        services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
 
         // Register factories
         services.AddSingleton<IPacketFactory, PacketFactory>();
@@ -88,8 +97,6 @@ public static class DesignData
 
         // Register view models
         services.AddSingleton<MainViewModel>();
-        services.AddTransient<LocationTrackingViewModel>();
-        services.AddTransient<BeaconTransmissionViewModel>();
         services.AddTransient<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>();
         services.AddSingleton<HomeViewModel>();

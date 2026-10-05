@@ -203,6 +203,9 @@ Services/
 │   └── ConfigurationService.cs
 ├── Contracts/             # Shared service DTOs
 │   └── PortPacketReceivedEventArgs.cs
+├── Location/              # Location tracking
+│   ├── ILocationTrackingService.cs
+│   └── LocationTrackingService.cs
 ├── Messaging/             # APRS messaging
 │   ├── IMessageService.cs
 │   └── MessageService.cs
@@ -215,18 +218,30 @@ Services/
 │   ├── AppDataDirProviderService.cs
 │   ├── IForegroundService.cs
 │   ├── NoOpForegroundService.cs
-│   └── ILocationService.cs
+│   ├── ILocationService.cs
+│   ├── NoOpLocationService.cs
+│   ├── IPermissionService.cs
+│   └── NoOpPermissionService.cs
 ├── Ports/                 # Port management
 │   ├── IPortService.cs
 │   ├── PortService.cs
 │   ├── IDigipeaterService.cs
 │   ├── DigipeaterService.cs
 │   └── AprsPortSettingsResolver.cs
+├── Transmission/          # Beacon transmission coordination
+│   ├── IBeaconTransmissionService.cs
+│   └── BeaconTransmissionService.cs
 └── UI/                    # UI services
     ├── INavigationService.cs
     ├── NavigationService.cs
     ├── IUiCultureProvider.cs
-    └── OsUiCultureProvider.cs
+    ├── OsUiCultureProvider.cs
+    ├── IKeyboardInsetsService.cs
+    ├── KeyboardInsetsService.cs
+    ├── IReceivedBeaconsMapLayerService.cs
+    ├── ReceivedBeaconsMapLayerService.cs
+    ├── IUserLocationLayerService.cs
+    └── UserLocationLayerService.cs
 ```
 
 **Placement rules:**
@@ -234,11 +249,13 @@ Services/
 - Bluetooth device services → `Services/Bluetooth/`
 - Configuration services → `Services/Configuration/`
 - Shared service DTOs → `Services/Contracts/`
+- Location tracking → `Services/Location/`
 - Messaging services → `Services/Messaging/`
 - Packet services → `Services/Packets/`
-- Platform abstraction → `Services/Platform/`
+- Platform abstraction (permissions, foreground service, location, app data) → `Services/Platform/`
 - Port management → `Services/Ports/`
-- UI services → `Services/UI/`
+- Beacon transmission coordination → `Services/Transmission/`
+- UI services (navigation, map layers, keyboard insets, culture) → `Services/UI/`
 
 **Namespace convention:**
 - Each subfolder maps to: `AetherAprs.Services.{Subfolder}`
@@ -280,18 +297,14 @@ ViewModels/
 │   ├── PacketsViewModel.cs
 │   ├── PortsViewModel.cs
 │   └── SettingsViewModel.cs
-├── BeaconTransmissionViewModel.cs  # Top-level components
-├── LocationTrackingViewModel.cs
 ├── MainViewModel.cs
-├── ReceivedBeaconsViewModel.cs
 └── ViewModelBase.cs
 
 Views/
 ├── Components/            # Reusable component Views
 │   ├── AprsSymbolPickerComponent.axaml[.cs]
-│   ├── BeaconTransmissionComponent.axaml[.cs]
-│   ├── LocationTrackingComponent.axaml[.cs]
 │   ├── PortItemComponent.axaml[.cs]
+│   ├── ScrollablePageContent.axaml[.cs]
 │   └── SymbolSelectorComponent.axaml[.cs]
 ├── Pages/                 # Page-level Views
 │   ├── AddEditPortPage.axaml[.cs]
@@ -314,6 +327,8 @@ Views/
 - Top-level ViewModels → `ViewModels/` root
 - Page Views → `Views/Pages/`
 - Component Views → `Views/Components/`
+
+**Note:** Location tracking, beacon transmission, and map layer management are implemented as services (in `Services/Location/`, `Services/Transmission/`, `Services/UI/`), not ViewModels.
 
 ## Android Project Structure (AetherAprs.Android/)
 
@@ -391,12 +406,10 @@ AetherAprs.Tests/
 │   │   ├── SettingsViewModelPersistenceTests.cs
 │   │   └── SettingsViewModelTests.cs
 │   ├── Components/        # Component ViewModel tests
-│   │   ├── BeaconTransmissionViewModelTests.cs
-│   │   ├── LocationTrackingViewModelTests.cs
-│   │   ├── MemoryLeakTests.cs
-│   │   ├── PortItemViewModelTests.cs
-│   │   └── ReceivedBeaconsViewModelTests.cs
-│   └── MainViewModelTests.cs
+│   │   ├── LocationTrackingViewModelTests.cs  # ORPHANED - ViewModel deleted
+│   │   ├── MemoryLeakTests.cs  # NEEDS UPDATE - references deleted ViewModels
+│   │   └── PortItemViewModelTests.cs
+│   └── MainViewModelTests.cs  # NEEDS UPDATE - references deleted ViewModels
 ├── Transports/            # Transport tests
 │   └── Kiss/
 │       ├── KissStreamFactoryTests.cs
@@ -449,9 +462,13 @@ AetherAprs.Tests/
 - General domain models → `Models/`
 
 **Services:**
-- Determine service category (Beaconing, Messaging, Ports, etc.)
+- Determine service category (Beaconing, Location, Messaging, Packets, Ports, Transmission, Platform, UI, etc.)
 - Place interface and implementation in appropriate `Services/{Category}/`
 - Shared DTOs → `Services/Contracts/`
+- Location tracking → `Services/Location/`
+- Beacon transmission coordination → `Services/Transmission/`
+- Map layers, navigation, keyboard, culture → `Services/UI/`
+- Platform abstractions (permissions, foreground, location hardware, app data) → `Services/Platform/`
 
 **Converters:**
 - APRS protocol converters → `Converters/Aprs/`

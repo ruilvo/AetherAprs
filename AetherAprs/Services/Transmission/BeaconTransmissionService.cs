@@ -9,34 +9,88 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.Services.Transmission;
 
 /// <summary>
-/// ViewModel responsible for beacon transmission logic and status.
+/// Service responsible for beacon transmission logic.
 /// </summary>
-public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
+public interface IBeaconTransmissionService : IDisposable
+{
+    /// <summary>
+    /// Gets the last beacon decision made by the service.
+    /// </summary>
+    BeaconTransmitDecision? LastBeaconDecision { get; }
+
+    /// <summary>
+    /// Gets the current beacon status message.
+    /// </summary>
+    string BeaconStatus { get; }
+
+    /// <summary>
+    /// Event raised when beacon status changes.
+    /// </summary>
+    event EventHandler<string>? BeaconStatusChanged;
+
+    /// <summary>
+    /// Processes a location update through the beacon service.
+    /// The service will transmit if conditions are met.
+    /// </summary>
+    void ProcessLocationUpdate(LocationData currentLocation);
+
+    /// <summary>
+    /// Sends a manual beacon immediately on all enabled TX ports.
+    /// </summary>
+    Task SendManualBeaconAsync(LocationData? userLocation);
+
+    /// <summary>
+    /// Sends an initial beacon on newly enabled ports.
+    /// </summary>
+    Task SendInitialBeaconOnPortActivationAsync(LocationData? userLocation, System.Collections.Generic.IEnumerable<AetherAprs.Configuration.PortConfig> portsJustEnabled);
+}
+
+/// <summary>
+/// Implementation of beacon transmission service.
+/// </summary>
+public sealed class BeaconTransmissionService : IBeaconTransmissionService
 {
     private readonly IBeaconService _beaconService;
     private readonly IPortService _portService;
     private readonly IConfigurationService _configurationService;
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly IPacketFactory _packetFactory;
-    private readonly ILogger<BeaconTransmissionViewModel> _logger;
+    private readonly ILogger<BeaconTransmissionService> _logger;
+    private string _beaconStatus = Strings.Get("BeaconSystemReady");
+    private bool _disposed;
 
-    public BeaconTransmissionViewModel(
+    public BeaconTransmitDecision? LastBeaconDecision { get; private set; }
+    
+    public string BeaconStatus
+    {
+        get => _beaconStatus;
+        private set
+        {
+            if (_beaconStatus != value)
+            {
+                _beaconStatus = value;
+                BeaconStatusChanged?.Invoke(this, value);
+            }
+        }
+    }
+
+    public event EventHandler<string>? BeaconStatusChanged;
+
+    public BeaconTransmissionService(
         IBeaconService beaconService,
         IPortService portService,
         IConfigurationService configurationService,
         IAprsPortSettingsResolver portSettingsResolver,
         IPacketFactory packetFactory,
-        ILogger<BeaconTransmissionViewModel> logger)
+        ILogger<BeaconTransmissionService> logger)
     {
         _beaconService = beaconService;
         _portService = portService;
@@ -45,30 +99,13 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
         _packetFactory = packetFactory;
         _logger = logger;
 
-        // Subscribe to beacon requested event
         _beaconService.BeaconRequested += OnBeaconRequested;
     }
 
-    public void Dispose()
-    {
-        _beaconService.BeaconRequested -= OnBeaconRequested;
-    }
-
-    [ObservableProperty]
-    public partial BeaconTransmitDecision? LastBeaconDecision { get; set; }
-
-    [ObservableProperty]
-    public partial string BeaconStatus { get; set; } = Strings.Get("BeaconSystemReady");
-
-    /// <summary>
-    /// Processes a location update through the beacon service.
-    /// The service will raise BeaconRequested event if transmission is needed.
-    /// </summary>
     public void ProcessLocationUpdate(LocationData currentLocation)
     {
         _beaconService.ProcessLocationUpdate(currentLocation);
 
-        // Update UI with current decision
         var decision = _beaconService.CurrentDecision;
         LastBeaconDecision = decision;
 
@@ -78,9 +115,6 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>
-    /// Event handler for when the beacon service requests transmission.
-    /// </summary>
     private async void OnBeaconRequested(object? sender, BeaconRequestedEventArgs e)
     {
         try
@@ -94,12 +128,8 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>
-    /// Transmits a beacon on all enabled TX ports.
-    /// </summary>
     private async Task TransmitBeaconAsync(LocationData location, BeaconTransmitDecision decision)
     {
-        // Get enabled TX ports
         var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
         if (txPorts.Count == 0)
         {
@@ -108,7 +138,6 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        // Get callsign from configuration
         var callsign = _configurationService.Settings.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
         {
@@ -117,10 +146,8 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        // Create position packet
         var packet = CreateBeaconPacket(location, callsign);
 
-        // Send to each TX port
         var sentPortCount = 0;
         foreach (var port in txPorts)
         {
@@ -148,14 +175,9 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        // Update status
         BeaconStatus = Strings.Format("BeaconSentStatus", decision.Reason.GetLocalizedString(), decision.CurrentSpeedKmh, decision.CurrentCourseDegrees);
     }
 
-    /// <summary>
-    /// Sends a manual beacon immediately on all enabled TX ports.
-    /// </summary>
-    [RelayCommand]
     public async Task SendManualBeaconAsync(LocationData? userLocation)
     {
         if (userLocation == null)
@@ -180,7 +202,6 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
                 return;
             }
 
-            // Create position packet using current global beacon mode
             var packet = CreateBeaconPacket(userLocation, callsign);
 
             var sentPortCount = 0;
@@ -209,10 +230,7 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>
-    /// Sends an initial beacon on newly enabled ports.
-    /// </summary>
-    public async Task SendInitialBeaconOnPortActivationAsync(LocationData? userLocation, System.Collections.Generic.IEnumerable<Configuration.PortConfig> portsJustEnabled)
+    public async Task SendInitialBeaconOnPortActivationAsync(LocationData? userLocation, System.Collections.Generic.IEnumerable<AetherAprs.Configuration.PortConfig> portsJustEnabled)
     {
         if (userLocation == null || !portsJustEnabled.Any())
             return;
@@ -221,7 +239,6 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
         if (string.IsNullOrEmpty(callsign))
             return;
 
-        // Create position packet using current global beacon mode
         var packet = CreateBeaconPacket(userLocation, callsign);
 
         var sentPortNames = new System.Collections.Generic.List<string>();
@@ -246,9 +263,6 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
         }
     }
 
-    /// <summary>
-    /// Creates a beacon packet for the given location and callsign.
-    /// </summary>
     private PositionPacket CreateBeaconPacket(LocationData location, string callsign)
     {
         var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
@@ -264,5 +278,14 @@ public partial class BeaconTransmissionViewModel : ViewModelBase, IDisposable
             symbolCode,
             course,
             comment);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _beaconService.BeaconRequested -= OnBeaconRequested;
     }
 }

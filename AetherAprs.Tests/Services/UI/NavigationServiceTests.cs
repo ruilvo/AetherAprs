@@ -10,10 +10,12 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
@@ -103,14 +105,17 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<IPacketFactory>());
         services.AddSingleton(Substitute.For<IAprsSymbolBitmapProvider>());
         services.AddSingleton(Substitute.For<ILogger<HomeViewModel>>());
-        services.AddSingleton(Substitute.For<ILogger<LocationTrackingViewModel>>());
-        services.AddSingleton(Substitute.For<ILogger<BeaconTransmissionViewModel>>());
-        services.AddSingleton(Substitute.For<ILogger<ReceivedBeaconsViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<PacketsViewModel>>());
         
         // Register IPacketQueryService and IPacketStorageService - required by ViewModels
         services.AddSingleton(Substitute.For<IPacketQueryService>());
         services.AddSingleton(Substitute.For<IPacketStorageService>());
+
+        // Register services that replaced ViewModels
+        services.AddSingleton(Substitute.For<ILocationTrackingService>());
+        services.AddSingleton(Substitute.For<IBeaconTransmissionService>());
+        services.AddSingleton(Substitute.For<IReceivedBeaconsMapLayerService>());
+        services.AddSingleton(Substitute.For<IUserLocationLayerService>());
 
         // Register IAddEditPortViewModelFactory - required by PortsViewModel
         services.AddSingleton(Substitute.For<IAddEditPortViewModelFactory>());
@@ -121,9 +126,6 @@ public sealed class NavigationServiceTests
         // Register IConversationViewModelFactory - required by MessagesViewModel
         services.AddSingleton(Substitute.For<IConversationViewModelFactory>());
 
-        services.AddSingleton<ReceivedBeaconsViewModel>();
-        services.AddSingleton<LocationTrackingViewModel>();
-        services.AddSingleton<BeaconTransmissionViewModel>();
         services.AddSingleton<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>(); // Required by SettingsViewModel
         services.AddSingleton<HomeViewModel>();

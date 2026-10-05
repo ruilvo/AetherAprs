@@ -96,10 +96,10 @@ Do NOT specify versions in individual project files.
 **See [CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md) for comprehensive folder organization and file placement guidelines.**
 
 Key structural patterns:
-- Services organized by domain: `Services/{Beaconing|Messaging|Packets|Ports|Platform|UI}/`
+- Services organized by domain: `Services/{Beaconing|Location|Messaging|Packets|Ports|Platform|Transmission|UI}/`
 - Data layer separated: `Data/{Entities|Mappers|Converters|Migrations}/`
 - APRS packets grouped: `Models/Aprs/Packets/`
-- Factories categorized: `Factories/ViewModels/`
+- Factories categorized: `Factories/{Packets|ViewModels}/`
 - Converters categorized: `Converters/{Aprs|UI}/`
 - Namespace MUST match folder structure exactly
 
@@ -164,8 +164,8 @@ PacketQueryService (IPacketQueryService)
     - GetPacketsByPortAsync() - packets from specific port
     - GetPacketsByCallsignAsync() - historical packets for trail display
   ↑
-Consumers (ViewModels)
-  - ReceivedBeaconsViewModel: queries for map display
+Consumers (ViewModels and Services)
+  - ReceivedBeaconsMapLayerService: provides map layers for display
   - PacketsViewModel: queries for packet list
   - PacketDetailsViewModel: queries for callsign history
 ```
@@ -173,7 +173,8 @@ Consumers (ViewModels)
 **Key Rules:**
 - ViewModels MUST NOT access EF Core or DbContext directly
 - ViewModels MUST use PacketQueryService for all database reads
-- Map display MUST obtain data via PacketQueryService (not direct database access)
+- Services MAY use PacketQueryService for business logic requiring packet data
+- Map display MUST obtain data via ReceivedBeaconsMapLayerService (which uses PacketQueryService)
 - Packet details MUST obtain data via PacketQueryService (not direct database access)
 - PacketQueryService provides read-only access - no data modification
 
@@ -238,13 +239,55 @@ The following patterns violate the architecture and MUST NOT be used:
 - Handles message acknowledgments and retries
 
 **BeaconService** (`IBeaconService`):
-- Manages beacon configurations
-- Persists beacon configs via EF Core
-- Coordinates beacon transmission via PortService
+- Evaluates beacon transmission conditions using state machine
+- Runs on internal timer (1 second intervals)
+- Raises BeaconRequested event when conditions are met
+- Tracks location history and calculates course
+- Does NOT handle actual transmission (delegated to BeaconTransmissionService)
+
+**BeaconTransmissionService** (`IBeaconTransmissionService`):
+- Handles beacon transmission logic
+- Subscribes to BeaconService.BeaconRequested event
+- Creates beacon packets via IPacketFactory
+- Transmits via PortService.SendPacketAsync()
+- Manages beacon status messages for UI
+
+**LocationTrackingService** (`ILocationTrackingService`):
+- Manages GPS location tracking lifecycle
+- Polls location every 5 seconds when active
+- Raises LocationUpdated event with new coordinates
+- Handles permission requests and error recovery
+
+**ReceivedBeaconsMapLayerService** (`IReceivedBeaconsMapLayerService`):
+- Provides map layers for received APRS beacons and position trails
+- Queries PacketQueryService for station data
+- Creates Mapsui features with APRS symbols
+- Filters by port visibility and time range
+- Updates layers in response to PacketStored events
+
+**UserLocationLayerService** (`IUserLocationLayerService`):
+- Provides map layer for user's current location marker
+- Updates layer when location changes
+- Exposes CurrentMapPoint for centering operations
+
+**KeyboardInsetsService** (`IKeyboardInsetsService`):
+- Manages keyboard insets for on-screen keyboard
+- Provides padding adjustments to avoid keyboard overlap
+- Raises InsetsChanged event when keyboard appears/disappears
+
+**PermissionService** (`IPermissionService`):
+- Platform-specific runtime permission requests
+- Handles notification, Bluetooth, and location permissions
+- NoOp implementation for desktop platforms
 
 **DigipeaterService** (`IDigipeaterService`):
 - Implements APRS digipeater functionality
 - Coordinates with PortService for packet forwarding
+
+**PacketFactory** (`IPacketFactory`):
+- Creates APRS packets (position, message, ack, rej)
+- Handles digipeater path and destination configuration
+- Centralizes packet construction logic
 
 ## MVVM Architecture
 
@@ -315,11 +358,16 @@ public partial class SomeViewModel : ViewModelBase
 
 **Every relevant View should have a corresponding ViewModel.**
 
-- Page Views (HomeView, PacketsView, PortsView) → Page ViewModels
-- Dialog Views (AddEditPortView, PacketDetailsView) → Dialog ViewModels  
-- Component Views (LocationTrackingComponent, BeaconTransmissionComponent) → Component ViewModels
+- Page Views (HomePage, PacketsPage, PortsPage) → Page ViewModels
+- Dialog Views (AddEditPortPage, PacketDetailsPage) → Dialog ViewModels  
+- Component Views (AprsSymbolPickerComponent, SymbolSelectorComponent, PortItemComponent) → Component ViewModels
 
-Simple presentational controls without logic may not need ViewModels.
+Simple presentational controls without logic may not need ViewModels (e.g., ScrollablePageContent).
+
+**Services vs ViewModels:**
+- Location tracking, beacon transmission, and map layer management are implemented as **services**, not ViewModels
+- ViewModels consume these services and expose UI-specific state
+- Services can be used by multiple ViewModels and don't depend on UI lifecycle
 
 **Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`).
 
@@ -341,19 +389,21 @@ When creating new ViewModels:
 
 **ViewModel Lifetime Guidelines:**
 - **Singleton**: Page-level ViewModels that persist across app lifetime (MainViewModel, HomeViewModel, PortsViewModel, etc.)
-- **Transient**: Sub-components created on-demand (LocationTrackingViewModel, BeaconTransmissionViewModel, dialog ViewModels)
-- **Transient with Factory**: ViewModels requiring post-construction initialization with context data (AddEditPortViewModel, PacketDetailsViewModel, ConversationViewModel)
+- **Transient**: Dialog ViewModels created on-demand (AddEditPortViewModel, PacketDetailsViewModel, ConversationViewModel, DynamicBeaconingViewModel)
+- **Transient with Factory**: ViewModels requiring post-construction initialization with context data
 
 **Child ViewModel Injection**: Parent ViewModels should inject child ViewModels via constructor, not create them directly:
 ```csharp
 // CORRECT - Inject child ViewModel
 public HomeViewModel(
-    LocationTrackingViewModel locationTracking,
     MapViewModel map,
+    ILocationTrackingService locationTracking,
+    IBeaconTransmissionService beaconTransmission,
     ...)
 {
-    LocationTracking = locationTracking;
     Map = map;
+    _locationTrackingService = locationTracking;
+    _beaconTransmissionService = beaconTransmission;
 }
 
 // WRONG - Don't create child ViewModels directly

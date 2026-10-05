@@ -23,44 +23,51 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.Services.UI;
 
 /// <summary>
-/// Manages the display of received APRS beacons on a Mapsui map layer.
+/// Service that provides map layers for displaying received APRS beacons and position trails.
 /// Queries packet data from the database and updates map features with APRS symbols.
-/// Port ShowOnMap is a visual filter only.
 /// </summary>
-public sealed class ReceivedBeaconsViewModel : IDisposable
+public interface IReceivedBeaconsMapLayerService : IDisposable
+{
+    /// <summary>
+    /// Gets the layer containing all received beacon markers.
+    /// </summary>
+    ILayer BeaconsLayer { get; }
+
+    /// <summary>
+    /// Gets the layer containing position trails.
+    /// </summary>
+    ILayer TrailsLayer { get; }
+}
+
+/// <summary>
+/// Implementation of received beacons map layer service.
+/// </summary>
+public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerService
 {
     private readonly IPortService _portService;
     private readonly IPacketQueryService _packetQueryService;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
     private readonly AprsSymbolMapConverter _symbolConverter;
-    private readonly ILogger<ReceivedBeaconsViewModel> _logger;
+    private readonly ILogger<ReceivedBeaconsMapLayerService> _logger;
     private readonly WritableLayer _beaconsLayer;
     private readonly WritableLayer _trailsLayer;
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
     private bool _disposed;
 
-    /// <summary>
-    /// Gets the layer containing all received beacon features.
-    /// Returns ILayer to prevent external modification of the internal WritableLayer.
-    /// </summary>
     public ILayer BeaconsLayer => _beaconsLayer;
-
-    /// <summary>
-    /// Gets the layer containing position trails.
-    /// </summary>
     public ILayer TrailsLayer => _trailsLayer;
 
-    public ReceivedBeaconsViewModel(
+    public ReceivedBeaconsMapLayerService(
         IPortService portService,
         IPacketQueryService packetQueryService,
         IPacketStorageService packetStorageService,
         IConfigurationService configurationService,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
-        ILogger<ReceivedBeaconsViewModel> logger)
+        ILogger<ReceivedBeaconsMapLayerService> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
         _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
@@ -73,7 +80,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         _beaconsLayer = new WritableLayer
         {
             Name = "Received Beacons",
-            // Mapsui layers default to a white VectorStyle with a grey outline.
             Style = null
         };
 
@@ -90,18 +96,17 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
     private void OnPacketStored(object? sender, EventArgs e)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        RunOnUi(() => _ = RebuildVisibleLayerAsync());
+        RunOnUi(() => _ = RebuildVisibleLayersAsync());
     }
 
     private void OnPortsChanged(object? sender, EventArgs e)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        RunOnUi(() => _ = RebuildVisibleLayerAsync());
+        RunOnUi(() => _ = RebuildVisibleLayersAsync());
     }
 
     private static void RunOnUi(Action action)
     {
-        // Unit tests have no Avalonia application; apply immediately.
         if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
         {
             action();
@@ -111,7 +116,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         Dispatcher.UIThread.Post(action);
     }
 
-    private async Task RebuildVisibleLayerAsync()
+    private async Task RebuildVisibleLayersAsync()
     {
         try
         {
@@ -120,29 +125,22 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
                 .Select(p => p.Id)
                 .ToHashSet();
 
-            // Get time range filter from configuration
             var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
             var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
             var cutoffTime = GetCutoffTime(timeRange, customHours);
 
-            // Get most recent position packets from database
             var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
 
-            // Apply time filter
             var filteredPackets = allPositionPackets.Values
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
 
-            // Apply port filter - only include packets from visible ports
-            // If no ports are visible, show nothing
             filteredPackets = filteredPackets.Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
             var packetRecords = filteredPackets.ToList();
 
-            // Clear layers
             _beaconsLayer.Clear();
             _trailsLayer.Clear();
 
-            // Add markers for latest positions
             foreach (var record in packetRecords)
             {
                 if (record.Position != null)
@@ -159,7 +157,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
                 }
             }
 
-            // Add trails - query historical positions from database for each visible station
             foreach (var record in packetRecords)
             {
                 var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
@@ -201,7 +198,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             PacketDisplayTimeRange.LastMonth => now.AddDays(-30),
             PacketDisplayTimeRange.Custom => now.AddHours(-customHours),
             PacketDisplayTimeRange.All => null,
-            _ => now.AddDays(-1) // Default to last day
+            _ => now.AddDays(-1)
         };
     }
 
@@ -244,7 +241,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             record.Position!.Location.Latitude);
         var mapPoint = new MPoint(x, y);
 
-        // Get symbol from record or use default
         var symbol = new Symbol(record.Position.SymbolTable, record.Position.SymbolCode);
 
         var symbolKey = $"{record.Position.SymbolTable.ToChar()}{record.Position.SymbolCode.ToChar()}";
@@ -270,7 +266,7 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
         return new PointFeature(mapPoint)
         {
             Styles = [cachedStyle.imageStyle, labelStyle],
-            ["Callsign"] = callsign // Store for click handling
+            ["Callsign"] = callsign
         };
     }
 
@@ -281,7 +277,6 @@ public sealed class ReceivedBeaconsViewModel : IDisposable
             : baseCallsign;
     }
 
-    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

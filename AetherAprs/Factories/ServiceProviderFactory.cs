@@ -8,10 +8,12 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
@@ -107,7 +109,14 @@ public static class ServiceProviderFactory
         services.AddSingleton<IPacketQueryService, PacketQueryService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
-        services.AddSingleton<ReceivedBeaconsViewModel>();
+
+        // Register map layer services
+        services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
+        services.AddSingleton<IUserLocationLayerService, UserLocationLayerService>();
+
+        // Register location and transmission services
+        services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
+        services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
 
         // Register platform services with default implementations (platform-specific implementations override in OverrideCoreServices)
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
@@ -122,8 +131,6 @@ public static class ServiceProviderFactory
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>(); // Application-wide navigation state
-        services.AddTransient<LocationTrackingViewModel>(); // Sub-component, created per HomeViewModel
-        services.AddTransient<BeaconTransmissionViewModel>(); // Sub-component, created per HomeViewModel
         services.AddTransient<MapViewModel>(); // Sub-component, created per HomeViewModel
         services.AddTransient<AprsSymbolPickerViewModel>(); // Sub-component, created per SettingsViewModel
         services.AddSingleton<HomeViewModel>(); // Main page state

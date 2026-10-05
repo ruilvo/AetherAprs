@@ -18,9 +18,11 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
@@ -41,8 +43,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
         var port = CreatePort(isEnabled: false, isTx: true);
         var portService = new TestPortService(port);
         var beaconService = new TestBeaconService();
-        var viewModel = CreateViewModel(portService, beaconService);
-        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
+        var locationTracking = new TestLocationTrackingService();
+        var viewModel = CreateViewModel(portService, beaconService, locationTracking);
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -54,7 +57,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         Assert.Equal(-8.52170, packet.Location.Longitude);
         Assert.Equal("N0CALL", packet.Source.Base);
         Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
-        Assert.Contains("Initial beacon sent", viewModel.BeaconTransmission.BeaconStatus);
+        Assert.Contains("Initial beacon sent", viewModel.BeaconStatus);
         Assert.Equal(1, portService.SendCount);
     }
 
@@ -68,8 +71,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
         configuration.Settings.Aprs.SymbolTable =
             AetherAprs.Models.Aprs.SymbolTable.Alternate;
         configuration.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), configuration);
-        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
+        var locationTracking = new TestLocationTrackingService();
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking, configuration);
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -84,7 +88,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
     {
         var port = CreatePort(isEnabled: false, isTx: true);
         var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService());
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), new TestLocationTrackingService());
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -98,8 +102,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
     {
         var port = CreatePort(isEnabled: false, isTx: false);
         var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
+        var locationTracking = new TestLocationTrackingService();
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -113,12 +118,12 @@ public sealed class HomeViewModelTests : TestFixtureBase
     {
         var port = CreatePort(isEnabled: true, isTx: true);
         var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService());
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), new TestLocationTrackingService());
 
         await viewModel.SendManualBeaconAsync();
 
         Assert.Equal(0, portService.SendCount);
-        Assert.Equal("No location available", viewModel.BeaconTransmission.BeaconStatus);
+        Assert.Equal("No location available", viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -126,15 +131,16 @@ public sealed class HomeViewModelTests : TestFixtureBase
     {
         var port = CreatePort(isEnabled: true, isTx: true);
         var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
+        var locationTracking = new TestLocationTrackingService();
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         await viewModel.SendManualBeaconAsync();
 
         var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         Assert.Equal(1, portService.SendCount);
         Assert.Equal(41.41764, packet.Location.Latitude);
-        Assert.Contains("Manual beacon sent", viewModel.BeaconTransmission.BeaconStatus);
+        Assert.Contains("Manual beacon sent", viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -142,13 +148,14 @@ public sealed class HomeViewModelTests : TestFixtureBase
     {
         var port = CreatePort(isEnabled: true, isTx: false);
         var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService());
-        viewModel.LocationTracking.CurrentLocation = CreateLocation(41.41764, -8.52170);
+        var locationTracking = new TestLocationTrackingService();
+        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         await viewModel.SendManualBeaconAsync();
 
         Assert.Equal(0, portService.SendCount);
-        Assert.Equal("No TX ports enabled", viewModel.BeaconTransmission.BeaconStatus);
+        Assert.Equal("No TX ports enabled", viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -163,10 +170,12 @@ public sealed class HomeViewModelTests : TestFixtureBase
     private static HomeViewModel CreateViewModel(
         TestPortService portService, 
         TestBeaconService beaconService,
+        TestLocationTrackingService? locationTracking = null,
         TestConfigurationService? configuration = null)
     {
         var isConfigurationProvided = configuration != null;
         configuration ??= new TestConfigurationService();
+        locationTracking ??= new TestLocationTrackingService();
         
         // Only set default callsign if configuration was not provided
         if (!isConfigurationProvided)
@@ -175,41 +184,29 @@ public sealed class HomeViewModelTests : TestFixtureBase
         }
         
         var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
-        var symbolProvider = new TestSymbolBitmapProvider();
-        var packetQuery = new PacketQueryService(dbContextFactory, NullLogger<PacketQueryService>.Instance);
-        var packetStorage = Substitute.For<IPacketStorageService>();
-        var receivedBeacons = new ReceivedBeaconsViewModel(
-            portService, 
-            packetQuery,
-            packetStorage,
-            configuration, 
-            symbolProvider, 
-            NullLogger<ReceivedBeaconsViewModel>.Instance);
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);
         var packetFactory = new TestPacketFactory();
         
-        var locationTracking = new LocationTrackingViewModel(
-            new TestLocationService(),
-            NullLogger<LocationTrackingViewModel>.Instance);
-            
-        var beaconTransmission = new BeaconTransmissionViewModel(
+        var beaconTransmission = new BeaconTransmissionService(
             beaconService,
             portService,
             configuration,
             portSettingsResolver,
             packetFactory,
-            NullLogger<BeaconTransmissionViewModel>.Instance);
+            NullLogger<BeaconTransmissionService>.Instance);
         
-        var mapViewModel = new MapViewModel();
+        var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+        
+        var mapViewModel = new MapViewModel(userLocationLayer);
         
         var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         var navigationService = Substitute.For<INavigationService>();
         
         return new HomeViewModel(
-            portService,
-            receivedBeacons,
             locationTracking,
             beaconTransmission,
+            userLocationLayer,
+            portService,
             mapViewModel,
             packetDetailsFactory,
             navigationService,
@@ -254,6 +251,30 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public bool IsLocationAvailable() => true;
 
         public Task<bool> RequestLocationPermissionAsync() => Task.FromResult(true);
+    }
+
+    private sealed class TestLocationTrackingService : ILocationTrackingService
+    {
+        private LocationData? _currentLocation;
+
+        public LocationData? CurrentLocation => _currentLocation;
+        public bool IsTracking => false;
+        public bool IsLocationAvailable => true;
+
+#pragma warning disable CS0067
+        public event EventHandler<LocationData>? LocationUpdated;
+#pragma warning restore CS0067
+
+        public void SetCurrentLocation(LocationData location)
+        {
+            _currentLocation = location;
+            LocationUpdated?.Invoke(this, location);
+        }
+
+        public Task StartTrackingAsync() => Task.CompletedTask;
+        public Task RequestPermissionAndStartTrackingAsync() => Task.CompletedTask;
+        public void StopTracking() { }
+        public void Dispose() { }
     }
 
     private sealed class TestBeaconService : IBeaconService

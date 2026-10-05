@@ -42,9 +42,9 @@ public partial class HomePage : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         // Unsubscribe from old ViewModel to prevent memory leak
-        if (_currentViewModel?.MapViewModel != null)
+        if (_currentViewModel?.Map != null)
         {
-            _currentViewModel.MapViewModel.CenterOnPointRequested -= OnCenterOnPointRequested;
+            _currentViewModel.Map.CenterOnPointRequested -= OnCenterOnPointRequested;
         }
 
         if (DataContext is not HomeViewModel viewModel)
@@ -55,22 +55,30 @@ public partial class HomePage : UserControl
 
         _currentViewModel = viewModel;
 
-        // Add map layers from ViewModels
-        if (viewModel.MapViewModel?.UserLocationLayer != null)
+        // Map layers are provided by services injected into HomeViewModel
+        // Access them through the DI container
+        if (MapControl.Map != null && Avalonia.Application.Current is App app)
         {
-            MapControl.Map?.Layers.Add(viewModel.MapViewModel.UserLocationLayer, group: 1);
-        }
+            // User location layer - get from service
+            var userLocationLayerService = app.ServiceProvider.GetService(typeof(Services.UI.IUserLocationLayerService)) as Services.UI.IUserLocationLayerService;
+            if (userLocationLayerService != null)
+            {
+                MapControl.Map.Layers.Add(userLocationLayerService.Layer, group: 1);
+            }
 
-        if (viewModel.ReceivedBeacons != null && MapControl.Map != null)
-        {
-            MapControl.Map.Layers.Add(viewModel.ReceivedBeacons.TrailsLayer, group: 0);
-            MapControl.Map.Layers.Add(viewModel.ReceivedBeacons.BeaconsLayer, group: 1);
+            // Received beacons layers - get from service
+            var beaconsLayerService = app.ServiceProvider.GetService(typeof(Services.UI.IReceivedBeaconsMapLayerService)) as Services.UI.IReceivedBeaconsMapLayerService;
+            if (beaconsLayerService != null)
+            {
+                MapControl.Map.Layers.Add(beaconsLayerService.TrailsLayer, group: 0);
+                MapControl.Map.Layers.Add(beaconsLayerService.BeaconsLayer, group: 1);
+            }
         }
 
         // Subscribe to map centering requests
-        if (viewModel.MapViewModel != null)
+        if (viewModel.Map != null)
         {
-            viewModel.MapViewModel.CenterOnPointRequested += OnCenterOnPointRequested;
+            viewModel.Map.CenterOnPointRequested += OnCenterOnPointRequested;
         }
 
         // Start location tracking at runtime, not in designer

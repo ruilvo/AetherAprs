@@ -31,7 +31,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                  MinHeight="56"
                                  MinWidth="56"
                                  ToolTip.Tip="{loc:Loc CenterOnMyLocationTooltip}"
-                                 Command="{Binding MapViewModel.CenterOnUserCommand}">
+                                 Command="{Binding Map.CenterOnUserCommand}">
             <Viewbox Width="24" Height="24">
                 <avalonia:MaterialIcon Kind="CrosshairsGps" Width="24" Height="24" />
             </Viewbox>

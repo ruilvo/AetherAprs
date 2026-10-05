@@ -4,91 +4,114 @@
 
 using AetherAprs.Models;
 using AetherAprs.Services.Platform;
-using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.Services.Location;
 
 /// <summary>
-/// ViewModel responsible for GPS location tracking.
+/// Service responsible for GPS location tracking.
 /// </summary>
-public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
+public interface ILocationTrackingService : IDisposable
 {
-    private readonly ILocationService _locationService;
-    private readonly ILogger<LocationTrackingViewModel> _logger;
-    private CancellationTokenSource? _locationUpdateCancellation;
-    private bool _disposed;
+    /// <summary>
+    /// Gets the current location, or null if not available.
+    /// </summary>
+    LocationData? CurrentLocation { get; }
 
-    [ObservableProperty]
-    public partial LocationData? CurrentLocation { get; set; }
+    /// <summary>
+    /// Gets whether location tracking is currently active.
+    /// </summary>
+    bool IsTracking { get; }
 
-    [ObservableProperty]
-    public partial bool IsLocationAvailable { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsTracking { get; set; }
+    /// <summary>
+    /// Gets whether location services are available on the device.
+    /// </summary>
+    bool IsLocationAvailable { get; }
 
     /// <summary>
     /// Event raised when location is updated.
     /// </summary>
-    public event EventHandler<LocationData>? LocationUpdated;
-
-    public LocationTrackingViewModel(
-        ILocationService locationService,
-        ILogger<LocationTrackingViewModel> logger)
-    {
-        _locationService = locationService;
-        _logger = logger;
-        IsLocationAvailable = _locationService.IsLocationAvailable();
-    }
+    event EventHandler<LocationData>? LocationUpdated;
 
     /// <summary>
     /// Starts periodic location tracking.
     /// Assumes location permission has already been granted.
     /// </summary>
+    Task StartTrackingAsync();
+
+    /// <summary>
+    /// Requests location permission and starts tracking if granted.
+    /// Use this method when permission status is unknown.
+    /// </summary>
+    Task RequestPermissionAndStartTrackingAsync();
+
+    /// <summary>
+    /// Stops location tracking.
+    /// </summary>
+    void StopTracking();
+}
+
+/// <summary>
+/// Implementation of location tracking service.
+/// </summary>
+public sealed class LocationTrackingService : ILocationTrackingService
+{
+    private readonly ILocationService _locationService;
+    private readonly ILogger<LocationTrackingService> _logger;
+    private CancellationTokenSource? _locationUpdateCancellation;
+    private LocationData? _currentLocation;
+    private bool _isTracking;
+    private bool _disposed;
+
+    public LocationData? CurrentLocation => _currentLocation;
+    public bool IsTracking => _isTracking;
+    public bool IsLocationAvailable => _locationService.IsLocationAvailable();
+
+    public event EventHandler<LocationData>? LocationUpdated;
+
+    public LocationTrackingService(
+        ILocationService locationService,
+        ILogger<LocationTrackingService> logger)
+    {
+        _locationService = locationService;
+        _logger = logger;
+    }
+
     public async Task StartTrackingAsync()
     {
-        if (IsTracking)
+        if (_isTracking)
         {
             _logger.LogWarning("Location tracking already started");
             return;
         }
 
-        // Check if location services are available
         if (!_locationService.IsLocationAvailable())
         {
             _logger.LogWarning("Location services are not available");
             return;
         }
 
-        // Cancel any existing tracking
         _locationUpdateCancellation?.Cancel();
         _locationUpdateCancellation = new CancellationTokenSource();
 
-        IsTracking = true;
+        _isTracking = true;
 
-        // Start periodic location updates
         _ = RunLocationUpdateLoopAsync(_locationUpdateCancellation.Token);
         
         _logger.LogInformation("Location tracking started");
     }
 
-    /// <summary>
-    /// Requests location permission and starts tracking if granted.
-    /// Use this method when permission status is unknown.
-    /// </summary>
     public async Task RequestPermissionAndStartTrackingAsync()
     {
-        if (IsTracking)
+        if (_isTracking)
         {
             _logger.LogWarning("Location tracking already started");
             return;
         }
 
-        // Request permission first
         var hasPermission = await _locationService.RequestLocationPermissionAsync();
         if (!hasPermission)
         {
@@ -99,14 +122,11 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
         await StartTrackingAsync();
     }
 
-    /// <summary>
-    /// Stops location tracking.
-    /// </summary>
     public void StopTracking()
     {
         _locationUpdateCancellation?.Cancel();
         _locationUpdateCancellation = null;
-        IsTracking = false;
+        _isTracking = false;
     }
 
     private async Task RunLocationUpdateLoopAsync(CancellationToken cancellationToken)
@@ -119,24 +139,21 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
                 {
                     var location = await _locationService.GetCurrentLocationAsync(cancellationToken);
 
-                    CurrentLocation = location;
+                    _currentLocation = location;
                     LocationUpdated?.Invoke(this, location);
 
                     _logger.LogInformation("Location updated: {Lat}, {Lon}", location.Location.Latitude, location.Location.Longitude);
 
-                    // Wait 5 seconds before next update
                     await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
-                    // Expected when cancellation is requested
                     break;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error getting location");
 
-                    // Wait longer on error before retrying
                     try
                     {
                         await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
@@ -150,7 +167,7 @@ public partial class LocationTrackingViewModel : ViewModelBase, IDisposable
         }
         finally
         {
-            IsTracking = false;
+            _isTracking = false;
         }
     }
 

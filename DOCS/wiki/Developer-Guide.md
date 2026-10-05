@@ -64,10 +64,10 @@ PacketQueryService (IPacketQueryService)
     - GetPacketsByPortAsync(portId) - packets from specific port
     - GetPacketsByCallsignAsync(callsign) - historical packets for trails
   ↑
-ViewModels (UI layer)
-  - ReceivedBeaconsViewModel: map display
-  - PacketsViewModel: packet list
-  - PacketDetailsViewModel: callsign history
+ViewModels and Services (UI layer)
+  - ReceivedBeaconsMapLayerService: provides map layers for display
+  - PacketsViewModel: packet list UI
+  - PacketDetailsViewModel: callsign history UI
   ↑
 Views (AXAML)
 ```
@@ -75,8 +75,9 @@ Views (AXAML)
 **Architectural Rules:**
 - **ViewModels** are UI-layer classes (not general services)
 - ViewModels MUST use PacketQueryService for database reads
+- **Services** MAY use PacketQueryService for business logic requiring packet data
 - ViewModels MUST NOT access EF Core or DbContext directly
-- **Map display** obtains data via PacketQueryService
+- **Map display** obtains data via ReceivedBeaconsMapLayerService (which uses PacketQueryService)
 - **Packet details** obtains data via PacketQueryService
 - PacketQueryService provides read-only access
 

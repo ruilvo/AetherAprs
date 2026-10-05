@@ -4,8 +4,9 @@
 
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models;
-using AetherAprs.Services.Packets;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -19,59 +20,64 @@ using System.Threading.Tasks;
 namespace AetherAprs.ViewModels;
 
 /// <summary>
-/// Main home page ViewModel that coordinates location tracking, beacon transmission, and received beacons.
+/// Main home page ViewModel that coordinates location tracking, beacon transmission, and map display.
 /// </summary>
 public partial class HomeViewModel : ViewModelBase, IDisposable
 {
+    private readonly ILocationTrackingService _locationTrackingService;
+    private readonly IBeaconTransmissionService _beaconTransmissionService;
+    private readonly IUserLocationLayerService _userLocationLayerService;
     private readonly IPortService _portService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly INavigationService _navigationService;
     private readonly ILogger<HomeViewModel> _logger;
     private Dictionary<Guid, bool> _previousPortEnabledState = new();
-    private LocationData? _previousLocation;
     private bool _disposed;
     private bool _hasReceivedFirstLocation;
 
     [ObservableProperty]
-    public partial ReceivedBeaconsViewModel? ReceivedBeacons { get; set; }
-
-    [ObservableProperty]
-    public partial LocationTrackingViewModel LocationTracking { get; set; }
-
-    [ObservableProperty]
-    public partial BeaconTransmissionViewModel BeaconTransmission { get; set; }
-
-    [ObservableProperty]
-    public partial MapViewModel MapViewModel { get; set; }
+    public partial MapViewModel Map { get; set; }
 
     [ObservableProperty]
     public partial bool IsDynamicBeaconingEnabled { get; set; } = true;
 
+    [ObservableProperty]
+    public partial string BeaconStatus { get; set; } = string.Empty;
+
     public HomeViewModel(
+        ILocationTrackingService locationTrackingService,
+        IBeaconTransmissionService beaconTransmissionService,
+        IUserLocationLayerService userLocationLayerService,
         IPortService portService,
-        ReceivedBeaconsViewModel receivedBeacons,
-        LocationTrackingViewModel locationTracking,
-        BeaconTransmissionViewModel beaconTransmission,
         MapViewModel mapViewModel,
         IPacketDetailsViewModelFactory packetDetailsFactory,
         INavigationService navigationService,
         ILogger<HomeViewModel> logger)
     {
+        _locationTrackingService = locationTrackingService;
+        _beaconTransmissionService = beaconTransmissionService;
+        _userLocationLayerService = userLocationLayerService;
         _portService = portService;
         _packetDetailsFactory = packetDetailsFactory;
         _navigationService = navigationService;
         _logger = logger;
-        ReceivedBeacons = receivedBeacons;
-        LocationTracking = locationTracking;
-        BeaconTransmission = beaconTransmission;
-        MapViewModel = mapViewModel;
+        Map = mapViewModel;
 
         _previousPortEnabledState = _portService.Ports
             .ToDictionary(port => port.Id, port => port.IsEnabled);
 
         // Subscribe to events
         _portService.PortsChanged += OnPortsChanged;
-        LocationTracking.LocationUpdated += OnLocationUpdated;
+        _locationTrackingService.LocationUpdated += OnLocationUpdated;
+        _beaconTransmissionService.BeaconStatusChanged += OnBeaconStatusChanged;
+
+        // Initialize beacon status
+        BeaconStatus = _beaconTransmissionService.BeaconStatus;
+    }
+
+    private void OnBeaconStatusChanged(object? sender, string status)
+    {
+        BeaconStatus = status;
     }
 
     private async void OnLocationUpdated(object? sender, LocationData currentLocation)
@@ -79,22 +85,20 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         try
         {
             // Update map with new location
-            MapViewModel.UpdateUserLocation(currentLocation);
+            _userLocationLayerService.UpdateLocation(currentLocation);
 
             // Auto-center on first location received
             if (!_hasReceivedFirstLocation)
             {
-                MapViewModel.CenterOnUser();
+                Map.CenterOnUser();
                 _hasReceivedFirstLocation = true;
             }
 
             // Evaluate beacon transmission if enabled
             if (IsDynamicBeaconingEnabled)
             {
-                BeaconTransmission.ProcessLocationUpdate(currentLocation);
+                _beaconTransmissionService.ProcessLocationUpdate(currentLocation);
             }
-
-            _previousLocation = currentLocation;
         }
         catch (Exception ex)
         {
@@ -114,10 +118,10 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             _previousPortEnabledState = enabledTxPorts
                 .ToDictionary(port => port.Id, port => port.IsEnabled);
 
-            if (portsJustEnabled.Count > 0 && LocationTracking.CurrentLocation != null)
+            if (portsJustEnabled.Count > 0 && _locationTrackingService.CurrentLocation != null)
             {
-                await BeaconTransmission.SendInitialBeaconOnPortActivationAsync(
-                    LocationTracking.CurrentLocation,
+                await _beaconTransmissionService.SendInitialBeaconOnPortActivationAsync(
+                    _locationTrackingService.CurrentLocation,
                     portsJustEnabled);
             }
         }
@@ -130,19 +134,19 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     public async Task StartLocationTrackingAsync()
     {
-        await LocationTracking.StartTrackingAsync();
+        await _locationTrackingService.StartTrackingAsync();
     }
 
     [RelayCommand]
     public void StopLocationTracking()
     {
-        LocationTracking.StopTracking();
+        _locationTrackingService.StopTracking();
     }
 
     [RelayCommand]
     public async Task SendManualBeaconAsync()
     {
-        await BeaconTransmission.SendManualBeaconAsync(LocationTracking.CurrentLocation);
+        await _beaconTransmissionService.SendManualBeaconAsync(_locationTrackingService.CurrentLocation);
     }
 
     /// <summary>
@@ -169,21 +173,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         _disposed = true;
 
-        // Unsubscribe from events
         _portService.PortsChanged -= OnPortsChanged;
-        if (LocationTracking != null)
-        {
-            LocationTracking.LocationUpdated -= OnLocationUpdated;
-        }
-
-        // Dispose sub-ViewModels
-        LocationTracking?.Dispose();
-        MapViewModel?.Dispose();
-
-        // Dispose ReceivedBeacons if it implements IDisposable
-        if (ReceivedBeacons is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        _locationTrackingService.LocationUpdated -= OnLocationUpdated;
+        _beaconTransmissionService.BeaconStatusChanged -= OnBeaconStatusChanged;
     }
 }

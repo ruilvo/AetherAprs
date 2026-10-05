@@ -4,9 +4,11 @@
 
 using System;
 using AetherAprs.Models;
+using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Geo;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Components;
@@ -77,67 +79,11 @@ public class MemoryLeakTests
     }
 
     [Fact]
-    public void MapViewModel_Dispose_PreventsSubsequentUpdates()
+    public void MapViewModel_CenterOnUser_RaisesEventWhenLocationIsSet()
     {
         // Arrange
-        var viewModel = new MapViewModel();
-        var location = new LocationData
-        {
-            Location = new Coordinate(45.0, -122.0),
-            Altitude = 100.0,
-            Accuracy = 10.0,
-            Timestamp = DateTimeOffset.UtcNow
-        };
-
-        viewModel.UpdateUserLocation(location);
-        Assert.NotNull(viewModel.UserLocation);
-
-        // Act
-        viewModel.Dispose();
-
-        // Assert - Should throw ObjectDisposedException
-        Assert.Throws<ObjectDisposedException>(() => viewModel.UpdateUserLocation(location));
-    }
-
-    [Fact]
-    public void MapViewModel_Dispose_CanBeCalledMultipleTimes()
-    {
-        // Arrange
-        var viewModel = new MapViewModel();
-
-        // Act & Assert - Should not throw
-        viewModel.Dispose();
-        viewModel.Dispose();
-    }
-
-    [Fact]
-    public void MapViewModel_Dispose_ClearsUserLocationLayer()
-    {
-        // Arrange
-        var viewModel = new MapViewModel();
-        var location = new LocationData
-        {
-            Location = new Coordinate(45.0, -122.0),
-            Altitude = 100.0,
-            Accuracy = 10.0,
-            Timestamp = DateTimeOffset.UtcNow
-        };
-        viewModel.UpdateUserLocation(location);
-
-        Assert.NotNull(viewModel.UserLocationLayer);
-
-        // Act
-        viewModel.Dispose();
-
-        // Assert
-        Assert.Null(viewModel.UserLocationLayer);
-    }
-
-    [Fact]
-    public void MapViewModel_CenterOnUser_RaisesEvent()
-    {
-        // Arrange
-        var viewModel = new MapViewModel();
+        var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+        var viewModel = new MapViewModel(userLocationLayer);
         var location = new LocationData
         {
             Location = new Coordinate(45.0, -122.0),
@@ -150,7 +96,7 @@ public class MemoryLeakTests
         viewModel.CenterOnPointRequested += (s, e) => eventRaised = true;
 
         // Act
-        viewModel.UpdateUserLocation(location);
+        userLocationLayer.UpdateLocation(location);
         viewModel.CenterOnUser();
 
         // Assert
@@ -158,10 +104,27 @@ public class MemoryLeakTests
     }
 
     [Fact]
-    public void MapViewModel_UpdateUserLocation_UpdatesProperty()
+    public void MapViewModel_CenterOnUser_DoesNotRaiseEventWhenLocationNotSet()
     {
         // Arrange
-        var viewModel = new MapViewModel();
+        var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+        var viewModel = new MapViewModel(userLocationLayer);
+
+        bool eventRaised = false;
+        viewModel.CenterOnPointRequested += (s, e) => eventRaised = true;
+
+        // Act
+        viewModel.CenterOnUser();
+
+        // Assert
+        Assert.False(eventRaised, "CenterOnPointRequested event should not be raised when location is not set");
+    }
+
+    [Fact]
+    public void UserLocationLayerService_UpdateLocation_UpdatesCurrentMapPoint()
+    {
+        // Arrange
+        var service = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
         var location = new LocationData
         {
             Location = new Coordinate(45.0, -122.0),
@@ -171,11 +134,43 @@ public class MemoryLeakTests
         };
 
         // Act
-        viewModel.UpdateUserLocation(location);
+        service.UpdateLocation(location);
 
         // Assert
-        Assert.NotNull(viewModel.UserLocation);
-        Assert.Equal(45.0, viewModel.UserLocation.Location.Latitude);
-        Assert.Equal(-122.0, viewModel.UserLocation.Location.Longitude);
+        Assert.NotNull(service.CurrentMapPoint);
+    }
+
+    [Fact]
+    public void UserLocationLayerService_Dispose_PreventsSubsequentUpdates()
+    {
+        // Arrange
+        var service = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+        var location = new LocationData
+        {
+            Location = new Coordinate(45.0, -122.0),
+            Altitude = 100.0,
+            Accuracy = 10.0,
+            Timestamp = DateTimeOffset.UtcNow
+        };
+
+        service.UpdateLocation(location);
+        Assert.NotNull(service.CurrentMapPoint);
+
+        // Act
+        service.Dispose();
+
+        // Assert - Should throw ObjectDisposedException
+        Assert.Throws<ObjectDisposedException>(() => service.UpdateLocation(location));
+    }
+
+    [Fact]
+    public void UserLocationLayerService_Dispose_CanBeCalledMultipleTimes()
+    {
+        // Arrange
+        var service = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+
+        // Act & Assert - Should not throw
+        service.Dispose();
+        service.Dispose();
     }
 }

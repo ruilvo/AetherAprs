@@ -20,10 +20,12 @@ using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
@@ -122,36 +124,23 @@ public sealed class MainViewModelTests
         var symbolProvider = new TestSymbolBitmapProvider();
         var packetQuery = Substitute.For<IPacketQueryService>();
         var packetStorage = Substitute.For<IPacketStorageService>();
-        var receivedBeacons = new ReceivedBeaconsViewModel(
-            portService, 
-            packetQuery,
-            packetStorage,
-            configuration, 
-            symbolProvider, 
-            NullLogger<ReceivedBeaconsViewModel>.Instance);
-        var locationTracking = new LocationTrackingViewModel(
-            new TestLocationService(),
-            NullLogger<LocationTrackingViewModel>.Instance);
-        var beaconService = new TestBeaconService();
-        var packetFactory = new TestPacketFactory();
-        var beaconTransmission = new BeaconTransmissionViewModel(
-            beaconService,
-            portService,
-            configuration,
-            new AprsPortSettingsResolver(configuration),
-            packetFactory,
-            NullLogger<BeaconTransmissionViewModel>.Instance);
+        
+        // Use services instead of ViewModels
+        var receivedBeaconsMapLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
+        var locationTracking = Substitute.For<ILocationTrackingService>();
+        var beaconTransmission = Substitute.For<IBeaconTransmissionService>();
+        var userLocationLayer = Substitute.For<IUserLocationLayerService>();
 
-        var mapViewModel = new MapViewModel();
+        var mapViewModel = new MapViewModel(userLocationLayer);
 
         var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         var navigationService = Substitute.For<INavigationService>();
 
         var home = new HomeViewModel(
-            portService,
-            receivedBeacons,
             locationTracking,
             beaconTransmission,
+            userLocationLayer,
+            portService,
             mapViewModel,
             packetDetailsFactory,
             navigationService,
