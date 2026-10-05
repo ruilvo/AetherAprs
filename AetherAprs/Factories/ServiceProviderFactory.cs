@@ -81,6 +81,9 @@ public static class ServiceProviderFactory
         // Register navigation service
         services.AddSingleton<INavigationService, NavigationService>();
 
+        // Register keyboard insets service
+        services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
+
         // Register KISS transport (TCP is always available; BLE/SPP come from platform)
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
         services.AddSingleton<IKissStreamFactory, KissStreamFactory>();

@@ -50,6 +50,7 @@ public static class DesignData
         });
         services.AddSingleton<AppSavedDataInitializer>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();

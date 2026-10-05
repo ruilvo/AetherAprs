@@ -13,6 +13,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:loc="using:AetherAprs.Localization"
              xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:i="https://github.com/avaloniaui"
+             xmlns:behaviors="using:AetherAprs.Behaviors"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.MainView"
              x:DataType="vm:MainViewModel"
@@ -20,6 +22,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <dialogHost:DialogHost Name="MainDialogHost" Identifier="MainDialogHost">
     <controls:SnackbarHost x:Name="MainSnackbarHost" HostName="MainSnackbarHost">
+      <i:Interaction.Behaviors>
+        <behaviors:KeyboardInsetsBehavior />
+      </i:Interaction.Behaviors>
       <Grid>
         <TabbedPage x:Name="MainTabbedPage"
                     TabPlacement="Bottom"
