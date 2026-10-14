@@ -2,15 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Factories;
-using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
-using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
-using AetherAprs.Views.Windows;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -46,15 +43,8 @@ public partial class App : Application
 
     protected virtual void RegisterPlatformServices(IServiceCollection services)
     {
-        // Register default implementation of IAppDataDirProviderService for desktop/core platforms
-        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
-        services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
-
-        // Desktop has no BLE/SPP stack yet — register unsupported placeholders.
-        services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
-        services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothLeKissStreamConnector>();
-        services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
-        services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
+        // This method can be overridden in platform-specific implementations of
+        // the App class to register platform-specific services.
     }
 
     /// <summary>
@@ -108,14 +98,7 @@ public partial class App : Application
         // Start database cleanup task
         _ = StartDatabaseCleanupAsync();
 
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = ServiceProvider.GetRequiredService<MainViewModel>()
-            };
-        }
-        else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
+        if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
             singleViewFactoryApplicationLifetime.MainViewFactory = CreateMainView;
         }

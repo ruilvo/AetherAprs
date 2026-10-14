@@ -118,11 +118,6 @@ public static class ServiceProviderFactory
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
         services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
 
-        // Register platform services with default implementations (platform-specific implementations override in OverrideCoreServices)
-        services.AddSingleton<IForegroundService, NoOpForegroundService>();
-        services.AddSingleton<ILocationService, NoOpLocationService>();
-        services.AddSingleton<IPermissionService, NoOpPermissionService>();
-
         // Register factories
         services.AddSingleton<IPacketFactory, PacketFactory>();
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
