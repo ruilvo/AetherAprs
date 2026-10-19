@@ -125,6 +125,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         {
             _logger.LogError(ex, "Error handling beacon request");
             BeaconStatus = Strings.Format("BeaconError", ex.Message);
+            _beaconService.ReportBeaconTransmissionResult(success: false);
         }
     }
 
@@ -172,9 +173,11 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         if (sentPortCount == 0)
         {
             BeaconStatus = Strings.Get("BeaconTransmissionFailed");
+            _beaconService.ReportBeaconTransmissionResult(success: false);
             return;
         }
 
+        _beaconService.ReportBeaconTransmissionResult(success: true);
         BeaconStatus = Strings.Format("BeaconSentStatus", decision.Reason.GetLocalizedString(), decision.CurrentSpeedKmh, decision.CurrentCourseDegrees);
     }
 

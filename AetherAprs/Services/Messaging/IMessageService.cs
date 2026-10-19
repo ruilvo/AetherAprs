@@ -14,6 +14,8 @@ public interface IMessageService
 {
     ObservableCollection<ConversationThread> Conversations { get; }
 
+    Task InitializeAsync(CancellationToken cancellationToken = default);
+
     Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default);
 
     ConversationThread GetOrCreateConversation(Callsign peer);

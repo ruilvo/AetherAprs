@@ -7,12 +7,48 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Models.Messaging;
 using Geo;
+using Microsoft.Extensions.Logging;
 using System;
 
 namespace AetherAprs.Data.Mappers;
 
+/// <summary>
+/// String discriminators stored in the Packets.PacketType column (M5). Centralizing
+/// them prevents drift between the mapper and query code that filters on the column.
+/// </summary>
+internal static class PacketTypes
+{
+    public const string Position = "Position";
+    public const string Message = "Message";
+    public const string MessageAck = "MessageAck";
+    public const string MessageRej = "MessageRej";
+    public const string Status = "Status";
+    public const string Weather = "Weather";
+    public const string Telemetry = "Telemetry";
+    public const string Capabilities = "Capabilities";
+    public const string Unknown = "Unknown";
+}
+
 internal static class PacketRecordMapper
 {
+    /// <summary>
+    /// Resolves the PacketType discriminator via an explicit type switch instead
+    /// of reflecting on class names, so renaming a packet class cannot silently
+    /// corrupt stored values (M5).
+    /// </summary>
+    private static string ResolvePacketType(AprsPacket packet) => packet switch
+    {
+        PositionPacket => PacketTypes.Position,
+        MessagePacket => PacketTypes.Message,
+        MessageAckPacket => PacketTypes.MessageAck,
+        MessageRejPacket => PacketTypes.MessageRej,
+        StatusPacket => PacketTypes.Status,
+        WeatherPacket => PacketTypes.Weather,
+        TelemetryPacket => PacketTypes.Telemetry,
+        CapabilitiesPacket => PacketTypes.Capabilities,
+        _ => PacketTypes.Unknown
+    };
+
     /// <summary>
     /// Converts an APRS packet to a database record for storage.
     /// </summary>
@@ -36,7 +72,7 @@ internal static class PacketRecordMapper
             DestinationSsid = packet.Destination.Ssid.HasValue 
                 ? (AprsSsid)packet.Destination.Ssid.Value 
                 : AprsSsid.PrimaryStation,
-            PacketType = packet.GetType().Name.Replace("Packet", ""),
+            PacketType = ResolvePacketType(packet),
             Timestamp = timestamp.UtcDateTime,
             PacketTimestamp = packet.Timestamp?.UtcDateTime,
             PortId = portId,
@@ -103,7 +139,9 @@ internal static class PacketRecordMapper
     /// <summary>
     /// Converts a database record back to an APRS packet.
     /// </summary>
-    public static AprsPacket? MapToPacket(PacketRecord record)
+    /// <param name="record">The database record to convert.</param>
+    /// <param name="logger">Optional logger for diagnostic output on parse failures.</param>
+    public static AprsPacket? MapToPacket(PacketRecord record, ILogger? logger = null)
     {
         try
         {
@@ -116,7 +154,7 @@ internal static class PacketRecordMapper
 
             AprsPacket packet = record.PacketType switch
             {
-                "Position" when record.Position != null =>
+                PacketTypes.Position when record.Position != null =>
                     new PositionPacket
                     {
                         Source = source,
@@ -134,7 +172,7 @@ internal static class PacketRecordMapper
                         Timestamp = timestamp
                     },
 
-                "Message" when record.Message != null =>
+                PacketTypes.Message when record.Message != null =>
                     new MessagePacket
                     {
                         Source = source,
@@ -149,7 +187,7 @@ internal static class PacketRecordMapper
                         Timestamp = timestamp
                     },
 
-                "Status" when record.Status != null =>
+                PacketTypes.Status when record.Status != null =>
                     new StatusPacket
                     {
                         Source = source,
@@ -159,7 +197,7 @@ internal static class PacketRecordMapper
                         Timestamp = timestamp
                     },
 
-                "Weather" when record.Weather != null =>
+                PacketTypes.Weather when record.Weather != null =>
                     new WeatherPacket
                     {
                         Source = source,
@@ -187,9 +225,15 @@ internal static class PacketRecordMapper
 
             return packet;
         }
-        catch
+        catch (Exception ex)
         {
-            // If we can't parse the record, return null
+            logger?.LogWarning(
+                ex,
+                "Failed to convert PacketRecord to AprsPacket: source {Source}, type {Type}, rawInfo {RawInfo}",
+                $"{record.SourceBase}-{record.SourceSsid}",
+                record.PacketType,
+                record.RawInfo
+            );
             return null;
         }
     }

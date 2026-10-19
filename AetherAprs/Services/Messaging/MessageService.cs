@@ -26,6 +26,21 @@ namespace AetherAprs.Services.Messaging;
 
 public sealed class MessageService : IMessageService, IDisposable
 {
+    /// <summary>Pocket-packet discriminator stored in the database (PacketType column).</summary>
+    private const string MessagePacketType = "Message";
+
+    /// <summary>APRS message text limit (67 characters) per the APRS specification.</summary>
+    private const int AprsMessageTextMaxLength = 67;
+
+    /// <summary>Maximum number of message packets loaded from the database at startup.</summary>
+    private const int MaxLoadedMessages = 500;
+
+    /// <summary>Maximum number of recently received messages tracked for duplicate suppression.</summary>
+    private const int DedupTableCapacity = 256;
+
+    /// <summary>How long a message stays in the dedup table before it may be received again.</summary>
+    private static readonly TimeSpan DedupRetention = TimeSpan.FromSeconds(30);
+
     private readonly IPortService _portService;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
@@ -35,6 +50,9 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = new();
+    private readonly object _dedupLock = new();
+    private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
+    private readonly Dictionary<string, DateTimeOffset> _dedupTable = new();
     private readonly Timer _retryTimer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
@@ -59,7 +77,11 @@ public sealed class MessageService : IMessageService, IDisposable
         _dbContextFactory = dbContextFactory;
         _portService.PacketReceived += OnPacketReceived;
         _retryTimer = new Timer(ProcessRetries, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
-        LoadMessages();
+    }
+
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        await LoadMessagesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public ConversationThread GetOrCreateConversation(Callsign peer)
@@ -74,7 +96,7 @@ public sealed class MessageService : IMessageService, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         text = text.Trim();
-        if (text.Length > 67)
+        if (text.Length > AprsMessageTextMaxLength)
         {
             throw new ArgumentException("APRS message text must be 67 characters or fewer.", nameof(text));
         }
@@ -100,7 +122,22 @@ public sealed class MessageService : IMessageService, IDisposable
             _pendingMessages[messageNumber] = stored;
         }
 
-        await SendMessagePacketAsync(stored, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SendMessagePacketAsync(stored, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The initial send failed entirely: mark the message as failed so the
+            // retry loop does not keep re-sending something the caller saw fail (H4).
+            lock (_gate)
+            {
+                _pendingMessages.Remove(messageNumber);
+                stored.DeliveryStatus = MessageDeliveryStatus.Failed;
+            }
+            PersistMessageStatusInBackground(stored);
+            throw;
+        }
 
         RunOnUi(() =>
         {
@@ -233,6 +270,18 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private void HandleIncomingMessage(MessagePacket message, Guid portId)
     {
+        // Deduplicate messages: RF↔APRS-IS gating means the same message may arrive
+        // on multiple ports within seconds. Track recently seen (source, number) pairs.
+        if (message.MessageNumber.HasValue && IsDuplicateMessage(message.Source, message.MessageNumber.Value))
+        {
+            _logger.LogDebug(
+                "Suppressing duplicate message #{MessageNumber} from {Source} on port {PortId}",
+                message.MessageNumber.Value,
+                message.Source,
+                portId);
+            return;
+        }
+
         var peer = message.Source;
         var stored = new StoredMessage
         {
@@ -271,33 +320,64 @@ public sealed class MessageService : IMessageService, IDisposable
     {
         _logger.LogInformation("Received ACK from {Source} for message #{MessageNumber}", ack.Source, ack.MessageNumber);
 
+        StoredMessage? message;
         lock (_gate)
         {
-            if (_pendingMessages.TryGetValue(ack.MessageNumber, out var message))
+            if (!_pendingMessages.TryGetValue(ack.MessageNumber, out message))
             {
-                message.DeliveryStatus = MessageDeliveryStatus.Acknowledged;
-                _pendingMessages.Remove(ack.MessageNumber);
-                UpdateMessageStatus(message);
+                return;
             }
+
+            // Only the message's addressee may acknowledge it; small integer
+            // message numbers collide easily between stations (H5).
+            if (!ack.Source.Equals(message.Peer))
+            {
+                _logger.LogWarning(
+                    "Ignoring ACK from {Source} for message #{MessageNumber} addressed to {Peer}",
+                    ack.Source,
+                    ack.MessageNumber,
+                    message.Peer);
+                return;
+            }
+
+            message.DeliveryStatus = MessageDeliveryStatus.Acknowledged;
+            _pendingMessages.Remove(ack.MessageNumber);
         }
+
+        // Persist outside the lock: the DB call may block on SQLite I/O.
+        PersistMessageStatusInBackground(message);
     }
 
     private void HandleRej(MessageRejPacket rej)
     {
         _logger.LogInformation("Received REJ from {Source} for message #{MessageNumber}", rej.Source, rej.MessageNumber);
 
+        StoredMessage? message;
         lock (_gate)
         {
-            if (_pendingMessages.TryGetValue(rej.MessageNumber, out var message))
+            if (!_pendingMessages.TryGetValue(rej.MessageNumber, out message))
             {
-                message.DeliveryStatus = MessageDeliveryStatus.Rejected;
-                _pendingMessages.Remove(rej.MessageNumber);
-                UpdateMessageStatus(message);
+                return;
             }
+
+            if (!rej.Source.Equals(message.Peer))
+            {
+                _logger.LogWarning(
+                    "Ignoring REJ from {Source} for message #{MessageNumber} addressed to {Peer}",
+                    rej.Source,
+                    rej.MessageNumber,
+                    message.Peer);
+                return;
+            }
+
+            message.DeliveryStatus = MessageDeliveryStatus.Rejected;
+            _pendingMessages.Remove(rej.MessageNumber);
         }
+
+        PersistMessageStatusInBackground(message);
     }
 
-    private void ProcessRetries(object? state)
+    internal void ProcessRetries(object? state) // internal for tests (InternalsVisibleTo AetherAprs.Tests)
     {
         if (_disposed)
         {
@@ -307,11 +387,17 @@ public sealed class MessageService : IMessageService, IDisposable
         var now = DateTimeOffset.UtcNow;
         var settings = _configurationService.Settings.Aprs;
         List<StoredMessage> toRetry = [];
+        List<StoredMessage> timedOut = [];
 
         lock (_gate)
         {
             foreach (var kvp in _pendingMessages.ToList())
             {
+                if (_disposed)
+                {
+                    return;
+                }
+
                 var message = kvp.Value;
                 if (message.NextRetryTime.HasValue && message.NextRetryTime.Value <= now)
                 {
@@ -320,7 +406,7 @@ public sealed class MessageService : IMessageService, IDisposable
                         // Timeout
                         message.DeliveryStatus = MessageDeliveryStatus.Timeout;
                         _pendingMessages.Remove(kvp.Key);
-                        UpdateMessageStatus(message);
+                        timedOut.Add(message);
                         _logger.LogWarning("Message #{MessageNumber} to {Peer} timed out after {RetryCount} retries",
                             message.MessageNumber, message.Peer, message.RetryCount);
                     }
@@ -331,17 +417,27 @@ public sealed class MessageService : IMessageService, IDisposable
                         var backoff = settings.MessageRetryTimeoutSeconds * Math.Pow(2, message.RetryCount - 1);
                         message.NextRetryTime = now.AddSeconds(backoff);
                         toRetry.Add(message);
-                        UpdateMessageStatus(message);
                     }
                 }
             }
         }
 
-        // Retry outside the lock
+        // Persist and retry outside the lock.
+        foreach (var message in timedOut)
+        {
+            PersistMessageStatusInBackground(message);
+        }
+
         foreach (var message in toRetry)
         {
+            PersistMessageStatusInBackground(message);
             _ = Task.Run(async () =>
             {
+                if (_disposed)
+                {
+                    return;
+                }
+
                 try
                 {
                     await SendMessagePacketAsync(message);
@@ -354,44 +450,62 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private void UpdateMessageStatus(StoredMessage message)
+    /// <summary>
+    /// Persists a message status change on the background thread pool. Snapshot of
+    /// the message state is taken from the (already mutable) <see cref="StoredMessage"/>,
+    /// which is safe because status transitions only move forward once removed from
+    /// <see cref="_pendingMessages"/>.
+    /// </summary>
+    private void PersistMessageStatusInBackground(StoredMessage message)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await UpdateMessageStatusAsync(message).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist message status for {Peer}", message.Peer);
+            }
+        });
+    }
+
+    private async Task UpdateMessageStatusAsync(StoredMessage message)
     {
         if (_dbContextFactory is null)
         {
             return;
         }
 
-        try
+        await using var db = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
+
+        // Convert SSID for database comparison
+        var addresseeSsid = message.Peer.Ssid.HasValue
+            ? (AprsSsid)message.Peer.Ssid.Value
+            : AprsSsid.PrimaryStation;
+
+        // Find the message packet record. Match on the stable message identity
+        // (number + addressee + direction) rather than exact timestamp equality,
+        // which is fragile across SQLite TEXT datetime round-trips (M8).
+        var record = await db.Packets
+            .Include(p => p.Message)
+            .Where(p =>
+                p.PacketType == MessagePacketType &&
+                p.Message != null &&
+                p.Message.Number == message.MessageNumber &&
+                p.Message.AddresseeBase == message.Peer.Base &&
+                p.Message.AddresseeSsid == addresseeSsid &&
+                p.IsOutbound == message.IsOutbound)
+            .OrderByDescending(p => p.Id)
+            .FirstOrDefaultAsync().ConfigureAwait(false);
+
+        if (record?.Message != null)
         {
-            using var db = _dbContextFactory.CreateDbContext();
-
-            // Convert SSID for database comparison
-            var addresseeSsid = message.Peer.Ssid.HasValue
-                ? (AprsSsid)message.Peer.Ssid.Value
-                : AprsSsid.PrimaryStation;
-
-            // Find the message packet record
-            var record = db.Packets
-                .Include(p => p.Message)
-                .FirstOrDefault(p =>
-                    p.PacketType == "Message" &&
-                    p.Message != null &&
-                    p.Message.AddresseeBase == message.Peer.Base &&
-                    p.Message.AddresseeSsid == addresseeSsid &&
-                    p.Timestamp == message.Timestamp.UtcDateTime &&
-                    p.IsOutbound == message.IsOutbound);
-
-            if (record?.Message != null)
-            {
-                record.Message.DeliveryStatus = message.DeliveryStatus;
-                record.Message.RetryCount = message.RetryCount;
-                record.Message.NextRetryTime = message.NextRetryTime?.UtcDateTime;
-                db.SaveChanges();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to update message status for {Peer}", message.Peer);
+            record.Message.DeliveryStatus = message.DeliveryStatus;
+            record.Message.RetryCount = message.RetryCount;
+            record.Message.NextRetryTime = message.NextRetryTime?.UtcDateTime;
+            await db.SaveChangesAsync().ConfigureAwait(false);
         }
     }
 
@@ -428,24 +542,61 @@ public sealed class MessageService : IMessageService, IDisposable
         Dispatcher.UIThread.Post(action);
     }
 
-    private void LoadMessages()
+    /// <summary>
+    /// Records the message in the dedup table and returns whether it was already seen
+    /// within the retention window.
+    /// </summary>
+    private bool IsDuplicateMessage(Callsign source, int messageNumber)
+    {
+        var key = $"{source}|{messageNumber}";
+        var now = DateTimeOffset.UtcNow;
+
+        lock (_dedupLock)
+        {
+            if (_dedupTable.TryGetValue(key, out var seen) && now - seen < DedupRetention)
+            {
+                // Refresh timestamp so a frequently repeated message does not cycle back in.
+                _dedupTable[key] = now;
+                return true;
+            }
+
+            _dedupTable[key] = now;
+            _dedupOrder.Enqueue((key, now));
+
+            // Bounded LRU: evict expired entries first, then by capacity.
+            while (_dedupOrder.Count > 0
+                && (now - _dedupOrder.Peek().Seen >= DedupRetention || _dedupOrder.Count > DedupTableCapacity))
+            {
+                var oldest = _dedupOrder.Dequeue();
+                _dedupTable.Remove(oldest.Key);
+            }
+
+            return false;
+        }
+    }
+
+    private async Task LoadMessagesAsync(CancellationToken cancellationToken = default)
     {
         if (_dbContextFactory is null)
         {
             return;
         }
 
-        using var db = _dbContextFactory.CreateDbContext();
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        // Load message packets from the Packets table
-        var records = db.Packets
+        // Load message packets from the Packets table, bounded so that a large
+        // packet database cannot stall startup (M11). Newer packets are preferred.
+        var records = await db.Packets
             .Include(p => p.Message)
-            .Where(p => p.PacketType == "Message" && p.Message != null)
+            .Where(p => p.PacketType == MessagePacketType && p.Message != null)
+            .OrderByDescending(p => p.Id)
+            .Take(MaxLoadedMessages)
             .AsNoTracking()
-            .AsEnumerable()
-            .OrderBy(p => p.Timestamp)
-            .ThenBy(p => p.Id)
-            .ToList();
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        // Sort client-side: first by timestamp, then by ID
+        records = [.. records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id)];
 
         var threadsByPeer = new Dictionary<string, ConversationThread>();
         var maxMessageNumber = 1;

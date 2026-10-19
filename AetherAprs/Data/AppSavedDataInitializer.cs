@@ -33,6 +33,11 @@ public sealed class AppSavedDataInitializer(
 
             logger.LogInformation("Initializing database and seeding default data");
             using var db = dbContextFactory.CreateDbContext();
+
+            // Enable WAL journaling so concurrent contexts (packet storage while
+            // queries run) do not collide on the default rollback journal (M7).
+            db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;");
+
             db.Database.Migrate();
             SeedBeaconingDefaults(db);
             _initialized = true;

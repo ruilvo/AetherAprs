@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
@@ -21,14 +22,14 @@ public interface IPacketQueryService
     /// </summary>
     /// <param name="limit">Maximum number of distinct sources to return.</param>
     /// <returns>Dictionary of source callsign to most recent packet record.</returns>
-    Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPacketsAsync(int limit = 1000);
+    Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPacketsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the most recent position packet per source callsign.
     /// </summary>
     /// <param name="limit">Maximum number of distinct sources to return.</param>
     /// <returns>Dictionary of source callsign to most recent position packet record.</returns>
-    Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPositionPacketsAsync(int limit = 1000);
+    Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPositionPacketsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets packets from a specific port.
@@ -36,7 +37,7 @@ public interface IPacketQueryService
     /// <param name="portId">The port ID to filter by.</param>
     /// <param name="limit">Maximum number of packets to retrieve.</param>
     /// <returns>List of packet records from the specified port.</returns>
-    Task<IReadOnlyList<PacketRecord>> GetPacketsByPortAsync(Guid portId, int limit = 500);
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByPortAsync(Guid portId, int limit = 500, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves historical packets for a specific callsign, ordered by most recent first.
@@ -44,5 +45,14 @@ public interface IPacketQueryService
     /// <param name="callsign">The source callsign to query.</param>
     /// <param name="limit">Maximum number of packets to retrieve.</param>
     /// <returns>A list of packet records ordered by most recent first.</returns>
-    Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignAsync(string callsign, int limit = 500);
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignAsync(string callsign, int limit = 500, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves position packets for trail display in a single bulk query,
+    /// ordered newest first. Callers group the results by source callsign.
+    /// </summary>
+    /// <param name="cutoffTime">Optional cutoff; only packets received at or after this time are returned.</param>
+    /// <param name="limit">Maximum number of packets to retrieve.</param>
+    /// <returns>A list of position packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(DateTimeOffset? cutoffTime = null, int limit = 50000, CancellationToken cancellationToken = default);
 }

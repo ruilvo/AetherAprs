@@ -132,7 +132,7 @@ public class AprsSettings
         get => _symbolOverlay;
         set
         {
-            if (value.HasValue && !Enum.IsDefined(typeof(SymbolCode), value.Value))
+            if (value.HasValue && !Enum.IsDefined(value.Value))
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value,
                     "Symbol overlay must be printable ASCII (33-126)."

@@ -24,14 +24,17 @@ public sealed class CoordinateValueConverter : ValueConverter<Coordinate, string
 
     private static Coordinate ParseCoordinate(string value)
     {
+        // Defensive parse: one malformed Location string in the database must not
+        // kill every position query during materialization (M6). Falls back to a
+        // (0,0) coordinate, which will simply render at the equator if ever shown.
         var parts = value.Split(',');
-        if (parts.Length != 2)
+        if (parts.Length == 2
+            && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude)
+            && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude))
         {
-            throw new FormatException($"Invalid coordinate format: {value}");
+            return new Coordinate(latitude, longitude);
         }
 
-        var latitude = double.Parse(parts[0], CultureInfo.InvariantCulture);
-        var longitude = double.Parse(parts[1], CultureInfo.InvariantCulture);
-        return new Coordinate(latitude, longitude);
+        return new Coordinate(0, 0);
     }
 }

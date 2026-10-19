@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using Microsoft.EntityFrameworkCore.Design;
+using System.IO;
 
 namespace AetherAprs.Data;
 
@@ -13,6 +14,9 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
 {
     public AppDbContext CreateDbContext(string[] args)
     {
-        return new AppDbContext(AppDbContext.CreateOptions(AppDbContext.DatabaseFileName));
+        // Use a temp path so `dotnet ef` does not drop a stray aetheraprs.db in
+        // the working directory (L2).
+        var tempPath = Path.Combine(Path.GetTempPath(), AppDbContext.DatabaseFileName);
+        return new AppDbContext(AppDbContext.CreateOptions(tempPath));
     }
 }

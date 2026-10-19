@@ -17,4 +17,12 @@ public class AppDataDirProviderService : IAppDataDirProviderService
     {
         return AppContext.BaseDirectory;
     }
+
+    /// <inheritdoc/>
+    public string GetPrivateAppDataDirectory()
+    {
+        // Desktop platforms have no app-sandboxed directory equivalent exposed
+        // here; the base directory is already private to the installation.
+        return AppContext.BaseDirectory;
+    }
 }

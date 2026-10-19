@@ -18,7 +18,8 @@ internal static class PortRecordMapper
             IsEnabled = port.IsEnabled,
             IsRx = port.IsRx,
             IsTx = port.IsTx,
-            ShowOnMap = port.ShowOnMap
+            ShowOnMap = port.ShowOnMap,
+            AllowDigipeat = port.AllowDigipeat
         };
         ApplyTypeSettings(record, port.TypeSettings);
         return record;
@@ -34,6 +35,7 @@ internal static class PortRecordMapper
             IsRx = record.IsRx,
             IsTx = record.IsTx,
             ShowOnMap = record.ShowOnMap,
+            AllowDigipeat = record.AllowDigipeat,
             TypeSettings = ToTypeSettings(record)
         };
     }
@@ -45,6 +47,7 @@ internal static class PortRecordMapper
         target.IsRx = port.IsRx;
         target.IsTx = port.IsTx;
         target.ShowOnMap = port.ShowOnMap;
+        target.AllowDigipeat = port.AllowDigipeat;
         ApplyTypeSettings(target, port.TypeSettings);
     }
 

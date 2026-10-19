@@ -24,6 +24,11 @@ public sealed class PortRecord
     public bool ShowOnMap { get; set; } = true;
 
     /// <summary>
+    /// Whether received packets on this port may be digipeated to other ports.
+    /// </summary>
+    public bool AllowDigipeat { get; set; } = true;
+
+    /// <summary>
     /// Discriminator for <see cref="AprsIs"/> vs <see cref="Kiss"/>: "aprs-is", "kiss", or null.
     /// </summary>
     public string? Type { get; set; }

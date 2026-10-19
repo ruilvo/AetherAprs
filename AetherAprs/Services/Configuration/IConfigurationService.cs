@@ -19,4 +19,12 @@ public interface IConfigurationService
     /// Saves the current settings to the configuration file.
     /// </summary>
     Task SaveSettingsAsync();
+
+    /// <summary>
+    /// Returns a deep-cloned snapshot of the current settings for thread-safe reading.
+    /// Use this when you need consistent multi-property reads (e.g., callsign + SSID together).
+    /// For write operations, use UpdateSettingsAsync to ensure thread-safe read-modify-write cycles.
+    /// </summary>
+    /// <returns>A deep copy of the current settings.</returns>
+    AppSettings GetSettingsSnapshot();
 }

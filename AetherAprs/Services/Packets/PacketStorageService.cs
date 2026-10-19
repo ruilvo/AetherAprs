@@ -51,7 +51,7 @@ public sealed class PacketStorageService(
     {
         try
         {
-            logger.LogInformation("Attempting to store {Direction} packet from {Source}, Type: {Type}",
+            logger.LogDebug("Storing {Direction} packet from {Source}, Type: {Type}",
                 isOutbound ? "outbound" : "inbound", packet.Source, packet.GetType().Name);
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -59,10 +59,10 @@ public sealed class PacketStorageService(
             var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound);
             context.Packets.Add(record);
 
-            var savedCount = await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
 
-            logger.LogInformation("Successfully stored {Direction} {PacketType} packet from {Source} (SaveChanges returned {Count})",
-                isOutbound ? "outbound" : "inbound", record.PacketType, record.SourceBase, savedCount);
+            logger.LogDebug("Stored {Direction} {PacketType} packet from {Source}",
+                isOutbound ? "outbound" : "inbound", record.PacketType, record.SourceBase);
 
             // Raise event after successful storage
             PacketStored?.Invoke(this, EventArgs.Empty);
@@ -83,14 +83,14 @@ public sealed class PacketStorageService(
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-            var oldPackets = context.Packets.Where(p => p.Timestamp < cutoffDate);
-            var count = await oldPackets.CountAsync(cancellationToken);
+            // Set-based atomic delete avoids materializing entities and the
+            // count/delete race (M3).
+            var count = await context.Packets
+                .Where(p => p.Timestamp < cutoffDate)
+                .ExecuteDeleteAsync(cancellationToken);
 
             if (count > 0)
             {
-                context.Packets.RemoveRange(oldPackets);
-                await context.SaveChangesAsync(cancellationToken);
-
                 logger.LogInformation("Cleaned up {Count} packets older than {Days} days", count, retentionDays);
             }
         }

@@ -5,6 +5,8 @@
 using AetherAprs.Models;
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Beaconing;
 
@@ -13,6 +15,11 @@ namespace AetherAprs.Services.Beaconing;
 /// </summary>
 public interface IBeaconService
 {
+    /// <summary>
+    /// Loads beacon configurations from the database asynchronously.
+    /// </summary>
+    Task InitializeAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Event raised when the beacon service determines a beacon should be transmitted.
     /// </summary>
@@ -56,6 +63,14 @@ public interface IBeaconService
     /// </summary>
     /// <param name="currentLocation">The current location data.</param>
     void ProcessLocationUpdate(LocationData currentLocation);
+
+    /// <summary>
+    /// Reports the outcome of a beacon transmission attempt back to the service.
+    /// When transmission failed, the service schedules a retry after a short backoff
+    /// instead of waiting for the full beacon interval.
+    /// </summary>
+    /// <param name="success">True when the beacon was transmitted on at least one port.</param>
+    void ReportBeaconTransmissionResult(bool success);
 }
 
 /// <summary>

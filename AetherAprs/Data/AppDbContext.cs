@@ -79,6 +79,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasIndex(packet => packet.PacketType);
             entity.HasIndex(packet => new { packet.SourceBase, packet.SourceSsid, packet.Timestamp });
             entity.HasIndex(packet => packet.IsOutbound);
+            entity.HasIndex(packet => packet.PortId);
 
             // Position data
             entity.OwnsOne(packet => packet.Position, position =>

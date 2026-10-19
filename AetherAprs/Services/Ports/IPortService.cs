@@ -7,6 +7,7 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Ports;
@@ -14,6 +15,8 @@ namespace AetherAprs.Services.Ports;
 public interface IPortService : IAsyncDisposable
 {
     IReadOnlyList<PortConfig> Ports { get; }
+
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 
     event EventHandler? PortsChanged;
 

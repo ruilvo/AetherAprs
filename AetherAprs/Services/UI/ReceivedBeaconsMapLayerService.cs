@@ -21,6 +21,7 @@ using NetTopologySuite.Geometries;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services.UI;
@@ -56,6 +57,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private readonly WritableLayer _beaconsLayer;
     private readonly WritableLayer _trailsLayer;
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
+    private readonly Lock _rebuildLock = new();
+    private bool _rebuildPending;
+    private bool _rebuildRunning;
     private bool _disposed;
 
     public ILayer BeaconsLayer => _beaconsLayer;
@@ -95,14 +99,84 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     private void OnPacketStored(object? sender, EventArgs e)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        RunOnUi(() => _ = RebuildVisibleLayersAsync());
+        if (_disposed)
+        {
+            return;
+        }
+
+        ScheduleRebuild();
     }
 
     private void OnPortsChanged(object? sender, EventArgs e)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        RunOnUi(() => _ = RebuildVisibleLayersAsync());
+        if (_disposed)
+        {
+            return;
+        }
+
+        ScheduleRebuild();
+    }
+
+    /// <summary>
+    /// Coalesces rebuild requests: at most one rebuild runs at a time, and events
+    /// arriving during a rebuild schedule exactly one more (H2). This prevents
+    /// per-packet full rebuilds under an active APRS-IS feed and overlapping
+    /// rebuilds racing on the shared layers.
+    /// </summary>
+    private void ScheduleRebuild()
+    {
+        var startRequested = false;
+
+        lock (_rebuildLock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (_rebuildRunning)
+            {
+                _rebuildPending = true;
+                return;
+            }
+
+            _rebuildRunning = true;
+            startRequested = true;
+        }
+
+        if (startRequested)
+        {
+            RunOnUi(() => _ = RebuildLoopAsync());
+        }
+    }
+
+    private async Task RebuildLoopAsync()
+    {
+        try
+        {
+            await RebuildVisibleLayersAsync();
+        }
+        finally
+        {
+            var rerun = false;
+            lock (_rebuildLock)
+            {
+                if (_rebuildPending && !_disposed)
+                {
+                    _rebuildPending = false;
+                    rerun = true;
+                }
+                else
+                {
+                    _rebuildRunning = false;
+                }
+            }
+
+            if (rerun)
+            {
+                ScheduleRebuild();
+            }
+        }
     }
 
     private static void RunOnUi(Action action)
@@ -157,24 +231,23 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 }
             }
 
-            foreach (var record in packetRecords)
+            // Bulk fetch all position trail packets once, then group by source client-side.
+            // Note: trails intentionally NOT filtered by port (preserves existing behavior
+            // where a station's trail includes packets heard on any port).
+            var allTrailPackets = await _packetQueryService.GetPositionTrailPacketsAsync(cutoffTime);
+
+            var trailsBySource = allTrailPackets
+                .GroupBy(r => (r.SourceBase, r.SourceSsid))
+                .Select(g => g.OrderBy(r => r.Timestamp).ToList())
+                .Where(trail => trail.Count > 1)
+                .ToList();
+
+            foreach (var trailPositions in trailsBySource)
             {
-                var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
-                var trailRecords = await _packetQueryService.GetPacketsByCallsignAsync(callsign, limit: 100);
-
-                var trailPositions = trailRecords
-                    .Where(r => r.Position != null)
-                    .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
-                    .OrderBy(r => r.Timestamp)
-                    .ToList();
-
-                if (trailPositions.Count > 1)
+                var trailFeature = CreateTrailFeature(trailPositions);
+                if (trailFeature != null)
                 {
-                    var trailFeature = CreateTrailFeature(trailPositions);
-                    if (trailFeature != null)
-                    {
-                        _trailsLayer.Add(trailFeature);
-                    }
+                    _trailsLayer.Add(trailFeature);
                 }
             }
 
@@ -202,7 +275,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         };
     }
 
-    private GeometryFeature? CreateTrailFeature(List<PacketRecord> trail)
+    private static GeometryFeature? CreateTrailFeature(List<PacketRecord> trail)
     {
         if (trail.Count < 2)
         {
@@ -279,14 +352,20 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_rebuildLock)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            // Unsubscribe BEFORE flagging disposed so no event handler can throw
+            // into a publisher during the teardown window (M5).
+            _packetStorageService.PacketStored -= OnPacketStored;
+            _portService.PortsChanged -= OnPortsChanged;
+            _disposed = true;
         }
 
-        _disposed = true;
-        _packetStorageService.PacketStored -= OnPacketStored;
-        _portService.PortsChanged -= OnPortsChanged;
         _beaconsLayer.Clear();
         _trailsLayer.Clear();
         _symbolStyleCache.Clear();

@@ -11,7 +11,7 @@ namespace AetherAprs.Services.UI;
 /// Service that manages keyboard insets and provides padding adjustments
 /// when the on-screen keyboard appears.
 /// </summary>
-public interface IKeyboardInsetsService
+public interface IKeyboardInsetsService : IDisposable
 {
     /// <summary>
     /// Gets the current keyboard insets (bottom padding needed to avoid keyboard).

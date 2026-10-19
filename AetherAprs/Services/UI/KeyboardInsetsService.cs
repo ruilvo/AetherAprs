@@ -13,10 +13,11 @@ namespace AetherAprs.Services.UI;
 /// <summary>
 /// Service that tracks on-screen keyboard visibility and provides padding adjustments.
 /// </summary>
-public class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null) : IKeyboardInsetsService
+public sealed class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null) : IKeyboardInsetsService
 {
     private Thickness _currentInsets = new(0);
     private IInputPane? _inputPane;
+    private bool _disposed;
 
     public Thickness CurrentInsets
     {
@@ -37,6 +38,15 @@ public class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null
     {
         ArgumentNullException.ThrowIfNull(topLevel);
 
+        if (_disposed)
+        {
+            return;
+        }
+
+        // Unsubscribe from any previous pane so repeated Initialize calls do not
+        // duplicate subscriptions (M7).
+        UnsubscribeFromPane();
+
         // Get the InputPane (software keyboard) for this TopLevel
         _inputPane = topLevel.InputPane;
 
@@ -48,8 +58,17 @@ public class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null
 
         // Subscribe to keyboard state changes
         _inputPane.StateChanged += OnInputPaneStateChanged;
-        
+
         logger?.LogInformation("Keyboard insets service initialized");
+    }
+
+    private void UnsubscribeFromPane()
+    {
+        if (_inputPane is not null)
+        {
+            _inputPane.StateChanged -= OnInputPaneStateChanged;
+            _inputPane = null;
+        }
     }
 
     private void OnInputPaneStateChanged(object? sender, InputPaneStateEventArgs e)
@@ -59,9 +78,9 @@ public class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null
             // When keyboard is visible, add bottom padding equal to keyboard height
             // When hidden, remove the padding
             var keyboardHeight = e.NewState == InputPaneState.Open ? e.EndRect.Height : 0;
-            
+
             CurrentInsets = new Thickness(0, 0, 0, keyboardHeight);
-            
+
             logger?.LogDebug(
                 "Keyboard state changed: {State}, Height: {Height}",
                 e.NewState,
@@ -71,5 +90,16 @@ public class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null
         {
             logger?.LogError(ex, "Error handling keyboard state change");
         }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        UnsubscribeFromPane();
     }
 }

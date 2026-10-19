@@ -31,12 +31,13 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private readonly Lock _lock = new();
     private readonly Timer _evaluationTimer;
     private readonly CancellationTokenSource _disposalCts = new();
+    private readonly SemaphoreSlim _persistLock = new(1, 1);
 
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
     private BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
-    private DateTime _lastTransmitTime = DateTime.UtcNow;
+    internal DateTime LastTransmitTime { get; set; } = DateTime.UtcNow;
     private double? _lastCourseDegrees;
     private LocationData? _currentLocation;
     private LocationData? _previousLocation;
@@ -62,8 +63,12 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         _dbContextFactory = dbContextFactory;
         _logger = logger ?? NullLogger<BeaconService>.Instance;
         _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
-        LoadFromDatabase();
         _evaluationTimer = new Timer(OnEvaluationTimer, null, EvaluationIntervalMilliseconds, EvaluationIntervalMilliseconds);
+    }
+
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        await LoadFromDatabaseAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public BeaconConfig CurrentConfiguration
@@ -125,8 +130,8 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
             _logger.LogInformation("Beacon mode changed from {PreviousMode} to {NewMode}", _activeMode, mode);
             _activeMode = mode;
-            _lastTransmitTime = DateTime.UtcNow;
-            PersistUnlocked();
+            LastTransmitTime = DateTime.UtcNow;
+            QueuePersistSnapshot();
         }
     }
 
@@ -149,7 +154,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
                     throw new ArgumentOutOfRangeException(nameof(configuration), configuration.Mode, "Unknown beacon mode.");
             }
 
-            PersistUnlocked();
+            QueuePersistSnapshot();
         }
     }
 
@@ -165,9 +170,43 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         EvaluateBeaconConditions();
     }
 
+    /// <summary>Retry delay after a failed transmission attempt, in seconds.</summary>
+    internal const int TransmissionRetryBackoffSeconds = 30;
+
+    public void ReportBeaconTransmissionResult(bool success)
+    {
+        if (!success)
+        {
+            lock (_lock)
+            {
+                var decision = _currentDecision;
+                if (decision is null || !decision.ShouldTransmit)
+                {
+                    return;
+                }
+
+                // Schedule a retry after the backoff window: wind LastTransmitTime back so
+                // the next evaluation reports ShouldTransmit only once the backoff elapses.
+                var remainingBackoff = Math.Max(0, decision.ActiveIntervalSeconds - TransmissionRetryBackoffSeconds);
+                LastTransmitTime = DateTime.UtcNow - TimeSpan.FromSeconds(remainingBackoff);
+
+                _logger.LogWarning(
+                    "Beacon transmission failed; retry scheduled in {RetrySeconds}s",
+                    decision.ActiveIntervalSeconds - remainingBackoff);
+            }
+        }
+
+        // Re-evaluate so CurrentDecision reflects the updated timer without waiting
+        // for the next evaluation tick.
+        EvaluateBeaconConditions();
+    }
+
     private void OnEvaluationTimer(object? state)
     {
-        if (_disposalCts.Token.IsCancellationRequested)
+        // Snapshot the token: the CTS is disposed after cancellation in
+        // DisposeAsync, and a queued callback racing disposal must not touch it (M9).
+        var token = _disposalCts.Token;
+        if (token.IsCancellationRequested || _disposed)
             return;
 
         EvaluateBeaconConditions();
@@ -204,7 +243,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             if (decision.ShouldTransmit)
             {
                 // Reset timer automatically when beacon is requested
-                _lastTransmitTime = DateTime.UtcNow;
+                LastTransmitTime = DateTime.UtcNow;
 
                 // Prepare event args to raise outside the lock
                 eventArgs = new BeaconRequestedEventArgs
@@ -229,15 +268,17 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         }
     }
 
-    private void LoadFromDatabase()
+    private async Task LoadFromDatabaseAsync(CancellationToken cancellationToken = default)
     {
         if (_dbContextFactory is null)
         {
             return;
         }
 
-        using var db = _dbContextFactory.CreateDbContext();
-        foreach (var record in db.BeaconConfigs.AsNoTracking())
+        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        var configs = await db.BeaconConfigs.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var record in configs)
         {
             var config = BeaconConfigMapper.ToConfig(record);
             switch (config.Mode)
@@ -254,36 +295,74 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             }
         }
 
-        var state = db.BeaconingState.AsNoTracking().FirstOrDefault();
+        var state = await db.BeaconingState.AsNoTracking().FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         if (state is not null)
         {
             _activeMode = state.ActiveMode;
         }
     }
 
-    private void PersistUnlocked()
+    private sealed record BeaconPersistenceSnapshot(
+        BeaconConfig WalkConfig,
+        BeaconConfig DriveConfig,
+        BeaconConfig CustomConfig,
+        DynamicBeaconMode ActiveMode);
+
+    /// <summary>
+    /// Captures a snapshot of the beaconing state under <see cref="_lock"/> and queues
+    /// a background persist. Database I/O never runs under <see cref="_lock"/>, which is
+    /// also used by the 1-second evaluation timer, and never blocks the calling thread.
+    /// </summary>
+    private void QueuePersistSnapshot()
+    {
+        BeaconPersistenceSnapshot snapshot;
+        lock (_lock)
+        {
+            snapshot = new BeaconPersistenceSnapshot(_walkConfig, _driveConfig, _customConfig, _activeMode);
+        }
+
+        _ = Task.Run(() => PersistSnapshotAsync(snapshot, _disposalCts.Token));
+    }
+
+    private async Task PersistSnapshotAsync(BeaconPersistenceSnapshot snapshot, CancellationToken cancellationToken)
     {
         if (_dbContextFactory is null)
         {
             return;
         }
 
-        using var db = _dbContextFactory.CreateDbContext();
-        UpsertConfig(db, _walkConfig);
-        UpsertConfig(db, _driveConfig);
-        UpsertConfig(db, _customConfig);
-
-        var state = db.BeaconingState.Find(BeaconingStateRecord.SingletonId);
-        if (state is null)
+        await _persistLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            db.BeaconingState.Add(new BeaconingStateRecord { ActiveMode = _activeMode });
-        }
-        else
-        {
-            state.ActiveMode = _activeMode;
-        }
+            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+            UpsertConfig(db, snapshot.WalkConfig);
+            UpsertConfig(db, snapshot.DriveConfig);
+            UpsertConfig(db, snapshot.CustomConfig);
 
-        db.SaveChanges();
+            var state = await db.BeaconingState.FindAsync([BeaconingStateRecord.SingletonId], cancellationToken).ConfigureAwait(false);
+            if (state is null)
+            {
+                db.BeaconingState.Add(new BeaconingStateRecord { ActiveMode = snapshot.ActiveMode });
+            }
+            else
+            {
+                state.ActiveMode = snapshot.ActiveMode;
+            }
+
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected during disposal.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to persist beaconing state.");
+        }
+        finally
+        {
+            _persistLock.Release();
+        }
     }
 
     private static void UpsertConfig(AppDbContext db, BeaconConfig config)
@@ -301,7 +380,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     private BeaconTransmitDecision EvaluateLocationUpdateInternal(LocationData currentLocation, LocationData? previousLocation)
     {
-        var timeSinceLastTransmit = DateTime.UtcNow - _lastTransmitTime;
+        var timeSinceLastTransmit = DateTime.UtcNow - LastTransmitTime;
         var config = _activeMode switch
         {
             DynamicBeaconMode.Walk => _walkConfig,
@@ -367,7 +446,9 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
         var courseChangeThreshold = config.CourseChangeThresholdDegrees;
 
-        // Check if course changed significantly
+        // Check if course changed significantly. Evaluation stays pure: course
+        // state is only advanced below when a decision is final (M9) so that a
+        // "not transmit" evaluation cannot consume/advance course state.
         if (_lastCourseDegrees.HasValue && courseChangeThreshold > 0)
         {
             var courseDelta = Math.Abs(NormalizeAngleDifference(courseDegrees - _lastCourseDegrees.Value));
@@ -390,8 +471,9 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
                 };
             }
         }
-        else
+        else if (courseChangeThreshold <= 0)
         {
+            // Course-change tracking disabled: keep reference course fresh.
             _lastCourseDegrees = courseDegrees;
         }
 
@@ -415,7 +497,9 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             };
         }
 
-        // No beacon needed yet
+        // No beacon needed yet. Only now — after a final "not transmit" decision —
+        // is it safe to seed the reference course for the next delta computation.
+        _lastCourseDegrees ??= courseDegrees;
         var secondsUntilNext = Math.Max(1, activeInterval2 - (int)timeSinceLastTransmit.TotalSeconds);
         return new BeaconTransmitDecision
         {
@@ -460,6 +544,12 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         _disposalCts.Cancel();
 
         await _evaluationTimer.DisposeAsync();
-        _disposalCts.Dispose();
+
+        // Wait for any in-flight background persist to complete so the DbContext is
+        // not used after the service is gone.
+        await _persistLock.WaitAsync();
+        _persistLock.Dispose();
+        // Do not dispose _disposalCts: a queued timer callback may still read its
+        // Token. The source is finalized with the singleton service (M9).
     }
 }
