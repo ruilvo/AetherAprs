@@ -41,6 +41,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
     <PackageReference Include="Xamarin.GooglePlayServices.Location" />
+    <!--
+      AvaloniaUI.DiagnosticsSupport flows in transitively from the core project (Debug only).
+      Its Developer Tools auto-connect defaults to ON for Android and crashes the app with
+      DevToolsUnreachableException when no Dev Tools instance is reachable (e.g. Debug builds
+      on a physical device). Excluded here; desktop Debug builds keep the F12 Dev Tools.
+    -->
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" ExcludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
