@@ -33,15 +33,10 @@ namespace AetherAprs.Android
 
         protected override void OverrideCoreServices(IServiceCollection services)
         {
-            // Override core services with Android-specific implementations
-            
-            // Replace NoOpLocationService with Android implementation
+            // Replace the core NoOp defaults with Android-specific implementations
+            // (later registrations win over the core defaults)
             services.AddSingleton<AetherAprs.Services.Platform.ILocationService, LocationService>();
-            
-            // Replace NoOpPermissionService with Android implementation
             services.AddSingleton<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
-            
-            // Replace NoOpForegroundService with Android implementation
             services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
         }
     }

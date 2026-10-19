@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Android;
@@ -47,23 +48,14 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public static event Action<int, string[], Permission[]>? OnPermissionResult;
 
-    /// <summary>
-    /// Event raised when all initial permissions have been requested (granted or denied).
-    /// </summary>
-    public static event Action? OnInitialPermissionsComplete;
+
 
     /// <summary>
     /// Requests notification permission and waits for user response.
     /// </summary>
     public async Task<bool> RequestNotificationPermissionAsync()
     {
-        // Only required on Android 13+ (Tiramisu)
-        if (Build.VERSION.SdkInt < BuildVersionCodes.Tiramisu)
-        {
-            global::Android.Util.Log.Info("AetherAprs", $"Notification permission not required on API {(int)Build.VERSION.SdkInt}");
-            return true;
-        }
-
+        // Android 13+ only (SupportedOSPlatformVersion = 33)
         var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications);
         global::Android.Util.Log.Info("AetherAprs", $"Notification permission current status: {currentStatus}");
 
@@ -81,12 +73,16 @@ public class MainActivity : AvaloniaMainActivity
 
         // Request permission and wait for result
         global::Android.Util.Log.Info("AetherAprs", "Requesting notification permission dialog...");
-        _notificationPermissionTcs = new TaskCompletionSource<bool>();
+        _notificationPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var notificationTcs = _notificationPermissionTcs;
+        using var notificationTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var notificationRegistration = notificationTimeoutCts.Token.Register(
+            () => notificationTcs.TrySetCanceled(notificationTimeoutCts.Token));
         
         try
         {
             RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, NotificationPermissionRequestCode);
-            var result = await _notificationPermissionTcs.Task;
+            var result = await _notificationPermissionTcs.Task.ConfigureAwait(false);
             global::Android.Util.Log.Info("AetherAprs", $"Notification permission dialog result: {result}");
             return result;
         }
@@ -102,13 +98,7 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public async Task<bool> RequestBluetoothPermissionAsync()
     {
-        // Only required on Android 12+ (S)
-        if (Build.VERSION.SdkInt < BuildVersionCodes.S)
-        {
-            global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission not required on API {(int)Build.VERSION.SdkInt}");
-            return true;
-        }
-
+        // Android 13+ only (SupportedOSPlatformVersion = 33, includes S/12 permissions)
         var bluetoothScanStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothScan);
         var bluetoothConnectStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothConnect);
         global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission current status - SCAN: {bluetoothScanStatus}, CONNECT: {bluetoothConnectStatus}");
@@ -128,7 +118,11 @@ public class MainActivity : AvaloniaMainActivity
 
         // Request permissions and wait for result
         global::Android.Util.Log.Info("AetherAprs", "Requesting Bluetooth permission dialog...");
-        _bluetoothPermissionTcs = new TaskCompletionSource<bool>();
+        _bluetoothPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var bluetoothTcs = _bluetoothPermissionTcs;
+        using var bluetoothTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var bluetoothRegistration = bluetoothTimeoutCts.Token.Register(
+            () => bluetoothTcs.TrySetCanceled(bluetoothTimeoutCts.Token));
         
         try
         {
@@ -137,7 +131,7 @@ public class MainActivity : AvaloniaMainActivity
                 global::Android.Manifest.Permission.BluetoothScan,
                 global::Android.Manifest.Permission.BluetoothConnect
             }, BluetoothPermissionRequestCode);
-            var result = await _bluetoothPermissionTcs.Task;
+            var result = await _bluetoothPermissionTcs.Task.ConfigureAwait(false);
             global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission dialog result: {result}");
             return result;
         }
@@ -160,17 +154,10 @@ public class MainActivity : AvaloniaMainActivity
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
 
-        // Register broadcast receiver for stopping ports
+        // Register broadcast receiver for stopping ports (Android 13+, SupportedOSPlatformVersion = 33)
         stopPortsReceiver = new StopPortsBroadcastReceiver();
         var filter = new IntentFilter("com.aetheraprs.STOP_ALL_PORTS");
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
-        {
-            RegisterReceiver(stopPortsReceiver, filter, ReceiverFlags.NotExported);
-        }
-        else
-        {
-            RegisterReceiver(stopPortsReceiver, filter);
-        }
+        RegisterReceiver(stopPortsReceiver, filter, ReceiverFlags.NotExported);
     }
 
     protected override void OnResume()
@@ -221,15 +208,18 @@ public class MainActivity : AvaloniaMainActivity
             var locationGranted = await RequestLocationPermissionsAsync();
             global::Android.Util.Log.Info("AetherAprs", $"Location permission result: {locationGranted}");
 
+            // Request background location (non-fatal when denied; Android 11+
+            // routes this to the app settings page)
+            var backgroundLocationGranted = await RequestBackgroundLocationPermissionAsync();
+            global::Android.Util.Log.Info("AetherAprs", $"Background location permission result: {backgroundLocationGranted}");
+
             // Signal that initial permissions are complete
-            OnInitialPermissionsComplete?.Invoke();
             Services.Platform.AndroidPermissionService.SignalPermissionsComplete();
         }
         catch (Exception ex)
         {
             global::Android.Util.Log.Error("AetherAprs", $"Error requesting permissions: {ex.Message}");
             // Signal completion even on error
-            OnInitialPermissionsComplete?.Invoke();
             Services.Platform.AndroidPermissionService.SignalPermissionsComplete();
         }
     }
@@ -260,7 +250,13 @@ public class MainActivity : AvaloniaMainActivity
         global::Android.Util.Log.Info("AetherAprs", "Requesting location permission dialog...");
         
         // Use the LocationService's existing request code to avoid conflicts
-        var tcs = new TaskCompletionSource<bool>();
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var locationTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var locationRegistration = locationTimeoutCts.Token.Register(() =>
+        {
+            OnPermissionResult -= OnPermissionResultHandler;
+            tcs.TrySetCanceled(locationTimeoutCts.Token);
+        });
         void OnPermissionResultHandler(int requestCode, string[] permissions, Permission[] grantResults)
         {
             if (requestCode == 1001) // LocationPermissionRequestCode from LocationService
@@ -279,13 +275,73 @@ public class MainActivity : AvaloniaMainActivity
                 global::Android.Manifest.Permission.AccessFineLocation,
                 global::Android.Manifest.Permission.AccessCoarseLocation
             }, 1001); // Use LocationService's request code
-            var result = await tcs.Task;
+            var result = await tcs.Task.ConfigureAwait(false);
             global::Android.Util.Log.Info("AetherAprs", $"Location permission dialog result: {result}");
             return result;
         }
         catch (Exception ex)
         {
             global::Android.Util.Log.Error("AetherAprs", $"Error requesting location permission: {ex.Message}");
+            OnPermissionResult -= OnPermissionResultHandler;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Requests background location permission and waits for the user response.
+    /// On Android 11+ the system routes this to the app settings page ("Allow all
+    /// the time"); denial is non-fatal — foreground tracking keeps working.
+    /// </summary>
+    public async Task<bool> RequestBackgroundLocationPermissionAsync()
+    {
+        const int backgroundLocationRequestCode = 1002;
+
+        // Android 10 (Q) introduced ACCESS_BACKGROUND_LOCATION; SupportedOSPlatformVersion is 33.
+        if (CheckSelfPermission(global::Android.Manifest.Permission.AccessBackgroundLocation) == Permission.Granted)
+        {
+            global::Android.Util.Log.Info("AetherAprs", "Background location permission already granted");
+            return true;
+        }
+
+        // The dialog is only meaningful once fine location is granted; the system
+        // otherwise sends the user to app settings where the toggle is hidden.
+        var fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
+        if (fineLocationStatus != Permission.Granted)
+        {
+            global::Android.Util.Log.Info("AetherAprs", "Fine location not granted; skipping background location request");
+            return false;
+        }
+
+        global::Android.Util.Log.Info("AetherAprs", "Requesting background location permission...");
+
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var backgroundTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var backgroundRegistration = backgroundTimeoutCts.Token.Register(() =>
+        {
+            OnPermissionResult -= OnPermissionResultHandler;
+            tcs.TrySetCanceled(backgroundTimeoutCts.Token);
+        });
+        void OnPermissionResultHandler(int requestCode, string[] permissions, Permission[] grantResults)
+        {
+            if (requestCode == backgroundLocationRequestCode)
+            {
+                OnPermissionResult -= OnPermissionResultHandler;
+                var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
+                tcs.TrySetResult(granted);
+            }
+        }
+
+        try
+        {
+            OnPermissionResult += OnPermissionResultHandler;
+            RequestPermissions(new[] { global::Android.Manifest.Permission.AccessBackgroundLocation }, backgroundLocationRequestCode);
+            var result = await tcs.Task.ConfigureAwait(false);
+            global::Android.Util.Log.Info("AetherAprs", $"Background location permission result: {result}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Error("AetherAprs", $"Error requesting background location permission: {ex.Message}");
             OnPermissionResult -= OnPermissionResultHandler;
             return false;
         }
@@ -369,7 +425,7 @@ public class MainActivity : AvaloniaMainActivity
         OnPermissionResult?.Invoke(requestCode, permissions, grantResults);
     }
 
-    private class BackInvokedCallback(Action onBackInvoked) : Java.Lang.Object, IOnBackInvokedCallback
+    private sealed class BackInvokedCallback(Action onBackInvoked) : Java.Lang.Object, IOnBackInvokedCallback
     {
         public void OnBackInvoked()
         {
@@ -377,7 +433,7 @@ public class MainActivity : AvaloniaMainActivity
         }
     }
 
-    private class StopPortsBroadcastReceiver : BroadcastReceiver
+    private sealed class StopPortsBroadcastReceiver : BroadcastReceiver
     {
         public override void OnReceive(Context? context, Intent? intent)
         {

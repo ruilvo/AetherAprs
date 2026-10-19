@@ -7,7 +7,10 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using AndroidX.Core.App;
+using System;
 using System.Threading.Tasks;
+using AetherAprs.Localization;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Android.Services.Platform;
 
@@ -35,16 +38,8 @@ public class AetherAprsForegroundService : Service
             var stopPortsIntent = new Intent("com.aetheraprs.STOP_ALL_PORTS");
             SendBroadcast(stopPortsIntent);
 
-            if (Build.VERSION.SdkInt >= BuildVersionCodes.N)
-            {
-                StopForeground(StopForegroundFlags.Remove);
-            }
-            else
-            {
-#pragma warning disable CA1422
-                StopForeground(true);
-#pragma warning restore CA1422
-            }
+            // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 24/N)
+            StopForeground(StopForegroundFlags.Remove);
             StopSelf();
             return StartCommandResult.NotSticky;
         }
@@ -67,11 +62,11 @@ public class AetherAprsForegroundService : Service
             PendingIntentFlags.Immutable);
 
         var builder = new NotificationCompat.Builder(this, ChannelId);
-        builder.SetContentTitle("AetherAprs Active");
-        builder.SetContentText("Receiving and transmitting APRS packets");
+        builder.SetContentTitle(Strings.Get("ForegroundServiceNotificationTitle"));
+        builder.SetContentText(Strings.Get("ForegroundServiceNotificationText"));
         builder.SetSmallIcon(Resource.Drawable.icon_400px);
         builder.SetContentIntent(pendingIntent);
-        builder.AddAction(Resource.Drawable.icon_400px, "Stop", stopPendingIntent);
+        builder.AddAction(Resource.Drawable.icon_400px, Strings.Get("Stop"), stopPendingIntent);
         builder.SetOngoing(true);
         var notification = builder.Build();
 
@@ -85,19 +80,17 @@ public class AetherAprsForegroundService : Service
 
     private void CreateNotificationChannel()
     {
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
+        // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 26/O)
+        var channel = new NotificationChannel(
+            ChannelId,
+            Strings.Get("ForegroundServiceNotificationChannelName"),
+            NotificationImportance.Low)
         {
-            var channel = new NotificationChannel(
-                ChannelId,
-                "AetherAprs Foreground Service",
-                NotificationImportance.Low)
-            {
-                Description = "Keeps AetherAprs active while receiving and transmitting packets"
-            };
+            Description = Strings.Get("ForegroundServiceNotificationChannelDescription")
+        };
 
-            var notificationManager = GetSystemService(NotificationService) as NotificationManager;
-            notificationManager?.CreateNotificationChannel(channel);
-        }
+        var notificationManager = GetSystemService(NotificationService) as NotificationManager;
+        notificationManager?.CreateNotificationChannel(channel);
     }
 }
 
@@ -106,12 +99,16 @@ public class AetherAprsForegroundService : Service
 /// </summary>
 public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IForegroundService
 {
-    private readonly Context _context;
-    private bool _isRunning;
+    private const string ActionStop = "STOP_FOREGROUND";
 
-    public AndroidForegroundService()
+    private readonly Context _context;
+    private readonly ILogger<AndroidForegroundService>? _logger;
+    private volatile bool _isRunning;
+
+    public AndroidForegroundService(ILogger<AndroidForegroundService>? logger = null)
     {
         _context = Application.Context;
+        _logger = logger;
     }
 
     public bool IsRunning => _isRunning;
@@ -124,14 +121,24 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         }
 
         var intent = new Intent(_context, typeof(AetherAprsForegroundService));
-        
-        if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
+
+        try
         {
-            _context.StartForegroundService(intent);
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
+            {
+                _context.StartForegroundService(intent);
+            }
+            else
+            {
+                _context.StartService(intent);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _context.StartService(intent);
+            // API 31+ throws ForegroundServiceStartNotAllowedException when the app
+            // is in the background (e.g. BLE reconnect path); do not abort the caller.
+            _logger?.LogWarning(ex, "Failed to start foreground service");
+            return Task.CompletedTask;
         }
 
         _isRunning = true;
@@ -146,8 +153,18 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         }
 
         var intent = new Intent(_context, typeof(AetherAprsForegroundService));
-        intent.SetAction("STOP_FOREGROUND");
-        _context.StartService(intent);
+        intent.SetAction(ActionStop);
+
+        try
+        {
+            _context.StartService(intent);
+        }
+        catch (Exception ex)
+        {
+            // The OS may have already stopped the service (e.g. app in background
+            // or service killed) while _isRunning was still true; nothing left to stop.
+            _logger?.LogWarning(ex, "Failed to deliver stop intent to foreground service");
+        }
 
         _isRunning = false;
         return Task.CompletedTask;

@@ -67,8 +67,9 @@ public class LocationService : ILocationService
             return false;
         }
 
-        var tcs = new TaskCompletionSource<bool>();
-        MainActivity.OnPermissionResult += OnPermissionResultHandler;
+        // TaskCreationOptions.RunContinuationsAsynchronously prevents the permission
+        // callback thread from being hijacked by the awaiting continuation.
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         void OnPermissionResultHandler(int requestCode, string[] permissions, Permission[] grantResults)
         {
@@ -80,9 +81,21 @@ public class LocationService : ILocationService
             }
         }
 
+        // If no callback ever arrives (e.g. activity recreated while the dialog was
+        // pending), the handler must not leak in the static event invocation list and
+        // the caller must not hang forever: cancel after a bounded wait.
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var registration = timeoutCts.Token.Register(() =>
+        {
+            MainActivity.OnPermissionResult -= OnPermissionResultHandler;
+            tcs.TrySetCanceled(timeoutCts.Token);
+        });
+
+        MainActivity.OnPermissionResult += OnPermissionResultHandler;
+
         ActivityCompat.RequestPermissions(activity, RequiredPermissions, LocationPermissionRequestCode);
 
-        return await tcs.Task;
+        return await tcs.Task.ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -106,10 +119,15 @@ public class LocationService : ILocationService
         }
 
         // Try to get last known location first for quick response
+        // Reject stale locations (older than 30 seconds) to ensure fresh beacon positions
         var lastKnownLocation = GetLastKnownLocation(locationManager);
         if (lastKnownLocation != null)
         {
-            return ConvertToLocationData(lastKnownLocation);
+            var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(lastKnownLocation.Time);
+            if (age.TotalSeconds < 30)
+            {
+                return ConvertToLocationData(lastKnownLocation);
+            }
         }
 
         // Request a fresh location update
@@ -119,8 +137,9 @@ public class LocationService : ILocationService
             tcs.TrySetResult(ConvertToLocationData(location));
         });
 
-        // Use cancellation token to allow cancelling the request
-        cancellationToken.Register(() =>
+        // Use cancellation token to allow cancelling the request.
+        // Registration disposed via using so the lambda is not rooted for the token's lifetime.
+        await using var cancellationRegistration = cancellationToken.Register(() =>
         {
             locationManager.RemoveUpdates(listener);
             tcs.TrySetCanceled();
@@ -150,7 +169,9 @@ public class LocationService : ILocationService
             throw new TimeoutException("Location request timed out after 30 seconds.");
         }
 
-        return await tcs.Task;
+        var result = await tcs.Task;
+        await cancellationRegistration.DisposeAsync();
+        return result;
     }
 
     private static bool HasLocationPermission()
@@ -213,7 +234,7 @@ public class LocationService : ILocationService
         };
     }
 
-    private class SingleUpdateLocationListener(Action<Location> onLocationReceived) : Java.Lang.Object, ILocationListener
+    private sealed class SingleUpdateLocationListener(Action<Location> onLocationReceived) : Java.Lang.Object, ILocationListener
     {
         public void OnLocationChanged(Location location)
         {

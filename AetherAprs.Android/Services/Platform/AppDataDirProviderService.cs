@@ -47,4 +47,16 @@ public class AppDataDirProviderService : AetherAprs.Services.Platform.IAppDataDi
         return global::Android.App.Application.Context.FilesDir.AbsolutePath;
 #pragma warning restore CS8602
     }
+
+    /// <inheritdoc/>
+    public string GetPrivateAppDataDirectory()
+    {
+        // Internal app-only storage (/data/data/package/files): not readable by
+        // the user or other apps, so the database (APRS-IS passcodes) lives here.
+        // SUPPRESSED WARNING CS8602: FilesDir is documented to never return null
+        // in normal app lifecycle; null would indicate a critical system failure.
+#pragma warning disable CS8602
+        return global::Android.App.Application.Context.FilesDir.AbsolutePath;
+#pragma warning restore CS8602
+    }
 }

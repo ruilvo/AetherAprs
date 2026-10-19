@@ -27,6 +27,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     private readonly object _sync = new();
 
     private TaskCompletionSource<bool>? _writeCompletion;
+    private bool _writeAbandoned;
     private bool _disposed;
 
     private BluetoothLeGattDuplexStream(
@@ -192,6 +193,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         }
 
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var abandoned = false;
         try
         {
             var payload = buffer.ToArray();
@@ -212,15 +214,34 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 {
                     lock (_sync)
                     {
-                        _writeCompletion = null;
+                        if (_writeCompletion == writeTcs)
+                        {
+                            _writeCompletion = null;
+                        }
                     }
 
                     throw new IOException($"BLE WriteCharacteristic failed to start with status {status}.");
                 }
 
-                await using (cancellationToken.Register(() => writeTcs.TrySetCanceled(cancellationToken)))
+                try
                 {
-                    await writeTcs.Task.ConfigureAwait(false);
+                    await writeTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // The GATT callback for this write has not arrived yet. Keep the
+                    // write gate held so the next write cannot start before the stale
+                    // callback is consumed (CompleteWrite releases the gate in that case).
+                    lock (_sync)
+                    {
+                        if (_writeCompletion == writeTcs)
+                        {
+                            _writeAbandoned = true;
+                            abandoned = true;
+                        }
+                    }
+
+                    throw;
                 }
             }
             else
@@ -234,7 +255,10 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         }
         finally
         {
-            _writeGate.Release();
+            if (!abandoned)
+            {
+                _writeGate.Release();
+            }
         }
     }
 
@@ -245,10 +269,16 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     internal void CompleteWrite(bool success, GattStatus status)
     {
         TaskCompletionSource<bool>? writeTcs;
+        var releaseGate = false;
         lock (_sync)
         {
             writeTcs = _writeCompletion;
             _writeCompletion = null;
+            if (writeTcs is not null && _writeAbandoned)
+            {
+                _writeAbandoned = false;
+                releaseGate = true;
+            }
         }
 
         if (writeTcs is null)
@@ -263,6 +293,11 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         else
         {
             writeTcs.TrySetException(new IOException($"BLE characteristic write failed with status {status}."));
+        }
+
+        if (releaseGate)
+        {
+            _writeGate.Release();
         }
     }
 

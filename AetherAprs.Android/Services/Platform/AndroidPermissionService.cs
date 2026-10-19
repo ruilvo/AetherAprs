@@ -24,7 +24,7 @@ public class AndroidPermissionService : IPermissionService
         _permissionsCompleteTcs.TrySetResult(true);
     }
 
-    private async Task WaitForPermissionsAsync()
+    private static async Task WaitForPermissionsAsync()
     {
         // Wait for MainActivity to complete permission requests, with timeout
         var timeoutTask = Task.Delay(30000);

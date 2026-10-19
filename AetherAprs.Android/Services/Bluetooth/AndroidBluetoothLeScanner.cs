@@ -48,7 +48,8 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
         var callback = new AdvertisementScanCallback(advertisement =>
         {
             channel.Writer.TryWrite(advertisement);
-        });
+        },
+        error => channel.Writer.TryComplete(new InvalidOperationException($"BLE scan failed: {error}")));
         var settings = new ScanSettings.Builder()
             .SetScanMode(ScanMode.LowLatency)!
             .Build();
@@ -78,7 +79,9 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
         }
     }
 
-    private sealed class AdvertisementScanCallback(Action<BluetoothLeAdvertisement> onAdvertisement) : ScanCallback
+    private sealed class AdvertisementScanCallback(
+        Action<BluetoothLeAdvertisement> onAdvertisement,
+        Action<ScanFailure> onScanFailed) : ScanCallback
     {
         public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult? result)
         {
@@ -100,7 +103,9 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
 
         public override void OnScanFailed([GeneratedEnum] ScanFailure errorCode)
         {
-            // Surface as completed channel; callers observe no further ads.
+            // Complete the channel with an error so callers observe the failure
+            // instead of a scan that "succeeds" with zero results.
+            onScanFailed(errorCode);
         }
 
         private void Publish(ScanResult? result)
