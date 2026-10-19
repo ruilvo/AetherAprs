@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:local="using:AetherAprs"
              xmlns:config="using:AetherAprs.Configuration"
              xmlns:converters="using:AetherAprs.Converters.UI"
@@ -50,7 +50,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <!-- Callsign -->
             <TextBox x:Name="CallsignBox"
                      Text="{Binding Callsign}"
-                     PlaceholderText="e.g. N0CALL"
+                     PlaceholderText="{loc:Loc CallsignPlaceholder}"
                      wpf:TextFieldAssist.Label="{loc:Loc Callsign}"
                      UseFloatingPlaceholder="True" />
 
@@ -68,8 +68,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               </ComboBox.ItemTemplate>
             </ComboBox>
 
-            <components:AprsSymbolPickerComponent
-              DataContext="{Binding SymbolPicker}" />
+            <ContentControl Content="{Binding SymbolPicker}" />
           </StackPanel>
         </StackPanel>
 
@@ -88,7 +87,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <ComboBox ItemsSource="{Binding AvailableTimeRanges}"
                       SelectedItem="{Binding DisplayTimeRange}"
                       MinHeight="48"
-                      wpf:ComboBoxAssist.Label="Packet Display Time Range"
+                      wpf:ComboBoxAssist.Label="{loc:Loc PacketDisplayTimeRangeLabel}"
                       HorizontalAlignment="Stretch">
               <ComboBox.ItemTemplate>
                 <DataTemplate>
@@ -100,7 +99,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <!-- Custom Hours - only visible when Custom is selected -->
             <TextBox Text="{Binding CustomDisplayTimeRangeHours}"
                      PlaceholderText="12"
-                     wpf:TextFieldAssist.Label="Custom Time Range (hours) - used when Custom is selected"
+                     wpf:TextFieldAssist.Label="{loc:Loc CustomTimeRangeHoursLabel}"
                      UseFloatingPlaceholder="True"
                      IsVisible="{Binding DisplayTimeRange, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:PacketDisplayTimeRange.Custom}}" />
           </StackPanel>

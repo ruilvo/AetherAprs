@@ -66,6 +66,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="DefaultAprsIsPortName" xml:space="preserve"><value>Porta APRS-IS {0}</value></data>
   <data name="DefaultKissPortName" xml:space="preserve"><value>Porta KISS {0}</value></data>
   <data name="Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Confirm" xml:space="preserve"><value>Confirmar</value></data>
+  <data name="DeletePortConfirmation" xml:space="preserve"><value>Eliminar a porta '{0}'? Esta ação não pode ser revertida.</value></data>
   <data name="Save" xml:space="preserve"><value>Guardar</value></data>
   <data name="StationSettings" xml:space="preserve"><value>Definições da estação</value></data>
   <data name="StationSettingsDescription" xml:space="preserve"><value>Configure a identidade da estação utilizada no APRS.</value></data>
@@ -170,6 +172,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="NoPacketsReceivedYet" xml:space="preserve"><value>Ainda não foram recebidos pacotes</value></data>
   <data name="Time" xml:space="preserve"><value>Hora</value></data>
   <data name="Type" xml:space="preserve"><value>Tipo</value></data>
+<data name="Location" xml:space="preserve"><value>Localização</value></data>
   <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
   <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
   <data name="Comment" xml:space="preserve"><value>Comentário</value></data>
@@ -177,6 +180,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BackTooltip" xml:space="preserve"><value>Voltar</value></data>
   <data name="CenterOnMyLocationTooltip" xml:space="preserve"><value>Centrar na minha localização</value></data>
   <data name="ShowOnMapTooltip" xml:space="preserve"><value>Mostrar no mapa</value></data>
+  <data name="PreviewLatLon" xml:space="preserve"><value>Lat: {0}, Lon: {1}</value></data>
+  <data name="PreviewMessageTo" xml:space="preserve"><value>Para {0}: {1}</value></data>
+  <data name="PreviewTemperature" xml:space="preserve"><value>Temp: {0}F</value></data>
+  <data name="PacketDetailsTitle" xml:space="preserve"><value>Detalhes do Pacote</value></data>
+  <data name="PacketsFromCallsign" xml:space="preserve"><value>Pacotes de {0}</value></data>
+  <data name="PacketDisplayTimeRangeLabel" xml:space="preserve"><value>Intervalo de Tempo de Exibio de Pacotes</value></data>
+  <data name="CustomTimeRangeHoursLabel" xml:space="preserve"><value>Intervalo Personalizado (horas)</value></data>
+  <data name="CustomTimeRangeHoursDescription" xml:space="preserve"><value>Usado quando Personalizado est selecionado</value></data>
+  <data name="RssiFormat" xml:space="preserve"><value>RSSI: {0} dBm</value></data>
   <data name="DeletePortTooltip" xml:space="preserve"><value>Eliminar porta</value></data>
   <data name="PortPlaceholder" xml:space="preserve"><value>14580</value></data>
   <data name="HostPlaceholder" xml:space="preserve"><value>127.0.0.1</value></data>
@@ -199,6 +211,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Acknowledged" xml:space="preserve"><value>Confirmada</value></data>
   <data name="Rejected" xml:space="preserve"><value>Rejeitada</value></data>
   <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
+  <data name="Failed" xml:space="preserve"><value>Falhou</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Definições de Visualização</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configurar que intervalo de tempo de pacotes mostrar na lista e no mapa.</value></data>
   <data name="DefaultBeaconComment" xml:space="preserve"><value>Comentário Predefinido de Beacon</value></data>
@@ -239,4 +252,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SsidWeatherStation" xml:space="preserve"><value>13 - Estação Meteorológica</value></data>
   <data name="SsidTrucker" xml:space="preserve"><value>14 - Caminhoneiro</value></data>
   <data name="SsidAdditionalStation15" xml:space="preserve"><value>15 - Estação Adicional</value></data>
+  <data name="ForegroundServiceNotificationTitle" xml:space="preserve"><value>AetherAprs Ativo</value></data>
+  <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Recebendo e transmitindo pacotes APRS</value></data>
+  <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>Serviço em Primeiro Plano do AetherAprs</value></data>
+  <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Mantém o AetherAprs ativo enquanto recebe e transmite pacotes</value></data>
 </root>

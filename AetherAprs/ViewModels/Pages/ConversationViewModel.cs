@@ -18,7 +18,7 @@ namespace AetherAprs.ViewModels.Pages;
 
 public partial class ConversationViewModel(
     IMessageService messageService,
-    ILogger<ConversationViewModel> logger) : ViewModelBase
+    ILogger<ConversationViewModel> logger) : ViewModelBase, IOverlayRetireable
 {
     private ConversationThread? _thread;
     private bool _isNewConversation;
@@ -37,6 +37,9 @@ public partial class ConversationViewModel(
 
     [ObservableProperty]
     public partial bool IsDestinationEditable { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool IsSending { get; set; }
 
     public ObservableCollection<StoredMessage> Messages { get; } = new();
 
@@ -64,7 +67,7 @@ public partial class ConversationViewModel(
         AttachThread(messageService.GetOrCreateConversation(peer));
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSend))]
     private async Task SendAsync()
     {
         ErrorMessage = null;
@@ -81,6 +84,7 @@ public partial class ConversationViewModel(
             return;
         }
 
+        IsSending = true;
         try
         {
             await messageService.SendAsync(addressee, MessageText);
@@ -110,7 +114,28 @@ public partial class ConversationViewModel(
             logger.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
             ErrorMessage = ex.Message;
         }
+        finally
+        {
+            IsSending = false;
+            SendCommand.NotifyCanExecuteChanged();
+        }
     }
+
+    private bool CanSend() => !IsSending;
+
+    /// <summary>
+    /// Detaches from the conversation thread's change notifications. Must be called
+    /// when the view model is retired, otherwise it stays rooted via the singleton
+    /// <see cref="IMessageService.Conversations"/> collection (memory leak fix).
+    /// </summary>
+    public void Detach()
+    {
+        DetachThread();
+        _thread = null;
+    }
+
+    /// <inheritdoc />
+    public void OnRetiredFromOverlay() => Detach();
 
     private void AttachThread(ConversationThread thread)
     {
@@ -141,22 +166,5 @@ public partial class ConversationViewModel(
         {
             Messages.Add(message);
         }
-    }
-
-    public string GetDeliveryStatusText(StoredMessage message)
-    {
-        if (!message.IsOutbound || !message.DeliveryStatus.HasValue)
-        {
-            return string.Empty;
-        }
-
-        return message.DeliveryStatus.Value switch
-        {
-            MessageDeliveryStatus.Pending => $"⏱ {Strings.Get("Pending")}",
-            MessageDeliveryStatus.Acknowledged => $"✓ {Strings.Get("Acknowledged")}",
-            MessageDeliveryStatus.Rejected => $"✗ {Strings.Get("Rejected")}",
-            MessageDeliveryStatus.Timeout => $"⌛ {Strings.Get("Timeout")}",
-            _ => string.Empty
-        };
     }
 }

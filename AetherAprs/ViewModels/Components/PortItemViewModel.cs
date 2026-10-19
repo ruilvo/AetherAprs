@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.ViewModels.Components;
 
 public partial class PortItemViewModel : ViewModelBase
 {

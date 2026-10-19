@@ -12,9 +12,10 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.ViewModels.Pages;
 
 public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
@@ -27,6 +28,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
     private bool _isInitializing = true;
+    private Task _currentSaveTask = Task.CompletedTask;
 
     [ObservableProperty]
     [Required(ErrorMessageResourceName = nameof(Strings.ValidationCallsignRequired), ErrorMessageResourceType = typeof(Strings))]
@@ -97,10 +99,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool DigipeaterRespondToWide2 { get; set; } = true;
 
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
-        (Configuration.PacketDisplayTimeRange[])Enum.GetValues(typeof(Configuration.PacketDisplayTimeRange));
+        Enum.GetValues<Configuration.PacketDisplayTimeRange>();
 
     public AprsSsid[] AvailableSsids { get; } = 
-        (AprsSsid[])Enum.GetValues(typeof(AprsSsid));
+        Enum.GetValues<AprsSsid>();
 
     public SettingsViewModel(
         IConfigurationService configurationService,
@@ -157,6 +159,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         // Initialization complete - enable auto-save AFTER everything is set up
         _isInitializing = false;
     }
+
+    // Expose the current save task for tests to await completion
+    internal Task CurrentSaveTask => _currentSaveTask;
 
     private void OnSymbolPickerPropertyChanged(object? s, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -287,6 +292,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
         try
         {
+            // Validate symbol fields aren't empty before accessing [0]
+            if (string.IsNullOrEmpty(SymbolTableCharacter) || string.IsNullOrEmpty(SymbolCodeCharacter))
+            {
+                _logger?.LogWarning("Symbol fields cannot be empty");
+                return;
+            }
+
             _configurationService.Settings.Aprs.Callsign = Callsign;
             _configurationService.Settings.Aprs.Ssid = Ssid;
             _configurationService.Settings.Aprs.SymbolTable =
@@ -309,8 +321,20 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
 
-            // Fire-and-forget is acceptable here as we don't need to wait for save completion
-            _ = _configurationService.SaveSettingsAsync();
+            // Fire-and-forget is acceptable here as we don't need to wait for save completion,
+            // but the exception must be observed and logged or it is silently lost.
+            // Tests can await _currentSaveTask to verify completion.
+            _currentSaveTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await _configurationService.SaveSettingsAsync();
+                }
+                catch (Exception saveEx)
+                {
+                    _logger?.LogError(saveEx, "Error persisting settings");
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -326,6 +350,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         if (_disposed)
         {
             return;

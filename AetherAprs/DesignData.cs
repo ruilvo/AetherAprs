@@ -43,7 +43,7 @@ public static class DesignData
         var services = new ServiceCollection();
 
         // Register services required by ViewModels
-        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddSingleton<IAppDataDirProviderService, DesignTimeAppDataDirProviderService>();
         services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
         services.AddDbContextFactory<AppDbContext>((sp, options) =>
         {
@@ -54,6 +54,10 @@ public static class DesignData
         services.AddSingleton<AppSavedDataInitializer>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
+
+        // Design-time UI dispatcher runs actions synchronously (no Avalonia UI thread in designer)
+        services.AddSingleton<IUiDispatcher>(AvaloniaUiDispatcher.Instance);
+        services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
@@ -71,7 +75,7 @@ public static class DesignData
         services.AddSingleton<IPacketQueryService, PacketQueryService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
-        services.AddSingleton<IForegroundService, NoOpForegroundService>();
+        services.AddSingleton<IForegroundService, DesignTimeForegroundService>();
 
         // Register map layer services
         services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
@@ -134,6 +138,29 @@ public static class DesignData
                 Timestamp = DateTimeOffset.Now
             });
         }
+    }
+
+    /// <summary>
+    /// Design-time stub implementation of IAppDataDirProviderService.
+    /// </summary>
+    private class DesignTimeAppDataDirProviderService : IAppDataDirProviderService
+    {
+        public string GetAppDataDirectory() => AppContext.BaseDirectory;
+
+        public string GetPrivateAppDataDirectory() => AppContext.BaseDirectory;
+    }
+
+    /// <summary>
+    /// Design-time stub implementation of IForegroundService. There is no
+    /// runtime desktop implementation of IForegroundService.
+    /// </summary>
+    private class DesignTimeForegroundService : IForegroundService
+    {
+        public bool IsRunning => false;
+
+        public Task StartAsync() => Task.CompletedTask;
+
+        public Task StopAsync() => Task.CompletedTask;
     }
 
     public static MainViewModel MainViewModel => _serviceProvider.GetRequiredService<MainViewModel>();

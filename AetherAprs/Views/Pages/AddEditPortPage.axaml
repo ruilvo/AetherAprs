@@ -23,6 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <UserControl.Resources>
     <converters:EnumDisplayConverter x:Key="EnumDisplayConverter" />
     <converters:TypeNameToIsVisibleConverter x:Key="TypeNameToIsVisibleConverter" />
+    <converters:RssiFormatConverter x:Key="RssiFormatConverter" />
   </UserControl.Resources>
 
   <UserControl.Styles>
@@ -197,7 +198,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <StackPanel Spacing="4" Margin="0,4">
                       <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="SemiBold" />
                       <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
-                      <TextBlock Text="{Binding Rssi, StringFormat='RSSI: {0} dBm'}" Opacity="0.7" FontSize="12" />
+                      <TextBlock Text="{Binding Rssi, Converter={StaticResource RssiFormatConverter}}" Opacity="0.7" FontSize="12" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>

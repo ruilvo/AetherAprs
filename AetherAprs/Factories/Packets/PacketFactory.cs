@@ -96,7 +96,7 @@ public sealed class PacketFactory : IPacketFactory
         };
     }
 
-    public MessagePacket CreateAckPacket(
+    public MessageAckPacket CreateAckPacket(
         string sourceCallsign,
         Callsign addressee,
         int messageNumber)
@@ -114,18 +114,17 @@ public sealed class PacketFactory : IPacketFactory
             path = PathHelper.ParsePath(pathString).ToArray();
         }
 
-        return new MessagePacket
+        return new MessageAckPacket
         {
             Source = source,
             Destination = new Callsign("APRS"),
             Path = path,
             Addressee = addressee,
-            Text = $"ack{messageNumber}",
-            MessageNumber = null
+            MessageNumber = messageNumber
         };
     }
 
-    public MessagePacket CreateRejPacket(
+    public MessageRejPacket CreateRejPacket(
         string sourceCallsign,
         Callsign addressee,
         int messageNumber)
@@ -143,14 +142,13 @@ public sealed class PacketFactory : IPacketFactory
             path = PathHelper.ParsePath(pathString).ToArray();
         }
 
-        return new MessagePacket
+        return new MessageRejPacket
         {
             Source = source,
             Destination = new Callsign("APRS"),
             Path = path,
             Addressee = addressee,
-            Text = $"rej{messageNumber}",
-            MessageNumber = null
+            MessageNumber = messageNumber
         };
     }
 }

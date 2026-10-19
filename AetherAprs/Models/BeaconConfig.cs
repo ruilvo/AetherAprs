@@ -36,9 +36,21 @@ public sealed record BeaconConfig
     public DynamicBeaconMode Mode { get; init; }
 
     /// <summary>
-    /// Display name for this beacon configuration (e.g., "Walking", "Driving").
+    /// Display name for this beacon configuration. Preset names are persisted but
+    /// localization keys exist per mode; UI display should prefer
+    /// <see cref="GetLocalizedDisplayName"/> so language switches apply (M6).
     /// </summary>
     public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Returns the localized display name for this configuration's mode.
+    /// </summary>
+    public string GetLocalizedDisplayName() => Mode switch
+    {
+        DynamicBeaconMode.Walk => Localization.Strings.Get("BeaconModeWalk"),
+        DynamicBeaconMode.Drive => Localization.Strings.Get("BeaconModeDrive"),
+        _ => Localization.Strings.Get("BeaconModeCustom")
+    };
 
     /// <summary>
     /// Interval in seconds between beacon transmissions when stationary or moving slowly.

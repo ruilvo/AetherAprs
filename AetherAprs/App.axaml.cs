@@ -7,6 +7,7 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -17,17 +18,20 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
 
 namespace AetherAprs;
 
-public partial class App : Application
+public partial class App : Application, IDisposable
 {
     // Ignore the warning about the property being non-nullable, as it will
     // be initialized in OnFrameworkInitializationCompleted.
     public IServiceProvider ServiceProvider { get; private set; } = null!;
     private ILogger<App>? _logger;
+    private readonly CancellationTokenSource _shutdownCts = new();
+    private bool _disposed;
 
     /// <summary>
     /// This method is intended to be overridden in platform-specific
@@ -50,6 +54,13 @@ public partial class App : Application
     /// <summary>
     /// Gets a service from the application's service provider.
     /// </summary>
+    /// <remarks>
+    /// Documented exception to the "no service locator" rule (AGENTS.md):
+    /// this accessor exists for code paths where constructor injection is not
+    /// available — platform entry points such as the Android BroadcastReceiver
+    /// (MainActivity.cs) and framework-created views. Do not use it in
+    /// ViewModels, services, or views where constructor injection works.
+    /// </remarks>
     public static T GetService<T>() where T : notnull
     {
         var app = Current as App;
@@ -87,6 +98,11 @@ public partial class App : Application
 
         // Get logger after service provider is initialized
         _logger = ServiceProvider.GetRequiredService<ILogger<App>>();
+
+        // Log unhandled exceptions that would otherwise vanish (fire-and-forget
+        // failures outside guarded helpers, background thread crashes, etc.).
+        AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         Localization.UiCulture.Apply(ServiceProvider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
 
@@ -182,19 +198,24 @@ public partial class App : Application
             // Schedule periodic cleanup every 24 hours
             _ = Task.Run(async () =>
             {
-                while (true)
+                while (!_shutdownCts.Token.IsCancellationRequested)
                 {
                     try
                     {
-                        await Task.Delay(TimeSpan.FromHours(24));
+                        await Task.Delay(TimeSpan.FromHours(24), _shutdownCts.Token);
                         await storageService.CleanupOldPacketsAsync();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // Expected during shutdown
+                        break;
                     }
                     catch (Exception ex)
                     {
                         _logger?.LogError(ex, "Database cleanup failed");
                     }
                 }
-            });
+            }, _shutdownCts.Token);
         }
         catch (Exception exception)
         {
@@ -216,5 +237,50 @@ public partial class App : Application
         {
             _logger?.LogError(exception, "Failed to initialize OSM tile cache");
         }
+    }
+
+    private void OnAppDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception exception)
+        {
+            _logger?.LogCritical(exception, "Unhandled non-UI exception (terminating: {IsTerminating})", e.IsTerminating);
+        }
+        else
+        {
+            _logger?.LogCritical("Unhandled non-UI exception of unknown type (terminating: {IsTerminating})", e.IsTerminating);
+        }
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        // Mark observed so the process is not crashed by default policy; the
+        // failures are still logged for diagnostics.
+        e.SetObserved();
+        _logger?.LogError(e.Exception, "Unobserved task exception");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        AppDomain.CurrentDomain.UnhandledException -= OnAppDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
+
+        _shutdownCts.Cancel();
+        _shutdownCts.Dispose();
+
+        // The built provider implements IDisposable; dispose hosted services
+        // and other disposables registered in the container.
+        if (ServiceProvider is IDisposable disposableProvider)
+        {
+            disposableProvider.Dispose();
+        }
+
+        GC.SuppressFinalize(this);
     }
 }

@@ -183,6 +183,9 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
         var table = TableCharacter.Length == 1 ? TableCharacter[0].ToSymbolTable() : SymbolTable.Primary;
         var code = CodeCharacter.Length == 1 ? CodeCharacter[0].ToSymbolCode() : SymbolCode.LeftSquareBracket;
 
+        // Documented exception to the child-ViewModel-injection rule: SymbolSelectorViewModel is a
+        // transient per-dialog selector whose arguments are derived at invocation time; see AGENTS.md
+        // "Child ViewModel Injection".
         SymbolSelectorViewModel = new SymbolSelectorViewModel(_symbolBitmapProvider, table, code);
         OpenSymbolSelectorRequested?.Invoke(this, EventArgs.Empty);
     }
@@ -199,6 +202,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
             ? OverlayCharacter[0].ToSymbolCode()
             : SymbolCode.Digit0;
 
+        // Documented exception to the child-ViewModel-injection rule (transient per-dialog selector) — see AGENTS.md.
         OverlaySelectorViewModel = new SymbolSelectorViewModel(_symbolBitmapProvider, SymbolTable.Alternate, currentCode, isOverlayMode: true);
         OpenOverlaySelectorRequested?.Invoke(this, EventArgs.Empty);
     }

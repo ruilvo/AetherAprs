@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -11,6 +11,7 @@ using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -20,16 +21,20 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
-public partial class AddEditPortViewModel : ViewModelBase
+public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 {
     private readonly INavigationService _navigationService;
     private readonly IPortService _portService;
     private readonly IBluetoothLeScanner _bleScanner;
     private readonly IBluetoothClassicDeviceProvider _classicDeviceProvider;
+    private readonly ILogger<AddEditPortViewModel>? _logger;
     private CancellationTokenSource? _bleScanCts;
     private PortConfig? _existingConfig;
     private bool _isNameManuallyEdited;
     private int _portNumber;
+
+    [ObservableProperty]
+    public partial bool IsSaving { get; set; }
 
     [ObservableProperty]
     public partial string Name { get; set; }
@@ -104,13 +109,15 @@ public partial class AddEditPortViewModel : ViewModelBase
         IPortService portService,
         IKissStreamFactory kissStreamFactory,
         IBluetoothLeScanner bleScanner,
-        IBluetoothClassicDeviceProvider classicDeviceProvider)
+        IBluetoothClassicDeviceProvider classicDeviceProvider,
+        ILogger<AddEditPortViewModel>? logger = null)
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
         ArgumentNullException.ThrowIfNull(kissStreamFactory);
         _bleScanner = bleScanner ?? throw new ArgumentNullException(nameof(bleScanner));
         _classicDeviceProvider = classicDeviceProvider ?? throw new ArgumentNullException(nameof(classicDeviceProvider));
+        _logger = logger;
 
         var supported = kissStreamFactory.SupportedTransports;
         AvailableKissTransportTypes = supported.Count > 0
@@ -163,23 +170,46 @@ public partial class AddEditPortViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveAsync()
     {
-        StopBleScan();
-
-        var config = BuildConfig();
-
-        if (_existingConfig != null)
+        if (IsSaving)
         {
-            config.Id = _existingConfig.Id;
-            config.IsEnabled = _existingConfig.IsEnabled;
-            await _portService.UpdatePortAsync(config);
-        }
-        else
-        {
-            await _portService.AddPortAsync(config);
+            return;
         }
 
-        _navigationService.GoBack();
+        IsSaving = true;
+        try
+        {
+            StopBleScan();
+
+            var config = BuildConfig();
+
+            if (_existingConfig != null)
+            {
+                config.Id = _existingConfig.Id;
+                config.IsEnabled = _existingConfig.IsEnabled;
+                await _portService.UpdatePortAsync(config);
+            }
+            else
+            {
+                await _portService.AddPortAsync(config);
+            }
+
+            _navigationService.GoBack();
+        }
+        catch (Exception ex)
+        {
+            // Surface the failure instead of silently swallowing it; the user
+            // stays on the form and the button remains usable for a retry.
+            BleStatusText = ex.Message;
+            _logger?.LogError(ex, "Failed to save port configuration");
+        }
+        finally
+        {
+            IsSaving = false;
+            SaveCommand.NotifyCanExecuteChanged();
+        }
     }
+
+    private bool CanSave() => !IsSaving;
 
     [RelayCommand]
     private async Task StartBleScanAsync()
@@ -203,8 +233,10 @@ public partial class AddEditPortViewModel : ViewModelBase
             return;
         }
 
-        _bleScanCts?.Cancel();
-        _bleScanCts?.Dispose();
+        // Cancel the previous scan and dispose its CTS only after any in-flight
+        // loop has unwound; disposing while the loop still awaits the token throws
+        // ObjectDisposedException instead of the expected OperationCanceledException.
+        var staleCts = _bleScanCts;
         _bleScanCts = new CancellationTokenSource();
         var token = _bleScanCts.Token;
         IsBleScanning = true;
@@ -241,6 +273,19 @@ public partial class AddEditPortViewModel : ViewModelBase
         finally
         {
             IsBleScanning = false;
+
+            // Retire our CTS only if this scan is still the active one; the stale
+            // CTS is disposed unconditionally now that its loop has unwound.
+            if (ReferenceEquals(_bleScanCts, null) || !_bleScanCts.Token.Equals(token))
+            {
+                // This scan was superseded; it owns no live CTS.
+            }
+            else
+            {
+                _bleScanCts = null;
+            }
+
+            staleCts?.Dispose();
         }
     }
 
@@ -248,7 +293,6 @@ public partial class AddEditPortViewModel : ViewModelBase
     private void StopBleScan()
     {
         _bleScanCts?.Cancel();
-        _bleScanCts?.Dispose();
         _bleScanCts = null;
         IsBleScanning = false;
     }
@@ -447,9 +491,14 @@ public partial class AddEditPortViewModel : ViewModelBase
         throw new InvalidOperationException($"Unsupported KISS transport type '{SelectedKissTransportType.Name}'.");
     }
 
-}
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
 
-public sealed record AprsSymbolOption(
-    string Name,
-    string TableCharacter,
-    string CodeCharacter);
+        // Cancel any in-flight BLE scan; its finally block disposes the CTS.
+        var cts = _bleScanCts;
+        _bleScanCts = null;
+        cts?.Cancel();
+    }
+}

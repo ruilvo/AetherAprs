@@ -44,13 +44,25 @@ public static class ServiceProviderFactory
     {
         var services = new ServiceCollection();
 
+        // Register safe core defaults for platform services so that any host
+        // can start without a platform-specific implementation. Platform
+        // registrations below are added after these, so they override the
+        // defaults (last registration wins).
+        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddSingleton<ILocationService, NoOpLocationService>();
+        services.AddSingleton<IPermissionService, NoOpPermissionService>();
+        services.AddSingleton<IForegroundService, NoOpForegroundService>();
+
         // Register platform-specific services first
         registerPlatformServices(services);
 
-        // Get the app data directory from the platform service that was just registered
-        // This is needed for both database path and configuration loading
+        // Get the app data directories from the platform service that was just
+        // registered. The private directory hosts the database (credentials);
+        // the user-accessible directory hosts configuration and caches.
         var tempProvider = services.BuildServiceProvider();
-        var appDataDirectory = tempProvider.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
+        var appDataDirService = tempProvider.GetRequiredService<IAppDataDirProviderService>();
+        var appDataDirectory = appDataDirService.GetAppDataDirectory();
+        var privateAppDataDirectory = appDataDirService.GetPrivateAppDataDirectory();
         tempProvider.Dispose();
 
         // Build configuration from files in app data directory
@@ -70,10 +82,11 @@ public static class ServiceProviderFactory
             builder.AddConsole();
         });
 
-        // Register database with app data directory
+        // Register database in the PRIVATE app data directory (not user-accessible):
+        // the database holds APRS-IS passcodes and must not live in shared storage.
         services.AddDbContextFactory<AppDbContext>(options =>
         {
-            var path = Path.Combine(appDataDirectory, AppDbContext.DatabaseFileName);
+            var path = Path.Combine(privateAppDataDirectory, AppDbContext.DatabaseFileName);
             options.UseSqlite($"Data Source={path}");
         });
         services.AddSingleton<AppSavedDataInitializer>();
@@ -86,6 +99,12 @@ public static class ServiceProviderFactory
 
         // Register keyboard insets service
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
+
+        // Register UI thread dispatcher (marshals work onto the Avalonia UI thread)
+        services.AddSingleton<IUiDispatcher>(AvaloniaUiDispatcher.Instance);
+
+        // Register confirmation dialog service (shows dialogs through the main DialogHost)
+        services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();
 
         // Register KISS transport (TCP is always available; BLE/SPP come from platform)
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();

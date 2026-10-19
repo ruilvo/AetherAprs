@@ -11,13 +11,14 @@ using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Mapsui.Layers;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.ViewModels.Pages;
 
 /// <summary>
 /// Main home page ViewModel that coordinates location tracking, beacon transmission, and map display.
@@ -27,9 +28,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly ILocationTrackingService _locationTrackingService;
     private readonly IBeaconTransmissionService _beaconTransmissionService;
     private readonly IUserLocationLayerService _userLocationLayerService;
+    private readonly IReceivedBeaconsMapLayerService _receivedBeaconsLayerService;
     private readonly IPortService _portService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly INavigationService _navigationService;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<HomeViewModel> _logger;
     private Dictionary<Guid, bool> _previousPortEnabledState = new();
     private bool _disposed;
@@ -44,22 +47,34 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string BeaconStatus { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Map layers owned by the injected layer services. The Home view reads
+    /// these to register them on the MapControl without touching the DI container.
+    /// </summary>
+    public ILayer UserLocationLayer => _userLocationLayerService.Layer;
+    public ILayer BeaconTrailsLayer => _receivedBeaconsLayerService.TrailsLayer;
+    public ILayer BeaconsLayer => _receivedBeaconsLayerService.BeaconsLayer;
+
     public HomeViewModel(
         ILocationTrackingService locationTrackingService,
         IBeaconTransmissionService beaconTransmissionService,
         IUserLocationLayerService userLocationLayerService,
+        IReceivedBeaconsMapLayerService receivedBeaconsLayerService,
         IPortService portService,
         MapViewModel mapViewModel,
         IPacketDetailsViewModelFactory packetDetailsFactory,
         INavigationService navigationService,
+        IUiDispatcher uiDispatcher,
         ILogger<HomeViewModel> logger)
     {
         _locationTrackingService = locationTrackingService;
         _beaconTransmissionService = beaconTransmissionService;
         _userLocationLayerService = userLocationLayerService;
+        _receivedBeaconsLayerService = receivedBeaconsLayerService;
         _portService = portService;
         _packetDetailsFactory = packetDetailsFactory;
         _navigationService = navigationService;
+        _uiDispatcher = uiDispatcher;
         _logger = logger;
         Map = mapViewModel;
 
@@ -77,33 +92,39 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private void OnBeaconStatusChanged(object? sender, string status)
     {
-        BeaconStatus = status;
+        // Events arrive on background threads; observable properties must update on the UI thread.
+        _uiDispatcher.Post(() => BeaconStatus = status);
     }
 
-    private async void OnLocationUpdated(object? sender, LocationData currentLocation)
+    private void OnLocationUpdated(object? sender, LocationData currentLocation)
     {
-        try
+        // LocationTrackingService polls on a threadpool thread; marshal all map/UI
+        // mutation onto the UI thread.
+        _uiDispatcher.Post(() =>
         {
-            // Update map with new location
-            _userLocationLayerService.UpdateLocation(currentLocation);
-
-            // Auto-center on first location received
-            if (!_hasReceivedFirstLocation)
+            try
             {
-                Map.CenterOnUser();
-                _hasReceivedFirstLocation = true;
-            }
+                // Update map with new location
+                _userLocationLayerService.UpdateLocation(currentLocation);
 
-            // Evaluate beacon transmission if enabled
-            if (IsDynamicBeaconingEnabled)
-            {
-                _beaconTransmissionService.ProcessLocationUpdate(currentLocation);
+                // Auto-center on first location received
+                if (!_hasReceivedFirstLocation)
+                {
+                    Map.CenterOnUser();
+                    _hasReceivedFirstLocation = true;
+                }
+
+                // Evaluate beacon transmission if enabled
+                if (IsDynamicBeaconingEnabled)
+                {
+                    _beaconTransmissionService.ProcessLocationUpdate(currentLocation);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing location update");
-        }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing location update");
+            }
+        });
     }
 
     private async void OnPortsChanged(object? sender, EventArgs e)
@@ -166,6 +187,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         if (_disposed)
         {
             return;

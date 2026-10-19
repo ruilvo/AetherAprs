@@ -10,13 +10,15 @@ using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.UI;
 using AetherAprs.Configuration;
-using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
+using AetherAprs.Localization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
@@ -32,14 +34,15 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly IConfigurationService _configurationService;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<PacketsViewModel> _logger;
-    private readonly DispatcherTimer _refreshTimer;
-    private bool _pendingRefresh;
+    private readonly CancellationTokenSource _throttleCts = new();
+    private Task? _throttleTask;
     private bool _disposed;
     private Task? _initializationTask;
 
     [ObservableProperty]
-    public partial string Title { get; set; } = "Packets";
+    public partial string Title { get; set; } = Strings.Get("Packets");
 
     [ObservableProperty]
     public partial ObservableCollection<PacketSummary> Packets { get; set; } = [];
@@ -58,6 +61,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         INavigationService navigationService,
         IPacketDetailsViewModelFactory packetDetailsFactory,
         IConfigurationService configurationService,
+        IUiDispatcher uiDispatcher,
         ILogger<PacketsViewModel> logger)
     {
         _packetQueryService = packetQueryService;
@@ -65,24 +69,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _navigationService = navigationService;
         _packetDetailsFactory = packetDetailsFactory;
         _configurationService = configurationService;
+        _uiDispatcher = uiDispatcher;
         _logger = logger;
-
-        // Throttle UI updates to every 500ms to avoid overwhelming the UI thread
-        // Only create timer if dispatcher is available (not in tests)
-        try
-        {
-            _refreshTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(500)
-            };
-            _refreshTimer.Tick += OnRefreshTimerTick;
-            _refreshTimer.Start();
-        }
-        catch
-        {
-            // No dispatcher available (tests) - timer will be null
-            _refreshTimer = null!;
-        }
 
         _packetStorageService.PacketStored += OnPacketStored;
         
@@ -92,25 +80,22 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
     private void OnPacketStored(object? sender, EventArgs e)
     {
-        // Mark that we need a refresh, but don't trigger immediately
-        // The timer will pick it up on the next tick
-        // In tests where timer is null, trigger refresh immediately
-        if (_refreshTimer != null)
+        // Throttle updates to avoid overwhelming the UI thread
+        // Only start a new throttle task if one isn't already running
+        if (_throttleTask == null || _throttleTask.IsCompleted)
         {
-            _pendingRefresh = true;
-        }
-        else
-        {
-            _ = LoadPacketsAsync();
-        }
-    }
-
-    private async void OnRefreshTimerTick(object? sender, EventArgs e)
-    {
-        if (_pendingRefresh)
-        {
-            _pendingRefresh = false;
-            await Dispatcher.UIThread.InvokeAsync(() => LoadPacketsAsync());
+            _throttleTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(500, _throttleCts.Token);
+                    _uiDispatcher.Post(() => _ = LoadPacketsAsync());
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected during disposal
+                }
+            }, _throttleCts.Token);
         }
     }
 
@@ -150,7 +135,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                 {
                     Source = FormatCallsign(record.SourceBase, record.SourceSsid),
                     PacketType = record.PacketType,
-                    ReceivedAt = new DateTimeOffset(record.Timestamp, TimeSpan.Zero),
+                    // Convert UTC timestamp to local time for display
+                    ReceivedAt = new DateTimeOffset(record.Timestamp, TimeSpan.Zero).ToLocalTime(),
                     Preview = GetPacketPreview(record)
                 })
                 .ToList();
@@ -193,25 +179,28 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     {
         if (record.Position != null)
         {
-            return $"Lat: {record.Position.Location.Latitude:F4}, Lon: {record.Position.Location.Longitude:F4}";
+            return Strings.Format("PreviewLatLon",
+                record.Position.Location.Latitude.ToString("F4", CultureInfo.InvariantCulture),
+                record.Position.Location.Longitude.ToString("F4", CultureInfo.InvariantCulture));
         }
-        
+
         if (record.Message != null)
         {
             var addressee = FormatCallsign(record.Message.AddresseeBase, record.Message.AddresseeSsid);
-            return $"To {addressee}: {record.Message.Text}";
+            return Strings.Format("PreviewMessageTo", addressee, record.Message.Text);
         }
-        
+
         if (record.Status != null)
         {
             return record.Status.Text;
         }
-        
+
         if (record.Weather?.Temperature != null)
         {
-            return $"Temp: {record.Weather.Temperature.Value:F1}°F";
+            return Strings.Format("PreviewTemperature",
+                record.Weather.Temperature.Value.ToString("F1", CultureInfo.InvariantCulture));
         }
-        
+
         return record.RawInfo != null && record.RawInfo.Length > 40 ? record.RawInfo[..40] + "..." : record.RawInfo ?? "";
     }
 
@@ -236,16 +225,14 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         if (_disposed)
         {
             return;
         }
 
-        if (_refreshTimer != null)
-        {
-            _refreshTimer.Stop();
-            _refreshTimer.Tick -= OnRefreshTimerTick;
-        }
+        _throttleCts.Cancel();
+        _throttleCts.Dispose();
         _packetStorageService.PacketStored -= OnPacketStored;
         _disposed = true;
     }

@@ -51,8 +51,8 @@ public interface IPacketFactory
     /// <param name="sourceCallsign">The source callsign (sender of the ack).</param>
     /// <param name="addressee">The destination callsign (recipient of the ack).</param>
     /// <param name="messageNumber">The message number being acknowledged.</param>
-    /// <returns>A MessagePacket configured as an acknowledgment.</returns>
-    MessagePacket CreateAckPacket(
+    /// <returns>A MessageAckPacket configured as an acknowledgment.</returns>
+    MessageAckPacket CreateAckPacket(
         string sourceCallsign,
         Callsign addressee,
         int messageNumber);
@@ -63,8 +63,8 @@ public interface IPacketFactory
     /// <param name="sourceCallsign">The source callsign (sender of the reject).</param>
     /// <param name="addressee">The destination callsign (recipient of the reject).</param>
     /// <param name="messageNumber">The message number being rejected.</param>
-    /// <returns>A MessagePacket configured as a rejection.</returns>
-    MessagePacket CreateRejPacket(
+    /// <returns>A MessageRejPacket configured as a rejection.</returns>
+    MessageRejPacket CreateRejPacket(
         string sourceCallsign,
         Callsign addressee,
         int messageNumber);

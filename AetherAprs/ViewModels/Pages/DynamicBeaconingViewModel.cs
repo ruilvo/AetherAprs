@@ -36,7 +36,10 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
         _beaconService = beaconService ?? throw new ArgumentNullException(nameof(beaconService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-        // Initialize configuration view models
+        // Initialize configuration view models.
+        // Documented exception to the child-ViewModel-injection rule: BeaconConfigurationItemViewModel
+        // is a stateless presentation wrapper over a BeaconConfig record with no service dependencies,
+        // so a factory would only delegate to `new`. See AGENTS.md "Child ViewModel Injection".
         var configs = beaconService.AllConfigurations;
         foreach (var config in configs)
         {
@@ -95,6 +98,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     public void ResetWalkToDefault()
     {
         var defaultWalk = BeaconConfig.CreateWalkPreset();
+        // Documented exception to child-ViewModel injection (stateless config wrapper, no services) — see AGENTS.md.
         WalkConfiguration = new BeaconConfigurationItemViewModel(defaultWalk);
     }
 
@@ -102,6 +106,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     public void ResetDriveToDefault()
     {
         var defaultDrive = BeaconConfig.CreateDrivePreset();
+        // Documented exception to child-ViewModel injection (stateless config wrapper, no services) — see AGENTS.md.
         DriveConfiguration = new BeaconConfigurationItemViewModel(defaultDrive);
     }
 
@@ -109,6 +114,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     public void ResetCustomToDefault()
     {
         var defaultCustom = BeaconConfig.CreateCustomPreset();
+        // Documented exception to child-ViewModel injection (stateless config wrapper, no services) — see AGENTS.md.
         CustomConfiguration = new BeaconConfigurationItemViewModel(defaultCustom);
     }
 }
@@ -151,7 +157,7 @@ public partial class BeaconConfigurationItemViewModel : ViewModelBase
     public BeaconConfigurationItemViewModel(BeaconConfig configuration)
     {
         Configuration = configuration;
-        DisplayName = configuration.DisplayName;
+        DisplayName = configuration.GetLocalizedDisplayName();
         SlowIntervalSeconds = configuration.SlowIntervalSeconds;
         NormalIntervalSeconds = configuration.NormalIntervalSeconds;
         FastIntervalSeconds = configuration.FastIntervalSeconds;

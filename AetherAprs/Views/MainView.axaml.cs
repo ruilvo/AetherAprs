@@ -1,7 +1,7 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using AetherAprs.Services.UI;
+using AetherAprs.ViewModels;
 using Avalonia.Controls;
 using System;
 
@@ -23,14 +23,12 @@ public partial class MainView : UserControl
 
         try
         {
-            // Get the keyboard insets service and initialize it with the TopLevel
-            var app = Avalonia.Application.Current as App;
-            var keyboardService = app?.ServiceProvider.GetService(typeof(IKeyboardInsetsService)) as IKeyboardInsetsService;
+            // Keyboard insets are wired through the ViewModel to avoid
+            // service-locator use in the view.
             var topLevel = TopLevel.GetTopLevel(this);
-
-            if (keyboardService != null && topLevel != null)
+            if (DataContext is MainViewModel viewModel && topLevel != null)
             {
-                keyboardService.Initialize(topLevel);
+                viewModel.InitializeKeyboardInsets(topLevel);
             }
         }
         catch

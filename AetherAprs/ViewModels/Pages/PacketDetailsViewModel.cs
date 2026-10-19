@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Localization;
 using AetherAprs.Data.Entities;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models;
@@ -31,7 +32,7 @@ public partial class PacketDetailsViewModel(
     public partial string Callsign { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Title { get; set; } = "Packet Details";
+    public partial string Title { get; set; } = Strings.Get("PacketDetailsTitle");
 
     [ObservableProperty]
     public partial ObservableCollection<PacketRecord> Packets { get; set; } = [];
@@ -43,7 +44,7 @@ public partial class PacketDetailsViewModel(
     {
         logger.LogInformation("Initializing PacketDetailsViewModel with callsign: {Callsign}", callsign);
         Callsign = callsign;
-        Title = $"Packets from {callsign}";
+        Title = Strings.Format("PacketsFromCallsign", callsign);
         _ = LoadPacketsAsync();
     }
 

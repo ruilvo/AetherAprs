@@ -66,6 +66,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="DefaultAprsIsPortName" xml:space="preserve"><value>APRS-IS Port {0}</value></data>
   <data name="DefaultKissPortName" xml:space="preserve"><value>KISS Port {0}</value></data>
   <data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Confirm" xml:space="preserve"><value>Confirm</value></data>
+  <data name="DeletePortConfirmation" xml:space="preserve"><value>Delete port '{0}'? This action cannot be undone.</value></data>
   <data name="Save" xml:space="preserve"><value>Save</value></data>
   <data name="StationSettings" xml:space="preserve"><value>Station Settings</value></data>
   <data name="StationSettingsDescription" xml:space="preserve"><value>Configure your station identity used for APRS.</value></data>
@@ -170,6 +172,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="NoPacketsReceivedYet" xml:space="preserve"><value>No packets received yet</value></data>
   <data name="Time" xml:space="preserve"><value>Time</value></data>
   <data name="Type" xml:space="preserve"><value>Type</value></data>
+  <data name="Location" xml:space="preserve"><value>Location</value></data>
   <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
   <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
   <data name="Comment" xml:space="preserve"><value>Comment</value></data>
@@ -177,6 +180,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BackTooltip" xml:space="preserve"><value>Back</value></data>
   <data name="CenterOnMyLocationTooltip" xml:space="preserve"><value>Center on my location</value></data>
   <data name="ShowOnMapTooltip" xml:space="preserve"><value>Show on map</value></data>
+  <data name="PreviewLatLon" xml:space="preserve"><value>Lat: {0}, Lon: {1}</value></data>
+  <data name="PreviewMessageTo" xml:space="preserve"><value>To {0}: {1}</value></data>
+  <data name="PreviewTemperature" xml:space="preserve"><value>Temp: {0}F</value></data>
+  <data name="PacketDetailsTitle" xml:space="preserve"><value>Packet Details</value></data>
+  <data name="PacketsFromCallsign" xml:space="preserve"><value>Packets from {0}</value></data>
+  <data name="PacketDisplayTimeRangeLabel" xml:space="preserve"><value>Packet Display Time Range</value></data>
+  <data name="CustomTimeRangeHoursLabel" xml:space="preserve"><value>Custom Time Range (hours)</value></data>
+  <data name="CustomTimeRangeHoursDescription" xml:space="preserve"><value>Used when Custom is selected</value></data>
+  <data name="RssiFormat" xml:space="preserve"><value>RSSI: {0} dBm</value></data>
   <data name="DeletePortTooltip" xml:space="preserve"><value>Delete port</value></data>
   <data name="PortPlaceholder" xml:space="preserve"><value>14580</value></data>
   <data name="HostPlaceholder" xml:space="preserve"><value>127.0.0.1</value></data>
@@ -199,6 +211,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Acknowledged" xml:space="preserve"><value>Acknowledged</value></data>
   <data name="Rejected" xml:space="preserve"><value>Rejected</value></data>
   <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
+  <data name="Failed" xml:space="preserve"><value>Failed</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Display Settings</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configure what time range of packets to show in the list and on the map.</value></data>
   <data name="DefaultBeaconComment" xml:space="preserve"><value>Default Beacon Comment</value></data>
@@ -239,4 +252,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SsidWeatherStation" xml:space="preserve"><value>13 - Weather Station</value></data>
   <data name="SsidTrucker" xml:space="preserve"><value>14 - Trucker</value></data>
   <data name="SsidAdditionalStation15" xml:space="preserve"><value>15 - Additional Station</value></data>
+  <data name="ForegroundServiceNotificationTitle" xml:space="preserve"><value>AetherAprs Active</value></data>
+  <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Receiving and transmitting APRS packets</value></data>
+  <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>AetherAprs Foreground Service</value></data>
+  <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Keeps AetherAprs active while receiving and transmitting packets</value></data>
 </root>

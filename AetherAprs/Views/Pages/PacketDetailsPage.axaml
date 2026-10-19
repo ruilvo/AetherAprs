@@ -13,10 +13,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:ext="using:AetherAprs.Extensions"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:loc="using:AetherAprs.Localization"
+             xmlns:converters="using:AetherAprs.Converters.UI"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PacketDetailsPage"
              x:DataType="vm:PacketDetailsViewModel"
              d:DataContext="{x:Static local:DesignData.PacketDetailsViewModel}">
+
+  <UserControl.Resources>
+    <converters:DateTimeToLocalConverter x:Key="DateTimeToLocal" />
+  </UserControl.Resources>
 
   <Grid RowDefinitions="Auto,*">
     <!-- Header -->
@@ -61,7 +66,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <!-- Header with time and type -->
                   <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Grid.Column="0"
-                               Text="{Binding Timestamp, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                               Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
                                Classes="Subtitle2"
                                FontWeight="Bold" />
                     <Border Grid.Column="1" Classes="TypeBadge">

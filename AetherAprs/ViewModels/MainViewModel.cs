@@ -1,9 +1,10 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
+using Avalonia.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
@@ -13,6 +14,9 @@ namespace AetherAprs.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly INavigationService _navigationService;
+    private readonly IKeyboardInsetsService _keyboardInsetsService;
+    private ViewModelBase? _previousOverlay;
+    
     private static readonly Dictionary<int, Type> TabIndexToViewModelType = new()
     {
         [0] = typeof(HomeViewModel),
@@ -47,6 +51,7 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel(
         INavigationService navService,
+        IKeyboardInsetsService keyboardInsetsService,
         HomeViewModel homeViewModel,
         MessagesViewModel messagesViewModel,
         PacketsViewModel packetsViewModel,
@@ -54,6 +59,7 @@ public partial class MainViewModel : ViewModelBase
         SettingsViewModel settingsViewModel)
     {
         _navigationService = navService;
+        _keyboardInsetsService = keyboardInsetsService;
         HomeViewModel = homeViewModel;
         MessagesViewModel = messagesViewModel;
         PacketsViewModel = packetsViewModel;
@@ -64,8 +70,26 @@ public partial class MainViewModel : ViewModelBase
         _navigationService.NavigateTo<HomeViewModel>();
     }
 
+    /// <summary>
+    /// Wires the keyboard insets service to the window's TopLevel. Called by
+    /// MainView once its TopLevel is available; avoids service-locator use in the view.
+    /// </summary>
+    public void InitializeKeyboardInsets(TopLevel topLevel)
+    {
+        _keyboardInsetsService.Initialize(topLevel);
+    }
+
     partial void OnOverlayViewModelChanged(ViewModelBase? value)
     {
+        // Retire the previous overlay: transient overlay view models (e.g.
+        // ConversationViewModel) subscribe to long-lived services and must detach
+        // when they are replaced, or they leak.
+        if (_previousOverlay is IOverlayRetireable retired)
+        {
+            retired.OnRetiredFromOverlay();
+        }
+
+        _previousOverlay = value;
         OnPropertyChanged(nameof(IsOverlayVisible));
     }
 
@@ -102,4 +126,13 @@ public partial class MainViewModel : ViewModelBase
 
         OverlayViewModel = viewModel;
     }
+}
+
+/// <summary>
+/// Implemented by transient overlay view models that must release event
+/// subscriptions when they are removed from the overlay.
+/// </summary>
+public interface IOverlayRetireable
+{
+    void OnRetiredFromOverlay();
 }

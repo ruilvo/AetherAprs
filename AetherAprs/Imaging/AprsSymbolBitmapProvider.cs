@@ -148,7 +148,7 @@ public sealed class AprsSymbolBitmapProvider : IAprsSymbolBitmapProvider
         _spriteSheets.Clear();
     }
 
-    private static (int row, int col) GetCellPosition(SymbolCode codeValue)
+    internal static (int row, int col) GetCellPosition(SymbolCode codeValue)
     {
         if ((int)codeValue < CodeOffset)
         {

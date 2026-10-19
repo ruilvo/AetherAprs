@@ -10,13 +10,18 @@ using System.Globalization;
 namespace AetherAprs.Converters.UI;
 
 /// <summary>
-/// Converts a tracking boolean into a short status label.
+/// Converts RSSI integer values to localized formatted strings (e.g., "RSSI: -65 dBm").
 /// </summary>
-public sealed class BoolToTrackingStatusConverter : IValueConverter
+public class RssiFormatConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        return value is true ? Strings.Get("Tracking") : Strings.Get("Stopped");
+        if (value is not int rssi)
+        {
+            return value?.ToString();
+        }
+
+        return Strings.Format("RssiFormat", rssi);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

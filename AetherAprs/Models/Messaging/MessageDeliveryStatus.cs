@@ -27,5 +27,10 @@ public enum MessageDeliveryStatus
     /// <summary>
     /// Message timed out waiting for acknowledgment.
     /// </summary>
-    Timeout
+    Timeout,
+
+    /// <summary>
+    /// Message could not be sent (no TX port or the initial send failed entirely).
+    /// </summary>
+    Failed
 }

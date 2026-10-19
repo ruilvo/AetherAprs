@@ -33,6 +33,7 @@ public class ViewLocator : IDataTemplate
             ConversationViewModel => new ConversationPage(),
             PacketDetailsViewModel => new PacketDetailsPage(),
             PortItemViewModel => new PortItemComponent(),
+            AprsSymbolPickerViewModel => new AprsSymbolPickerComponent(),
             SymbolSelectorViewModel => new SymbolSelectorComponent(),
             _ => param is null
                 ? null

@@ -57,6 +57,7 @@ public sealed class StoredMessage
                 MessageDeliveryStatus.Acknowledged => $"✓ {Localization.Strings.Get("Acknowledged")}",
                 MessageDeliveryStatus.Rejected => $"✗ {Localization.Strings.Get("Rejected")}",
                 MessageDeliveryStatus.Timeout => $"⌛ {Localization.Strings.Get("Timeout")}",
+                MessageDeliveryStatus.Failed => $"✗ {Localization.Strings.Get("Failed")}",
                 _ => string.Empty
             };
         }

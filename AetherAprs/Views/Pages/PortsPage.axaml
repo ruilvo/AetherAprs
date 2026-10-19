@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:AetherAprs.ViewModels"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages" xmlns:vmc="using:AetherAprs.ViewModels.Components"
              xmlns:local="using:AetherAprs"
              xmlns:ext="using:AetherAprs.Extensions"
              xmlns:components="using:AetherAprs.Views.Components"
@@ -37,7 +37,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:PortItemViewModel">
+          <DataTemplate x:DataType="vmc:PortItemViewModel">
             <ContentControl Content="{Binding}" />
           </DataTemplate>
         </ItemsControl.ItemTemplate>

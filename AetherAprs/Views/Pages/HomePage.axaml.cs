@@ -4,8 +4,10 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Pages;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Mapsui;
@@ -55,23 +57,22 @@ public partial class HomePage : UserControl
 
         _currentViewModel = viewModel;
 
-        // Map layers are provided by services injected into HomeViewModel
-        // Access them through the DI container
-        if (MapControl.Map != null && Avalonia.Application.Current is App app)
+        // Register the map layers owned by services injected into the ViewModel
+        if (MapControl.Map != null)
         {
-            // User location layer - get from service
-            var userLocationLayerService = app.ServiceProvider.GetService(typeof(Services.UI.IUserLocationLayerService)) as Services.UI.IUserLocationLayerService;
-            if (userLocationLayerService != null)
+            if (!MapControl.Map.Layers.Contains(viewModel.UserLocationLayer))
             {
-                MapControl.Map.Layers.Add(userLocationLayerService.Layer, group: 1);
+                MapControl.Map.Layers.Add(viewModel.UserLocationLayer, group: 1);
             }
 
-            // Received beacons layers - get from service
-            var beaconsLayerService = app.ServiceProvider.GetService(typeof(Services.UI.IReceivedBeaconsMapLayerService)) as Services.UI.IReceivedBeaconsMapLayerService;
-            if (beaconsLayerService != null)
+            if (!MapControl.Map.Layers.Contains(viewModel.BeaconTrailsLayer))
             {
-                MapControl.Map.Layers.Add(beaconsLayerService.TrailsLayer, group: 0);
-                MapControl.Map.Layers.Add(beaconsLayerService.BeaconsLayer, group: 1);
+                MapControl.Map.Layers.Add(viewModel.BeaconTrailsLayer, group: 0);
+            }
+
+            if (!MapControl.Map.Layers.Contains(viewModel.BeaconsLayer))
+            {
+                MapControl.Map.Layers.Add(viewModel.BeaconsLayer, group: 1);
             }
         }
 
@@ -84,7 +85,18 @@ public partial class HomePage : UserControl
         // Start location tracking at runtime, not in designer
         if (!Design.IsDesignMode)
         {
-            _ = viewModel.StartLocationTrackingAsync();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await viewModel.StartLocationTrackingAsync();
+                }
+                catch (Exception ex)
+                {
+                    // Log error - location tracking failures shouldn't crash the UI
+                    System.Diagnostics.Debug.WriteLine($"Error starting location tracking: {ex}");
+                }
+            });
         }
     }
 

@@ -11,7 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.ViewModels.Pages;
 
 public partial class MessagesViewModel(
     IMessageService messageService,

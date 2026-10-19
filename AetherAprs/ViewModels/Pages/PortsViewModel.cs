@@ -7,6 +7,7 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
+using AetherAprs.ViewModels.Components;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace AetherAprs.ViewModels;
+namespace AetherAprs.ViewModels.Pages;
 
 public partial class PortsViewModel : ViewModelBase
 {
@@ -23,6 +24,7 @@ public partial class PortsViewModel : ViewModelBase
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
     private readonly IAddEditPortViewModelFactory _addEditPortViewModelFactory;
+    private readonly IConfirmationDialogService _confirmationDialogService;
     private readonly ILogger<PortsViewModel> _logger;
     private readonly ILoggerFactory _loggerFactory;
 
@@ -36,6 +38,7 @@ public partial class PortsViewModel : ViewModelBase
         IConfigurationService configurationService,
         INavigationService navigationService,
         IAddEditPortViewModelFactory addEditPortViewModelFactory,
+        IConfirmationDialogService confirmationDialogService,
         ILogger<PortsViewModel> logger,
         ILoggerFactory loggerFactory)
     {
@@ -43,6 +46,7 @@ public partial class PortsViewModel : ViewModelBase
         _configurationService = configurationService;
         _navigationService = navigationService;
         _addEditPortViewModelFactory = addEditPortViewModelFactory;
+        _confirmationDialogService = confirmationDialogService;
         _logger = logger;
         _loggerFactory = loggerFactory;
         _portService.PortsChanged += OnPortsChanged;
@@ -84,6 +88,15 @@ public partial class PortsViewModel : ViewModelBase
 
     private async Task OnDeletePortAsync(PortItemViewModel item)
     {
+        var confirmed = await _confirmationDialogService.ShowConfirmationAsync(
+            Localization.Strings.Get("DeletePort"),
+            Localization.Strings.Format("DeletePortConfirmation", item.Name));
+
+        if (!confirmed)
+        {
+            return;
+        }
+
         _logger.LogInformation("Remove port {PortName} ({PortId})", item.Name, item.Id);
         await _portService.RemovePortAsync(item.Id);
     }
