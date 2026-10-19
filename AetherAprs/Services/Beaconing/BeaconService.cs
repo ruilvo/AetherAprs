@@ -32,6 +32,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private readonly Timer _evaluationTimer;
     private readonly CancellationTokenSource _disposalCts = new();
     private readonly SemaphoreSlim _persistLock = new(1, 1);
+    private BeaconPersistenceSnapshot? _pendingSnapshot;
 
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
@@ -312,19 +313,21 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     /// Captures a snapshot of the beaconing state under <see cref="_lock"/> and queues
     /// a background persist. Database I/O never runs under <see cref="_lock"/>, which is
     /// also used by the 1-second evaluation timer, and never blocks the calling thread.
+    /// Snapshots are coalesced latest-wins: the writer always persists the most recently
+    /// queued snapshot, so rapid mutations can never land out of order and regress the
+    /// stored state.
     /// </summary>
     private void QueuePersistSnapshot()
     {
-        BeaconPersistenceSnapshot snapshot;
         lock (_lock)
         {
-            snapshot = new BeaconPersistenceSnapshot(_walkConfig, _driveConfig, _customConfig, _activeMode);
+            _pendingSnapshot = new BeaconPersistenceSnapshot(_walkConfig, _driveConfig, _customConfig, _activeMode);
         }
 
-        _ = Task.Run(() => PersistSnapshotAsync(snapshot, _disposalCts.Token));
+        _ = Task.Run(() => PersistPendingSnapshotAsync(_disposalCts.Token));
     }
 
-    private async Task PersistSnapshotAsync(BeaconPersistenceSnapshot snapshot, CancellationToken cancellationToken)
+    private async Task PersistPendingSnapshotAsync(CancellationToken cancellationToken)
     {
         if (_dbContextFactory is null)
         {
@@ -334,6 +337,19 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         await _persistLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            BeaconPersistenceSnapshot? snapshot;
+            lock (_lock)
+            {
+                snapshot = _pendingSnapshot;
+                _pendingSnapshot = null;
+            }
+
+            if (snapshot is null)
+            {
+                // A concurrent writer already persisted this or a newer snapshot.
+                return;
+            }
+
             await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
             UpsertConfig(db, snapshot.WalkConfig);
             UpsertConfig(db, snapshot.DriveConfig);
