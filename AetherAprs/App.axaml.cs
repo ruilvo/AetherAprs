@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
@@ -71,17 +72,34 @@ public partial class App : Application, IDisposable
     {
         AvaloniaXamlLoader.Load(this);
 #if DEBUG
+        // The AvaloniaUI.DiagnosticsSupport assembly is excluded from the Android
+        // build (see AetherAprs.Android.csproj, ExcludeAssets="all"). Mono on
+        // Android eagerly resolves a method's type references when JIT-compiling
+        // it, so the call to AttachDeveloperTools() must live in a method that is
+        // never reached (and thus never JIT-compiled) on Android/iOS — a runtime
+        // check inside Initialize() itself is not enough.
+        if (!OperatingSystem.IsAndroid() && !OperatingSystem.IsIOS())
+        {
+            AttachDeveloperToolsSafely();
+        }
+#endif
+    }
+
+#if DEBUG
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void AttachDeveloperToolsSafely()
+    {
         try
         {
             this.AttachDeveloperTools();
         }
         catch
         {
-            // Developer tools may fail to connect on some platforms (e.g., Android).
+            // Developer tools may fail to connect on some platforms.
             // This is not critical, so we just continue.
         }
-#endif
     }
+#endif
 
     private MainView CreateMainView()
     {
