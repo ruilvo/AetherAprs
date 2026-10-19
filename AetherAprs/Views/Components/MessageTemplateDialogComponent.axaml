@@ -59,6 +59,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </ItemsControl>
 
     <TextBox Text="{Binding Destination}"
+             IsReadOnly="{Binding IsDestinationLocked}"
              wpf:TextFieldAssist.Label="{loc:Loc TemplatePickerDestination}"
              UseFloatingPlaceholder="True" />
 

@@ -49,6 +49,13 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
     public partial string Destination { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets a value indicating whether the destination was supplied by the
+    /// caller (an existing conversation) and therefore must not be edited.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsDestinationLocked { get; set; }
+
+    /// <summary>
     /// Gets the fields for the selected template's placeholders.
     /// </summary>
     public ObservableCollection<TemplateFieldViewModel> Fields { get; } = new();
@@ -76,6 +83,7 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
         Templates = templates ?? [];
         _hasCallerDestination = !string.IsNullOrEmpty(destination);
         Destination = destination ?? string.Empty;
+        IsDestinationLocked = _hasCallerDestination;
         OnPropertyChanged(nameof(Templates));
     }
 

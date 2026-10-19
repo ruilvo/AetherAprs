@@ -67,6 +67,26 @@ public sealed class MessageTemplateDialogViewModelTests
     }
 
     [Fact]
+    public void Initialize_WithCallerDestination_LocksDestination()
+    {
+        var vm = new MessageTemplateDialogViewModel();
+
+        vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], "K0PEER-1");
+
+        Assert.True(vm.IsDestinationLocked);
+    }
+
+    [Fact]
+    public void Initialize_WithoutCallerDestination_DoesNotLockDestination()
+    {
+        var vm = new MessageTemplateDialogViewModel();
+
+        vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], null);
+
+        Assert.False(vm.IsDestinationLocked);
+    }
+
+    [Fact]
     public void FieldEdit_UpdatesPreviewWithTrimmedCaseInsensitiveValues()
     {
         var vm = new MessageTemplateDialogViewModel();

@@ -14,16 +14,17 @@ namespace AetherAprs.Services.Messaging;
 /// Manages user-defined quick message templates: CRUD via the configuration
 /// service, placeholder discovery/substitution, and filtering by peer callsign.
 /// </summary>
+/// <remarks>
+/// The maximum allowed length of a message produced from a template is
+/// declared on the concrete <see cref="MessageTemplateService"/> as
+/// <see cref="MessageTemplateService.MaxTemplateMessageLength"/>.
+/// </remarks>
 public interface IMessageTemplateService
 {
     /// <summary>
     /// Gets the maximum allowed length of a message produced from a template.
     /// APRS message text is limited to 67 characters.
     /// </summary>
-    /// <remarks>
-    /// Declared on the concrete <see cref="MessageTemplateService"/> as
-    /// <see cref="MessageTemplateService.MaxTemplateMessageLength"/>.
-    /// </remarks>
     IReadOnlyList<MessageTemplate> Templates { get; }
 
     /// <summary>
