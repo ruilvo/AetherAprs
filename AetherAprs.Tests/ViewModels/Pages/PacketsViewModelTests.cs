@@ -10,6 +10,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.UI;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.Configuration;
 using AetherAprs.ViewModels.Pages;
 using Geo;
@@ -23,13 +24,14 @@ using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
 
-public class PacketsViewModelTests : IDisposable
+public class PacketsViewModelTests : TestFixtureBase
 {
     private readonly IPacketQueryService _packetQueryService;
     private readonly IPacketStorageService _packetStorageService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly IConfigurationService _configurationService;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly List<PacketRecord> _storedPackets;
 
@@ -40,6 +42,7 @@ public class PacketsViewModelTests : IDisposable
         _navigationService = Substitute.For<INavigationService>();
         _packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         _configurationService = Substitute.For<IConfigurationService>();
+        _uiDispatcher = new SynchronousUiDispatcher();
         _logger = Substitute.For<ILogger<PacketsViewModel>>();
 
         // Setup configuration service with default settings
@@ -69,7 +72,7 @@ public class PacketsViewModelTests : IDisposable
         var viewModel = await CreateViewModelAsync();
 
         // Assert
-        Assert.Equal("Packets", viewModel.Title);
+        Assert.Equal(AetherAprs.Localization.Strings.Get("Packets"), viewModel.Title);
         Assert.NotNull(viewModel.Packets);
         Assert.False(viewModel.IsLoading);
         
@@ -115,6 +118,7 @@ public class PacketsViewModelTests : IDisposable
     {
         // Arrange
         var viewModel = await CreateViewModelAsync();
+        var initialCount = viewModel.Packets.Count;
         
         var record = new PacketRecord
         {
@@ -131,11 +135,17 @@ public class PacketsViewModelTests : IDisposable
         // Act - Trigger packet stored event
         _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
 
-        // Give the throttled update time to process
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        // Wait for the update to process - poll with timeout since ViewModel uses Dispatcher.UIThread.Post
+        var timeout = TimeSpan.FromSeconds(3);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (viewModel.Packets.Count == initialCount && sw.Elapsed < timeout)
+        {
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
 
-        // Assert - Event subscription is working (timer will process later)
-        Assert.NotNull(viewModel);
+        // Assert - Packets collection was updated with the new packet
+        Assert.Equal(initialCount + 1, viewModel.Packets.Count);
+        Assert.Contains(viewModel.Packets, p => p.Source == "K0OTH-1");
         
         viewModel.Dispose();
     }
@@ -432,15 +442,21 @@ public class PacketsViewModelTests : IDisposable
             PortId = Guid.NewGuid()
         };
 
+        // Add to stored packets so query service returns it
+        var initialCount = viewModel.Packets.Count;
+        _storedPackets.Add(record);
+
+        // Raise PacketStored event - should be ignored after disposal
         _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
+
+        // Wait for any potential async processing
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        // Assert - ViewModel should not have loaded the new packet
+        Assert.Equal(initialCount, viewModel.Packets.Count);
 
         // Assert - Second dispose should not throw
         viewModel.Dispose();
-    }
-
-    public void Dispose()
-    {
-        // Cleanup if needed
     }
 
     private async Task<PacketsViewModel> CreateViewModelAsync()
@@ -451,6 +467,7 @@ public class PacketsViewModelTests : IDisposable
             _navigationService,
             _packetDetailsFactory,
             _configurationService,
+            _uiDispatcher,
             _logger);
         
         // Wait for initialization to complete

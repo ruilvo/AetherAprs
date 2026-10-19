@@ -61,11 +61,13 @@ internal sealed class TempAppDatabase : IDisposable
         {
             System.IO.Directory.Delete(Directory, recursive: true);
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[TempAppDatabase] Failed to delete temp directory {Directory}: {ex.Message}");
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[TempAppDatabase] Access denied deleting temp directory {Directory}: {ex.Message}");
         }
     }
 

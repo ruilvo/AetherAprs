@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Reflection;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Beaconing;
@@ -259,9 +258,7 @@ public class BeaconServiceTests : TestFixtureBase
     public void ProcessLocationUpdateAdvancesTimerOnTransmitDecision()
     {
         var service = new BeaconService();
-        var lastTransmitField = typeof(BeaconService).GetField("_lastTransmitTime", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(lastTransmitField);
-        lastTransmitField!.SetValue(service, DateTime.UtcNow.AddHours(-1));
+        service.LastTransmitTime = DateTime.UtcNow.AddHours(-1);
 
         var location = CreateLocation(38.7223, -9.1393);
         service.ProcessLocationUpdate(location);
@@ -274,6 +271,46 @@ public class BeaconServiceTests : TestFixtureBase
         var decision2 = service.CurrentDecision;
         Assert.NotNull(decision2);
         Assert.False(decision2.ShouldTransmit);
+    }
+
+    [Fact]
+    public void ReportBeaconTransmissionResult_Failure_SchedulesRetryAfterBackoff()
+    {
+        var service = new BeaconService();
+        service.LastTransmitTime = DateTime.UtcNow.AddHours(-1);
+
+        var location = CreateLocation(38.7223, -9.1393);
+        service.ProcessLocationUpdate(location);
+        var decision = service.CurrentDecision;
+        Assert.NotNull(decision);
+        Assert.True(decision!.ShouldTransmit);
+        var interval = decision.ActiveIntervalSeconds;
+        Assert.True(interval > BeaconService.TransmissionRetryBackoffSeconds, "Test requires an interval larger than the backoff window.");
+
+        // Report failure: the next evaluation must not re-request immediately, but must
+        // come due after the backoff window rather than the full interval.
+        service.ReportBeaconTransmissionResult(success: false);
+        var afterFailure = service.CurrentDecision;
+        Assert.NotNull(afterFailure);
+        Assert.False(afterFailure!.ShouldTransmit);
+        Assert.InRange(afterFailure.SecondsUntilNextBeacon, 1, BeaconService.TransmissionRetryBackoffSeconds);
+    }
+
+    [Fact]
+    public void ReportBeaconTransmissionResult_Success_KeepsNormalInterval()
+    {
+        var service = new BeaconService();
+        service.LastTransmitTime = DateTime.UtcNow.AddHours(-1);
+
+        var location = CreateLocation(38.7223, -9.1393);
+        service.ProcessLocationUpdate(location);
+        Assert.True(service.CurrentDecision!.ShouldTransmit);
+
+        // Success keeps the timer reset at request time: no early retry.
+        service.ReportBeaconTransmissionResult(success: true);
+        var afterSuccess = service.CurrentDecision;
+        Assert.NotNull(afterSuccess);
+        Assert.False(afterSuccess!.ShouldTransmit);
     }
 
     [Fact]

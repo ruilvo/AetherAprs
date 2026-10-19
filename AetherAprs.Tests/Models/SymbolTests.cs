@@ -125,7 +125,7 @@ public class SymbolTests
     {
         Assert.Equal(SymbolCode.NumberSign, '#'.ToSymbolCode());
         Assert.Equal(SymbolCode.GreaterThanSign, '>'.ToSymbolCode());
-        Assert.Equal(SymbolCode.Space, ' '.ToSymbolCode());
+        Assert.Throws<ArgumentOutOfRangeException>(() => ' '.ToSymbolCode());
         Assert.Equal(SymbolCode.Tilde, '~'.ToSymbolCode());
     }
 

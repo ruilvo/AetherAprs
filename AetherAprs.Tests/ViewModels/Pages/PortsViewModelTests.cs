@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
@@ -15,6 +16,8 @@ using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -31,7 +34,7 @@ public sealed class PortsViewModelTests
         var portService = new TestPortService(first, second);
         var navService = Substitute.For<INavigationService>();
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
 
         Assert.Collection(
             viewModel.PortItems,
@@ -48,7 +51,7 @@ public sealed class PortsViewModelTests
         var portService = new TestPortService(original);
         var navService = Substitute.For<INavigationService>();
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
 
         portService.ReplacePorts(replacement);
 
@@ -63,7 +66,7 @@ public sealed class PortsViewModelTests
         var portService = new TestPortService(port);
         var navService = Substitute.For<INavigationService>();
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var item = Assert.Single(viewModel.PortItems);
 
         item.IsEnabled = true;
@@ -71,6 +74,40 @@ public sealed class PortsViewModelTests
 
         Assert.Equal(port.Id, portService.LastPortId);
         Assert.True(portService.LastEnabled);
+    }
+
+    [Fact]
+    public async Task DeletingPortWhenConfirmedRemovesPort()
+    {
+        var port = CreatePort(new AprsIsSettings(), "Port");
+        var portService = new TestPortService(port);
+        var navService = Substitute.For<INavigationService>();
+        var factory = Substitute.For<IAddEditPortViewModelFactory>();
+        var dialogService = new TestConfirmationDialogService { Confirmed = true };
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, dialogService, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var item = Assert.Single(viewModel.PortItems);
+
+        await item.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, dialogService.CallCount);
+        Assert.Equal(port.Id, portService.LastRemovedPortId);
+    }
+
+    [Fact]
+    public async Task DeletingPortWhenCancelledDoesNotRemovePort()
+    {
+        var port = CreatePort(new AprsIsSettings(), "Port");
+        var portService = new TestPortService(port);
+        var navService = Substitute.For<INavigationService>();
+        var factory = Substitute.For<IAddEditPortViewModelFactory>();
+        var dialogService = new TestConfirmationDialogService { Confirmed = false };
+        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, dialogService, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var item = Assert.Single(viewModel.PortItems);
+
+        await item.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, dialogService.CallCount);
+        Assert.Null(portService.LastRemovedPortId);
     }
 
     private static PortConfig CreatePort(IPortTypeSettings typeSettings, string name) => new()
@@ -93,6 +130,7 @@ public sealed class PortsViewModelTests
 #pragma warning restore CS0067
         public Guid? LastPortId { get; private set; }
         public bool LastEnabled { get; private set; }
+        public Guid? LastRemovedPortId { get; private set; }
         public Task LastOperation => _operation.Task;
 
         public void ReplacePorts(params PortConfig[] ports)
@@ -114,10 +152,15 @@ public sealed class PortsViewModelTests
 
         public Task AddPortAsync(PortConfig port) => Task.CompletedTask;
         public Task UpdatePortAsync(PortConfig port) => Task.CompletedTask;
-        public Task RemovePortAsync(Guid id) => Task.CompletedTask;
+        public Task RemovePortAsync(Guid id)
+        {
+            LastRemovedPortId = id;
+            return Task.CompletedTask;
+        }
         public Task SendPacketAsync(Guid id, AprsPacket packet) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         private static TaskCompletionSource<bool> NewOperation() => new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -127,5 +170,19 @@ public sealed class PortsViewModelTests
     {
         public AppSettings Settings { get; } = new();
         public Task SaveSettingsAsync() => Task.CompletedTask;
+
+        public AppSettings GetSettingsSnapshot() => Settings;
+    }
+
+    private sealed class TestConfirmationDialogService : IConfirmationDialogService
+    {
+        public bool Confirmed { get; init; } = true;
+        public int CallCount { get; private set; }
+
+        public Task<bool> ShowConfirmationAsync(string title, string message)
+        {
+            CallCount++;
+            return Task.FromResult(Confirmed);
+        }
     }
 }

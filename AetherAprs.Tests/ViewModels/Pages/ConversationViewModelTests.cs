@@ -106,5 +106,6 @@ public sealed class ConversationViewModelTests : TestFixtureBase
             return Task.CompletedTask;
         }
 
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

@@ -4,9 +4,11 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -40,11 +42,10 @@ public class AprsIsModemTests
     }
 
     [Fact]
-    public void Constructor_ValidArgs_Succeeds()
+    public async Task Constructor_ValidArgs_Succeeds()
     {
-        var modem = new AprsIsModem("rotate.aprs2.net", 14580, Source, "12345");
+        await using var modem = new AprsIsModem("rotate.aprs2.net", 14580, Source, "12345");
         Assert.NotNull(modem);
-        modem.DisposeAsync();
     }
 
     // ---------------------------------------------------------------
@@ -65,6 +66,46 @@ public class AprsIsModemTests
         await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
         modem.Start();
         Assert.Throws<InvalidOperationException>(() => modem.Start());
+    }
+
+    [Fact]
+    public async Task Start_ConcurrentCalls_OnlyOneSucceeds()
+    {
+        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+
+        const int contenders = 8;
+        var started = 0;
+        var failures = 0;
+
+        var threads = Enumerable.Range(0, contenders)
+            .Select(_ => new Thread(() =>
+            {
+                try
+                {
+                    modem.Start();
+                    Interlocked.Increment(ref started);
+                }
+                catch (InvalidOperationException)
+                {
+                    Interlocked.Increment(ref failures);
+                }
+            }))
+            .ToArray();
+
+        foreach (var thread in threads)
+        {
+            thread.Start();
+        }
+
+        foreach (var thread in threads)
+        {
+            thread.Join();
+        }
+
+        Assert.Equal(1, started);
+        Assert.Equal(contenders - 1, failures);
+
+        await modem.StopAsync();
     }
 
     [Fact]
@@ -327,20 +368,39 @@ public class AprsIsModemTests
         Assert.Equal("4K0WHX-N0", status.RawSource);
     }
 
+    [Fact]
+    public void ParseIsLine_HopWithSsidAbove15_SkipsHopAndStillParsesPacket()
+    {
+        // SSID 99 exceeds the 0-15 range. The invalid hop must be skipped
+        // (ArgumentException caught) instead of aborting the whole line parse.
+        var line = "XX1XX-99>APRS,INVALID-99,WIDE1-1:!3830.00N/00906.00E#";
+        var result = InvokeParseIsLine(line);
+
+        var position = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(new Callsign("APRS"), position.Source);
+    }
+
+    [Fact]
+    public void ParseIsLine_QConstructorsInPath_SkippedFromPathList()
+    {
+        // qAR/qAo/qAS/qX (and qAC) are server-inserted APRS-IS markers,
+        // not real digipeater hops — they must not pollute the parsed path.
+        var line = "N0CALL>APRS,TCPIP*,qAC,WIDE1-1,qAR,RELAY:!3830.00N/00906.00E#";
+        var result = InvokeParseIsLine(line);
+
+        var position = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(2, position.Path.Count);
+        Assert.Equal(new Callsign("WIDE1", 1), position.Path[0]);
+        Assert.Equal(new Callsign("RELAY"), position.Path[1]);
+    }
+
     // ---------------------------------------------------------------
     // Helper — invoke private static ParseIsLine via reflection
     // ---------------------------------------------------------------
 
     private static AprsPacket? InvokeParseIsLine(string line)
     {
-        var method = typeof(AprsIsModem).GetMethod("ParseIsLine",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-
-        if (method is null)
-        {
-            return null;
-        }
-
-        return method.Invoke(null, [line]) as AprsPacket;
+        // ParseIsLine is now internal, accessible via InternalsVisibleTo
+        return AprsIsModem.ParseIsLine(line);
     }
 }

@@ -94,10 +94,10 @@ public class KissFrameTests
     public void CommandType_Return_ReturnsMappedValue()
     {
         // Return (0xFF) uses all 8 bits. The CommandType property
-        // extracts the lower 4 bits: 0xFF & 0x0F = 0x0F = 15.
+        // extracts the lower 4 bits: 0xFF & 0x0F = 0x0F = KissCommandType.Return.
         var frame = new KissFrame(0xFF, []);
 
-        Assert.Equal((KissCommandType)15, frame.CommandType);
+        Assert.Equal(KissCommandType.Return, frame.CommandType);
     }
 
     // ---------------------------------------------------------------
@@ -190,7 +190,7 @@ public class KissFrameTests
         var frame = new KissFrame(0xFF, []);
 
         Assert.Equal(15, frame.Port);
-        Assert.Equal((KissCommandType)15, frame.CommandType);
+        Assert.Equal(KissCommandType.Return, frame.CommandType);
     }
 
     // ---------------------------------------------------------------

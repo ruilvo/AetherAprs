@@ -136,4 +136,20 @@ public class Ax25SerializerPathTests
         Assert.Equal("WIDE2", parsed.Path[1].Base);
         Assert.Equal(1, parsed.Path[1].Ssid);
     }
+
+    [Fact]
+    public void Serialize_DefaultCallsign_ThrowsArgumentException()
+    {
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL", 5),
+            Destination = new Callsign("APRS"),
+            Path = [default(Callsign)],
+            Location = new Coordinate(37.7749, -122.4194),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+            Precision = 2
+        };
+
+        Assert.Throws<ArgumentException>(() => Ax25Serializer.Serialize(packet));
+    }
 }

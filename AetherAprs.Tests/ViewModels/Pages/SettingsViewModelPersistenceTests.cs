@@ -10,8 +10,10 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Pages;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
+using Microsoft.Extensions.Logging.Abstractions;
 using SkiaSharp;
 using Xunit;
 
@@ -20,7 +22,7 @@ namespace AetherAprs.Tests.ViewModels.Pages;
 public sealed class SettingsViewModelPersistenceTests
 {
     [Fact]
-    public async Task SettingsViewModel_LoadsAllSavedSettings_IncludingSsidAndSymbol()
+    public void SettingsViewModel_LoadsAllSavedSettings_IncludingSsidAndSymbol()
     {
         var directory = CreateTemporaryDirectory();
         try
@@ -37,7 +39,7 @@ public sealed class SettingsViewModelPersistenceTests
                     }
                 }");
 
-            var configService = new ConfigurationService(new TestAppDataDirProvider(directory));
+            var configService = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
             var navService = new TestNavigationService();
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
@@ -61,7 +63,7 @@ public sealed class SettingsViewModelPersistenceTests
     }
 
     [Fact]
-    public async Task SettingsViewModel_LoadsDefaultSsidZero()
+    public void SettingsViewModel_LoadsDefaultSsidZero()
     {
         var directory = CreateTemporaryDirectory();
         try
@@ -76,7 +78,7 @@ public sealed class SettingsViewModelPersistenceTests
                     }
                 }");
 
-            var configService = new ConfigurationService(new TestAppDataDirProvider(directory));
+            var configService = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
             var navService = new TestNavigationService();
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
@@ -101,6 +103,8 @@ public sealed class SettingsViewModelPersistenceTests
     private sealed class TestAppDataDirProvider(string directory) : IAppDataDirProviderService
     {
         public string GetAppDataDirectory() => directory;
+
+        public string GetPrivateAppDataDirectory() => directory;
     }
 
     private sealed class TestNavigationService : INavigationService
@@ -136,3 +140,4 @@ public sealed class SettingsViewModelPersistenceTests
         public void Dispose() { }
     }
 }
+

@@ -85,23 +85,12 @@ public class AprsPortSettingsResolverTests
         return new AprsPortSettingsResolver(config ?? CreateConfiguration());
     }
 
-    private static PortConfig CreatePort()
-    {
-        return new PortConfig
-        {
-            Id = Guid.NewGuid(),
-            Name = "Test Port",
-            IsEnabled = true,
-            IsRx = true,
-            IsTx = true,
-            TypeSettings = new AprsIsSettings()
-        };
-    }
-
     private sealed class TestConfigurationService : IConfigurationService
     {
         public AppSettings Settings { get; } = new();
 
         public System.Threading.Tasks.Task SaveSettingsAsync() => System.Threading.Tasks.Task.CompletedTask;
+
+        public AppSettings GetSettingsSnapshot() => Settings;
     }
 }

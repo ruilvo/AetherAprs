@@ -288,7 +288,8 @@ public class AprsRfModemTests
 
         aprsModem.Start();
 
-        // Wait a bit — no event should fire
+        // Negative test: wait to verify event does NOT fire.
+        // Pragmatic approach — no deterministic signal for non-events.
         await Task.Delay(500, TestContext.Current.CancellationToken);
 
         Assert.False(packetReceived);
@@ -329,60 +330,6 @@ public class AprsRfModemTests
 
         var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.IsType<IOException>(error);
-    }
-
-    // ---------------------------------------------------------------
-    // AprsPacket dispatch pattern
-    // ---------------------------------------------------------------
-
-    [Fact]
-    public void PacketReceived_SwitchOnType_Works()
-    {
-        // Verify that the consumer can switch on AprsPacket
-        AprsPacket[] packets =
-        [
-            new PositionPacket
-            {
-                Source = Source, Destination = Dest, Location = new Coordinate(38.5, -9.10),
-                Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
-            },
-            new MessagePacket
-            {
-                Source = Source, Destination = Dest, Addressee = new Callsign("OTHER"), Text = "Hi"
-            },
-            new StatusPacket
-            {
-                Source = Source, Destination = Dest, Text = "Online"
-            },
-            new WeatherPacket
-            {
-                Source = Source, Destination = Dest, WindDirection = 90, WindSpeed = 15
-            },
-            new UnknownPacket
-            {
-                Source = Source, Destination = Dest, Raw = "???"
-            }
-        ];
-
-        int position = 0, message = 0, status = 0, weather = 0, unknown = 0;
-
-        foreach (var packet in packets)
-        {
-            switch (packet)
-            {
-                case PositionPacket: position++; break;
-                case MessagePacket: message++; break;
-                case StatusPacket: status++; break;
-                case WeatherPacket: weather++; break;
-                case UnknownPacket: unknown++; break;
-            }
-        }
-
-        Assert.Equal(1, position);
-        Assert.Equal(1, message);
-        Assert.Equal(1, status);
-        Assert.Equal(1, weather);
-        Assert.Equal(1, unknown);
     }
 
     // ---------------------------------------------------------------

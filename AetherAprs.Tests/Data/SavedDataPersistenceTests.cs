@@ -5,10 +5,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
+using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
@@ -33,7 +35,7 @@ namespace AetherAprs.Tests.Data;
 public sealed class SavedDataPersistenceTests
 {
     [Fact]
-    public void BeaconServicePersistsActiveModeAndConfiguration()
+    public async Task BeaconServicePersistsActiveModeAndConfiguration()
     {
         using var db = TempAppDatabase.Create();
         var configuration = Substitute.For<IConfigurationService>();
@@ -46,9 +48,33 @@ public sealed class SavedDataPersistenceTests
         service.UpdateConfiguration(BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 });
         service.SetActiveMode(DynamicBeaconMode.Drive);
 
+        // Persistence is queued to a background worker; poll until the writes land.
+        await WaitForBeaconStateAsync(db, static state => state.ActiveMode == DynamicBeaconMode.Drive);
+
         var reloaded = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
+        await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         Assert.Equal(DynamicBeaconMode.Drive, reloaded.CurrentConfiguration.Mode);
         Assert.Equal(1111, reloaded.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk).SlowIntervalSeconds);
+    }
+
+    private static async Task WaitForBeaconStateAsync(TempAppDatabase db, Func<BeaconingStateRecord, bool> predicate)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            await using var context = await db.Factory.CreateDbContextAsync(cancellationToken);
+            var state = await context.BeaconingState.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+            if (state is not null && predicate(state))
+            {
+                return;
+            }
+
+            await Task.Delay(25, cancellationToken);
+        }
+
+        Assert.Fail("Beaconing state was not persisted within the timeout.");
     }
 
     [Fact]
@@ -89,6 +115,7 @@ public sealed class SavedDataPersistenceTests
                    NullLogger<MessageService>.Instance,
                    db.Factory))
         {
+            await service.InitializeAsync(TestContext.Current.CancellationToken);
             // Verify the service loaded the message from database
             var thread = Assert.Single(service.Conversations);
             Assert.Equal(new Callsign("K0PEER", 1), thread.Peer);
@@ -106,6 +133,7 @@ public sealed class SavedDataPersistenceTests
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
             db.Factory);
+        await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         var threadReloaded = Assert.Single(reloaded.Conversations);
         Assert.Equal(new Callsign("K0PEER", 1), threadReloaded.Peer);
         var storedReloaded = Assert.Single(threadReloaded.Messages);
@@ -134,6 +162,7 @@ public sealed class SavedDataPersistenceTests
         public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -185,7 +214,7 @@ public sealed class SavedDataPersistenceTests
             };
         }
 
-        public MessagePacket CreateAckPacket(
+        public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
             Callsign addressee,
             int messageNumber)
@@ -195,16 +224,16 @@ public sealed class SavedDataPersistenceTests
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
-            return new MessagePacket
+            return new MessageAckPacket
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
-                Text = $"ack{messageNumber}"
+                MessageNumber = messageNumber
             };
         }
 
-        public MessagePacket CreateRejPacket(
+        public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
             Callsign addressee,
             int messageNumber)
@@ -214,12 +243,12 @@ public sealed class SavedDataPersistenceTests
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
-            return new MessagePacket
+            return new MessageRejPacket
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
-                Text = $"rej{messageNumber}"
+                MessageNumber = messageNumber
             };
         }
     }

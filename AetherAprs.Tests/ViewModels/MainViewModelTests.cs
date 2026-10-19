@@ -140,10 +140,12 @@ public sealed class MainViewModelTests
             locationTracking,
             beaconTransmission,
             userLocationLayer,
+            receivedBeaconsMapLayer,
             portService,
             mapViewModel,
             packetDetailsFactory,
             navigationService,
+            SynchronousUiDispatcher.Instance,
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, conversationFactory);
         
@@ -153,13 +155,14 @@ public sealed class MainViewModelTests
             navigation,
             packetDetailsFactory,
             configuration,
+            SynchronousUiDispatcher.Instance,
             NullLogger<PacketsViewModel>.Instance);
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var ports = new PortsViewModel(portService, configuration, navigation, factory, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var ports = new PortsViewModel(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);
         var settings = new SettingsViewModel(configuration, navigation, symbolPicker);
 
-        return new MainViewModel(navigation, home, messages, packets, ports, settings);
+        return new MainViewModel(navigation, Substitute.For<IKeyboardInsetsService>(), home, messages, packets, ports, settings);
     }
 
     public sealed class OverlayStubViewModel : ViewModelBase;
@@ -212,6 +215,7 @@ public sealed class MainViewModelTests
         public Task SendPacketAsync(Guid id, AprsPacket packet) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -219,58 +223,8 @@ public sealed class MainViewModelTests
     {
         public AppSettings Settings { get; } = new();
         public Task SaveSettingsAsync() => Task.CompletedTask;
-    }
 
-    private sealed class TestLocationService : ILocationService
-    {
-        public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new LocationData
-            {
-                Location = new Coordinate(0, 0),
-                Accuracy = 1,
-                Timestamp = DateTimeOffset.UtcNow
-            });
-
-        public bool IsLocationAvailable() => true;
-        public Task<bool> RequestLocationPermissionAsync() => Task.FromResult(true);
-    }
-
-    private sealed class TestBeaconService : IBeaconService
-    {
-#pragma warning disable CS0067
-        public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
-#pragma warning restore CS0067
-
-        public BeaconConfig CurrentConfiguration { get; private set; } = BeaconConfig.CreateWalkPreset();
-        public IReadOnlyList<BeaconConfig> AllConfigurations =>
-        [
-            BeaconConfig.CreateWalkPreset(),
-            BeaconConfig.CreateDrivePreset(),
-            BeaconConfig.CreateCustomPreset()
-        ];
-
-        public double? LastCourseDegrees => null;
-
-        public BeaconTransmitDecision? CurrentDecision => null;
-
-        public void SetActiveMode(DynamicBeaconMode mode)
-        {
-            CurrentConfiguration = mode switch
-            {
-                DynamicBeaconMode.Walk => BeaconConfig.CreateWalkPreset(),
-                DynamicBeaconMode.Drive => BeaconConfig.CreateDrivePreset(),
-                DynamicBeaconMode.Custom => BeaconConfig.CreateCustomPreset(),
-                _ => CurrentConfiguration
-            };
-        }
-
-        public void UpdateConfiguration(BeaconConfig configuration)
-        {
-        }
-
-        public void ProcessLocationUpdate(LocationData currentLocation)
-        {
-        }
+        public AppSettings GetSettingsSnapshot() => Settings;
     }
 
     private sealed class FakeMessageService : IMessageService
@@ -286,6 +240,8 @@ public sealed class MainViewModelTests
 
         public Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
@@ -297,90 +253,8 @@ public sealed class MainViewModelTests
         }
     }
 
-    private sealed class TestPacketFactory : IPacketFactory
+    private sealed class TestConfirmationDialogService : IConfirmationDialogService
     {
-        public PositionPacket CreatePositionPacket(
-            LocationData location,
-            string callsign,
-            SymbolTable symbolTable,
-            SymbolCode symbolCode,
-            double? course = null,
-            string? comment = null)
-        {
-            var parts = callsign.Split('-');
-            var source = parts.Length > 1
-                ? new Callsign(parts[0], int.Parse(parts[1]))
-                : new Callsign(parts[0]);
-
-            return new PositionPacket
-            {
-                Source = source,
-                Destination = new Callsign("APRS"),
-                Location = location.Location,
-                Symbol = new Symbol(symbolTable, symbolCode),
-                Course = course,
-                Comment = comment ?? string.Empty,
-                Altitude = location.Altitude.HasValue ? (int)(location.Altitude.Value * 3.28084) : null
-            };
-        }
-
-        public MessagePacket CreateMessagePacket(
-            string sourceCallsign,
-            Callsign addressee,
-            string messageText,
-            int? messageNumber = null)
-        {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
-                ? new Callsign(parts[0], int.Parse(parts[1]))
-                : new Callsign(parts[0]);
-
-            return new MessagePacket
-            {
-                Source = source,
-                Destination = new Callsign("APRS"),
-                Addressee = addressee,
-                Text = messageText,
-                MessageNumber = messageNumber
-            };
-        }
-
-        public MessagePacket CreateAckPacket(
-            string sourceCallsign,
-            Callsign addressee,
-            int messageNumber)
-        {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
-                ? new Callsign(parts[0], int.Parse(parts[1]))
-                : new Callsign(parts[0]);
-
-            return new MessagePacket
-            {
-                Source = source,
-                Destination = new Callsign("APRS"),
-                Addressee = addressee,
-                Text = $"ack{messageNumber}"
-            };
-        }
-
-        public MessagePacket CreateRejPacket(
-            string sourceCallsign,
-            Callsign addressee,
-            int messageNumber)
-        {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
-                ? new Callsign(parts[0], int.Parse(parts[1]))
-                : new Callsign(parts[0]);
-
-            return new MessagePacket
-            {
-                Source = source,
-                Destination = new Callsign("APRS"),
-                Addressee = addressee,
-                Text = $"rej{messageNumber}"
-            };
-        }
+        public Task<bool> ShowConfirmationAsync(string title, string message) => Task.FromResult(true);
     }
 }

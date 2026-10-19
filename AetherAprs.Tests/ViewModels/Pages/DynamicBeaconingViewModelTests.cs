@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -75,6 +77,10 @@ public sealed class DynamicBeaconingViewModelTests
 
         public BeaconTransmitDecision? CurrentDecision => null;
 
+        public void ReportBeaconTransmissionResult(bool success)
+        {
+        }
+
         public void SetActiveMode(DynamicBeaconMode mode) => _mode = mode;
 
         public void UpdateConfiguration(BeaconConfig configuration)
@@ -97,5 +103,7 @@ public sealed class DynamicBeaconingViewModelTests
         public void ProcessLocationUpdate(LocationData currentLocation)
         {
         }
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

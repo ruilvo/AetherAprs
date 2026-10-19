@@ -117,5 +117,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
 
         public Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }

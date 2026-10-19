@@ -5,7 +5,7 @@
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Components;
 using Xunit;
 using Xunit.Sdk;
 
@@ -46,11 +46,11 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     {
         var vm = Create(new PortConfig { Name = "Port", IsEnabled = false });
 
-        Assert.Equal("Stopped", vm.StatusText);
+        Assert.Equal(Localization.Strings.Get("Stopped"), vm.StatusText);
 
         vm.IsEnabled = true;
 
-        Assert.Equal("Running", vm.StatusText);
+        Assert.Equal(Localization.Strings.Get("Running"), vm.StatusText);
     }
 
     [Fact]
@@ -58,12 +58,14 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     {
         PortItemViewModel? toggled = null;
         PortItemViewModel? mapToggled = null;
+        var toggledTcs = new TaskCompletionSource<PortItemViewModel>();
+        var mapToggledTcs = new TaskCompletionSource<PortItemViewModel>();
         var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
 
         var vm = new PortItemViewModel(
             config,
-            item => { toggled = item; return Task.CompletedTask; },
-            item => { mapToggled = item; return Task.CompletedTask; },
+            item => { toggled = item; toggledTcs.SetResult(item); return Task.CompletedTask; },
+            item => { mapToggled = item; mapToggledTcs.SetResult(item); return Task.CompletedTask; },
             _ => Task.CompletedTask,
             _ => { },
             logger: null);
@@ -71,8 +73,8 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         vm.IsEnabled = true;
         vm.ShowOnMap = true;
 
-        // Give async handlers time to complete
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await toggledTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await mapToggledTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
 
         Assert.Same(vm, toggled);
         Assert.Same(vm, mapToggled);
@@ -151,12 +153,14 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         // This test ensures callbacks ARE invoked after initialization
         var toggleCount = 0;
         var mapToggleCount = 0;
+        var toggleTcs = new TaskCompletionSource<bool>();
+        var mapToggleTcs = new TaskCompletionSource<bool>();
         var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
 
         var vm = new PortItemViewModel(
             config,
-            _ => { toggleCount++; return Task.CompletedTask; },
-            _ => { mapToggleCount++; return Task.CompletedTask; },
+            _ => { toggleCount++; toggleTcs.TrySetResult(true); return Task.CompletedTask; },
+            _ => { mapToggleCount++; mapToggleTcs.TrySetResult(true); return Task.CompletedTask; },
             _ => Task.CompletedTask,
             _ => { },
             logger: null);
@@ -167,12 +171,12 @@ public sealed class PortItemViewModelTests : TestFixtureBase
 
         // Now change properties - callbacks SHOULD be invoked
         vm.IsEnabled = true;
-        await Task.Delay(50, TestContext.Current.CancellationToken); // Give async handler time to complete
+        await toggleTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, toggleCount);
         Assert.Equal(0, mapToggleCount);
 
         vm.ShowOnMap = true;
-        await Task.Delay(50, TestContext.Current.CancellationToken); // Give async handler time to complete
+        await mapToggleTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, toggleCount);
         Assert.Equal(1, mapToggleCount);
     }

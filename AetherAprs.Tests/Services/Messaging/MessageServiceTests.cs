@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
@@ -45,10 +46,11 @@ public sealed class MessageServiceTests
         var resolver = Substitute.For<IAprsPortSettingsResolver>();
         resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
         var packetFactory = new TestPacketFactory();
+        var packetStorageService = Substitute.For<IPacketStorageService>();
 
         var service = new MessageService(
             portService,
-            Substitute.For<IPacketStorageService>(),
+            packetStorageService,
             configuration,
             resolver,
             packetFactory,
@@ -68,6 +70,13 @@ public sealed class MessageServiceTests
         var stored = Assert.Single(thread.Messages);
         Assert.True(stored.IsOutbound);
         Assert.Equal("Hello", stored.Text);
+
+        // Verify packet was stored to database
+        await packetStorageService.Received(1).StorePacketAsync(
+            Arg.Is<AprsPacket>(p => p is MessagePacket),
+            port.Id,
+            isOutbound: true,
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -327,6 +336,252 @@ public sealed class MessageServiceTests
         Assert.Single(distinctConversations);
     }
 
+    [Fact]
+    public async Task MessageAck_FromPeer_MarksMessageAcknowledged()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var service = CreateMessageService(portService);
+
+        var peer = new Callsign("K0OTH", 7);
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+        Assert.NotNull(stored.MessageNumber);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessageAckPacket
+            {
+                Source = peer,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL", 1),
+                MessageNumber = stored.MessageNumber.Value
+            }
+        });
+
+        Assert.Equal(MessageDeliveryStatus.Acknowledged, stored.DeliveryStatus);
+    }
+
+    [Fact]
+    public async Task MessageAck_FromWrongSource_LeavesMessagePending()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var service = CreateMessageService(portService);
+
+        var peer = new Callsign("K0OTH", 7);
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+        Assert.NotNull(stored.MessageNumber);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessageAckPacket
+            {
+                Source = new Callsign("K0IMP", 1),
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL", 1),
+                MessageNumber = stored.MessageNumber.Value
+            }
+        });
+
+        Assert.Equal(MessageDeliveryStatus.Pending, stored.DeliveryStatus);
+    }
+
+    [Fact]
+    public async Task MessageAck_UnknownMessageNumber_Ignored()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var service = CreateMessageService(portService);
+
+        var peer = new Callsign("K0OTH", 7);
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessageAckPacket
+            {
+                Source = peer,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL", 1),
+                MessageNumber = 999
+            }
+        });
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+        Assert.Equal(MessageDeliveryStatus.Pending, stored.DeliveryStatus);
+    }
+
+    [Fact]
+    public async Task MessageRej_FromPeer_MarksMessageRejected()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var service = CreateMessageService(portService);
+
+        var peer = new Callsign("K0OTH", 7);
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+        Assert.NotNull(stored.MessageNumber);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessageRejPacket
+            {
+                Source = peer,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL", 1),
+                MessageNumber = stored.MessageNumber.Value
+            }
+        });
+
+        Assert.Equal(MessageDeliveryStatus.Rejected, stored.DeliveryStatus);
+    }
+
+    [Fact]
+    public async Task InboundMessage_WithNumberAndAutoAckEnabled_SendsAckOnReceivingPort()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var configuration = Substitute.For<IConfigurationService>();
+        configuration.Settings.Returns(new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                Callsign = "N0CALL",
+                AutoAcknowledgeMessages = true
+            }
+        });
+        var resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        var service = new MessageService(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance);
+
+        var peer = new Callsign("K0OTH", 7);
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessagePacket
+            {
+                Source = peer,
+                Destination = new Callsign("N0CALL", 1),
+                Addressee = new Callsign("N0CALL"),
+                Text = "Ping",
+                MessageNumber = 5
+            }
+        });
+
+        var ack = Assert.IsType<MessageAckPacket>(
+            await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        Assert.Equal(peer, ack.Addressee);
+        Assert.Equal(5, ack.MessageNumber);
+        Assert.Equal(new Callsign("N0CALL", 1), ack.Source);
+    }
+
+    [Fact]
+    public async Task ProcessRetries_DueMessage_ResendsWithIncrementedRetryCount()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var service = CreateMessageService(portService);
+
+        var peer = new Callsign("K0OTH", 7);
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+        Assert.Equal(0, stored.RetryCount);
+
+        // Make the message due for retry, then run the retry pass directly
+        // (the real timer ticks every 5 s — too slow for tests).
+        stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
+        service.ProcessRetries(null);
+
+        var resent = Assert.IsType<MessagePacket>(
+            await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        Assert.Equal(stored.MessageNumber, resent.MessageNumber);
+        Assert.Equal(1, stored.RetryCount);
+        Assert.NotNull(stored.NextRetryTime);
+        Assert.True(stored.NextRetryTime.Value > DateTimeOffset.UtcNow.AddSeconds(-5));
+    }
+
+    [Fact]
+    public async Task ProcessRetries_RetriesExhausted_MarksMessageTimeout()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        var service = CreateMessageService(portService);
+
+        var peer = new Callsign("K0OTH", 7);
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+        stored.RetryCount = 5; // MessageMaxRetries default is 5
+        stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
+
+        service.ProcessRetries(null);
+
+        Assert.Equal(MessageDeliveryStatus.Timeout, stored.DeliveryStatus);
+
+        // A subsequent pass must not resend the timed-out message.
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        Assert.Single(portService.SentPackets);
+    }
+
+    private static PortConfig CreateTxPort()
+    {
+        return new PortConfig
+        {
+            Id = Guid.NewGuid(),
+            Name = "TX",
+            IsEnabled = true,
+            IsTx = true,
+            IsRx = true,
+            TypeSettings = new AprsIsSettings()
+        };
+    }
+
+    private static MessageService CreateMessageService(FakePortService portService)
+    {
+        var configuration = Substitute.For<IConfigurationService>();
+        configuration.Settings.Returns(new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                Callsign = "N0CALL",
+                Ssid = (AprsSsid)1
+            }
+        });
+        var resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+
+        return new MessageService(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance);
+    }
+
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
     {
         var configuration = Substitute.For<IConfigurationService>();
@@ -359,12 +614,16 @@ public sealed class MessageServiceTests
         public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
         public List<AprsPacket> SentPackets { get; } = [];
 
+        /// <summary>Signalled whenever a packet is sent — lets tests await deterministic sends.</summary>
+        public TaskCompletionSource<AprsPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public void RaisePacketReceived(PortPacketReceivedEventArgs args) =>
             PacketReceived?.Invoke(this, args);
 
         public Task SendPacketAsync(Guid id, AprsPacket packet)
         {
             SentPackets.Add(packet);
+            PacketSent.TrySetResult(packet);
             return Task.CompletedTask;
         }
 
@@ -375,6 +634,7 @@ public sealed class MessageServiceTests
         public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
@@ -426,7 +686,7 @@ public sealed class MessageServiceTests
             };
         }
 
-        public MessagePacket CreateAckPacket(
+        public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
             Callsign addressee,
             int messageNumber)
@@ -436,16 +696,16 @@ public sealed class MessageServiceTests
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
-            return new MessagePacket
+            return new MessageAckPacket
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
-                Text = $"ack{messageNumber}"
+                MessageNumber = messageNumber
             };
         }
 
-        public MessagePacket CreateRejPacket(
+        public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
             Callsign addressee,
             int messageNumber)
@@ -455,12 +715,12 @@ public sealed class MessageServiceTests
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
-            return new MessagePacket
+            return new MessageRejPacket
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
-                Text = $"rej{messageNumber}"
+                MessageNumber = messageNumber
             };
         }
     }

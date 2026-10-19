@@ -106,7 +106,9 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<IAprsSymbolBitmapProvider>());
         services.AddSingleton(Substitute.For<ILogger<HomeViewModel>>());
         services.AddSingleton(Substitute.For<ILogger<PacketsViewModel>>());
-        
+
+        services.AddSingleton<AetherAprs.Services.UI.IUiDispatcher>(AetherAprs.Tests.Helpers.SynchronousUiDispatcher.Instance);
+        services.AddSingleton<AetherAprs.Services.UI.IConfirmationDialogService, AetherAprs.Tests.Helpers.StubConfirmationDialogService>();
         // Register IPacketQueryService and IPacketStorageService - required by ViewModels
         services.AddSingleton(Substitute.For<IPacketQueryService>());
         services.AddSingleton(Substitute.For<IPacketStorageService>());

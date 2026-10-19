@@ -341,10 +341,10 @@ public class KissSerializerTests
     [Fact]
     public void DecodeFrame_ReturnCommand_SetsCommandType()
     {
-        // Return (0xFF) & 0x0F = 0x0F = 15
+        // Return (0xFF) & 0x0F = 0x0F = KissCommandType.Return
         var frame = KissSerializer.DecodeFrame([0xFF]);
 
-        Assert.Equal((KissCommandType)15, frame.CommandType);
+        Assert.Equal(KissCommandType.Return, frame.CommandType);
     }
 
     [Fact]

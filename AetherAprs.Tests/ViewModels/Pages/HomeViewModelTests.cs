@@ -24,8 +24,10 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Pages;
 using Geo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -57,7 +59,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
         Assert.Equal(-8.52170, packet.Location.Longitude);
         Assert.Equal("N0CALL", packet.Source.Base);
         Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
-        Assert.Contains("Initial beacon sent", viewModel.BeaconStatus);
+        // Production uses Strings.Format("InitialBeaconSentOnPortActivation", portNames)
+        // Verify the status contains the base resource text (before formatting)
+        var expectedBase = Localization.Strings.Get("InitialBeaconSentOnPortActivation").Split('(')[0].Trim();
+        Assert.Contains(expectedBase, viewModel.BeaconStatus);
         Assert.Equal(1, portService.SendCount);
     }
 
@@ -123,7 +128,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         await viewModel.SendManualBeaconAsync();
 
         Assert.Equal(0, portService.SendCount);
-        Assert.Equal("No location available", viewModel.BeaconStatus);
+        Assert.Equal(Localization.Strings.Get("NoLocationAvailable"), viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -140,7 +145,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         Assert.Equal(1, portService.SendCount);
         Assert.Equal(41.41764, packet.Location.Latitude);
-        Assert.Contains("Manual beacon sent", viewModel.BeaconStatus);
+        Assert.Contains(Localization.Strings.Get("ManualBeaconSent"), viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -155,7 +160,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         await viewModel.SendManualBeaconAsync();
 
         Assert.Equal(0, portService.SendCount);
-        Assert.Equal("No TX ports enabled", viewModel.BeaconStatus);
+        Assert.Equal(Localization.Strings.Get("NoTxPortsEnabled"), viewModel.BeaconStatus);
     }
 
     [Fact]
@@ -183,7 +188,6 @@ public sealed class HomeViewModelTests : TestFixtureBase
             configuration.Settings.Aprs.Callsign = "N0CALL";
         }
         
-        var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);
         var packetFactory = new TestPacketFactory();
         
@@ -196,6 +200,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
             NullLogger<BeaconTransmissionService>.Instance);
         
         var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+        var receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
         
         var mapViewModel = new MapViewModel(userLocationLayer);
         
@@ -206,10 +211,12 @@ public sealed class HomeViewModelTests : TestFixtureBase
             locationTracking,
             beaconTransmission,
             userLocationLayer,
+            receivedBeaconsLayer,
             portService,
             mapViewModel,
             packetDetailsFactory,
             navigationService,
+            SynchronousUiDispatcher.Instance,
             NullLogger<HomeViewModel>.Instance);
     }
 
@@ -241,16 +248,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public AppSettings Settings { get; } = new();
 
         public Task SaveSettingsAsync() => Task.CompletedTask;
-    }
 
-    private sealed class TestLocationService : ILocationService
-    {
-        public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(CreateLocation(41.41764, -8.52170));
-
-        public bool IsLocationAvailable() => true;
-
-        public Task<bool> RequestLocationPermissionAsync() => Task.FromResult(true);
+        public AppSettings GetSettingsSnapshot() => Settings;
     }
 
     private sealed class TestLocationTrackingService : ILocationTrackingService
@@ -297,6 +296,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         public BeaconTransmitDecision? CurrentDecision => null;
 
+        public void ReportBeaconTransmissionResult(bool success)
+        {
+        }
+
         public void SetActiveMode(DynamicBeaconMode mode)
         {
             CurrentConfiguration = mode switch
@@ -315,6 +318,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public void ProcessLocationUpdate(LocationData currentLocation)
         {
         }
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class TestPortService : IPortService
@@ -361,6 +366,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
 
         public Task StopAllPortsAsync() => Task.CompletedTask;
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
@@ -431,7 +438,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
             };
         }
 
-        public MessagePacket CreateAckPacket(
+        public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
             Callsign addressee,
             int messageNumber)
@@ -441,16 +448,16 @@ public sealed class HomeViewModelTests : TestFixtureBase
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
-            return new MessagePacket
+            return new MessageAckPacket
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
-                Text = $"ack{messageNumber}"
+                MessageNumber = messageNumber
             };
         }
 
-        public MessagePacket CreateRejPacket(
+        public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
             Callsign addressee,
             int messageNumber)
@@ -460,12 +467,12 @@ public sealed class HomeViewModelTests : TestFixtureBase
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
-            return new MessagePacket
+            return new MessageRejPacket
             {
                 Source = source,
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
-                Text = $"rej{messageNumber}"
+                MessageNumber = messageNumber
             };
         }
     }

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
@@ -30,8 +31,8 @@ public sealed class SettingsViewModelTests
 
         viewModel.Callsign = "CT7ALW";
         
-        // Give async save a moment to complete
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        // Wait for async save to complete deterministically
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
         Assert.True(configuration.SaveCount > 0);
@@ -46,12 +47,16 @@ public sealed class SettingsViewModelTests
         var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
 
         viewModel.Callsign = "CT7ALW";
-        viewModel.Ssid = AprsSsid.HumanPortable;
-        viewModel.SymbolTableCharacter = "\\";
-        viewModel.SymbolCodeCharacter = ">";
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
         
-        // Give async saves a moment to complete
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        viewModel.Ssid = AprsSsid.HumanPortable;
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        
+        viewModel.SymbolTableCharacter = "\\";
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        
+        viewModel.SymbolCodeCharacter = ">";
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
         Assert.Equal(
@@ -85,13 +90,17 @@ public sealed class SettingsViewModelTests
 
     private sealed class TestConfigurationService : IConfigurationService
     {
+        private int _saveCount;
         public AppSettings Settings { get; } = new();
-        public int SaveCount { get; private set; }
+        public int SaveCount => _saveCount;
         public Task SaveSettingsAsync()
         {
-            SaveCount++;
+            // Auto-saves now run on the thread pool; count them atomically.
+            Interlocked.Increment(ref _saveCount);
             return Task.CompletedTask;
         }
+
+        public AppSettings GetSettingsSnapshot() => Settings;
     }
 
     private sealed class TestNavigationService : INavigationService

@@ -25,7 +25,9 @@ using AetherAprs.Transports.Kiss;
 using Geo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;
@@ -50,7 +52,7 @@ public sealed class PortServiceTests
             IsTx = false
         };
         using var db = TempAppDatabase.Create(existingPort);
-        var service = CreateService(db);
+        var service = await CreateAndInitializeServiceAsync(db);
         var updatedPort = new PortConfig
         {
             Id = existingPort.Id,
@@ -83,7 +85,7 @@ public sealed class PortServiceTests
         Assert.True(persisted.IsTx);
         Assert.False(persisted.ShowOnMap);
 
-        var reloaded = CreateService(db);
+        var reloaded = await CreateAndInitializeServiceAsync(db);
         var fromDb = Assert.Single(reloaded.Ports);
         Assert.Equal("Updated name", fromDb.Name);
         Assert.Equal("new.example", fromDb.GetAprsIsSettings()?.Server);
@@ -94,7 +96,7 @@ public sealed class PortServiceTests
     {
         var existingPort = new PortConfig { Id = Guid.NewGuid(), Name = "Port" };
         using var db = TempAppDatabase.Create(existingPort);
-        var service = CreateService(db);
+        var service = await CreateAndInitializeServiceAsync(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
@@ -124,7 +126,7 @@ public sealed class PortServiceTests
     public async Task AddPortAsyncPersistsPortAndRaisesPortsChanged()
     {
         using var db = TempAppDatabase.Create();
-        var service = CreateService(db);
+        var service = await CreateAndInitializeServiceAsync(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
         var port = new PortConfig { Id = Guid.NewGuid(), Name = "New port" };
@@ -133,7 +135,7 @@ public sealed class PortServiceTests
 
         Assert.Contains(port, service.Ports);
         Assert.Equal(1, changeCount);
-        var reloaded = CreateService(db);
+        var reloaded = await CreateAndInitializeServiceAsync(db);
         Assert.Equal("New port", Assert.Single(reloaded.Ports).Name);
     }
 
@@ -190,7 +192,7 @@ public sealed class PortServiceTests
             TypeSettings = null
         };
         using var db = TempAppDatabase.Create(port);
-        var service = CreateService(db);
+        var service = await CreateAndInitializeServiceAsync(db);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SetPortEnabledAsync(port.Id, true));
@@ -218,7 +220,7 @@ public sealed class PortServiceTests
         };
         using var db = TempAppDatabase.Create(port);
         var factory = new CountingKissStreamFactory();
-        var service = CreateService(db, factory);
+        var service = await CreateAndInitializeServiceAsync(db, factory);
 
         await service.SetPortEnabledAsync(portId, true);
         Assert.Equal(1, factory.OpenCount);
@@ -254,17 +256,26 @@ public sealed class PortServiceTests
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = new MockPacketStorageService();
-        var mockForegroundService = new NoOpForegroundService();
+        var mockForegroundService = Substitute.For<IForegroundService>();
         var mockDigipeaterService = new MockDigipeaterService();
         return new PortService(
             db.Factory,
             new TestConfigurationService(),
+            services.GetRequiredService<ILoggerFactory>(),
             NullLogger<PortService>.Instance,
-            services,
             kissStreamFactory,
             mockPacketStorage,
             mockForegroundService,
             mockDigipeaterService);
+    }
+
+    private static async Task<PortService> CreateAndInitializeServiceAsync(
+        TempAppDatabase db,
+        IKissStreamFactory? kissStreamFactory = null)
+    {
+        var service = CreateService(db, kissStreamFactory);
+        await service.InitializeAsync(TestContext.Current.CancellationToken);
+        return service;
     }
 
     private sealed class MockPacketStorageService : IPacketStorageService
@@ -333,5 +344,7 @@ public sealed class PortServiceTests
         public AppSettings Settings { get; } = new();
 
         public Task SaveSettingsAsync() => Task.CompletedTask;
+
+        public AppSettings GetSettingsSnapshot() => Settings;
     }
 }

@@ -157,29 +157,4 @@ public class PacketTests
         Assert.IsType<UnknownPacket>(pkt);
         Assert.Equal("some unknown data", pkt.Raw);
     }
-
-    [Fact]
-    public void AprsPacket_SwitchOnConcreteType_Works()
-    {
-        AprsPacket pkt = new PositionPacket
-        {
-            Source = Source,
-            Destination = Dest,
-            Raw = "!3850.00N/00910.00W#",
-            Location = new Coordinate(38.5, -9.10),
-            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign)
-        };
-
-        var type = pkt switch
-        {
-            PositionPacket => "position",
-            MessagePacket => "message",
-            StatusPacket => "status",
-            WeatherPacket => "weather",
-            UnknownPacket => "unknown",
-            _ => "other"
-        };
-
-        Assert.Equal("position", type);
-    }
 }

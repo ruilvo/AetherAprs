@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -226,6 +227,41 @@ public class KissModemTests
         await modem.StopAsync();
     }
 
+    [Fact]
+    public async Task StartAfterStop_ReceivesNewFrames()
+    {
+        // Regression: a restart used to reuse the cancelled CTS, so the new
+        // read loop exited immediately and no frames were ever received.
+        using var stream = new BlockingDuplexStream();
+        await using var modem = new KissModem(stream);
+
+        modem.Start();
+        await modem.StopAsync();
+
+        var tcs = new TaskCompletionSource<KissFrame>();
+        modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
+
+        modem.Start();
+
+        // FEND + cmd(0x00) + data(0x01) + FEND
+        stream.Enqueue([0xC0, 0x00, 0x01, 0xC0]);
+
+        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+
+        Assert.Equal([0x01], received.Data);
+    }
+
+    [Fact]
+    public async Task StopAsync_Twice_IsNoOpSecondTime()
+    {
+        using var stream = new MemoryStream();
+        await using var modem = new KissModem(stream);
+
+        modem.Start();
+        await modem.StopAsync();
+        await modem.StopAsync();
+    }
+
     // ---------------------------------------------------------------
     // FrameReceived
     // ---------------------------------------------------------------
@@ -310,12 +346,22 @@ public class KissModemTests
         await using var modem = new KissModem(stream);
 
         var receivedFrames = new System.Collections.Generic.List<KissFrame>();
-        modem.FrameReceived += (_, frame) => receivedFrames.Add(frame);
+        var tcs = new TaskCompletionSource<bool>();
+        var expectedCount = 2;
+
+        modem.FrameReceived += (_, frame) =>
+        {
+            receivedFrames.Add(frame);
+            if (receivedFrames.Count >= expectedCount)
+            {
+                tcs.TrySetResult(true);
+            }
+        };
 
         modem.Start();
 
         // Wait for the read loop to process all data
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, receivedFrames.Count);
         Assert.Equal(0x00, receivedFrames[0].Command);
@@ -333,11 +379,21 @@ public class KissModemTests
         await using var modem = new KissModem(stream);
 
         var receivedFrames = new System.Collections.Generic.List<KissFrame>();
-        modem.FrameReceived += (_, frame) => receivedFrames.Add(frame);
+        var tcs = new TaskCompletionSource<bool>();
+        var expectedCount = 2;
+
+        modem.FrameReceived += (_, frame) =>
+        {
+            receivedFrames.Add(frame);
+            if (receivedFrames.Count >= expectedCount)
+            {
+                tcs.TrySetResult(true);
+            }
+        };
 
         modem.Start();
 
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, receivedFrames.Count);
         Assert.Equal([0x01], receivedFrames[0].Data);
@@ -377,7 +433,7 @@ public class KissModemTests
 
         var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
-        Assert.Equal((KissCommandType)15, received.CommandType);
+        Assert.Equal(KissCommandType.Return, received.CommandType);
         Assert.Equal(15, received.Port);
     }
 
@@ -389,11 +445,21 @@ public class KissModemTests
         await using var modem = new KissModem(stream);
 
         var receivedFrames = new System.Collections.Generic.List<KissFrame>();
-        modem.FrameReceived += (_, frame) => receivedFrames.Add(frame);
+        var tcs = new TaskCompletionSource<bool>();
+
+        modem.FrameReceived += (_, frame) =>
+        {
+            receivedFrames.Add(frame);
+            // Signal completion when we get the expected frame
+            if (frame.Command == 0x00 && frame.Data.SequenceEqual(new byte[] { 0x01 }))
+            {
+                tcs.TrySetResult(true);
+            }
+        };
 
         modem.Start();
 
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         // Only one frame should be received (with cmd=0x00, data=[0x01])
         Assert.Single(receivedFrames);
@@ -567,6 +633,73 @@ public class KissModemTests
             throw new IOException("Simulated read failure.");
         }
 
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) { }
+    }
+
+    /// <summary>
+    /// Duplex stream whose reads block until data is enqueued, so receive-loop
+    /// lifecycles can be tested without timing races.
+    /// </summary>
+    private sealed class BlockingDuplexStream : Stream
+    {
+        private readonly Queue<byte[]> _pending = [];
+        private readonly SemaphoreSlim _dataAvailable = new(0, int.MaxValue);
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+
+        public void Enqueue(byte[] data)
+        {
+            lock (_pending)
+            {
+                _pending.Enqueue(data);
+            }
+
+            _dataAvailable.Release();
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            await _dataAvailable.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            byte[] chunk;
+            lock (_pending)
+            {
+                chunk = _pending.Dequeue();
+            }
+
+            var toCopy = Math.Min(buffer.Length, chunk.Length);
+            chunk.AsSpan(0, toCopy).CopyTo(buffer.Span);
+            if (toCopy < chunk.Length)
+            {
+                // Re-queue the remainder for the next read.
+                lock (_pending)
+                {
+                    _pending.Enqueue(chunk[toCopy..]);
+                }
+
+                _dataAvailable.Release();
+            }
+
+            return toCopy;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var memory = new Memory<byte>(buffer, offset, count);
+            return ReadAsync(memory).AsTask().GetAwaiter().GetResult();
+        }
+
+        public override void Flush() { }
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) { }

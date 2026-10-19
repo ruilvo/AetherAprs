@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Platform;
 using AetherAprs.Models.Aprs;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Configuration;
@@ -24,7 +25,7 @@ public sealed class ConfigurationServiceTests
                 Path.Combine(directory, "appsettings.json"),
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
             var provider = new TestAppDataDirProvider(directory);
-            var service = new ConfigurationService(provider);
+            var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
 
             service.Settings.Aprs.Callsign = "CT7ALW";
             service.Settings.Aprs.SymbolTable = SymbolTable.Alternate;
@@ -40,7 +41,7 @@ public sealed class ConfigurationServiceTests
             Assert.Contains(
                 "\"SymbolTableCharacter\"",
                 File.ReadAllText(savedPath));
-            var reloaded = new ConfigurationService(provider);
+            var reloaded = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
             Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
             Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
             Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
@@ -60,7 +61,7 @@ public sealed class ConfigurationServiceTests
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
-            var service = new ConfigurationService(new TestAppDataDirProvider(directory));
+            var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
             Assert.Equal(SymbolTable.Primary, service.Settings.Aprs.SymbolTable);
             Assert.Equal(SymbolCode.LeftSquareBracket, service.Settings.Aprs.SymbolCode);
@@ -81,5 +82,8 @@ public sealed class ConfigurationServiceTests
     private sealed class TestAppDataDirProvider(string directory) : IAppDataDirProviderService
     {
         public string GetAppDataDirectory() => directory;
+
+        public string GetPrivateAppDataDirectory() => directory;
     }
 }
+

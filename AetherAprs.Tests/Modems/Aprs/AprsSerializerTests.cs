@@ -132,9 +132,9 @@ public class AprsSerializerTests
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(3)]
-    public void FormatInfoField_PositionPacket_NonStandardPrecisionThrows(int precision)
+    [InlineData(0, 1)]  // Precision 0 is clamped to 1
+    [InlineData(3, 2)]  // Precision 3 is clamped to 2 (compressed positions emit 3)
+    public void FormatInfoField_PositionPacket_NonStandardPrecisionIsNormalized(int precision, int expectedPrecision)
     {
         var packet = new PositionPacket
         {
@@ -145,7 +145,18 @@ public class AprsSerializerTests
             Precision = precision
         };
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => AprsInfoFieldSerializer.FormatInfoField(packet));
+        // Should not throw - precision is normalized/clamped
+        var result = AprsInfoFieldSerializer.FormatInfoField(packet);
+        
+        // Verify the result contains valid APRS position format
+        Assert.NotNull(result);
+        Assert.NotEmpty(result);
+        
+        // The result should contain coordinates formatted with the normalized precision
+        // For precision 1: format is DDMM.mN/S, for precision 2: DDMM.mmN/S
+        string expectedDecimalDigits = new string('0', expectedPrecision);
+        // Latitude format: DDMMthis.thisXXN/S where XX hasthis expectedPrecision digitsthis
+        Assert.Matches(@"\d{4}\.\d{" + expectedPrecision + @"}[NS]", result);
     }
 
     [Fact]
@@ -355,13 +366,62 @@ public class AprsSerializerTests
 
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
+        // Spec-conformant fixed-width fields (APRS weather format).
         Assert.StartsWith("_", infoField);
-        Assert.Contains("c90", infoField);
-        Assert.Contains("s15", infoField);
-        Assert.Contains("t72", infoField);
+        Assert.Contains("c090", infoField);
+        Assert.Contains("s015", infoField);
+        Assert.Contains("t072", infoField);
         Assert.Contains("h50", infoField);
-        Assert.Contains("b10130", infoField);
+        Assert.Contains("b10130", infoField); // 10130 tenths of millibars = 1013.0
         Assert.DoesNotContain("g", infoField); // no gust
+    }
+
+    [Fact]
+    public void FormatInfoField_WeatherPacket_SpecWidthsAndNegativeTemperature()
+    {
+        var packet = new WeatherPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            WindDirection = 5,
+            Rain1h = 5.00,
+            Temperature = -5
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+
+        // Spec: wind "c005", rain "r500" (hundredths of an inch, no decimal point),
+        // negative temperature encoded as 1000 - abs(temp): -5 °F → t995.
+        Assert.Contains("c005", infoField);
+        Assert.Contains("r500", infoField);
+        Assert.Contains("t995", infoField);
+    }
+
+    [Fact]
+    public void ParseWeather_NegativeTemperatureEncodedPerSpec_DecodesNegative()
+    {
+        // FEND... weather payload with temperature t995 → -5 °F per spec.
+        var parsed = AprsInfoFieldParser.ParseInfoField("_c005s005t995", Source, Dest);
+
+        var w = Assert.IsType<WeatherPacket>(parsed);
+        Assert.Equal(-5, w.Temperature);
+    }
+
+    [Fact]
+    public void Serialize_Weather_NegativeTemperatureRoundTrips()
+    {
+        var packet = new WeatherPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Temperature = -5
+        };
+
+        var bytes = Ax25Serializer.Serialize(packet);
+        var parsed = Ax25Parser.ParseFrame(bytes);
+
+        var w = Assert.IsType<WeatherPacket>(parsed);
+        Assert.Equal(-5, w.Temperature);
     }
 
     [Fact]

@@ -348,6 +348,21 @@ public class AprsParserTests
     }
 
     [Fact]
+    public void ParseInfoField_MicE_SpeedIsInKnots()
+    {
+        // MIC-E speed bytes encode knots on the wire.
+        // Field layout: ` + lon(3) + speed/course(3) + symbol(2).
+        // Speed/course bytes: '"' (34) → sp=6, 0x1C (28) → dc=0, 'v' (118) → se=90
+        // speedVal = 6*10 + 0/10 = 60 knots; course = (0%10)*100 + 90 = 90
+        var result = AprsInfoFieldParser.ParseInfoField("`(_f\"\u001Cv/>",
+            new Callsign("N0CALL"), new Callsign("S3TRV0"));
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(60, pos.Speed);
+        Assert.Equal(90, pos.Course);
+    }
+
+    [Fact]
     public void ParseInfoField_MicEWithAltGrave_ReturnsPositionPacket()
     {
         // MIC-E with grave accent (`) data type indicator
@@ -426,6 +441,72 @@ public class AprsParserTests
         Assert.Equal(new Callsign("N0CALL", 1), message.Addressee);
     }
 
+    [Fact]
+    public void ParseInfoField_MessageAckWithBraces_ReturnsAckPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack{5}",
+            new Callsign("K0PEER"), new Callsign("APZ001"));
+
+        var ack = Assert.IsType<MessageAckPacket>(result);
+        Assert.Equal(new Callsign("K0PEER"), ack.Source);
+        Assert.Equal(new Callsign("N0CALL"), ack.Addressee);
+        Assert.Equal(5, ack.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_MessageAckBareNumber_ReturnsAckPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack42",
+            new Callsign("K0PEER"), new Callsign("APZ001"));
+
+        var ack = Assert.IsType<MessageAckPacket>(result);
+        Assert.Equal(42, ack.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_MessageAckNonNumeric_FallsBackToMessagePacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack{abc}",
+            new Callsign("K0PEER"), new Callsign("APZ001"));
+
+        var msg = Assert.IsType<MessagePacket>(result);
+        Assert.Equal("ack{abc}", msg.Text);
+        Assert.Null(msg.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_MessageRejWithBraces_ReturnsRejPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :rej{7}",
+            new Callsign("K0PEER"), new Callsign("APZ001"));
+
+        var rej = Assert.IsType<MessageRejPacket>(result);
+        Assert.Equal(new Callsign("K0PEER"), rej.Source);
+        Assert.Equal(new Callsign("N0CALL"), rej.Addressee);
+        Assert.Equal(7, rej.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_MessageRejBareNumber_ReturnsRejPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :rej3",
+            new Callsign("K0PEER"), new Callsign("APZ001"));
+
+        var rej = Assert.IsType<MessageRejPacket>(result);
+        Assert.Equal(3, rej.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_MessageAckNonCallsignAddressee_FallsBackToAprs()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":INVALID! :ack{5}",
+            new Callsign("K0PEER"), new Callsign("APZ001"));
+
+        var ack = Assert.IsType<MessageAckPacket>(result);
+        Assert.Equal(new Callsign("APRS"), ack.Addressee);
+        Assert.Equal(5, ack.MessageNumber);
+    }
+
     [Theory]
     [InlineData(":N0CALL   :{abc}")]
     [InlineData(":N0CALL   :Hello{")]
@@ -488,7 +569,7 @@ public class AprsParserTests
         Assert.Equal(30, w.WindGust);
         Assert.Equal(80, w.Temperature);
         Assert.Equal(55, w.Humidity);
-        Assert.Equal(10100, w.Pressure);
+        Assert.Equal(1010, w.Pressure); // 10100 tenths of millibars = 1010.0
     }
 
     [Fact]
@@ -500,7 +581,7 @@ public class AprsParserTests
         var w = Assert.IsType<WeatherPacket>(result);
         Assert.Equal(90, w.WindDirection);
         Assert.Equal(15, w.WindSpeed);
-        Assert.Equal(10150, w.Pressure);
+        Assert.Equal(1015, w.Pressure); // 10150 tenths of millibars = 1015.0
         Assert.Null(w.Temperature);
         Assert.Null(w.Humidity);
         Assert.Null(w.Rain1h);
@@ -592,6 +673,32 @@ public class AprsParserTests
         var result = Ax25Parser.ParseFrame(frame);
 
         Assert.IsType<UnknownPacket>(result);
+    }
+
+    [Fact]
+    public void ParseFrame_SourceWithNulPadding_MapsToSpacesAndParses()
+    {
+        // Malformed source address: "AB" followed by NUL bytes (wire bytes are
+        // ASCII left-shifted by 1, so 'A' = 0x82, 'B' = 0x84, NUL = 0x00).
+        // Non-printable decoded characters must be mapped to spaces, not embedded
+        // as control characters in the callsign base.
+        byte[] address = [0x82, 0x84, 0x00, 0x00, 0x00, 0x00, 0x61];
+
+        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+        // Replace the source address (bytes 7..13) with the NUL-padded address
+        frame[7] = address[0];
+        frame[8] = address[1];
+        frame[9] = address[2];
+        frame[10] = address[3];
+        frame[11] = address[4];
+        frame[12] = address[5];
+        frame[13] = address[6];
+
+        var result = Ax25Parser.ParseFrame(frame);
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(new Callsign("AB"), pos.Source);
+        Assert.DoesNotContain('\0', pos.Source.Base);
     }
 
     // ---------------------------------------------------------------
