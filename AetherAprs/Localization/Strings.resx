@@ -256,4 +256,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Receiving and transmitting APRS packets</value></data>
   <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>AetherAprs Foreground Service</value></data>
   <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Keeps AetherAprs active while receiving and transmitting packets</value></data>
+  <data name="UseTemplate" xml:space="preserve"><value>Use template</value></data>
+  <data name="TemplatePickerTitle" xml:space="preserve"><value>Message Templates</value></data>
+  <data name="TemplatePickerTemplate" xml:space="preserve"><value>Template</value></data>
+  <data name="TemplatePickerDestination" xml:space="preserve"><value>Destination</value></data>
+  <data name="TemplatePickerPreview" xml:space="preserve"><value>Preview</value></data>
+  <data name="TemplatePickerConfirm" xml:space="preserve"><value>Insert</value></data>
+  <data name="TemplatePickerNoTemplates" xml:space="preserve"><value>No templates configured. Add templates in the message template settings.</value></data>
 </root>

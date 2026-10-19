@@ -1,0 +1,87 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AetherAprs.ViewModels.Components"
+             xmlns:config="using:AetherAprs.Configuration.Settings"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:converters="using:AetherAprs.Converters.UI"
+             x:Class="AetherAprs.Views.Components.MessageTemplateDialogComponent"
+             x:DataType="vm:MessageTemplateDialogViewModel"
+             x:Name="Root">
+  <StackPanel Spacing="12" MinWidth="320" MaxWidth="480">
+
+    <TextBlock Classes="Headline6"
+               Text="{loc:Loc TemplatePickerTitle}"
+               Foreground="{DynamicResource MaterialPrimaryBrush}" />
+
+    <TextBlock Text="{loc:Loc TemplatePickerTemplate}"
+               Classes="Caption"
+               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+    <TextBlock Text="{loc:Loc TemplatePickerNoTemplates}"
+               TextWrapping="Wrap"
+               IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+
+    <ListBox ItemsSource="{Binding Templates}"
+             SelectedItem="{Binding SelectedTemplate}"
+             MaxHeight="200"
+             IsVisible="{Binding !Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="config:MessageTemplate">
+          <StackPanel Spacing="2">
+            <TextBlock Text="{Binding Name}" />
+            <TextBlock Classes="Caption"
+                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                       Text="{Binding Destination}"
+                       IsVisible="{Binding Destination, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <ItemsControl ItemsSource="{Binding Fields}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Spacing="8" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:TemplateFieldViewModel">
+          <TextBox Text="{Binding Value, Mode=TwoWay}"
+                   wpf:TextFieldAssist.Label="{Binding Name}"
+                   UseFloatingPlaceholder="True" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBox Text="{Binding Destination}"
+             wpf:TextFieldAssist.Label="{loc:Loc TemplatePickerDestination}"
+             UseFloatingPlaceholder="True" />
+
+    <StackPanel Spacing="4">
+      <TextBlock Text="{loc:Loc TemplatePickerPreview}"
+                 Classes="Caption"
+                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+      <TextBlock Classes="Body2"
+                 Text="{Binding Preview}"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="8">
+      <Button Classes="Flat"
+              Content="{loc:Loc Cancel}"
+              Click="OnCancelClick" />
+      <Button Classes="Flat"
+              Content="{loc:Loc TemplatePickerConfirm}"
+              Command="{Binding ConfirmCommand}"
+              IsEnabled="{Binding CanConfirm}" />
+    </StackPanel>
+  </StackPanel>
+</UserControl>

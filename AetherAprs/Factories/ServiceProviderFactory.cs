@@ -124,6 +124,7 @@ public static class ServiceProviderFactory
 
         // Register messaging
         services.AddSingleton<IMessageService, MessageService>();
+        services.AddSingleton<IMessageTemplateService, MessageTemplateService>();
         services.AddSingleton<IPacketStorageService, PacketStorageService>();
         services.AddSingleton<IPacketQueryService, PacketQueryService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
@@ -142,6 +143,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
+        services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>(); // Application-wide navigation state
@@ -155,6 +157,7 @@ public static class ServiceProviderFactory
         services.AddTransient<DynamicBeaconingViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<AddEditPortViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ConversationViewModel>(); // Overlay sub-page, fresh each time
+        services.AddTransient<MessageTemplateDialogViewModel>(); // Dialog content, fresh each time a template is picked
         services.AddTransient<PacketDetailsViewModel>(); // Overlay sub-page, fresh each time
 
         // Allow overriding core services for testing or platform-specific

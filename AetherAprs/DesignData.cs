@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
@@ -26,7 +27,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -71,6 +74,7 @@ public static class DesignData
         services.AddSingleton<IAprsPortSettingsResolver, AprsPortSettingsResolver>();
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IMessageService, MessageService>();
+        services.AddSingleton<IMessageTemplateService, DesignTimeMessageTemplateService>();
         services.AddSingleton<IPacketStorageService, PacketStorageService>();
         services.AddSingleton<IPacketQueryService, PacketQueryService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
@@ -90,6 +94,7 @@ public static class DesignData
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
+        services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
 
         // Register logging
         services.AddLogging(builder =>
@@ -110,6 +115,7 @@ public static class DesignData
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
         services.AddTransient<ConversationViewModel>();
+        services.AddTransient<MessageTemplateDialogViewModel>();
         services.AddTransient<PacketDetailsViewModel>();
 
         var provider = services.BuildServiceProvider();
@@ -163,6 +169,46 @@ public static class DesignData
         public Task StopAsync() => Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Design-time stub implementation of IMessageTemplateService offering the
+    /// seeded default template without touching configuration files.
+    /// </summary>
+    private sealed class DesignTimeMessageTemplateService : IMessageTemplateService
+    {
+        private static readonly IReadOnlyList<MessageTemplate> SeedTemplates =
+        [
+            new MessageTemplate
+            {
+                Name = "APRS2SOTA Spot",
+                Destination = "SOTA",
+                Body = "{summit} {freq} {mode} {comment}"
+            }
+        ];
+
+        public IReadOnlyList<MessageTemplate> Templates => SeedTemplates;
+
+        public MessageTemplate? GetByName(string name) =>
+            name is not null
+                ? SeedTemplates.FirstOrDefault(template =>
+                    string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase))
+                : null;
+
+        public Task AddAsync(MessageTemplate messageTemplate, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task UpdateAsync(string originalName, MessageTemplate messageTemplate, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task DeleteAsync(string name, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public IReadOnlyList<string> GetPlaceholderNames(string body) => [];
+
+        public string? Apply(MessageTemplate messageTemplate, IReadOnlyDictionary<string, string> values) =>
+            messageTemplate.Body;
+
+        public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(Callsign peer) => SeedTemplates;
+    }
+
     public static MainViewModel MainViewModel => _serviceProvider.GetRequiredService<MainViewModel>();
 
     public static HomeViewModel HomeViewModel => _serviceProvider.GetRequiredService<HomeViewModel>();
@@ -183,6 +229,16 @@ public static class DesignData
 
     public static PacketDetailsViewModel PacketDetailsViewModel =>
         _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
+
+    public static MessageTemplateDialogViewModel MessageTemplateDialogViewModel
+    {
+        get
+        {
+            var templateService = _serviceProvider.GetRequiredService<IMessageTemplateService>();
+            var factory = _serviceProvider.GetRequiredService<IMessageTemplateDialogViewModelFactory>();
+            return factory.Create(templateService.Templates, null);
+        }
+    }
 
     public static SymbolSelectorViewModel SymbolSelectorViewModel
     {
