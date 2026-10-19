@@ -86,8 +86,6 @@ When you transmit `CT7ALW-9>APRS,WIDE1-1,WIDE2-1:!position...`:
 3. Scroll to **Beacon Settings** section
 4. Find **Digipeater Path** field
 
-![Digipeater Path Setting](screenshots/digipeater-path.png)
-
 ### Setting Your Path
 
 **Default path**: `WIDE1-1,WIDE2-1`

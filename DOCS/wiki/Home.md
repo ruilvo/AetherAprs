@@ -20,15 +20,11 @@ AetherAprs is a modern, cross-platform ham radio APRS (Automatic Packet Reportin
 - **[Beaconing Setup](Beaconing-Setup.md)** - Configure position reporting
 - **[APRS Path and Beacon Comments](APRS-Path-and-Comments.md)** - Configure digipeater paths and beacon comments
 - **[Messaging Guide](Messaging.md)** - Send and receive APRS messages
-- **[Map Usage](Map-Usage.md)** - Using the interactive map
-- **[Digipeater Configuration](Digipeater-Configuration.md)** - Set up digipeating and gating
-- **[Settings Reference](Settings-Reference.md)** - Complete settings documentation
-- **[Troubleshooting](Troubleshooting.md)** - Common issues and solutions
 
 ### For Developers
 - **[Building from Source](Building-from-Source.md)** - Compile and run AetherAprs
-- **[Android Release Setup](Android-Release-Setup.md)** - Configure automatic APK builds
 - **[Developer Guide](Developer-Guide.md)** - Architecture and contribution guidelines
+- **[AGENTS.md](https://github.com/RuiOliveira/AetherAprs/blob/main/AGENTS.md)** - Coding conventions for AI agents and humans
 
 ## Features Overview
 

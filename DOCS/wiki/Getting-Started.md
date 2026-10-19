@@ -25,7 +25,9 @@ This guide walks you through setting up AetherAprs for the first time.
 3. Open the APK file and install
 4. Grant required permissions when prompted:
    - **Location**: Required for GPS beaconing
+   - **Background Location**: Required for beaconing while the screen is off (optional; grant via "Allow all the time" in Android settings)
    - **Bluetooth**: Required for Bluetooth TNC connections
+   - **Notifications**: Required for the foreground service notification
    - **Foreground Service**: Keeps app active while ports are enabled
 
 ### Desktop (Windows, Linux, macOS)
@@ -37,9 +39,6 @@ You can try building from source (see [Building from Source](Building-from-Sourc
 ## First Launch
 
 When you first open AetherAprs, you'll see the Home page:
-
-![Home Page](screenshots/home-page.png)
-*Screenshot: Home page on first launch*
 
 The app starts with:
 - No ports configured
@@ -55,13 +54,7 @@ Before connecting to APRS networks, configure your station information.
 
 Tap the **Settings** tab at the bottom of the screen (gear icon).
 
-![Settings Tab](screenshots/settings-tab.png)
-*Screenshot: Bottom navigation with Settings tab*
-
 ### Step 2: Configure Station Settings
-
-![Station Settings](screenshots/station-settings.png)
-*Screenshot: Station Settings section*
 
 **Required Fields:**
 
@@ -84,9 +77,6 @@ Tap the **Settings** tab at the bottom of the screen (gear icon).
    - Tap **Base Symbol** button to select your primary symbol (house, car, truck, etc.)
    - Tap **Overlay** button to add an alphanumeric overlay (if using alternate table symbols)
    - Preview shows the final combined symbol
-   
-   ![Symbol Picker](screenshots/symbol-picker.png)
-   *Screenshot: APRS Symbol Picker*
 
 **Optional Settings:**
 
@@ -110,25 +100,13 @@ Ports are connections to APRS networks. Start with APRS-IS (Internet) for the ea
 
 Tap the **Ports** tab at the bottom of the screen (network icon).
 
-![Ports Tab](screenshots/ports-tab.png)
-*Screenshot: Bottom navigation with Ports tab*
-
-![Ports Page Empty](screenshots/ports-empty.png)
-*Screenshot: Empty ports page*
-
 ### Step 2: Add APRS-IS Port
 
 1. Tap the **➕ (Add)** button in the bottom-right (floating action button)
 2. Enter a **Port Name**: `APRS-IS Main`
 3. Select **Port Type**: `APRS-IS`
 
-![Add Port - Type Selection](screenshots/add-port-type.png)
-*Screenshot: Port type selection*
-
 ### Step 3: Configure APRS-IS Connection
-
-![APRS-IS Configuration](screenshots/aprs-is-config.png)
-*Screenshot: APRS-IS port configuration*
 
 **Connection Settings:**
 
@@ -164,9 +142,6 @@ Tap the **Ports** tab at the bottom of the screen (network icon).
 1. Tap **Save** button in the bottom action bar
 2. Back on Ports page, **toggle the port ON**
 
-![Port Enabled](screenshots/port-enabled.png)
-*Screenshot: Port enabled showing "Running" status*
-
 **Status Indicators:**
 - **"Running"**: Port is enabled and active
 - **"Stopped"**: Port is disabled
@@ -174,9 +149,6 @@ Tap the **Ports** tab at the bottom of the screen (network icon).
 ### Android: Foreground Service
 
 When you enable a port on Android, a **persistent notification** appears:
-
-![Foreground Service Notification](screenshots/foreground-notification.png)
-*Screenshot: Foreground service notification*
 
 This keeps the app active in the background. To stop:
 - Tap **Stop** in the notification, or
@@ -187,9 +159,6 @@ This keeps the app active in the background. To stop:
 Once your port is enabled, packets start arriving immediately.
 
 ### Map View (Home Page)
-
-![Map with Packets](screenshots/map-packets.png)
-*Screenshot: Map showing received stations*
 
 The map displays:
 - **Station markers** with APRS symbols
@@ -209,12 +178,6 @@ View all received packets in a sortable list.
 
 Tap the **Packets** tab at the bottom of the screen.
 
-![Packets Tab](screenshots/packets-tab.png)
-*Screenshot: Bottom navigation with Packets tab*
-
-![Packets List](screenshots/packets-list.png)
-*Screenshot: Packets page showing recent activity*
-
 **Columns:**
 - **Callsign**: Station identifier
 - **Type**: Packet type (Position, Message, Status, etc.)
@@ -223,9 +186,6 @@ Tap the **Packets** tab at the bottom of the screen.
 
 **Tap a row** to view full packet details:
 
-![Packet Details](screenshots/packet-details.png)
-*Screenshot: Detailed packet information*
-
 ## Next Steps
 
 Now that you're receiving packets, explore more features:
@@ -233,8 +193,7 @@ Now that you're receiving packets, explore more features:
 - **[Beaconing Setup](Beaconing-Setup.md)**: Transmit your position automatically
 - **[Messaging](Messaging.md)**: Send messages to other stations
 - **[Port Configuration](Port-Configuration.md)**: Add KISS TNCs or Bluetooth devices
-- **[Map Usage](Map-Usage.md)**: Advanced map features and filtering
-- **[Digipeater Configuration](Digipeater-Configuration.md)**: Route packets between networks
+- **[APRS Path and Beacon Comments](APRS-Path-and-Comments.md)**: Configure digipeater paths
 
 ## Troubleshooting
 
@@ -266,7 +225,7 @@ Now that you're receiving packets, explore more features:
 - Check battery optimization: Settings → Apps → AetherAprs → Battery → Unrestricted
 - Some manufacturers (Xiaomi, Huawei) aggressively kill background apps - add to whitelist
 
-For more help, see [Troubleshooting](Troubleshooting.md).
+For more help, check the in-app documentation or open an issue on GitHub.
 
 ---
 

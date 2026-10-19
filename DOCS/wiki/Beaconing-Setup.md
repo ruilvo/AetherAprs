@@ -39,9 +39,6 @@ Before beaconing, you need GPS location data.
 
 ### Enabling Location
 
-![Location Tracking](screenshots/location-tracking.png)
-*Screenshot: Location tracking section on Home page*
-
 **On first launch**, AetherAprs requests location permission:
 1. Android prompts: "Allow AetherAprs to access this device's location?"
 2. Tap **Allow** or **While using the app**
@@ -76,9 +73,6 @@ If you denied permission initially:
 ## Beacon Modes
 
 AetherAprs provides three preset beacon modes plus manual transmission.
-
-![Beacon Mode Selection](screenshots/beacon-modes.png)
-*Screenshot: Beacon mode selector on Home page*
 
 ### Walk Mode
 
@@ -143,9 +137,6 @@ Customize beacon behavior for each mode.
 
 1. Tap **Settings** tab
 2. Scroll to **Beacon Configuration** section
-
-![Beacon Configuration](screenshots/beacon-config.png)
-*Screenshot: Beacon configuration settings*
 
 You'll see three expandable sections:
 - Walk Mode Configuration
@@ -254,9 +245,6 @@ Send position beacons on-demand without automatic transmission.
 2. Ensure at least one port is **enabled with TX**
 3. Tap **Send Beacon** button on Home page
 
-![Send Beacon Button](screenshots/send-beacon.png)
-*Screenshot: Send Beacon button*
-
 **Result**: Position packet transmitted immediately to all TX-enabled ports.
 
 ### When to Use Manual Beacons
@@ -321,9 +309,6 @@ This is the standard APRS path for mobile stations:
 ### Viewing Last Beacon
 
 On the Home page, the **Beacon Transmission** section shows:
-
-![Beacon Status](screenshots/beacon-status.png)
-*Screenshot: Beacon transmission status*
 
 **Information displayed:**
 - Current beacon mode (Walk/Drive/Custom/Manual)
@@ -409,6 +394,7 @@ When beaconing on RF:
 
 **Check permissions:**
 - Location permission granted?
+- For beaconing with the screen off: **Background location** must be "Allow all the time" (Android Settings → Apps → AetherAprs → Permissions → Location → Allow all the time). Note Android may delay background access for a newly installed app.
 - Foreground service notification visible (Android)?
 
 ### Beacons Too Frequent

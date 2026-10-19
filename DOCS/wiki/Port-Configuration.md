@@ -44,9 +44,6 @@ APRS-IS provides Internet connectivity to the global APRS network.
 3. Enter **Port Name**: `APRS-IS` (or any descriptive name)
 4. Select **Port Type**: `APRS-IS`
 
-![APRS-IS Port Configuration](screenshots/aprs-is-config.png)
-*Screenshot: APRS-IS configuration screen*
-
 ### Connection Settings
 
 #### Server
@@ -151,9 +148,6 @@ Connect to a KISS TNC via network (local or remote).
 4. Select **Port Type**: `KISS`
 5. Select **Transport**: `TCP/IP`
 
-![KISS TCP Configuration](screenshots/kiss-tcp-config.png)
-*Screenshot: KISS TCP configuration*
-
 ### Connection Settings
 
 #### Host
@@ -227,15 +221,9 @@ Connect to a KISS TNC via Bluetooth SPP (Serial Port Profile).
    - Select **Port Type**: `KISS`
    - Select **Transport**: `Bluetooth Classic`
 
-![Bluetooth Classic Configuration](screenshots/bt-classic-config.png)
-*Screenshot: Bluetooth Classic configuration*
-
 ### Device Selection
 
 Tap **Select Device** to browse paired Bluetooth devices.
-
-![Bluetooth Device Selection](screenshots/bt-device-list.png)
-*Screenshot: Paired Bluetooth devices*
 
 **Select your TNC** from the list. Only paired devices appear.
 
@@ -285,15 +273,9 @@ Connect to a KISS TNC via Bluetooth Low Energy using Nordic UART Service (NUS).
 4. Select **Port Type**: `KISS`
 5. Select **Transport**: `Bluetooth LE`
 
-![Bluetooth LE Configuration](screenshots/bt-le-config.png)
-*Screenshot: Bluetooth LE configuration*
-
 ### Device Discovery
 
 Tap **Scan for Devices** to discover nearby BLE devices.
-
-![BLE Scan](screenshots/ble-scan.png)
-*Screenshot: BLE device scanning*
 
 **Wait for scan to complete** (a few seconds), then **select your TNC**.
 
@@ -393,7 +375,9 @@ When enabled (and global digipeater is enabled):
 - Uncheck for monitor-only ports (reduce clutter)
 - Check for RF ports participating in digipeater network
 
-See [Digipeater Configuration](Digipeater-Configuration.md) for details.
+Digipeating participation per port is controlled by the **Allow Digipeat** toggle
+described above; the digipeater master switch and path settings live on the
+Settings page.
 
 ## Managing Ports
 

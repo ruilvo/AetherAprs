@@ -128,7 +128,7 @@ When adding packages:
 
 ### Test Framework
 
-Tests use **xUnit v3** (`xunit.v3`, not `xunit` v2). Run them with:
+Tests use **xUnit v3** (`xunit.v3`, not `xunit` v2) on the VSTest platform. Run them with:
 
 ```powershell
 dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
@@ -141,7 +141,7 @@ Key differences from xUnit v2:
 - Use `TestContext.Current.CancellationToken` for test cancellation (suppresses xUnit1051 warnings)
 - Test classes don't need `public`
 
-No mocking library is currently referenced. Add one via `Directory.Packages.props` and the `.csproj` when needed.
+The mocking library is **NSubstitute** (already referenced). Add further packages via `Directory.Packages.props` and the `.csproj` when needed.
 
 ### ImplicitUsings Disabled
 

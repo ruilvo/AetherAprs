@@ -107,14 +107,14 @@ When adding new files, consult CODEBASE_STRUCTURE.md for proper placement and na
 
 ## Test Project
 
-Tests use **xUnit v3** (`xunit.v3` package, **not** `xunit` v2). Important differences from v2:
+Tests use **xUnit v3** (`xunit.v3` package, **not** `xunit` v2) running on the **VSTest platform** (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`). Important differences from v2:
 - `[Fact]` is in `Xunit` namespace (not `Xunit.FactAttribute`)
 - Test classes do NOT need `public` (but can be)
 - Use `Assert.ThrowsAsync<T>` instead of `await Assert.ThrowsAsync<T>` with `.AsTask()` extension - `ValueTask`-returning methods work directly
 - `IAsyncDisposable` types require `await using` (not `using`) in tests
 - `TestContext.Current.CancellationToken` is available for test cancellation (suppresses xUnit1051 warnings)
 
-No mocking library is currently referenced. When adding one, follow the central package management rules.
+The mocking library is **NSubstitute** (already referenced and used across the test suite). When adding another package, follow the central package management rules.
 
 ### Where to place tests
 
@@ -369,7 +369,7 @@ Simple presentational controls without logic may not need ViewModels (e.g., Scro
 - ViewModels consume these services and expose UI-specific state
 - Services can be used by multiple ViewModels and don't depend on UI lifecycle
 
-**Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`).
+**Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`). Core must register safe defaults (e.g. NoOp/desktop implementations) for every platform service interface so non-Android hosts can start; platform projects replace them.
 
 **Factory Pattern for Transient ViewModels**: When a ViewModel requires post-construction initialization with context-specific data, use the factory pattern instead of service locator:
 - Create `IViewModelFactory` interface with `Create(...)` methods accepting context parameters
@@ -412,6 +412,8 @@ public SettingsViewModel(...)
     SymbolPicker = new AprsSymbolPickerViewModel(...); // Anti-pattern
 }
 ```
+
+**Exception - stateless presentation wrappers**: Directly `new`-ing a child ViewModel inside a parent ViewModel is acceptable when the child is a stateless presentation wrapper with no service dependencies, created on demand with arguments derived at invocation time (a DI factory would only delegate to `new`). Documented examples: `BeaconConfigurationItemViewModel` (wraps a `BeaconConfig` record, created by `DynamicBeaconingViewModel`) and `SymbolSelectorViewModel` (transient per-dialog selector, created by `AprsSymbolPickerViewModel`).
 
 When binding ViewModels to UI:
 - ALWAYS use `<ContentControl Content="{Binding ViewModelProperty}" />`
@@ -724,7 +726,7 @@ public void Dispose()
 - Using lambda subscriptions to own PropertyChanged event (memory leaks)
 - Fire-and-forget async operations without cancellation tokens or error handling
 - Missing try-catch in async void event handlers (app crashes on exception)
-- Using service locator pattern (`App.GetService<>()` or `IServiceProvider.GetRequiredService<>()`) instead of constructor injection or factory pattern
+- Using service locator pattern (`App.GetService<>()` or `IServiceProvider.GetRequiredService<>()`) instead of constructor injection or factory pattern (documented exception: `App.GetService<T>()` is allowed only in platform entry points where constructor injection is unavailable, e.g. the Android BroadcastReceiver in `MainActivity.cs` and framework-created views — see the XML docs on `App.GetService<T>`)
 - Creating child ViewModels directly instead of injecting them via constructor
 - Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
 - **Adding hardcoded user-facing text in AXAML or code without using localization** - ALL user-facing strings MUST use `{loc:Loc StringKey}` in AXAML or `Strings.Get("StringKey")` in code

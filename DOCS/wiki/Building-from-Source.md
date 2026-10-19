@@ -190,10 +190,8 @@ dotnet run --project AetherAprs/AetherAprs.csproj
 ```
 
 **Known Issues:**
-- Bluetooth TNCs not supported on desktop
-- Location services use stub implementations
-- Some Android-specific features missing
-- Not tested or maintained
+- Desktop is experimental: Bluetooth TNCs and GPS hardware are stubbed (no-op implementations)
+- Not tested or maintained — Android is the primary target
 
 ## Running Tests
 
@@ -255,7 +253,7 @@ dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj /p:CollectCoverage=true
 AetherAprs/
 ├── AetherAprs/                    # Core library (net10.0)
 │   ├── Configuration/             # Settings and configuration
-│   ├── Database/                  # EF Core models and context
+│   ├── Data/                      # EF Core models, context, migrations
 │   ├── Localization/              # Strings.resx files
 │   ├── Modems/                    # KISS TNC, APRS-IS implementations
 │   ├── Models/                    # Domain models
@@ -268,7 +266,7 @@ AetherAprs/
 │   └── Resources/                 # Android resources
 ├── AetherAprs.Tests/              # Test project (net10.0)
 │   └── (mirrors AetherAprs structure)
-├── docs/                          # Documentation
+├── DOCS/                          # Documentation
 │   └── wiki/                      # Wiki markdown files
 ├── .github/workflows/             # GitHub Actions
 ├── Directory.Packages.props       # Centralized package versions
@@ -364,7 +362,7 @@ Settings → Apps → AetherAprs → Permissions → Location → Allow
 
 #### "AppDbContext tests failing"
 
-**Known issue**: Some tests fail due to EF Core mocking limitations. These are pre-existing and don't affect functionality.
+All tests are expected to pass. If tests fail, ensure you built the solution first (`dotnet build AetherAprs.slnx`) and re-run with `dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj`.
 
 #### "xUnit version mismatch"
 
@@ -373,7 +371,6 @@ Settings → Apps → AetherAprs → Permissions → Location → Allow
 ## Next Steps
 
 - **[Developer Guide](Developer-Guide.md)**: Architecture and contribution guidelines
-- **[Android Release Setup](Android-Release-Setup.md)**: Configure GitHub Actions for automated releases
 - **Contributing**: See `AGENTS.md` for detailed guidelines
 
 ---

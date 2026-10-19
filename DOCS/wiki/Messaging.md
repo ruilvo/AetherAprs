@@ -53,9 +53,6 @@ APRS messages are **short text communications** between stations, similar to SMS
 
 Tap the **Messages** tab at the bottom to view all conversations.
 
-![Messages Page](screenshots/messages-page.png)
-*Screenshot: Messages page showing conversations*
-
 **Conversation list** shows:
 - **Callsign**: Who the conversation is with
 - **Last message preview**: Recent message snippet
@@ -65,9 +62,6 @@ Tap the **Messages** tab at the bottom to view all conversations.
 **Tap a conversation** to open the message thread.
 
 ### Conversation View
-
-![Conversation View](screenshots/conversation-view.png)
-*Screenshot: Conversation thread with a station*
 
 **Message bubbles:**
 - **Right side (blue)**: Messages you sent
@@ -86,9 +80,6 @@ Outbound messages show delivery status below the message:
 - **✓ Acknowledged**: Recipient confirmed receipt
 - **✗ Rejected**: Recipient rejected the message
 - **⌛ Timeout**: No response after maximum retries
-
-![Message Status](screenshots/message-status.png)
-*Screenshot: Message with delivery status*
 
 ### Receiving Messages
 
@@ -114,9 +105,6 @@ Outbound messages show delivery status below the message:
 4. Optionally add **SSID** (e.g., `CT1ETE-9`)
 5. Type your message
 6. Tap **Send**
-
-![New Message](screenshots/new-message.png)
-*Screenshot: Composing a new message*
 
 ### Replying to a Message
 
@@ -210,9 +198,6 @@ Timeout → marked as failed
 
 In conversation view, outbound messages show status below text:
 
-![Delivery Status](screenshots/delivery-status-detail.png)
-*Screenshot: Message delivery status details*
-
 **Status updates automatically** as acknowledgments arrive.
 
 ## Message Settings
@@ -223,9 +208,6 @@ Configure message behavior in Settings.
 
 1. Tap **Settings** tab
 2. Scroll to **Messaging** section
-
-![Message Settings](screenshots/message-settings.png)
-*Screenshot: Messaging configuration*
 
 ### Auto-Acknowledge Messages
 
@@ -481,4 +463,4 @@ AetherAprs formats this automatically.
 
 ---
 
-**Next**: [Digipeater Configuration →](Digipeater-Configuration.md)
+**Next**: [Beaconing Setup →](Beaconing-Setup.md)

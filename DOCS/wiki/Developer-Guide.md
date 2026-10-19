@@ -14,7 +14,7 @@ AetherAprs follows a clean two-flow architecture with strict separation between 
 
 ### Technology Stack
 
-- **UI Framework**: Avalonia UI 11 with Material Design
+- **UI Framework**: Avalonia UI 12 with Material Design
 - **MVVM**: CommunityToolkit.Mvvm for [ObservableProperty] and [RelayCommand]
 - **Database**: SQLite with Entity Framework Core 10
 - **Dependency Injection**: Microsoft.Extensions.DependencyInjection
@@ -149,8 +149,22 @@ The following patterns violate the architecture and MUST NOT be used:
 **BeaconService** (`IBeaconService`):
 - Manages beacon configurations (Walk/Drive/Custom presets)
 - Persists beacon configs via EF Core
-- Coordinates beacon transmission via PortService
-- Implements smart beaconing logic (speed/course/distance triggers)
+- Evaluates beacon transmission conditions on a timer (state machine)
+- Raises BeaconRequested event; transmission delegated to BeaconTransmissionService
+- Tracks location history and calculates course
+- Implements retry backoff when transmissions fail (ReportBeaconTransmissionResult)
+
+**BeaconTransmissionService** (`IBeaconTransmissionService`):
+- Subscribes to BeaconService.BeaconRequested
+- Creates beacon packets via IPacketFactory
+- Transmits via PortService.SendPacketAsync()
+- Manages beacon status messages for UI
+
+**LocationTrackingService** (`ILocationTrackingService`):
+- Manages GPS location tracking lifecycle
+- Polls location on an interval when active
+- Raises LocationUpdated event with new coordinates
+- Handles permission requests and error recovery
 
 **DigipeaterService** (`IDigipeaterService`):
 - Implements APRS digipeater functionality
@@ -272,36 +286,34 @@ Simple presentational controls without logic may not need ViewModels.
 
 ### ViewLocator Pattern
 
-AetherAprs uses automatic ViewModel-to-View mapping via `ViewLocator.cs`:
+AetherAprs uses explicit ViewModel-to-View mapping via `ViewLocator.cs`:
 
 ```csharp
 public class ViewLocator : IDataTemplate
 {
-    public Control? Build(object? data)
+    public Control? Build(object? param)
     {
-        if (data is null) return null;
-        
-        var name = data.GetType().FullName!.Replace("ViewModel", "View");
-        var type = Type.GetType(name);
-        
-        if (type != null)
+        return param switch
         {
-            return (Control)Activator.CreateInstance(type)!;
-        }
-        
-        return new TextBlock { Text = "View Not Found: " + name };
+            MainViewModel => new MainView(),
+            HomeViewModel => new HomePage(),
+            // ... one case per ViewModel/View pair
+            _ => param is null
+                ? null
+                : new TextBlock { Text = $"No view for {param.GetType().Name}" }
+        };
     }
-    
+
     public bool Match(object? data) => data is ViewModelBase;
 }
 ```
 
 **When creating a new View/ViewModel:**
-1. Name ViewModel: `FooViewModel`
-2. Name View: `FooView` (in same namespace)
+1. Name ViewModel: `FooViewModel` (in `ViewModels/Pages` or `ViewModels/Components`)
+2. Name View: `FooPage` / `FooComponent` / `FooView` (in `Views/Pages` or `Views/Components`)
 3. Register ViewModel in `ServiceProviderFactory.cs` (runtime DI)
 4. Register ViewModel in `DesignData.cs` (design-time DI)
-5. Add ViewModel → View mapping in `ViewLocator.cs` if non-standard naming
+5. Add ViewModel → View mapping in `ViewLocator.cs` (explicit switch case)
 6. Test in Avalonia previewer
 
 ### Dependency Injection
@@ -313,8 +325,8 @@ AetherAprs uses Microsoft.Extensions.DependencyInjection.
 - `DesignData.cs` - Design-time service provider for Avalonia previewer
 
 **ViewModel lifetimes:**
-- **Singleton**: Page-level ViewModels (HomeViewModel, PacketsViewModel, PortsViewModel, SettingsViewModel, MessagesViewModel)
-- **Transient**: Component ViewModels (LocationTrackingViewModel, BeaconTransmissionViewModel, AprsSymbolPickerViewModel)
+- **Singleton**: Page-level ViewModels (MainViewModel, HomeViewModel, MessagesViewModel, PacketsViewModel, PortsViewModel, SettingsViewModel)
+- **Transient**: Overlay sub-pages (DynamicBeaconingViewModel, AddEditPortViewModel, ConversationViewModel, PacketDetailsViewModel) and sub-components (MapViewModel, AprsSymbolPickerViewModel)
 - **Transient with Factory**: ViewModels requiring post-construction initialization (AddEditPortViewModel, PacketDetailsViewModel, ConversationViewModel)
 
 **Factory pattern for transient ViewModels:**
