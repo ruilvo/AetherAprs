@@ -1,0 +1,55 @@
+# This file is part of AetherAprs
+# SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+# SPDX-License-Identifier: CC0-1.0
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csproj,props,targets,slnx,yml,yaml,axaml,json}]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.cs]
+# Naming conventions (AGENTS.md rules, compiler-enforced)
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# Quality: fail the build on the same classes of issues enforced today.
+dotnet_diagnostic.CA2013.severity = error
+dotnet_diagnostic.CS8600.severity = error
+dotnet_diagnostic.VSTHRD002.severity = none
+
+# Analyzer scope adjustments (documented deviations from latest-recommended).
+# These rules conflict with project conventions or would require invasive churn
+# disproportionate to their value; the important ones remain errors.
+dotnet_diagnostic.CA1848.severity = none      # LoggerMessage source-gen delegates: pervasive, low value here
+dotnet_diagnostic.CA1873.severity = none      # Expensive log arguments: negligible at APRS packet rates
+dotnet_diagnostic.CA1305.severity = suggestion # Culture rules: user-facing strings are intentionally culture-aware
+dotnet_diagnostic.CA1805.severity = none      # Explicit default initializers are intentional documentation
+dotnet_diagnostic.CA1711.severity = none      # Existing public API names (e.g. CreateNew) would break
+dotnet_diagnostic.CA1725.severity = none      # Parameter-name matching across interfaces is fine
+dotnet_diagnostic.CA1846.severity = none      # AsSpan micro-optimization not warranted at these rates
+dotnet_diagnostic.CA1859.severity = none      # concrete-type hints: measure first
+dotnet_diagnostic.CA1861.severity = none      # constant array args in hot paths are fine
+dotnet_diagnostic.CA1001.severity = error     # types with disposable fields must dispose
+dotnet_diagnostic.CA1816.severity = error     # GC.SuppressFinalize contract
+dotnet_diagnostic.CA1822.severity = error     # mark members static where possible
+dotnet_diagnostic.CA1715.severity = error     # interfaces must start with I
+dotnet_diagnostic.CA2263.severity = error     # prefer generic enum overloads
+
+# Test project: underscore-separated test names (Method_Condition_Expectation)
+# are the project's established convention — keep them.
+[AetherAprs.Tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none

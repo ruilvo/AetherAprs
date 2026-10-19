@@ -1,0 +1,36 @@
+# This file is part of AetherAprs
+# SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+# SPDX-License-Identifier: CC0-1.0
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Build solution
+        run: dotnet build AetherAprs.slnx
+
+      - name: Run tests
+        run: dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
+
+      - name: Check for vulnerable packages
+        run: dotnet list AetherAprs.slnx package --vulnerable --include-transitive
+        continue-on-error: true

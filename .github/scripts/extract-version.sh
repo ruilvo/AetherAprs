@@ -18,6 +18,13 @@ fi
 # Remove 'v' prefix if present
 TAG="${TAG#v}"
 
+# Validate the tag format up front (M5): major.minor.patch with an optional
+# pre-release suffix (-<type>.<number>).
+if ! [[ $TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z]+\.[0-9]+)?$ ]]; then
+  echo "Error: Invalid tag format '$TAG'. Expected vMAJOR.MINOR.PATCH[-<type>.<number>]."
+  exit 1
+fi
+
 # Extract version components
 VERSION_MAJOR=$(echo "$TAG" | cut -d. -f1)
 VERSION_MINOR=$(echo "$TAG" | cut -d. -f2)
