@@ -2,14 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration.Settings;
+using AetherAprs.Factories.ViewModels;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Messaging;
+using AetherAprs.ViewModels.Components;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Threading.Tasks;
@@ -18,7 +22,9 @@ namespace AetherAprs.ViewModels.Pages;
 
 public partial class ConversationViewModel(
     IMessageService messageService,
-    ILogger<ConversationViewModel> logger) : ViewModelBase, IOverlayRetireable
+    IMessageTemplateService templateService,
+    IMessageTemplateDialogViewModelFactory templateDialogFactory,
+    ILogger<ConversationViewModel>? logger = null) : ViewModelBase, IOverlayRetireable
 {
     private ConversationThread? _thread;
     private bool _isNewConversation;
@@ -88,7 +94,7 @@ public partial class ConversationViewModel(
         try
         {
             await messageService.SendAsync(addressee, MessageText);
-            logger.LogInformation("Message sent to {Addressee}", addressee);
+            logger?.LogInformation("Message sent to {Addressee}", addressee);
             var thread = messageService.GetOrCreateConversation(addressee);
             if (_isNewConversation)
             {
@@ -111,7 +117,7 @@ public partial class ConversationViewModel(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
+            logger?.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
             ErrorMessage = ex.Message;
         }
         finally
@@ -122,6 +128,42 @@ public partial class ConversationViewModel(
     }
 
     private bool CanSend() => !IsSending;
+
+    /// <summary>
+    /// Creates a template picker dialog for the current conversation state.
+    /// When the destination parses to a callsign the templates are scoped to
+    /// that peer; otherwise all templates are offered. For existing
+    /// conversations the dialog is locked to the peer callsign; for new ones
+    /// the selected template may prefill the destination.
+    /// </summary>
+    public MessageTemplateDialogViewModel CreateTemplateDialog()
+    {
+        IReadOnlyList<MessageTemplate> templates;
+        if (Callsign.TryParse(DestinationCallsign, out var parsedPeer))
+        {
+            templates = templateService.GetTemplatesForPeer(parsedPeer);
+        }
+        else
+        {
+            templates = templateService.Templates;
+        }
+
+        return templateDialogFactory.Create(templates, IsDestinationEditable ? null : DestinationCallsign);
+    }
+
+    /// <summary>
+    /// Applies a template dialog result to the compose fields. The destination
+    /// is only taken from the result while the destination is still editable;
+    /// existing conversations stay locked to their peer.
+    /// </summary>
+    public void ApplyTemplateResult(MessageTemplateDialogResult result)
+    {
+        MessageText = result.Text;
+        if (IsDestinationEditable)
+        {
+            DestinationCallsign = result.Destination;
+        }
+    }
 
     /// <summary>
     /// Detaches from the conversation thread's change notifications. Must be called

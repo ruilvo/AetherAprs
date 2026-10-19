@@ -115,6 +115,8 @@ public sealed class MainViewModelTests
         services.AddSingleton<IMessageService>(messageService);
         services.AddSingleton<INavigationService>(navigation);
         services.AddLogging();
+        services.AddSingleton(Substitute.For<IMessageTemplateService>());
+        services.AddSingleton(Substitute.For<IMessageTemplateDialogViewModelFactory>());
         services.AddTransient<ConversationViewModel>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         var provider = services.BuildServiceProvider();
