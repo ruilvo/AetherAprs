@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using System.Threading.Tasks;
@@ -27,4 +28,11 @@ public interface IConfigurationService
     /// </summary>
     /// <returns>A deep copy of the current settings.</returns>
     AppSettings GetSettingsSnapshot();
+
+    /// <summary>
+    /// Updates settings using the provided action and saves them atomically.
+    /// This method is preferred over direct <see cref="Settings"/> mutation for ensuring changes are persisted.
+    /// </summary>
+    /// <param name="updateAction">Action that modifies the settings.</param>
+    Task UpdateSettingsAsync(Action<AppSettings> updateAction);
 }

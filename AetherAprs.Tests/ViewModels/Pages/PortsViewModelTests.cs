@@ -171,6 +171,12 @@ public sealed class PortsViewModelTests
         public AppSettings Settings { get; } = new();
         public Task SaveSettingsAsync() => Task.CompletedTask;
 
+        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        {
+            updateAction(Settings);
+            return Task.CompletedTask;
+        }
+
         public AppSettings GetSettingsSnapshot() => Settings;
     }
 

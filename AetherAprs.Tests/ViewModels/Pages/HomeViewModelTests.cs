@@ -249,6 +249,12 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         public Task SaveSettingsAsync() => Task.CompletedTask;
 
+        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        {
+            updateAction(Settings);
+            return Task.CompletedTask;
+        }
+
         public AppSettings GetSettingsSnapshot() => Settings;
     }
 

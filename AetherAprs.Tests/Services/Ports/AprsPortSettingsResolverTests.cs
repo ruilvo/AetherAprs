@@ -91,6 +91,12 @@ public class AprsPortSettingsResolverTests
 
         public System.Threading.Tasks.Task SaveSettingsAsync() => System.Threading.Tasks.Task.CompletedTask;
 
+        public System.Threading.Tasks.Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        {
+            updateAction(Settings);
+            return System.Threading.Tasks.Task.CompletedTask;
+        }
+
         public AppSettings GetSettingsSnapshot() => Settings;
     }
 }

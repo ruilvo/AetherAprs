@@ -100,6 +100,12 @@ public sealed class SettingsViewModelTests
             return Task.CompletedTask;
         }
 
+        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        {
+            updateAction(Settings);
+            return Task.CompletedTask;
+        }
+
         public AppSettings GetSettingsSnapshot() => Settings;
     }
 
