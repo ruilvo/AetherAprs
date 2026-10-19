@@ -3,14 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration.Settings;
-using AetherAprs.Factories.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views.Components;
 using Avalonia.Controls;
+using Avalonia.Input;
 using DialogHostAvalonia;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Views.Pages;
@@ -23,6 +22,20 @@ public partial class MessageTemplatesPage : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        KeyDown += OnKeyDown;
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && DataContext is MessageTemplatesViewModel viewModel)
+        {
+            if (viewModel.CloseCommand.CanExecute(null))
+            {
+                viewModel.CloseCommand.Execute(null);
+            }
+
+            e.Handled = true;
+        }
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -66,7 +79,7 @@ public partial class MessageTemplatesPage : UserControl
                 return;
             }
 
-            var editViewModel = CreateEditViewModel(null);
+            var editViewModel = _currentViewModel.CreateEditViewModel(null);
             await ShowEditDialogAsync(editViewModel, originalName: null);
         }
         catch (Exception)
@@ -87,7 +100,7 @@ public partial class MessageTemplatesPage : UserControl
 
             // Capture the original name before the edit view model mutates the template
             var originalName = template.Name;
-            var editViewModel = CreateEditViewModel(template);
+            var editViewModel = _currentViewModel.CreateEditViewModel(template);
             await ShowEditDialogAsync(editViewModel, originalName);
         }
         catch (Exception)
@@ -95,17 +108,6 @@ public partial class MessageTemplatesPage : UserControl
             // Swallow dialog failures: there is no logger in code-behind and an
             // unhandled exception in an async void handler would crash the app.
         }
-    }
-
-    private MessageTemplateEditViewModel CreateEditViewModel(MessageTemplate? template)
-    {
-        // Documented exception to the "no service locator" rule (AGENTS.md):
-        // this view is created by the framework (ViewLocator), so constructor
-        // injection is not available here.
-        var factory = App.GetService<IMessageTemplateEditViewModelFactory>();
-        var existingNames = _currentViewModel?.Templates.Select(t => t.Name).ToList()
-            ?? [];
-        return factory.Create(template, existingNames);
     }
 
     private async Task ShowEditDialogAsync(MessageTemplateEditViewModel editViewModel, string? originalName)

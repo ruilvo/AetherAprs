@@ -21,8 +21,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <Grid RowDefinitions="Auto,*,Auto">
     <!-- Header -->
-    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
-      <TextBlock Text="{loc:Loc MessageTemplatesPageTitle}" Classes="PageTitle" />
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0" Orientation="Horizontal" Spacing="8">
+      <Button Classes="Flat"
+              Padding="8"
+              MinHeight="48"
+              ToolTip.Tip="{loc:Loc Back}"
+              Command="{Binding CloseCommand}">
+        <avalonia:MaterialIcon Kind="ArrowLeft" Width="24" Height="24" />
+      </Button>
+      <TextBlock Text="{loc:Loc MessageTemplatesPageTitle}" Classes="PageTitle" VerticalAlignment="Center" />
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" Classes="PageContent" Margin="16,8,16,0">

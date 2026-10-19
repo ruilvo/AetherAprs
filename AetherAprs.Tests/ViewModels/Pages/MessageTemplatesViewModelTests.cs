@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Factories.ViewModels;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
@@ -152,12 +153,92 @@ public sealed class MessageTemplatesViewModelTests
         Assert.Same(template, received);
     }
 
+    [Fact]
+    public void Close_CallsNavigationGoBack()
+    {
+        var navigation = Substitute.For<INavigationService>();
+        var vm = CreateViewModel(navigationService: navigation);
+
+        vm.CloseCommand.Execute(null);
+
+        navigation.Received(1).GoBack();
+    }
+
+    [Fact]
+    public void CreateEditViewModel_PassesOriginalAndNamesExcludingOriginalToFactory()
+    {
+        var backing = new List<MessageTemplate>
+        {
+            new() { Name = "Alpha", Body = "a" },
+            new() { Name = "Beta", Body = "b" }
+        };
+        var templateService = Substitute.For<IMessageTemplateService>();
+        templateService.Templates.Returns(backing);
+        var factory = Substitute.For<IMessageTemplateEditViewModelFactory>();
+        MessageTemplate? receivedOriginal = null;
+        IReadOnlyList<string>? receivedNames = null;
+        factory
+            .Create(Arg.Any<MessageTemplate?>(), Arg.Any<IReadOnlyList<string>>())
+            .Returns(callInfo =>
+            {
+                receivedOriginal = callInfo.ArgAt<MessageTemplate?>(0);
+                receivedNames = callInfo.ArgAt<IReadOnlyList<string>>(1);
+                return new AetherAprs.ViewModels.Components.MessageTemplateEditViewModel();
+            });
+
+        var vm = CreateViewModel(templateService, editViewModelFactory: factory);
+        vm.Refresh();
+        var original = backing[0];
+
+        vm.CreateEditViewModel(original);
+
+        Assert.Same(original, receivedOriginal);
+        Assert.NotNull(receivedNames);
+        Assert.DoesNotContain("Alpha", receivedNames!);
+        Assert.Contains("Beta", receivedNames);
+    }
+
+    [Fact]
+    public void CreateEditViewModel_AddMode_PassesAllNamesAndNullOriginal()
+    {
+        var backing = new List<MessageTemplate>
+        {
+            new() { Name = "Alpha", Body = "a" }
+        };
+        var templateService = Substitute.For<IMessageTemplateService>();
+        templateService.Templates.Returns(backing);
+        var factory = Substitute.For<IMessageTemplateEditViewModelFactory>();
+        MessageTemplate? receivedOriginal = null;
+        IReadOnlyList<string>? receivedNames = null;
+        factory
+            .Create(Arg.Any<MessageTemplate?>(), Arg.Any<IReadOnlyList<string>>())
+            .Returns(callInfo =>
+            {
+                receivedOriginal = callInfo.ArgAt<MessageTemplate?>(0);
+                receivedNames = callInfo.ArgAt<IReadOnlyList<string>>(1);
+                return new AetherAprs.ViewModels.Components.MessageTemplateEditViewModel();
+            });
+
+        var vm = CreateViewModel(templateService, editViewModelFactory: factory);
+        vm.Refresh();
+
+        vm.CreateEditViewModel(null);
+
+        Assert.Null(receivedOriginal);
+        Assert.NotNull(receivedNames);
+        Assert.Equal(new[] { "Alpha" }, receivedNames);
+    }
+
     private static MessageTemplatesViewModel CreateViewModel(
         IMessageTemplateService? templateService = null,
-        IConfirmationDialogService? confirmationDialogService = null)
+        IConfirmationDialogService? confirmationDialogService = null,
+        INavigationService? navigationService = null,
+        IMessageTemplateEditViewModelFactory? editViewModelFactory = null)
     {
         return new MessageTemplatesViewModel(
             templateService ?? Substitute.For<IMessageTemplateService>(),
-            confirmationDialogService ?? Substitute.For<IConfirmationDialogService>());
+            confirmationDialogService ?? Substitute.For<IConfirmationDialogService>(),
+            navigationService ?? Substitute.For<INavigationService>(),
+            editViewModelFactory ?? Substitute.For<IMessageTemplateEditViewModelFactory>());
     }
 }

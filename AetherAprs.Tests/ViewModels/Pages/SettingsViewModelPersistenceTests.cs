@@ -5,7 +5,9 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using AetherAprs.Factories.ViewModels;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
@@ -14,6 +16,7 @@ using AetherAprs.ViewModels.Pages;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using SkiaSharp;
 using Xunit;
 
@@ -44,7 +47,7 @@ public sealed class SettingsViewModelPersistenceTests
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
             // Create SettingsViewModel - this should load settings from config
-            var viewModel = new SettingsViewModel(configService, navService, symbolPicker);
+            var viewModel = new SettingsViewModel(configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
 
             // Verify all settings were loaded correctly
             Assert.Equal("CT7ALW", viewModel.Callsign);
@@ -82,7 +85,7 @@ public sealed class SettingsViewModelPersistenceTests
             var navService = new TestNavigationService();
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
-            var viewModel = new SettingsViewModel(configService, navService, symbolPicker);
+            var viewModel = new SettingsViewModel(configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
 
             // Verify SSID = 0 is loaded correctly
             Assert.Equal(AprsSsid.PrimaryStation, viewModel.Ssid);
@@ -138,6 +141,15 @@ public sealed class SettingsViewModelPersistenceTests
         public SKBitmap GetSymbolBitmap(Symbol symbol) => new(64, 64);
         public SKBitmap GetOverlayBitmap(SymbolCode overlayChar) => new(64, 64);
         public void Dispose() { }
+    }
+
+    private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation)
+    {
+        return new MessageTemplatesViewModel(
+            Substitute.For<IMessageTemplateService>(),
+            Substitute.For<IConfirmationDialogService>(),
+            navigation,
+            Substitute.For<IMessageTemplateEditViewModelFactory>());
     }
 }
 

@@ -162,7 +162,11 @@ public sealed class MainViewModelTests
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
         var ports = new PortsViewModel(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);
-        var settings = new SettingsViewModel(configuration, navigation, symbolPicker);
+        var settings = new SettingsViewModel(configuration, navigation, symbolPicker, new MessageTemplatesViewModel(
+            Substitute.For<IMessageTemplateService>(),
+            Substitute.For<IConfirmationDialogService>(),
+            navigation,
+            Substitute.For<IMessageTemplateEditViewModelFactory>()));
 
         return new MainViewModel(navigation, Substitute.For<IKeyboardInsetsService>(), home, messages, packets, ports, settings);
     }

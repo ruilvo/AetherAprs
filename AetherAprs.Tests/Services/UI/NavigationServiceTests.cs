@@ -128,6 +128,11 @@ public sealed class NavigationServiceTests
         // Register IConversationViewModelFactory - required by MessagesViewModel
         services.AddSingleton(Substitute.For<IConversationViewModelFactory>());
 
+        // Register IMessageTemplateService and edit factory - required by MessageTemplatesViewModel
+        services.AddSingleton(Substitute.For<IMessageTemplateService>());
+        services.AddSingleton(Substitute.For<IMessageTemplateEditViewModelFactory>());
+        services.AddSingleton<MessageTemplatesViewModel>();
+
         services.AddSingleton<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>(); // Required by SettingsViewModel
         services.AddSingleton<HomeViewModel>();

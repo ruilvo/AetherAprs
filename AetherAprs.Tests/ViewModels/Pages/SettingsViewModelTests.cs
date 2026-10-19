@@ -7,13 +7,16 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Messaging;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+using NSubstitute;
 using SkiaSharp;
 using Xunit;
 
@@ -27,7 +30,7 @@ public sealed class SettingsViewModelTests
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         
@@ -44,7 +47,7 @@ public sealed class SettingsViewModelTests
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker);
+        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
@@ -74,11 +77,34 @@ public sealed class SettingsViewModelTests
     {
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation, symbolPicker);
+        var viewModel = new SettingsViewModel(
+            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
 
         Assert.Equal(typeof(DynamicBeaconingViewModel), navigation.LastNavigatedType);
+    }
+
+    [Fact]
+    public void OpenMessageTemplatesNavigatesToMessageTemplatesViewModel()
+    {
+        var navigation = new TestNavigationService();
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var messageTemplates = CreateMessageTemplatesViewModel(navigation);
+        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation, symbolPicker, messageTemplates);
+
+        viewModel.OpenMessageTemplatesCommand.Execute(null);
+
+        Assert.Equal(typeof(MessageTemplatesViewModel), navigation.LastNavigatedType);
+    }
+
+    private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation)
+    {
+        return new MessageTemplatesViewModel(
+            Substitute.For<IMessageTemplateService>(),
+            Substitute.For<IConfirmationDialogService>(),
+            navigation,
+            Substitute.For<IMessageTemplateEditViewModelFactory>());
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
