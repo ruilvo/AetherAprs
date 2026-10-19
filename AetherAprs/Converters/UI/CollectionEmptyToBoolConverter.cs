@@ -12,24 +12,26 @@ namespace AetherAprs.Converters.UI;
 /// <summary>
 /// Converts a collection to a boolean indicating whether it is empty.
 /// Returns true when the value is null or has no items, false otherwise.
+/// Use <see cref="InstanceInverted"/> for the opposite polarity.
 /// </summary>
 public class CollectionEmptyToBoolConverter : IValueConverter
 {
-    public static readonly CollectionEmptyToBoolConverter Instance = new();
+    public static readonly CollectionEmptyToBoolConverter Instance = new(invert: false);
+
+    public static readonly CollectionEmptyToBoolConverter InstanceInverted = new(invert: true);
+
+    private readonly bool _invert;
+
+    private CollectionEmptyToBoolConverter(bool invert)
+    {
+        _invert = invert;
+    }
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not IEnumerable collection)
-        {
-            return true;
-        }
+        var isEmpty = value is not IEnumerable collection || !collection.GetEnumerator().MoveNext();
 
-        foreach (var _ in collection)
-        {
-            return false;
-        }
-
-        return true;
+        return _invert ? !isEmpty : isEmpty;
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

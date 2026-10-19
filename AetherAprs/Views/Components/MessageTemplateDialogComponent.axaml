@@ -11,8 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:loc="using:AetherAprs.Localization"
              xmlns:converters="using:AetherAprs.Converters.UI"
              x:Class="AetherAprs.Views.Components.MessageTemplateDialogComponent"
-             x:DataType="vm:MessageTemplateDialogViewModel"
-             x:Name="Root">
+             x:DataType="vm:MessageTemplateDialogViewModel">
   <StackPanel Spacing="12" MinWidth="320" MaxWidth="480">
 
     <TextBlock Classes="Headline6"
@@ -30,7 +29,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <ListBox ItemsSource="{Binding Templates}"
              SelectedItem="{Binding SelectedTemplate}"
              MaxHeight="200"
-             IsVisible="{Binding !Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}">
+             IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="config:MessageTemplate">
           <StackPanel Spacing="2">

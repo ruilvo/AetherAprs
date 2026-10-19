@@ -50,7 +50,7 @@ public partial class MessageTemplateDialogComponent : UserControl
 
     private void OnCloseRequested(object? sender, EventArgs e)
     {
-        DialogHost.Close("MainDialogHost", (DataContext as MessageTemplateDialogViewModel)?.Result);
+        DialogHost.Close("MainDialogHost", _currentViewModel?.Result);
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)
