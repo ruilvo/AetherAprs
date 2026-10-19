@@ -5,7 +5,9 @@
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -30,6 +32,11 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private readonly string _filter;
     private readonly ILogger<AprsIsModem> _logger;
     private readonly Lock _connectionLock = new();
+
+    /// <summary>Serializes concurrent sends so APRS-IS lines cannot interleave on the socket.</summary>
+    private readonly SemaphoreSlim _sendLock = new(1, 1);
+    /// <summary>Serializes Start/Stop/Dispose state transitions so concurrent calls cannot double-start the read loop.</summary>
+    private readonly Lock _lifecycleLock = new();
     private TcpClient? _tcpClient;
     private StreamReader? _reader;
     private StreamWriter? _writer;
@@ -51,8 +58,19 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// <param name="filter">Optional APRS-IS filter string (e.g. <c>m/50</c> for messages only). Leave empty for all.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="host"/> or <paramref name="callsign"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="host"/> is empty or whitespace, or <paramref name="passcode"/> is null.</exception>
+    /// <summary>
+    /// Maximum length of an APRS-IS line we accept before discarding it as hostile
+    /// or malformed input.
+    /// </summary>
+    private const int MaxLineLength = 512;
+
+    /// <summary>
+    /// Software version string reported during APRS-IS login.
+    /// </summary>
+    private const string ApplicationVersion = "AetherAprs 1.0";
+
     public AprsIsModem(string host, int port, Callsign callsign, string passcode, string filter = "")
-        : this(host, port, callsign, passcode, filter, new NoOpLogger<AprsIsModem>())
+        : this(host, port, callsign, passcode, filter, NullLogger<AprsIsModem>.Instance)
     {
     }
 
@@ -91,38 +109,54 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_started)
+        lock (_lifecycleLock)
         {
-            throw new InvalidOperationException("AprsIsModem is already started.");
+            if (_started)
+            {
+                throw new InvalidOperationException("AprsIsModem is already started.");
+            }
+
+            _connectionReady = CreateConnectionReadySource();
+            _readCts = new CancellationTokenSource();
+            _readTask = ReadLoopAsync(_readCts.Token);
+
+            _started = true;
         }
-
-        _connectionReady = CreateConnectionReadySource();
-        _readCts = new CancellationTokenSource();
-        _readTask = ReadLoopAsync(_readCts.Token);
-
-        _started = true;
     }
 
     /// <inheritdoc />
     public async Task StopAsync()
     {
-        if (!_started)
+        CancellationTokenSource? readCts;
+        Task? readTask;
+
+        lock (_lifecycleLock)
         {
-            return;
+            if (!_started)
+            {
+                return;
+            }
+
+            _started = false;
+            readCts = _readCts;
+            readTask = _readTask;
+            _readCts = null;
+            _readTask = null;
         }
 
-        if (_readCts is not null)
+        if (readCts is not null)
         {
-            await _readCts.CancelAsync();
+            await readCts.CancelAsync();
+            readCts.Dispose();
         }
 
         _connectionReady.TrySetCanceled();
 
-        if (_readTask is not null)
+        if (readTask is not null)
         {
             try
             {
-                await _readTask;
+                await readTask;
             }
             catch (OperationCanceledException)
             {
@@ -130,7 +164,28 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             }
         }
 
-        _started = false;
+        // Close the connection eagerly so stop-and-restart does not leave a
+        // lingering socket until DisposeAsync.
+        Disconnect();
+    }
+
+    /// <summary>
+    /// Disposes the current TCP resources under the connection lock.
+    /// </summary>
+    private void Disconnect()
+    {
+        lock (_connectionLock)
+        {
+            _tcpClient?.Dispose();
+            _reader?.Dispose();
+            _writer?.Dispose();
+            _stream?.Dispose();
+
+            _tcpClient = null;
+            _reader = null;
+            _writer = null;
+            _stream = null;
+        }
     }
 
     /// <inheritdoc />
@@ -143,19 +198,22 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
         }
 
-        await _connectionReady.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-
         // APRS-IS client-originated packets must identify the TCP connection in the path.
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
-        // Capture writer and connection version atomically under lock
+        // Capture writer, ready task and connection version atomically under lock so
+        // a concurrent reconnect cannot leave us awaiting a stale completion source.
         StreamWriter? writer;
+        Task readyTask;
         int connectionVersion;
         lock (_connectionLock)
         {
             writer = _writer;
+            readyTask = _connectionReady.Task;
             connectionVersion = _connectionVersion;
         }
+
+        await readyTask.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         if (writer is null)
         {
@@ -165,8 +223,27 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         try
         {
             var line = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
-            await writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
-            await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+            // Sanitize line breaks to prevent protocol injection
+            if (line.Contains('\r') || line.Contains('\n'))
+            {
+                line = line.Replace("\r", "").Replace("\n", "");
+                _logger.LogWarning(
+                    "Removed line break characters from outbound APRS-IS packet (potential protocol injection attempt).");
+            }
+
+            // The StreamWriter is not thread-safe: serialize writes so two
+            // concurrent sends cannot interleave buffered writes/flushes.
+            await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
+                await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _sendLock.Release();
+            }
         }
         catch (Exception) when (!IsCurrentConnection(connectionVersion))
         {
@@ -195,13 +272,8 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         await StopAsync();
 
-        _reader?.Dispose();
-        _writer?.Dispose();
-        _stream?.Dispose();
-        _tcpClient?.Dispose();
-        _readCts?.Dispose();
+        _sendLock.Dispose();
     }
-
     private async Task ReadLoopAsync(CancellationToken cancellationToken)
     {
         // Keep reconnecting as long as we haven't been cancelled.
@@ -234,62 +306,91 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
     private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
     {
-        _connectionReady = CreateConnectionReadySource();
+        var connectionReady = CreateConnectionReadySource();
+        lock (_connectionLock)
+        {
+            _connectionReady = connectionReady;
+        }
 
         // Increment connection version and dispose old resources under lock
+        Disconnect();
         lock (_connectionLock)
         {
             _connectionVersion++;
-            _tcpClient?.Dispose();
-            _reader?.Dispose();
-            _writer?.Dispose();
-            _stream?.Dispose();
-
-            _tcpClient = null;
-            _reader = null;
-            _writer = null;
-            _stream = null;
         }
 
         var tcpClient = new TcpClient();
-        await tcpClient.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
-
-        var stream = tcpClient.GetStream();
-        var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        StreamReader? reader = null;
+        StreamWriter? writer = null;
+        try
         {
-            NewLine = "\r\n"
-        };
+            await tcpClient.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
 
-        // Send APRS-IS login
-        var login = $"user {_callsign} pass {_passcode} vers AetherAprs 1.0";
-        if (!string.IsNullOrEmpty(_filter))
-        {
-            login += $" filter {_filter}";
+            var stream = tcpClient.GetStream();
+            reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+            writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+            {
+                NewLine = "\r\n"
+            };
+
+            // Send APRS-IS login
+            var login = $"user {_callsign} pass {_passcode} vers {ApplicationVersion}";
+            if (!string.IsNullOrEmpty(_filter))
+            {
+                login += $" filter {_filter}";
+            }
+
+            // Sanitize line breaks to prevent protocol injection
+            if (login.Contains('\r') || login.Contains('\n'))
+            {
+                login = login.Replace("\r", "").Replace("\n", "");
+                _logger.LogWarning(
+                    "Removed line break characters from APRS-IS login string (potential protocol injection attempt).");
+            }
+
+            _logger.LogInformation(
+                "Connecting to APRS-IS {Host}:{Port} with filter {Filter}",
+                _host,
+                _port,
+                string.IsNullOrEmpty(_filter) ? "<none>" : _filter);
+
+            await writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+            // Assign to fields under lock only after successful connection
+            lock (_connectionLock)
+            {
+                _tcpClient = tcpClient;
+                _stream = stream;
+                _reader = reader;
+                _writer = writer;
+            }
         }
-
-        _logger.LogInformation(
-            "Connecting to APRS-IS {Host}:{Port} with filter {Filter}",
-            _host,
-            _port,
-            string.IsNullOrEmpty(_filter) ? "<none>" : _filter);
-
-        await writer.WriteLineAsync(login.AsMemory(), cancellationToken).ConfigureAwait(false);
-        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-
-        // Assign to fields under lock only after successful connection
-        lock (_connectionLock)
+        catch
         {
-            _tcpClient = tcpClient;
-            _stream = stream;
-            _reader = reader;
-            _writer = writer;
+            // Dispose the locals we own — the field-level cleanup only sees fields
+            // that were assigned after a successful login, so without this every
+            // failed attempt leaks a socket.
+            reader?.Dispose();
+            writer?.Dispose();
+            tcpClient.Dispose();
+            throw;
         }
 
         // Read lines from the server
         while (!cancellationToken.IsCancellationRequested)
         {
-            var line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            string? line = null;
+            try
+            {
+                line = await ReadBoundedLineAsync(reader, MaxLineLength, cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Line exceeded MaxLineLength
+                _logger.LogWarning(ex, "Discarding oversized APRS-IS line from {Host}:{Port}.", _host, _port);
+                continue;
+            }
 
             if (line is null)
             {
@@ -304,12 +405,11 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             {
                 if (line.Contains(" verified", StringComparison.OrdinalIgnoreCase))
                 {
-                    _connectionReady.TrySetResult(true);
+                    connectionReady.TrySetResult(true);
                 }
                 else
                 {
-                    _connectionReady.TrySetException(
-                        new InvalidOperationException($"APRS-IS login was rejected: {line}"));
+                    FaultConnectionReady(connectionReady, new InvalidOperationException($"APRS-IS login was rejected: {line}"));
                 }
             }
 
@@ -333,8 +433,26 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             }
         }
 
-        _connectionReady.TrySetException(
+        FaultConnectionReady(
+            connectionReady,
             new IOException("APRS-IS connection closed before authentication completed."));
+    }
+
+    /// <summary>
+    /// Faults the connection-ready source while ensuring the fault is observed, so
+    /// it does not surface as an unobserved task exception at garbage collection.
+    /// </summary>
+    private static void FaultConnectionReady(TaskCompletionSource<bool> connectionReady, Exception exception)
+    {
+        if (!connectionReady.TrySetException(exception))
+        {
+            return;
+        }
+
+        // No-op observer for the faulted task.
+        _ = connectionReady.Task.ContinueWith(
+            static t => _ = t.Exception,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
     }
 
     private static TaskCompletionSource<bool> CreateConnectionReadySource() =>
@@ -344,7 +462,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// Parses an APRS-IS text line into an <see cref="AprsPacket"/>.
     /// Format: <c>source&gt;dest[,digi1,digi2,...]:info_field</c>
     /// </summary>
-    private static AprsPacket? ParseIsLine(string line)
+    internal static AprsPacket? ParseIsLine(string line)
     {
         // Find the colon that separates the path from the info field
         int colonIndex = line.IndexOf(':');
@@ -364,14 +482,11 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
 
         string sourceStr = path[..arrowIndex];
-        string destStr = path[(arrowIndex + 1)..];
+        string pathTail = path[(arrowIndex + 1)..];
 
-        // Trim any digipeaters from destination (after first comma)
-        int commaIndex = destStr.IndexOf(',');
-        if (commaIndex >= 0)
-        {
-            destStr = destStr[..commaIndex];
-        }
+        // Split the destination from the digipeater hops
+        int commaIndex = pathTail.IndexOf(',');
+        string destStr = commaIndex >= 0 ? pathTail[..commaIndex] : pathTail;
 
         Callsign source;
         Callsign destination;
@@ -403,7 +518,38 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             return null;
         }
 
-        var packet = AprsInfoFieldParser.ParseInfoField(info, source, destination);
+        // Parse the digipeater hops so IS packets keep their path (trails/traces
+        // downstream rely on it). Network-injected entries and server markers are
+        // skipped; malformed hops are ignored rather than dropping the packet.
+        List<Callsign> pathList = [];
+        if (commaIndex >= 0)
+        {
+            foreach (var hop in pathTail[(commaIndex + 1)..].Split(','))
+            {
+                if (hop.Length == 0 || hop == "TCPIP*")
+                {
+                    continue;
+                }
+
+                // Server-inserted q-constructors (qAC, qAR, qAo, qAS, qX, ...) are
+                // APRS-IS markers, not real digipeater hops — skip them all.
+                if (hop.Length == 3 && hop[0] == 'q' && char.IsAsciiLetterUpper(hop[1]))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    pathList.Add(ParseCallsign(hop));
+                }
+                catch (ArgumentException)
+                {
+                    // Skip unparseable hops.
+                }
+            }
+        }
+
+        var packet = AprsInfoFieldParser.ParseInfoField(info, source, destination, pathList);
         return packet with { RawSource = rawSource };
     }
 
@@ -442,6 +588,13 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             string baseCall = value[..dashIndex];
             if (int.TryParse(value[(dashIndex + 1)..], out int ssid))
             {
+                // Throwing ArgumentException (not ArgumentOutOfRangeException) keeps
+                // unparseable hops inside the catch guard that skips them.
+                if (ssid is < 0 or > 15)
+                {
+                    throw new ArgumentException($"SSID must be between 0 and 15: '{value}'.", nameof(value));
+                }
+
                 return new Callsign(baseCall, ssid);
             }
         }
@@ -450,17 +603,60 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     }
 
     /// <summary>
-    /// A no-operation logger implementation used as a default when no logger is provided.
+    /// Reads a line from the stream with a maximum length limit to prevent unbounded memory allocation.
     /// </summary>
-    private sealed class NoOpLogger<T> : ILogger<T>
+    /// <param name="reader">The StreamReader to read from.</param>
+    /// <param name="maxLength">Maximum allowed line length in characters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The line read from the stream, or null if end of stream is reached.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when a line exceeds maxLength.</exception>
+    private static async Task<string?> ReadBoundedLineAsync(
+        StreamReader reader,
+        int maxLength,
+        CancellationToken cancellationToken)
     {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        var buffer = new char[maxLength + 1]; // +1 to detect overflow
+        int position = 0;
 
-        public bool IsEnabled(LogLevel logLevel) => false;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        while (true)
         {
-            // No-op
+            int c = await reader.ReadAsync(buffer.AsMemory(position, 1), cancellationToken).ConfigureAwait(false);
+            
+            if (c == 0)
+            {
+                // End of stream
+                return position == 0 ? null : new string(buffer, 0, position);
+            }
+
+            char ch = buffer[position];
+
+            if (ch == '\n')
+            {
+                // End of line found
+                // Remove trailing \r if present (handles both \r\n and \n)
+                int length = position;
+                if (length > 0 && buffer[length - 1] == '\r')
+                {
+                    length--;
+                }
+                return new string(buffer, 0, length);
+            }
+
+            position++;
+
+            if (position > maxLength)
+            {
+                // Line exceeds maximum length - discard the rest until \n
+                while (true)
+                {
+                    int next = reader.Read();
+                    if (next == -1 || next == '\n')
+                    {
+                        break;
+                    }
+                }
+                throw new InvalidOperationException($"Line exceeded maximum length of {maxLength} characters.");
+            }
         }
     }
 }

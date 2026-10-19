@@ -46,7 +46,9 @@ public enum KissCommandType : byte
     SetHardware = 0x06,
 
     /// <summary>
-    /// Return command (0xFF). Exits KISS mode and returns TNC to normal operation.
+    /// Return command (0x0F command nibble). Exits KISS mode and returns TNC to normal operation.
+    /// On the wire the exit command is the full byte 0xFF (port nibble 15 + command nibble 15),
+    /// which <see cref="KissFrame.CommandType"/> maps to this value via the lower 4 bits.
     /// </summary>
-    Return = 0xFF,
+    Return = 0x0F,
 }

@@ -46,30 +46,12 @@ public static class PathHelper
     /// <exception cref="ArgumentException">Thrown if the callsign string is invalid.</exception>
     private static Callsign ParseCallsign(string callsignString)
     {
-        if (string.IsNullOrWhiteSpace(callsignString))
+        if (!Callsign.TryParse(callsignString, out var callsign))
         {
-            throw new ArgumentException("Callsign cannot be empty.", nameof(callsignString));
+            throw new ArgumentException($"Invalid callsign '{callsignString}'.", nameof(callsignString));
         }
 
-        var parts = callsignString.Split('-', 2);
-        var baseCallsign = parts[0].Trim().ToUpperInvariant();
-
-        if (baseCallsign.Length == 0 || baseCallsign.Length > 6)
-        {
-            throw new ArgumentException($"Invalid callsign base '{baseCallsign}': must be 1-6 characters.", nameof(callsignString));
-        }
-
-        int? ssid = null;
-        if (parts.Length > 1)
-        {
-            if (!int.TryParse(parts[1], out var ssidValue) || ssidValue < 0 || ssidValue > 15)
-            {
-                throw new ArgumentException($"Invalid SSID '{parts[1]}': must be 0-15.", nameof(callsignString));
-            }
-            ssid = ssidValue;
-        }
-
-        return new Callsign(baseCallsign, ssid);
+        return callsign;
     }
 
     /// <summary>

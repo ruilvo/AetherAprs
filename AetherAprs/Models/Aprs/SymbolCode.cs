@@ -346,15 +346,17 @@ public static class SymbolCodeExtensions
 
     /// <summary>
     /// Converts a printable ASCII character to a <see cref="SymbolCode"/>.
+    /// The space character (0x20) is rejected: no APRS symbol exists for it and
+    /// the bitmap provider has no cell for it (M2).
     /// </summary>
-    /// <param name="c">The character (0x20-0x7E).</param>
+    /// <param name="c">The character (0x21-0x7E).</param>
     /// <returns>The corresponding symbol code.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown if the character is outside the printable ASCII range.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if the character is outside the supported range.</exception>
     public static SymbolCode ToSymbolCode(this char c)
     {
-        if (c is < ' ' or > '~')
+        if (c is < '!' or > '~')
         {
-            throw new ArgumentOutOfRangeException(nameof(c), $"Symbol code must be a printable ASCII character (0x20-0x7E), got '\\x{(int)c:X4}'");
+            throw new ArgumentOutOfRangeException(nameof(c), $"Symbol code must be a printable ASCII character (0x21-0x7E), got '\\x{(int)c:X4}'");
         }
 
         return (SymbolCode)c;

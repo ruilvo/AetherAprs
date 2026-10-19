@@ -5,6 +5,7 @@
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace AetherAprs.Modems.Aprs;
@@ -46,7 +47,7 @@ public static class Ax25Parser
         // Walk through address fields to find where the control field starts.
         // Addresses are 7 bytes each; the last byte of each address has
         // bit 0 (the HDLC extension bit) = 1 for the final address in the list.
-        var path = new System.Collections.Generic.List<Callsign>();
+        var path = new List<Callsign>();
         int addrEnd = 14;
         while (addrEnd < data.Length)
         {
@@ -55,7 +56,14 @@ public static class Ax25Parser
                 break;
             }
 
-            // There's another address (digipeater)
+            // There's another address (digipeater); a truncated frame must fail
+            // with an ArgumentException, not an out-of-bounds read.
+            if (addrEnd + 7 > data.Length)
+            {
+                throw new ArgumentException(
+                    $"Truncated AX.25 address field at offset {addrEnd}.", nameof(data));
+            }
+
             path.Add(DecodeAddress(data, addrEnd));
             addrEnd += 7;
         }
@@ -93,7 +101,11 @@ public static class Ax25Parser
         Span<char> chars = stackalloc char[6];
         for (int i = 0; i < 6; i++)
         {
-            chars[i] = (char)(data[offset + i] >> 1);
+            // Map non-printable decoded characters (e.g. NUL padding) to spaces so
+            // malformed wire data cannot embed control characters in the callsign
+            // base, mirroring how most TNCs display padded addresses.
+            char c = (char)(data[offset + i] >> 1);
+            chars[i] = c >= ' ' && c < 0x7F ? c : ' ';
         }
 
         var callsignBase = new string(chars).TrimEnd();

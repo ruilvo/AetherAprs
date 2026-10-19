@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -100,6 +101,11 @@ public static class Ax25Serializer
 
     internal static byte[] EncodeAddress(Callsign callsign, bool isLast)
     {
+        if (string.IsNullOrEmpty(callsign.Base))
+        {
+            throw new ArgumentException("Callsign base must not be null or empty.", nameof(callsign));
+        }
+
         var bytes = new byte[AddressLength];
 
         // Pad callsign base to 6 characters with spaces

@@ -35,6 +35,8 @@ public static class AprsInfoFieldSerializer
         {
             PositionPacket pos => FormatPosition(pos),
             MessagePacket msg => FormatMessage(msg),
+            MessageAckPacket ack => FormatMessageAckRej(ack.Addressee, "ack", ack.MessageNumber),
+            MessageRejPacket rej => FormatMessageAckRej(rej.Addressee, "rej", rej.MessageNumber),
             StatusPacket status => FormatStatus(status),
             WeatherPacket weather => FormatWeather(weather),
             UnknownPacket unknown => unknown.Raw,
@@ -87,7 +89,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatLatitude(double latitude, int precision)
     {
         ValidateCoordinate(latitude, -90, 90, nameof(latitude));
-        ValidatePrecision(precision);
+        precision = NormalizePrecision(precision);
 
         bool isSouth = latitude < 0;
         double absLat = Math.Abs(latitude);
@@ -119,7 +121,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatLongitude(double longitude, int precision)
     {
         ValidateCoordinate(longitude, -180, 180, nameof(longitude));
-        ValidatePrecision(precision);
+        precision = NormalizePrecision(precision);
 
         bool isWest = longitude < 0;
         double absLon = Math.Abs(longitude);
@@ -159,16 +161,15 @@ public static class AprsInfoFieldSerializer
     }
 
     /// <summary>
-    /// Validates that the precision value is either 1 or 2, as required for APRS uncompressed positions.
+    /// Normalizes the precision value to 1 or 2 for APRS uncompressed positions.
+    /// Compressed positions may use precision 3, which is clamped to 2.
     /// </summary>
-    /// <param name="precision">The precision value to validate.</param>
-    /// <exception cref="ArgumentOutOfRangeException">An ArgumentOutOfRangeException is thrown if the precision is not 1 or 2.</exception>
-    private static void ValidatePrecision(int precision)
+    /// <param name="precision">The precision value to normalize.</param>
+    /// <returns>Normalized precision (1 or 2).</returns>
+    private static int NormalizePrecision(int precision)
     {
-        if (precision is < 1 or > 2)
-        {
-            throw new ArgumentOutOfRangeException(nameof(precision), precision, "APRS uncompressed positions require one or two decimal minute digits.");
-        }
+        // Clamp to valid range: compressed positions set precision=3, normalize to 2
+        return Math.Clamp(precision, 1, 2);
     }
 
     /// <summary>
@@ -197,6 +198,24 @@ public static class AprsInfoFieldSerializer
     }
 
     /// <summary>
+    /// Formats a message acknowledgment or rejection into its APRS info field string.
+    /// </summary>
+    /// <param name="addressee">The addressee callsign being acknowledged/rejected.</param>
+    /// <param name="keyword">Either "ack" or "rej".</param>
+    /// <param name="messageNumber">The message number being acknowledged/rejected.</param>
+    /// <returns>The formatted APRS info field string.</returns>
+    private static string FormatMessageAckRej(Callsign addressee, string keyword, int messageNumber)
+    {
+        // Format: :ADDRESSEE :ack{N} / :ADDRESSEE :rej{N}
+        var info = new StringBuilder();
+        info.Append(':');
+        info.Append(addressee.ToString().PadRight(9, ' '));
+        info.Append(':');
+        info.Append(CultureInfo.InvariantCulture, $"{keyword}{messageNumber}");
+        return info.ToString();
+    }
+
+    /// <summary>
     /// Formats a <see cref="StatusPacket"/> into its APRS info field string.
     /// </summary>
     /// <param name="packet">The status packet to format.</param>
@@ -215,27 +234,66 @@ public static class AprsInfoFieldSerializer
     private static string FormatWeather(WeatherPacket packet)
     {
         // Format: _c111s222g333t444h55b77777r111p222...
-        // Only non-null fields are included.
+        // Per the APRS spec all fields are fixed-width integers (no decimal
+        // point); rain amounts are in hundredths of an inch. Only non-null
+        // fields are included.
         var info = new StringBuilder();
         info.Append('_');
 
         if (packet.WindDirection.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"c{packet.WindDirection.Value:F0}");
+        {
+            info.Append(CultureInfo.InvariantCulture, $"c{FormatFixedWidth(packet.WindDirection.Value, 3)}");
+        }
+
         if (packet.WindSpeed.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"s{packet.WindSpeed.Value:F0}");
+        {
+            info.Append(CultureInfo.InvariantCulture, $"s{FormatFixedWidth(packet.WindSpeed.Value, 3)}");
+        }
+
         if (packet.WindGust.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"g{packet.WindGust.Value:F0}");
+        {
+            info.Append(CultureInfo.InvariantCulture, $"g{FormatFixedWidth(packet.WindGust.Value, 3)}");
+        }
+
         if (packet.Temperature.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"t{packet.Temperature.Value:F0}");
+        {
+            // Per the APRS weather spec, sub-zero temperatures are encoded as
+            // 1000 - abs(temp): -5 °F transmits as t995.
+            var temperature = packet.Temperature.Value;
+            var encoded = temperature < 0 ? 1000 - Math.Abs((int)temperature) : temperature;
+            info.Append(CultureInfo.InvariantCulture, $"t{FormatFixedWidth(encoded, 3)}");
+        }
+
         if (packet.Humidity.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"h{packet.Humidity.Value:F0}");
+        {
+            info.Append(CultureInfo.InvariantCulture, $"h{FormatFixedWidth(packet.Humidity.Value, 2)}");
+        }
+
         if (packet.Pressure.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"b{packet.Pressure.Value:F0}");
+        {
+            // Barometric pressure in tenths of millibars (5 digits).
+            info.Append(CultureInfo.InvariantCulture, $"b{FormatFixedWidth(packet.Pressure.Value * 10, 5)}");
+        }
+
         if (packet.Rain1h.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"r{packet.Rain1h.Value:F2}");
+        {
+            info.Append(CultureInfo.InvariantCulture, $"r{FormatFixedWidth(packet.Rain1h.Value * 100, 3)}");
+        }
+
         if (packet.Rain24h.HasValue)
-            info.Append(CultureInfo.InvariantCulture, $"p{packet.Rain24h.Value:F2}");
+        {
+            info.Append(CultureInfo.InvariantCulture, $"p{FormatFixedWidth(packet.Rain24h.Value * 100, 3)}");
+        }
 
         return info.ToString();
+    }
+
+    /// <summary>
+    /// Formats a value as a zero-padded fixed-width integer per the APRS
+    /// fixed-width weather field convention.
+    /// </summary>
+    private static string FormatFixedWidth(double value, int width)
+    {
+        return Math.Round(value).ToString(CultureInfo.InvariantCulture).PadLeft(width, '0');
     }
 }

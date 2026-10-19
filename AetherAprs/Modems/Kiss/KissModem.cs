@@ -21,9 +21,23 @@ public sealed class KissModem : IAsyncDisposable
 {
     private readonly Stream _stream;
     private readonly ILogger<KissModem> _logger;
-    private readonly CancellationTokenSource _readCts = new();
     private readonly List<byte> _accumulator = [];
+
+    /// <summary>Serializes concurrent send attempts so KISS frames cannot interleave on the wire.</summary>
+    private readonly SemaphoreSlim _sendLock = new(1, 1);
+
+    /// <summary>Guards the start/stop lifecycle state so concurrent Start/Stop calls cannot race.</summary>
+    private readonly object _lifecycleLock = new();
+
+    /// <summary>
+    /// Maximum accumulated frame size before the stream is treated as hostile or
+    /// misconfigured. Well-formed KISS/AX.25 frames are far smaller (a maximum UI
+    /// frame is ~330 bytes); anything above this means no FEND will ever arrive.
+    /// </summary>
+    private const int MaxFrameLength = 4096;
+
     private Task? _readTask;
+    private CancellationTokenSource? _readCts;
     private bool _disposed;
 
     /// <summary>
@@ -65,12 +79,20 @@ public sealed class KissModem : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_readTask is not null)
+        lock (_lifecycleLock)
         {
-            throw new InvalidOperationException("Modem is already running.");
+            if (_readTask is not null)
+            {
+                throw new InvalidOperationException("Modem is already running.");
+            }
+
+            // A fresh CTS per start: after StopAsync the previous token is
+            // cancelled and would silently kill the new read loop.
+            _readCts?.Dispose();
+            _readCts = new CancellationTokenSource();
+            _readTask = ReadLoopAsync(_readCts.Token);
         }
 
-        _readTask = ReadLoopAsync(_readCts.Token);
         _logger.LogInformation("KISS modem started.");
     }
 
@@ -80,23 +102,35 @@ public sealed class KissModem : IAsyncDisposable
     /// <returns>A task that completes when the receive loop has stopped.</returns>
     public async Task StopAsync()
     {
-        if (_readTask is null)
+        Task? readTask;
+        CancellationTokenSource? readCts;
+
+        lock (_lifecycleLock)
+        {
+            readTask = _readTask;
+            readCts = _readCts;
+            _readTask = null;
+        }
+
+        if (readTask is null)
         {
             return;
         }
 
-        await _readCts.CancelAsync();
+        if (readCts is not null)
+        {
+            await readCts.CancelAsync().ConfigureAwait(false);
+        }
 
         try
         {
-            await _readTask;
+            await readTask.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
             // Expected on cancellation.
         }
 
-        _readTask = null;
         _logger.LogInformation("KISS modem stopped.");
     }
 
@@ -111,8 +145,16 @@ public sealed class KissModem : IAsyncDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var buffer = KissSerializer.EncodeFrame(frame);
-        await _stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-        await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+            await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
     }
 
     /// <inheritdoc />
@@ -125,14 +167,18 @@ public sealed class KissModem : IAsyncDisposable
 
         _disposed = true;
 
-        await _readCts.CancelAsync();
-        _readCts.Dispose();
+        var readCts = _readCts;
+        if (readCts is not null)
+        {
+            await readCts.CancelAsync().ConfigureAwait(false);
+        }
 
-        if (_readTask is not null)
+        var readTask = _readTask;
+        if (readTask is not null)
         {
             try
             {
-                await _readTask;
+                await readTask.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -140,7 +186,19 @@ public sealed class KissModem : IAsyncDisposable
             }
         }
 
-        _stream.Dispose();
+        // Wait for in-flight sends before tearing down the stream.
+        await _sendLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            _stream.Dispose();
+        }
+        finally
+        {
+            _sendLock.Release();
+        }
+
+        _sendLock.Dispose();
+        readCts?.Dispose();
     }
 
     private async Task ReadLoopAsync(CancellationToken cancellationToken)
@@ -186,7 +244,19 @@ public sealed class KissModem : IAsyncDisposable
                     }
                     else if (inFrame)
                     {
-                        _accumulator.Add(b);
+                        if (_accumulator.Count >= MaxFrameLength)
+                        {
+                            // Unbounded growth means the stream never delivers a FEND;
+                            // discard and resynchronize on the next FEND.
+                            OnReceiveError(new InvalidOperationException(
+                                $"KISS frame exceeds maximum length of {MaxFrameLength} bytes; discarding."));
+                            _accumulator.Clear();
+                            inFrame = false;
+                        }
+                        else
+                        {
+                            _accumulator.Add(b);
+                        }
                     }
                 }
             }

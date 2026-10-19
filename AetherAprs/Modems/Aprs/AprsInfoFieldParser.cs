@@ -87,14 +87,14 @@ public static class AprsInfoFieldParser
         {
             if (pos + 7 >= info.Length)
             {
-                return AsUnknown(info, source, dest);
+                return AsUnknown(info, source, dest, path.ToArray());
             }
 
             pos += 7; // skip DDHHMMz or DDHHMM/ (7 chars)
         }
 
         // Prefer compressed position (aprslib-style) before uncompressed.
-        if (TryParseCompressedPosition(info, pos, source, dest, out var compressed))
+        if (TryParseCompressedPosition(info, pos, source, dest, path, out var compressed))
         {
             return compressed;
         }
@@ -108,7 +108,7 @@ public static class AprsInfoFieldParser
 
         if (latEnd >= info.Length || latEnd - pos < 6)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         // Include direction char
@@ -116,7 +116,7 @@ public static class AprsInfoFieldParser
 
         if (!TryParseLatitude(info.AsSpan(pos, latEnd - pos), out double latitude, out int latPrecision))
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
         pos = latEnd;
 
@@ -131,7 +131,7 @@ public static class AprsInfoFieldParser
 
         if (pos >= info.Length)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         if (info[pos] == '/')
@@ -152,7 +152,7 @@ public static class AprsInfoFieldParser
 
             if (pos >= info.Length)
             {
-                return AsUnknown(info, source, dest);
+                return AsUnknown(info, source, dest, path.ToArray());
             }
 
             // Check if next char is explicit table indicator
@@ -184,7 +184,7 @@ public static class AprsInfoFieldParser
 
         if (lonEnd >= info.Length || lonEnd - pos < 7)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         // Include direction char
@@ -192,7 +192,7 @@ public static class AprsInfoFieldParser
 
         if (!TryParseLongitude(info.AsSpan(pos, lonEnd - pos), out double longitude, out int lonPrecision))
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
         pos = lonEnd;
 
@@ -246,6 +246,7 @@ public static class AprsInfoFieldParser
         int pos,
         Callsign source,
         Callsign dest,
+        IReadOnlyList<Callsign> path,
         out PositionPacket packet)
     {
         packet = null!;
@@ -357,7 +358,7 @@ public static class AprsInfoFieldParser
         {
             Source = source,
             Destination = dest,
-            Path = Array.Empty<Callsign>(),
+            Path = path,
             Raw = info,
             Location = new Geo.Coordinate(latitude, longitude),
             Symbol = new Symbol(symbolTable, symbolCode, overlay),
@@ -427,7 +428,7 @@ public static class AprsInfoFieldParser
         // Object format: ;objectnam*DDHHMMz<position> (or '_' for a killed object).
         if (info.Length < 19 || (info[10] != '*' && info[10] != '_'))
         {
-            return AsUnknown(info, source, destination);
+            return AsUnknown(info, source, destination, path.ToArray());
         }
 
         var positionInfo = "@" + info[11..];
@@ -609,12 +610,20 @@ public static class AprsInfoFieldParser
             addresseeStr = "APRS";
         }
 
-        var addresseeParts = addresseeStr.Split('-', 2, StringSplitOptions.None);
-        var addressee = new Callsign(
-            addresseeParts[0],
-            addresseeParts.Length == 2 && int.TryParse(addresseeParts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var addresseeSsid)
-                ? addresseeSsid
-                : null);
+        // The addressee is arbitrary 9-character text per the APRS spec (e.g.
+        // "EMAIL", bulletin names, third-party IDs) — a non-callsign must not
+        // throw out of the parser; fall back to the standard APRS addressee and
+        // keep the raw value on the packet.
+        Callsign addressee;
+        if (Callsign.TryParse(addresseeStr, out var parsedAddressee))
+        {
+            addressee = parsedAddressee;
+        }
+        else
+        {
+            addressee = new Callsign("APRS");
+            addresseeStr = "APRS";
+        }
 
         var textStart = addrEnd >= 0 ? addrEnd + 1 : info.Length;
         var text = textStart < info.Length ? info[textStart..] : string.Empty;
@@ -795,11 +804,15 @@ public static class AprsInfoFieldParser
             'c' => w with { WindDirection = value },
             's' => w with { WindSpeed = value },
             'g' => w with { WindGust = value },
-            't' => w with { Temperature = value },
+            // Per the APRS weather spec, values above 500 encode sub-zero
+            // temperatures as 1000 - abs(temp): t995 means -5 °F.
+            't' => w with { Temperature = value > 500 ? value - 1000 : value },
             'h' => w with { Humidity = value },
-            'b' => w with { Pressure = value },
-            'r' => w with { Rain1h = value },
-            'p' => w with { Rain24h = value },
+            // Barometric pressure arrives in tenths of millibars.
+            'b' => w with { Pressure = value / 10 },
+            // Rain arrives in hundredths of an inch.
+            'r' => w with { Rain1h = value / 100 },
+            'p' => w with { Rain24h = value / 100 },
             _ => w
         };
     }
@@ -820,13 +833,13 @@ public static class AprsInfoFieldParser
 
         if (info.Length < 9)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         // Decode latitude from destination address
         if (!TryDecodeMicELatitude(dest.Base, out double latitude, out bool isNorth, out int offset))
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         int pos = 1; // Skip data type indicator (' or `)
@@ -834,7 +847,7 @@ public static class AprsInfoFieldParser
         // Decode longitude (3 bytes)
         if (pos + 3 > info.Length)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         int lonDeg = info[pos] - 28 + offset;
@@ -845,6 +858,12 @@ public static class AprsInfoFieldParser
         else if (lonDeg >= 190 && lonDeg <= 199)
         {
             lonDeg -= 190;
+        }
+
+        // Validate longitude degree is in valid range
+        if (lonDeg < 0 || lonDeg >= 180)
+        {
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         int lonMin = info[pos + 1] - 28;
@@ -868,7 +887,7 @@ public static class AprsInfoFieldParser
         // Decode speed and course (3 bytes)
         if (pos + 3 > info.Length)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         int sp = info[pos] - 28;
@@ -882,7 +901,7 @@ public static class AprsInfoFieldParser
         int speedVal = (sp * 10) + (dc / 10);
         if (speedVal >= 0 && speedVal <= 799)
         {
-            speed = speedVal * 1.852; // Convert knots to km/h (APRS typically uses knots)
+            speed = speedVal; // knots on the wire; Speed is stored in knots (matches compressed path)
         }
 
         int courseVal = ((dc % 10) * 100) + se;
@@ -894,7 +913,7 @@ public static class AprsInfoFieldParser
         // Symbol table and code
         if (pos + 2 > info.Length)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         char symbolTableChar = info[pos];
@@ -1051,18 +1070,18 @@ public static class AprsInfoFieldParser
         // Format: T#nnn,v1,v2,v3,v4,v5,bbbbbbbb
         if (info.Length < 3)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         var parts = info[2..].Split(',');
         if (parts.Length < 1)
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         if (!int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int seqNum))
         {
-            return AsUnknown(info, source, dest);
+            return AsUnknown(info, source, dest, path.ToArray());
         }
 
         var analogValues = new List<double>();
@@ -1097,18 +1116,20 @@ public static class AprsInfoFieldParser
     }
 
     /// <summary>
-    /// Creates an UnknownPacket with the given info, source, and destination.
+    /// Creates an UnknownPacket with the given info, source, destination, and path.
     /// </summary>
     /// <param name="info">The info field string.</param>
     /// <param name="source">The source callsign.</param>
     /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The digipeater path.</param>
     /// <returns>The created UnknownPacket.</returns>
-    private static UnknownPacket AsUnknown(string info, Callsign source, Callsign dest)
+    private static UnknownPacket AsUnknown(string info, Callsign source, Callsign dest, Callsign[] path)
     {
         return new UnknownPacket
         {
             Source = source,
             Destination = dest,
+            Path = path,
             Raw = info
         };
     }

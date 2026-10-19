@@ -63,10 +63,22 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
             throw new InvalidOperationException("AprsRfModem is already started.");
         }
 
+        // Subscribe before starting the inner modem: a synchronous stream can
+        // dispatch frames during Start() itself. If Start() throws, detach the
+        // handlers again so a later successful Start does not double-deliver.
         _kissModem.FrameReceived += OnKissFrameReceived;
         _kissModem.ReceiveError += OnKissReceiveError;
 
-        _kissModem.Start();
+        try
+        {
+            _kissModem.Start();
+        }
+        catch
+        {
+            _kissModem.FrameReceived -= OnKissFrameReceived;
+            _kissModem.ReceiveError -= OnKissReceiveError;
+            throw;
+        }
 
         _started = true;
         _logger.LogInformation("APRS RF modem started.");
@@ -105,7 +117,7 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(packet);
 
         var ax25Data = Ax25Serializer.Serialize(packet);
-        var kissFrame = new KissFrame(0x00, ax25Data);
+        var kissFrame = new KissFrame((byte)KissCommandType.DataFrame, ax25Data);
         _logger.LogDebug(
             "Sending APRS packet via RF: Type={PacketType}, Source={Source}",
             packet.GetType().Name,
