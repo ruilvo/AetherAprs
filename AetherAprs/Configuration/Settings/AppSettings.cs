@@ -11,4 +11,6 @@ public class AppSettings
     public LoggerFilterOptions Logging { get; set; } = new();
 
     public AprsSettings Aprs { get; set; } = new();
+
+    public MessageTemplatesSettings MessageTemplates { get; set; } = new();
 }

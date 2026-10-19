@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -21,6 +22,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
 {
     private readonly IAppDataDirProviderService _appDataDirProvider;
     private readonly ILogger<ConfigurationService> _logger;
+    private readonly IConfiguration _configuration;
     private readonly SemaphoreSlim _settingsLock = new(1, 1);
 
     public void Dispose()
@@ -63,7 +65,6 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
         var configDirectory = _appDataDirProvider.GetAppDataDirectory();
 
-        IConfiguration configuration;
         try
         {
             var builder = new ConfigurationBuilder()
@@ -80,7 +81,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 reloadOnChange: false);
 #endif
 
-            configuration = builder.Build();
+            _configuration = builder.Build();
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
@@ -93,7 +94,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 _appSettingsFileName);
 
             QuarantineCorruptConfigFile(configDirectory);
-            configuration = new ConfigurationBuilder()
+            _configuration = new ConfigurationBuilder()
                 .SetBasePath(configDirectory)
                 .Build();
         }
@@ -102,7 +103,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         var normalizedValues = new Dictionary<string, string?>(
             StringComparer.OrdinalIgnoreCase);
 
-        foreach (var pair in configuration.AsEnumerable())
+        foreach (var pair in _configuration.AsEnumerable())
         {
             var value = pair.Value;
             string? normalizedPairValue;
@@ -193,6 +194,9 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 ex,
                 "Failed to bind appsettings values; some settings may use defaults.");
         }
+
+        EnsureMessageTemplatesSeeded();
+        SanitizeMessageTemplates();
     }
 
     /// <summary>
@@ -223,19 +227,27 @@ public class ConfigurationService : IConfigurationService, IDisposable
         }
     }
 
-    public async Task SaveSettingsAsync()
+    /// <summary>
+    /// Gets the path of the settings file that saves write to.
+    /// </summary>
+    private string GetSettingsFilePath()
     {
         var configDirectory = _appDataDirProvider.GetAppDataDirectory();
 
 #if DEBUG
-        var filePath = Path.Combine(
+        return Path.Combine(
             configDirectory,
             _appSettingsDevelopmentFileName);
 #else
-        var filePath = Path.Combine(
+        return Path.Combine(
             configDirectory,
             _appSettingsFileName);
 #endif
+    }
+
+    public async Task SaveSettingsAsync()
+    {
+        var filePath = GetSettingsFilePath();
 
         await _settingsLock.WaitAsync();
         try
@@ -282,17 +294,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     private async Task SaveLockedAsync()
     {
-        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
-
-#if DEBUG
-        var filePath = Path.Combine(
-            configDirectory,
-            _appSettingsDevelopmentFileName);
-#else
-        var filePath = Path.Combine(
-            configDirectory,
-            _appSettingsFileName);
-#endif
+        var filePath = GetSettingsFilePath();
 
         var json = JsonSerializer.Serialize(
             Settings,
@@ -301,6 +303,111 @@ public class ConfigurationService : IConfigurationService, IDisposable
         var tempFilePath = filePath + ".tmp";
         await File.WriteAllTextAsync(tempFilePath, json);
         File.Move(tempFilePath, filePath, overwrite: true);
+    }
+
+    /// <summary>
+    /// Persists the current settings synchronously, using the same atomic
+    /// temp-file write as <see cref="SaveSettingsAsync"/>.
+    /// Used during construction, where an async save cannot be awaited.
+    /// </summary>
+    private void SaveSettingsSync()
+    {
+        var filePath = GetSettingsFilePath();
+
+        _settingsLock.Wait();
+        try
+        {
+            var json = JsonSerializer.Serialize(
+                Settings,
+                _jsonSerializerOptions);
+
+            var tempFilePath = filePath + ".tmp";
+            File.WriteAllText(tempFilePath, json);
+            File.Move(tempFilePath, filePath, overwrite: true);
+        }
+        finally
+        {
+            _settingsLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Appends the default message template and persists it when the
+    /// configuration has no MessageTemplates section, so the section exists
+    /// on disk for later edits.
+    /// </summary>
+    private void EnsureMessageTemplatesSeeded()
+    {
+        if (_configuration.GetSection("MessageTemplates").Exists())
+        {
+            return;
+        }
+
+        _logger.LogInformation(
+            "MessageTemplates section missing; seeding default message template.");
+
+        Settings.MessageTemplates.Templates.Add(new MessageTemplate
+        {
+            Name = "APRS2SOTA Spot",
+            Destination = "SOTA",
+            Body = "{summit} {freq} {mode} {comment}"
+        });
+
+        try
+        {
+            SaveSettingsSync();
+        }
+        catch (Exception ex)
+        {
+            // Seeding must not prevent startup when the settings file cannot
+            // be written (e.g. read-only storage).
+            _logger.LogError(
+                ex,
+                "Failed to persist seeded message templates.");
+        }
+    }
+
+    /// <summary>
+    /// Drops message templates that are unusable: a null/whitespace name, a
+    /// destination that is not a valid callsign, or a name that duplicates an
+    /// earlier template (case-insensitive). First occurrences are kept in
+    /// their original order.
+    /// </summary>
+    private void SanitizeMessageTemplates()
+    {
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var sanitized = new List<MessageTemplate>();
+
+        foreach (var template in Settings.MessageTemplates.Templates)
+        {
+            if (string.IsNullOrWhiteSpace(template.Name))
+            {
+                _logger.LogWarning(
+                    "Dropping message template with empty name.");
+                continue;
+            }
+
+            if (!Callsign.TryParse(template.Destination, out _))
+            {
+                _logger.LogWarning(
+                    "Dropping message template {TemplateName} with invalid destination {Destination}.",
+                    template.Name,
+                    template.Destination);
+                continue;
+            }
+
+            if (!seenNames.Add(template.Name))
+            {
+                _logger.LogWarning(
+                    "Dropping duplicate message template {TemplateName}.",
+                    template.Name);
+                continue;
+            }
+
+            sanitized.Add(template);
+        }
+
+        Settings.MessageTemplates.Templates = sanitized;
     }
 
     /// <summary>
@@ -338,6 +445,17 @@ public class ConfigurationService : IConfigurationService, IDisposable
                     EnableRfToAprsIsGate = Settings.Aprs.EnableRfToAprsIsGate,
                     BeaconComment = Settings.Aprs.BeaconComment,
                     DigipeaterPath = Settings.Aprs.DigipeaterPath
+                },
+                MessageTemplates = new MessageTemplatesSettings
+                {
+                    Templates = Settings.MessageTemplates.Templates
+                        .Select(template => new MessageTemplate
+                        {
+                            Name = template.Name,
+                            Destination = template.Destination,
+                            Body = template.Body
+                        })
+                        .ToList()
                 }
             };
             return snapshot;
