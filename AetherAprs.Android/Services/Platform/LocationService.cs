@@ -7,10 +7,13 @@ using AetherAprs.Services.Platform;
 using Android;
 using Android.Content;
 using Android.Content.PM;
+using Android.Gms.Common;
+using Android.Gms.Location;
 using Android.Locations;
 using Android.OS;
 using AndroidX.Core.App;
 using AndroidX.Core.Content;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading;
@@ -20,7 +23,9 @@ namespace AetherAprs.Android.Services.Platform;
 
 /// <summary>
 /// Android-specific implementation of ILocationService.
-/// Uses Android's LocationManager to retrieve device location.
+/// Prefers Google Play Services' fused location provider (network + GPS fusion,
+/// fast first fix even indoors) and falls back to a concurrent multi-provider
+/// race via Android's LocationManager on devices without Google Play Services.
 /// </summary>
 public class LocationService : ILocationService
 {
@@ -30,6 +35,27 @@ public class LocationService : ILocationService
         Manifest.Permission.AccessFineLocation,
         Manifest.Permission.AccessCoarseLocation
     ];
+
+    // Interval for fused provider update requests (first fix is what matters;
+    // updates are removed as soon as one fix arrives).
+    private const int FusedIntervalMs = 1000;
+
+    // Last-known-location cache is accepted when younger than this. The tracking
+    // loop refines the position on subsequent polls, so a slightly stale fix is
+    // far better than waiting for a fresh one on a cold GPS start.
+    private const double LastKnownMaxAgeSeconds = 120;
+
+    // The fused provider usually reports a fix within a few seconds; if it cannot,
+    // fall back to LocationManager instead of making the user wait.
+    private static readonly TimeSpan FusedRequestTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan LocationManagerRequestTimeout = TimeSpan.FromSeconds(30);
+
+    private readonly ILogger<LocationService>? _logger;
+
+    public LocationService(ILogger<LocationService>? logger = null)
+    {
+        _logger = logger;
+    }
 
     /// <inheritdoc/>
     public bool IsLocationAvailable()
@@ -118,20 +144,126 @@ public class LocationService : ILocationService
             throw new InvalidOperationException("LocationManager is not available.");
         }
 
-        // Try to get last known location first for quick response
-        // Reject stale locations (older than 30 seconds) to ensure fresh beacon positions
+        // Try the last known location first for a quick response
         var lastKnownLocation = GetLastKnownLocation(locationManager);
-        if (lastKnownLocation != null)
+        if (lastKnownLocation != null && IsFresh(lastKnownLocation))
         {
-            var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(lastKnownLocation.Time);
-            if (age.TotalSeconds < 30)
+            return ConvertToLocationData(lastKnownLocation);
+        }
+
+        // Prefer the fused provider (Google Play Services): it fuses network and GPS
+        // positioning and typically reports a fix within seconds, even indoors.
+        if (IsGooglePlayServicesAvailable())
+        {
+            var fusedLocation = await TryGetCurrentLocationViaFusedAsync(cancellationToken);
+            if (fusedLocation != null)
             {
-                return ConvertToLocationData(lastKnownLocation);
+                return fusedLocation;
             }
         }
 
-        // Request a fresh location update
-        var tcs = new TaskCompletionSource<LocationData>();
+        // Fallback: race all enabled LocationManager providers concurrently and take
+        // the first fix. Network positioning is near-instant while GPS alone can take
+        // minutes on a cold start (or never fix at all indoors).
+        return await GetCurrentLocationViaLocationManagerAsync(locationManager, cancellationToken);
+    }
+
+    private static bool HasLocationPermission()
+    {
+        var context = global::Android.App.Application.Context;
+        var fineLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessFineLocation) == Permission.Granted;
+        var coarseLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessCoarseLocation) == Permission.Granted;
+        return fineLocationGranted || coarseLocationGranted;
+    }
+
+    private static bool IsGooglePlayServicesAvailable()
+    {
+        try
+        {
+            var availability = GoogleApiAvailability.Instance;
+            if (availability == null)
+            {
+                return false;
+            }
+
+            return availability.IsGooglePlayServicesAvailable(global::Android.App.Application.Context) == ConnectionResult.Success;
+        }
+        catch
+        {
+            // De-Googled ROMs can fail while resolving GMS classes; treat as unavailable.
+            return false;
+        }
+    }
+
+    private static bool IsFresh(Location location)
+    {
+        var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(location.Time);
+        return age.TotalSeconds < LastKnownMaxAgeSeconds;
+    }
+
+    private async Task<LocationData?> TryGetCurrentLocationViaFusedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var fusedClient = LocationServices.GetFusedLocationProviderClient(global::Android.App.Application.Context);
+
+            var tcs = new TaskCompletionSource<Location>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var callback = new FirstFixLocationCallback(location => tcs.TrySetResult(location));
+
+            var locationRequest = new global::Android.Gms.Location.LocationRequest.Builder(Priority.PriorityHighAccuracy, FusedIntervalMs)
+                .SetWaitForAccurateLocation(false)
+                .Build();
+
+            await using var cancellationRegistration = cancellationToken.Register(() =>
+                tcs.TrySetCanceled(cancellationToken));
+
+            fusedClient.RequestLocationUpdates(locationRequest, callback, Looper.MainLooper);
+
+            try
+            {
+                var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(FusedRequestTimeout, CancellationToken.None));
+
+                if (completedTask != tcs.Task)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _logger?.LogWarning("Fused location provider did not deliver a fix within {TimeoutSeconds}s; falling back to LocationManager.", FusedRequestTimeout.TotalSeconds);
+                    return null;
+                }
+
+                return ConvertToLocationData(await tcs.Task);
+            }
+            finally
+            {
+                fusedClient.RemoveLocationUpdates(callback);
+            }
+        }
+        catch (System.OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Any failure on the fused path (missing or broken GMS components) must
+            // not break location tracking: fall back to LocationManager.
+            _logger?.LogWarning(ex, "Fused location provider failed; falling back to LocationManager.");
+            return null;
+        }
+    }
+
+    private static async Task<LocationData> GetCurrentLocationViaLocationManagerAsync(LocationManager locationManager, CancellationToken cancellationToken)
+    {
+        // SUPPRESSED WARNING CA1416: Platform compatibility
+        // GetProviders is available on all Android API levels we support.
+        var providers = locationManager.GetProviders(enabledOnly: true)
+            .Where(p => p != LocationManager.PassiveProvider)
+            .ToList();
+
+        if (providers.Count == 0)
+        {
+            throw new InvalidOperationException("No location provider is available.");
+        }
+
+        var tcs = new TaskCompletionSource<LocationData>(TaskCreationOptions.RunContinuationsAsynchronously);
         var listener = new SingleUpdateLocationListener(location =>
         {
             tcs.TrySetResult(ConvertToLocationData(location));
@@ -141,45 +273,39 @@ public class LocationService : ILocationService
         // Registration disposed via using so the lambda is not rooted for the token's lifetime.
         await using var cancellationRegistration = cancellationToken.Register(() =>
         {
-            locationManager.RemoveUpdates(listener);
-            tcs.TrySetCanceled();
+            tcs.TrySetCanceled(cancellationToken);
         });
-
-        // Request location from the best available provider
-        var provider = GetBestProvider(locationManager) ?? throw new InvalidOperationException("No location provider is available.");
 
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // RequestLocationUpdates is available on all Android API levels we support (API 23+).
         // The Looper.MainLooper call is also available on all supported API levels.
-        locationManager.RequestLocationUpdates(
-            provider,
-            minTimeMs: 0,
-            minDistanceM: 0,
-            listener,
-            Looper.MainLooper);
-
-        // Set a timeout for location request (30 seconds)
-        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
-        var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
-
-        locationManager.RemoveUpdates(listener);
-
-        if (completedTask == timeoutTask)
+        foreach (var provider in providers)
         {
-            throw new TimeoutException("Location request timed out after 30 seconds.");
+            locationManager.RequestLocationUpdates(
+                provider,
+                minTimeMs: 0,
+                minDistanceM: 0,
+                listener,
+                Looper.MainLooper);
         }
 
-        var result = await tcs.Task;
-        await cancellationRegistration.DisposeAsync();
-        return result;
-    }
+        try
+        {
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(LocationManagerRequestTimeout, CancellationToken.None));
 
-    private static bool HasLocationPermission()
-    {
-        var context = global::Android.App.Application.Context;
-        var fineLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessFineLocation) == Permission.Granted;
-        var coarseLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessCoarseLocation) == Permission.Granted;
-        return fineLocationGranted || coarseLocationGranted;
+            if (completedTask != tcs.Task)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new TimeoutException($"Location request timed out after {LocationManagerRequestTimeout.TotalSeconds} seconds across {providers.Count} provider(s).");
+            }
+
+            return await tcs.Task;
+        }
+        finally
+        {
+            // RemoveUpdates unregisters the listener from every provider at once.
+            locationManager.RemoveUpdates(listener);
+        }
     }
 
     private static Location? GetLastKnownLocation(LocationManager locationManager)
@@ -201,28 +327,6 @@ public class LocationService : ILocationService
         return bestLocation;
     }
 
-    private static string? GetBestProvider(LocationManager locationManager)
-    {
-        // Modern approach without deprecated Criteria API
-        // Prefer GPS for best accuracy, fallback to Network provider
-
-        // Try GPS provider first (most accurate)
-        if (locationManager.IsProviderEnabled(LocationManager.GpsProvider))
-        {
-            return LocationManager.GpsProvider;
-        }
-
-        // Fallback to Network provider (less accurate but faster)
-        if (locationManager.IsProviderEnabled(LocationManager.NetworkProvider))
-        {
-            return LocationManager.NetworkProvider;
-        }
-
-        // Check for any other enabled providers as last resort
-        var providers = locationManager.GetProviders(enabledOnly: true);
-        return providers?.FirstOrDefault();
-    }
-
     private static LocationData ConvertToLocationData(Location location)
     {
         return new LocationData
@@ -234,7 +338,7 @@ public class LocationService : ILocationService
         };
     }
 
-    private sealed class SingleUpdateLocationListener(Action<Location> onLocationReceived) : Java.Lang.Object, ILocationListener
+    private sealed class SingleUpdateLocationListener(Action<Location> onLocationReceived) : Java.Lang.Object, global::Android.Locations.ILocationListener
     {
         public void OnLocationChanged(Location location)
         {
@@ -251,6 +355,18 @@ public class LocationService : ILocationService
 
         public void OnStatusChanged(string? provider, Availability status, Bundle? extras)
         {
+        }
+    }
+
+    private sealed class FirstFixLocationCallback(Action<Location> onFirstFix) : LocationCallback
+    {
+        public override void OnLocationResult(LocationResult result)
+        {
+            var location = result?.LastLocation;
+            if (location != null)
+            {
+                onFirstFix(location);
+            }
         }
     }
 }

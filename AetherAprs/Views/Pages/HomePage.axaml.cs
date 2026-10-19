@@ -80,6 +80,12 @@ public partial class HomePage : UserControl
         if (viewModel.Map != null)
         {
             viewModel.Map.CenterOnPointRequested += OnCenterOnPointRequested;
+
+            // The first location fix can arrive before this view is created (tracking
+            // starts at app startup and the fused provider returns almost instantly),
+            // in which case the auto-center event fires with no subscriber attached.
+            // Re-issue the request; this is a no-op while no location is known yet.
+            viewModel.Map.CenterOnUser();
         }
 
         // Start location tracking at runtime, not in designer

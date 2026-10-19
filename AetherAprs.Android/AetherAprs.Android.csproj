@@ -40,6 +40,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <ItemGroup>
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
+    <PackageReference Include="Xamarin.GooglePlayServices.Location" />
   </ItemGroup>
 
   <ItemGroup>
