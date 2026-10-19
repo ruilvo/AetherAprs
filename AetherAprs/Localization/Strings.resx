@@ -263,4 +263,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="TemplatePickerPreview" xml:space="preserve"><value>Preview</value></data>
   <data name="TemplatePickerConfirm" xml:space="preserve"><value>Insert</value></data>
   <data name="TemplatePickerNoTemplates" xml:space="preserve"><value>No templates configured. Add templates in the message template settings.</value></data>
+  <data name="MessageTemplatesPageTitle" xml:space="preserve"><value>Message Templates</value></data>
+  <data name="MessageTemplatesSectionEntry" xml:space="preserve"><value>Message Templates</value></data>
+  <data name="MessageTemplatesSectionEntryDescription" xml:space="preserve"><value>Create and edit quick message templates.</value></data>
+  <data name="AddTemplate" xml:space="preserve"><value>Add Template</value></data>
+  <data name="EditTemplate" xml:space="preserve"><value>Edit</value></data>
+  <data name="DeleteTemplate" xml:space="preserve"><value>Delete</value></data>
+  <data name="TemplateName" xml:space="preserve"><value>Name</value></data>
+  <data name="TemplateDestination" xml:space="preserve"><value>Destination</value></data>
+  <data name="TemplateBody" xml:space="preserve"><value>Message</value></data>
+  <data name="TemplatePlaceholdersHint" xml:space="preserve"><value>Placeholders such as {summit} or {freq} are filled in when the template is used.</value></data>
+  <data name="DeleteTemplateConfirmationTitle" xml:space="preserve"><value>Delete Template</value></data>
+  <data name="DeleteTemplateConfirmationMessage" xml:space="preserve"><value>Delete template '{0}'? This action cannot be undone.</value></data>
+  <data name="TemplatesEmptyState" xml:space="preserve"><value>No templates yet. Tap + to add one.</value></data>
+  <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>Name is required</value></data>
+  <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>A template with this name already exists</value></data>
+  <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>Message cannot exceed {0} characters</value></data>
 </root>

@@ -25,6 +25,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     // the DI container until app shutdown, so Dispose() is primarily for testing scenarios.
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
+    private readonly MessageTemplatesViewModel? _messageTemplatesViewModel;
     private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
     private bool _isInitializing = true;
@@ -108,11 +109,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         IConfigurationService configurationService,
         INavigationService navigationService,
         AprsSymbolPickerViewModel aprsSymbolPicker,
+        MessageTemplatesViewModel? messageTemplatesViewModel = null,
         ILogger<SettingsViewModel>? logger = null)
     {
         _configurationService = configurationService;
         _navigationService = navigationService;
         _logger = logger;
+        _messageTemplatesViewModel = messageTemplatesViewModel;
         SymbolPicker = aprsSymbolPicker;
 
         var aprs = _configurationService.Settings.Aprs;
@@ -346,6 +349,18 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private void OpenBeaconingSettings()
     {
         _navigationService.NavigateTo<DynamicBeaconingViewModel>();
+    }
+
+    [RelayCommand]
+    private void OpenMessageTemplates()
+    {
+        if (_messageTemplatesViewModel is null)
+        {
+            // Not supplied in some test/design-time constructions; nothing to open.
+            return;
+        }
+
+        _navigationService.NavigateTo(_messageTemplatesViewModel);
     }
 
     public void Dispose()

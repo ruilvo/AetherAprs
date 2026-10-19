@@ -95,6 +95,7 @@ public static class DesignData
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
+        services.AddSingleton<IMessageTemplateEditViewModelFactory, MessageTemplateEditViewModelFactory>();
 
         // Register logging
         services.AddLogging(builder =>
@@ -116,6 +117,8 @@ public static class DesignData
         services.AddTransient<DynamicBeaconingViewModel>();
         services.AddTransient<ConversationViewModel>();
         services.AddTransient<MessageTemplateDialogViewModel>();
+        services.AddSingleton<MessageTemplatesViewModel>();
+        services.AddTransient<MessageTemplateEditViewModel>();
         services.AddTransient<PacketDetailsViewModel>();
 
         var provider = services.BuildServiceProvider();
@@ -239,6 +242,9 @@ public static class DesignData
             return factory.Create(templateService.Templates, null);
         }
     }
+
+    public static MessageTemplatesViewModel MessageTemplatesViewModel =>
+        _serviceProvider.GetRequiredService<MessageTemplatesViewModel>();
 
     public static SymbolSelectorViewModel SymbolSelectorViewModel
     {

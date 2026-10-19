@@ -31,6 +31,7 @@ public class ViewLocator : IDataTemplate
             DynamicBeaconingViewModel => new DynamicBeaconingPage(),
             AddEditPortViewModel => new AddEditPortPage(),
             ConversationViewModel => new ConversationPage(),
+            MessageTemplatesViewModel => new MessageTemplatesPage(),
             PacketDetailsViewModel => new PacketDetailsPage(),
             PortItemViewModel => new PortItemComponent(),
             AprsSymbolPickerViewModel => new AprsSymbolPickerComponent(),

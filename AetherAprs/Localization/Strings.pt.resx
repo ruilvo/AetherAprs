@@ -263,4 +263,20 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="TemplatePickerPreview" xml:space="preserve"><value>Pré-visualização</value></data>
   <data name="TemplatePickerConfirm" xml:space="preserve"><value>Inserir</value></data>
   <data name="TemplatePickerNoTemplates" xml:space="preserve"><value>Nenhum modelo configurado. Adicione modelos nas configurações de modelos de mensagem.</value></data>
+  <data name="MessageTemplatesPageTitle" xml:space="preserve"><value>Modelos de Mensagem</value></data>
+  <data name="MessageTemplatesSectionEntry" xml:space="preserve"><value>Modelos de Mensagem</value></data>
+  <data name="MessageTemplatesSectionEntryDescription" xml:space="preserve"><value>Crie e edite modelos de mensagem rápidos.</value></data>
+  <data name="AddTemplate" xml:space="preserve"><value>Adicionar Modelo</value></data>
+  <data name="EditTemplate" xml:space="preserve"><value>Editar</value></data>
+  <data name="DeleteTemplate" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="TemplateName" xml:space="preserve"><value>Nome</value></data>
+  <data name="TemplateDestination" xml:space="preserve"><value>Destino</value></data>
+  <data name="TemplateBody" xml:space="preserve"><value>Mensagem</value></data>
+  <data name="TemplatePlaceholdersHint" xml:space="preserve"><value>Marcadores como {summit} ou {freq} são preenchidos quando o modelo é usado.</value></data>
+  <data name="DeleteTemplateConfirmationTitle" xml:space="preserve"><value>Eliminar Modelo</value></data>
+  <data name="DeleteTemplateConfirmationMessage" xml:space="preserve"><value>Eliminar o modelo '{0}'? Esta ação não pode ser revertida.</value></data>
+  <data name="TemplatesEmptyState" xml:space="preserve"><value>Ainda não existem modelos. Toque em + para adicionar um.</value></data>
+  <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>O nome é obrigatório</value></data>
+  <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>Já existe um modelo com este nome</value></data>
+  <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>A mensagem não pode exceder {0} caracteres</value></data>
 </root>

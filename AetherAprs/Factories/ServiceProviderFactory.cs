@@ -144,6 +144,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
+        services.AddSingleton<IMessageTemplateEditViewModelFactory, MessageTemplateEditViewModelFactory>();
 
         // Register ViewModels
         services.AddSingleton<MainViewModel>(); // Application-wide navigation state
@@ -158,6 +159,8 @@ public static class ServiceProviderFactory
         services.AddTransient<AddEditPortViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ConversationViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<MessageTemplateDialogViewModel>(); // Dialog content, fresh each time a template is picked
+        services.AddSingleton<MessageTemplatesViewModel>(); // Overlay page state
+        services.AddTransient<MessageTemplateEditViewModel>(); // Dialog content, fresh each time a template is added/edited
         services.AddTransient<PacketDetailsViewModel>(); // Overlay sub-page, fresh each time
 
         // Allow overriding core services for testing or platform-specific

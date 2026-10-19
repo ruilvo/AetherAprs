@@ -1,0 +1,102 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:config="using:AetherAprs.Configuration.Settings"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:converters="using:AetherAprs.Converters.UI"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.MessageTemplatesPage"
+             x:DataType="vm:MessageTemplatesViewModel"
+             d:DataContext="{x:Static local:DesignData.MessageTemplatesViewModel}">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{loc:Loc MessageTemplatesPageTitle}" Classes="PageTitle" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Classes="PageContent" Margin="16,8,16,0">
+      <StackPanel>
+        <!-- Empty state -->
+        <TextBlock Text="{loc:Loc TemplatesEmptyState}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+
+        <!-- Template cards -->
+        <ItemsControl ItemsSource="{Binding Templates}"
+                      Classes="CardList"
+                      IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="config:MessageTemplate">
+              <controls:Card>
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0" Grid.Column="0"
+                             Text="{Binding Name}"
+                             Classes="Subtitle1"
+                             FontWeight="Bold" />
+
+                  <TextBlock Grid.Row="1" Grid.Column="0"
+                             Text="{Binding Destination}"
+                             Classes="Caption"
+                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                             IsVisible="{Binding Destination, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                  <TextBlock Grid.Row="2" Grid.Column="0"
+                             Text="{Binding Body}"
+                             Classes="Caption"
+                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                             TextTrimming="CharacterEllipsis" />
+
+                  <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
+                              Orientation="Horizontal"
+                              VerticalAlignment="Center"
+                              Spacing="4">
+                    <Button Classes="Flat"
+                            Padding="8"
+                            MinHeight="48"
+                            Content="{loc:Loc EditTemplate}"
+                            Command="{Binding $parent[UserControl].((vm:MessageTemplatesViewModel)DataContext).EditCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Classes="Flat"
+                            Padding="8"
+                            MinHeight="48"
+                            Content="{loc:Loc DeleteTemplate}"
+                            Command="{Binding $parent[UserControl].((vm:MessageTemplatesViewModel)DataContext).DeleteCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Grid>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <controls:FloatingButton Grid.Row="2"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="0,0,16,16"
+                             MinHeight="56"
+                             MinWidth="56"
+                             Command="{Binding AddCommand}">
+      <Viewbox Width="24" Height="24">
+        <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
+      </Viewbox>
+    </controls:FloatingButton>
+  </Grid>
+</UserControl>
