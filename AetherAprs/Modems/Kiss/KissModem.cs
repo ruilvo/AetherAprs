@@ -275,8 +275,12 @@ public sealed class KissModem : IAsyncDisposable
     {
         try
         {
-            var unescaped = KissSerializer.UnescapeData([.. _accumulator]);
-            var frame = KissSerializer.DecodeFrame(unescaped);
+            // The command byte is transmitted unescaped per the KISS spec;
+            // only the payload is escaped.
+            var data = _accumulator.Count > 1
+                ? KissSerializer.UnescapeData([.. _accumulator.GetRange(1, _accumulator.Count - 1)])
+                : [];
+            var frame = new KissFrame(_accumulator[0], data);
             _logger.LogDebug(
                 "KISS frame received: Command={Command}, Port={Port}, DataLength={Length}",
                 frame.CommandType,

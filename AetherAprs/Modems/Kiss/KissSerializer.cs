@@ -18,8 +18,16 @@ public static class KissSerializer
     /// </summary>
     /// <param name="frame">The frame to encode.</param>
     /// <returns>Escaped byte sequence including opening and closing FEND bytes.</returns>
+    /// <exception cref="ArgumentException">Thrown when the command byte is FEND (0xC0). The command byte is transmitted unescaped, so such a frame cannot be represented on the wire.</exception>
     public static byte[] EncodeFrame(KissFrame frame)
     {
+        if (frame.Command == KissConstants.FEND)
+        {
+            throw new ArgumentException(
+                "Frame command byte cannot be FEND (0xC0): the command byte is transmitted unescaped, so such a frame cannot be represented on the wire.",
+                nameof(frame));
+        }
+
         var escapedData = EscapeData(frame.Data);
         var buffer = new byte[1 + 1 + escapedData.Length + 1];
 
