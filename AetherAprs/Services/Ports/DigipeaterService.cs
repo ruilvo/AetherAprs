@@ -89,7 +89,7 @@ public class DigipeaterService(
         IReadOnlyList<Callsign> forwardedPath = Array.Empty<Callsign>();
         if (isRfToAprsIs)
         {
-            forwardedPath = BuildForwardedPath(packet, ownCallsign, out suppressRfForwarding);
+            forwardedPath = BuildForwardedPath(packet, ownCallsign, settings, out suppressRfForwarding);
         }
 
         foreach (var port in availablePorts)
@@ -248,18 +248,21 @@ public class DigipeaterService(
 
     /// <summary>
     /// Computes the forwarded path for RF digipeating: inserts our callsign into the
-    /// path and decrements the first untraced WIDE/TRACE hop.
+    /// path and decrements the first untraced WIDE/TRACE alias hop that this station is
+    /// configured to respond to.
     /// </summary>
     /// <param name="packet">The received packet.</param>
     /// <param name="ownCallsign">Our own callsign, or <c>null</c> when none is configured.</param>
+    /// <param name="settings">APRS settings controlling which aliases we respond to.</param>
     /// <param name="suppressForwarding">
-    /// Set to <c>true</c> when the packet must not be forwarded on RF at all
-    /// (a hop was consumed without remaining hops to service).
+    /// Set to <c>true</c> when the packet must not be forwarded on RF at all (the first
+    /// untraced alias is one we do not respond to, or was already exhausted).
     /// </param>
     /// <returns>The path to transmit the packet with.</returns>
     private static IReadOnlyList<Callsign> BuildForwardedPath(
         AprsPacket packet,
         Callsign? ownCallsign,
+        AprsSettings settings,
         out bool suppressForwarding)
     {
         suppressForwarding = false;
@@ -289,27 +292,55 @@ public class DigipeaterService(
                 inserted = true;
             }
 
-            var isWideOrTrace = hop.Base is "WIDE" or "TRACE";
-            if (isWideOrTrace && hop.Ssid is > 0)
+            // Explicit digipeater callsigns (not a WIDE/TRACE alias) are left as-is;
+            // keep scanning for the first alias this station is responsible for.
+            if (!IsDigipeaterAlias(hop))
             {
-                // First untraced WIDE/TRACE hop: decrement it and stop modifying.
+                forwarded.Add(hop);
+                continue;
+            }
+
+            // The first untraced WIDE/TRACE alias determines whether we forward.
+            if (hop.Ssid is > 0)
+            {
+                if (!RespondsToAlias(hop, settings))
+                {
+                    // An alias we are not configured to service: do not digipeat.
+                    suppressForwarding = true;
+                    return forwarded;
+                }
+
+                // Decrement the hop we are servicing and stop modifying the path.
                 forwarded.Add(new Callsign(hop.Base, hop.Ssid.Value - 1));
                 return forwarded;
             }
 
-            if (isWideOrTrace)
-            {
-                // A WIDE/TRACE hop with no remaining hops: this packet has already
-                // been serviced — it must not travel further via us.
-                suppressForwarding = true;
-                return forwarded;
-            }
-
-            forwarded.Add(hop);
+            // An alias with no remaining hops has already been serviced — it must not
+            // travel further via us.
+            suppressForwarding = true;
+            return forwarded;
         }
 
-        // Path contained no decremented hop (e.g. only explicit digipeaters):
+        // Path contained no alias (e.g. only explicit digipeaters):
         // forward with our insertion only.
         return forwarded;
     }
+
+    /// <summary>
+    /// Determines whether a path hop is a digipeater alias
+    /// (<c>WIDE1</c>, <c>WIDE2</c>, or <c>TRACE</c>).
+    /// </summary>
+    private static bool IsDigipeaterAlias(Callsign hop) =>
+        hop.Base is "WIDE1" or "WIDE2" or "TRACE";
+
+    /// <summary>
+    /// Determines whether this station is configured to respond to the given alias.
+    /// </summary>
+    private static bool RespondsToAlias(Callsign hop, AprsSettings settings) => hop.Base switch
+    {
+        "WIDE1" => settings.DigipeaterRespondToWide1,
+        "WIDE2" => settings.DigipeaterRespondToWide2,
+        "TRACE" => settings.DigipeaterRespondToTrace,
+        _ => false
+    };
 }

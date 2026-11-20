@@ -218,6 +218,14 @@ public class AprsSettings
     public bool DigipeaterRespondToWide2 { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether the digipeater responds to TRACEn-N
+    /// (trace digi mode).
+    /// Trace digis record the full path a packet took.
+    /// Default is false.
+    /// </summary>
+    public bool DigipeaterRespondToTrace { get; set; } = false;
+
+    /// <summary>
     /// Gets or sets whether to enable APRS-IS to RF gating.
     /// When enabled, packets received from APRS-IS can be transmitted on
     /// RF ports.

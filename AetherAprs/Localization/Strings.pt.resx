@@ -221,6 +221,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="DigipeaterPathDescription" xml:space="preserve"><value>O caminho de digipeater para pacotes transmitidos. Valores comuns: WIDE1-1,WIDE2-1 (recomendado), WIDE2-2, ou deixar vazio para apenas direto.</value></data>
   <data name="RespondToWide1" xml:space="preserve"><value>Responder a WIDE1-N (Fill-in Digi)</value></data>
   <data name="RespondToWide2" xml:space="preserve"><value>Responder a WIDE2-N (Full Digi)</value></data>
+  <data name="RespondToTrace" xml:space="preserve"><value>Responder a TRACEn-N (Trace Digi)</value></data>
   <data name="BeaconSettings" xml:space="preserve"><value>Definições de Beacon</value></data>
   <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configurar comentário e caminho predefinidos para beacons de posição.</value></data>
   <data name="ValidationCallsignRequired" xml:space="preserve"><value>Indicativo é obrigatório</value></data>

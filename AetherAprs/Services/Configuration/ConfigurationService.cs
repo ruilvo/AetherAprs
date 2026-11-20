@@ -441,6 +441,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
                     DigipeaterInsertCallsign = Settings.Aprs.DigipeaterInsertCallsign,
                     DigipeaterRespondToWide1 = Settings.Aprs.DigipeaterRespondToWide1,
                     DigipeaterRespondToWide2 = Settings.Aprs.DigipeaterRespondToWide2,
+                    DigipeaterRespondToTrace = Settings.Aprs.DigipeaterRespondToTrace,
                     EnableAprsIsToRfGate = Settings.Aprs.EnableAprsIsToRfGate,
                     EnableRfToAprsIsGate = Settings.Aprs.EnableRfToAprsIsGate,
                     BeaconComment = Settings.Aprs.BeaconComment,

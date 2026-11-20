@@ -99,6 +99,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool DigipeaterRespondToWide2 { get; set; } = true;
 
+    [ObservableProperty]
+    public partial bool DigipeaterRespondToTrace { get; set; } = false;
+
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
         Enum.GetValues<Configuration.PacketDisplayTimeRange>();
 
@@ -137,6 +140,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         DigipeaterPath = aprs.DigipeaterPath;
         DigipeaterRespondToWide1 = aprs.DigipeaterRespondToWide1;
         DigipeaterRespondToWide2 = aprs.DigipeaterRespondToWide2;
+        DigipeaterRespondToTrace = aprs.DigipeaterRespondToTrace;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             SymbolTableCharacter, SymbolCodeCharacter, SymbolOverlayCharacter);
@@ -278,6 +282,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings();
     }
 
+    partial void OnDigipeaterRespondToTraceChanged(bool value)
+    {
+        SaveSettings();
+    }
+
     private void SaveSettings()
     {
         // Don't auto-save during initialization
@@ -323,6 +332,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
+            _configurationService.Settings.Aprs.DigipeaterRespondToTrace = DigipeaterRespondToTrace;
 
             // Fire-and-forget is acceptable here as we don't need to wait for save completion,
             // but the exception must be observed and logged or it is silently lost.

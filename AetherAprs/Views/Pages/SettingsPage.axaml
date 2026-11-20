@@ -190,6 +190,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       VerticalContentAlignment="Center"
                       Margin="24,0,0,0" />
 
+            <CheckBox Content="{loc:Loc RespondToTrace}"
+                      IsChecked="{Binding DigipeaterRespondToTrace}"
+                      IsEnabled="{Binding EnableDigipeater}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center"
+                      Margin="24,0,0,0" />
+
             <CheckBox Content="{loc:Loc EnableAprsIsToRfGating}"
                       IsChecked="{Binding EnableAprsIsToRfGate}"
                       IsEnabled="{Binding EnableDigipeater}"

@@ -138,7 +138,7 @@ public sealed class DigipeaterServiceTests
         var packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
-            Path = [new Callsign("WIDE", 2)]
+            Path = [new Callsign("WIDE2", 2)]
         };
 
         var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
@@ -146,7 +146,7 @@ public sealed class DigipeaterServiceTests
         var isTarget = Assert.Single(targets, t => t.PortId == AprsIsPortId);
         // RF→IS forwards the packet unchanged; APRS-IS handles distribution.
         Assert.Single(isTarget.Packet.Path);
-        Assert.Equal("WIDE", isTarget.Packet.Path[0].Base);
+        Assert.Equal("WIDE2", isTarget.Packet.Path[0].Base);
         Assert.Equal(2, isTarget.Packet.Path[0].Ssid);
     }
 
@@ -158,7 +158,7 @@ public sealed class DigipeaterServiceTests
         var packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
-            Path = [new Callsign("WIDE", 2)]
+            Path = [new Callsign("WIDE2", 2)]
         };
 
         var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
@@ -166,7 +166,78 @@ public sealed class DigipeaterServiceTests
         var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal(2, rfTarget.Packet.Path.Count);
         Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
+        Assert.Equal("WIDE2", rfTarget.Packet.Path[1].Base);
         Assert.Equal(1, rfTarget.Packet.Path[1].Ssid);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_Wide1NotResponded_NotForwardedOnRf()
+    {
+        var service = CreateService(callsignBase: "MYCALL", respondToWide1: false, respondToWide2: true);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("WIDE1", 1)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        Assert.DoesNotContain(targets, t => t.PortId == RfPortId);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_Wide1Responded_ForwardsWithDecrement()
+    {
+        var service = CreateService(callsignBase: "MYCALL", respondToWide1: true, respondToWide2: false);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("WIDE1", 1)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
+        Assert.Equal("WIDE1", rfTarget.Packet.Path[1].Base);
+        Assert.Equal(0, rfTarget.Packet.Path[1].Ssid);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_TraceNotResponded_NotForwardedOnRf()
+    {
+        var service = CreateService(callsignBase: "MYCALL", respondToTrace: false);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("TRACE", 3)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        Assert.DoesNotContain(targets, t => t.PortId == RfPortId);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_TraceResponded_ForwardsWithDecrement()
+    {
+        var service = CreateService(callsignBase: "MYCALL", respondToTrace: true);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("TRACE", 3)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
+        Assert.Equal("TRACE", rfTarget.Packet.Path[1].Base);
+        Assert.Equal(2, rfTarget.Packet.Path[1].Ssid);
     }
 
     [Fact]
@@ -241,7 +312,10 @@ public sealed class DigipeaterServiceTests
         bool enableDigipeater = true,
         bool enableAprsIsToRfGate = true,
         string callsignBase = "N0CALL",
-        byte ssid = 0)
+        byte ssid = 0,
+        bool respondToWide1 = false,
+        bool respondToWide2 = true,
+        bool respondToTrace = false)
     {
         var settings = new AppSettings();
         settings.Aprs.EnableDigipeater = enableDigipeater;
@@ -249,6 +323,9 @@ public sealed class DigipeaterServiceTests
         settings.Aprs.EnableRfToAprsIsGate = true;
         settings.Aprs.Callsign = callsignBase;
         settings.Aprs.Ssid = (AprsSsid)ssid;
+        settings.Aprs.DigipeaterRespondToWide1 = respondToWide1;
+        settings.Aprs.DigipeaterRespondToWide2 = respondToWide2;
+        settings.Aprs.DigipeaterRespondToTrace = respondToTrace;
 
         return new DigipeaterService(
             new TestConfigurationService(settings),
