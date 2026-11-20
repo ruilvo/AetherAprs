@@ -53,6 +53,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<ILocationService, NoOpLocationService>();
         services.AddSingleton<IPermissionService, NoOpPermissionService>();
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
+        services.AddSingleton<ICompassService, NoOpCompassService>();
 
         // Register platform-specific services first
         registerPlatformServices(services);

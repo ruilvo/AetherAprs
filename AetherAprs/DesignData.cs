@@ -63,6 +63,7 @@ public static class DesignData
         services.AddSingleton<IUiDispatcher>(AvaloniaUiDispatcher.Instance);
         services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
+        services.AddSingleton<ICompassService, DesignTimeCompassService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
@@ -153,6 +154,35 @@ public static class DesignData
                 Accuracy = 10,
                 Timestamp = DateTimeOffset.Now
             });
+        }
+    }
+
+    /// <summary>
+    /// Design-time stub implementation of ICompassService reporting a fixed
+    /// heading so the radar needle renders in the designer.
+    /// </summary>
+    private sealed class DesignTimeCompassService : ICompassService
+    {
+        public bool IsAvailable => true;
+
+        public double? HeadingDegrees => 45.0;
+
+        public event EventHandler<double>? HeadingUpdated
+        {
+            add { }
+            remove { }
+        }
+
+        public void StartListening()
+        {
+        }
+
+        public void StopListening()
+        {
+        }
+
+        public void Dispose()
+        {
         }
     }
 
