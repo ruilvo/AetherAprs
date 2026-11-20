@@ -463,7 +463,8 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 {
                     TileSource = Settings.Map.TileSource,
                     MbTilesFilePath = Settings.Map.MbTilesFilePath
-                }
+                },
+                Theme = Settings.Theme
             };
             return snapshot;
         }

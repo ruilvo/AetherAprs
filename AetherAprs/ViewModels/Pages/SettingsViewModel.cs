@@ -64,6 +64,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     [ObservableProperty]
+    public partial Configuration.ThemeMode Theme { get; set; } = Configuration.ThemeMode.System;
+
+    [ObservableProperty]
     public partial Configuration.TileSourceType TileSource { get; set; } = Configuration.TileSourceType.OsmOnline;
 
     [ObservableProperty]
@@ -120,6 +123,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public Configuration.TileSourceType[] AvailableTileSources { get; } = 
         Enum.GetValues<Configuration.TileSourceType>();
 
+    public Configuration.ThemeMode[] AvailableThemes { get; } = 
+        Enum.GetValues<Configuration.ThemeMode>();
+
     public SettingsViewModel(
         IConfigurationService configurationService,
         INavigationService navigationService,
@@ -162,6 +168,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
         TileSource = _configurationService.Settings.Map.TileSource;
         MbTilesFilePath = _configurationService.Settings.Map.MbTilesFilePath;
+        Theme = _configurationService.Settings.Theme;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             SymbolTableCharacter, SymbolCodeCharacter, SymbolOverlayCharacter);
@@ -255,6 +262,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnMbTilesFilePathChanged(string? value)
     {
+        SaveSettings();
+    }
+
+    partial void OnThemeChanged(Configuration.ThemeMode value)
+    {
+        App.ApplyThemeMode(value);
         SaveSettings();
     }
 
@@ -367,6 +380,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
             _configurationService.Settings.Map.TileSource = TileSource;
             _configurationService.Settings.Map.MbTilesFilePath = MbTilesFilePath ?? string.Empty;
+            _configurationService.Settings.Theme = Theme;
 
             // Fire-and-forget is acceptable here as we don't need to wait for save completion,
             // but the exception must be observed and logged or it is silently lost.

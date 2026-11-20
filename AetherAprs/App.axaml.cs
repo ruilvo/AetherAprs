@@ -1,7 +1,9 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using AetherAprs.Configuration;
 using AetherAprs.Factories;
+using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
@@ -22,6 +24,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
+using Avalonia.Styling;
 
 namespace AetherAprs;
 
@@ -123,6 +126,10 @@ public partial class App : Application, IDisposable
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         Localization.UiCulture.Apply(ServiceProvider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
+
+        // Apply the persisted color theme before the main view is created so the
+        // correct light/dark palette is in effect from the first frame.
+        ApplyRequestedThemeVariant();
 
         ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
 
@@ -261,6 +268,36 @@ public partial class App : Application, IDisposable
         {
             _logger?.LogError(exception, "Failed to initialize OSM tile cache");
         }
+    }
+
+    /// <summary>
+    /// Applies the persisted theme mode to the application's requested theme variant.
+    /// </summary>
+    private void ApplyRequestedThemeVariant()
+    {
+        var themeMode = ServiceProvider.GetRequiredService<IConfigurationService>().Settings.Theme;
+        ApplyThemeMode(themeMode);
+    }
+
+    /// <summary>
+    /// Sets the application's requested theme variant for the given mode. The
+    /// MaterialTheme (BaseTheme="Inherit") reacts to the resulting actual theme
+    /// variant and re-applies its light/dark palette. Also used by the Settings
+    /// page when the user changes the theme.
+    /// </summary>
+    public static void ApplyThemeMode(ThemeMode mode)
+    {
+        if (Current is null)
+        {
+            return;
+        }
+
+        Current.RequestedThemeVariant = mode switch
+        {
+            ThemeMode.Light => ThemeVariant.Light,
+            ThemeMode.Dark => ThemeVariant.Dark,
+            _ => ThemeVariant.Default
+        };
     }
 
     private void OnAppDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)

@@ -25,6 +25,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <UserControl.Resources>
     <converters:PacketDisplayTimeRangeConverter x:Key="TimeRangeConverter" />
     <converters:TileSourceTypeConverter x:Key="TileSourceConverter" />
+    <converters:ThemeModeConverter x:Key="ThemeModeConverter" />
     <aprsConverters:AprsSsidConverter x:Key="SsidConverter" />
   </UserControl.Resources>
   <UserControl.Styles>
@@ -103,6 +104,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc CustomTimeRangeHoursLabel}"
                      UseFloatingPlaceholder="True"
                      IsVisible="{Binding DisplayTimeRange, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:PacketDisplayTimeRange.Custom}}" />
+
+            <!-- Theme -->
+            <ComboBox ItemsSource="{Binding AvailableThemes}"
+                      SelectedItem="{Binding Theme}"
+                      MinHeight="48"
+                      wpf:ComboBoxAssist.Label="{loc:Loc ThemeLabel}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Converter={StaticResource ThemeModeConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
           </StackPanel>
         </StackPanel>
 

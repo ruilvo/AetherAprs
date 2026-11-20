@@ -5,6 +5,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Platform;
@@ -141,6 +142,33 @@ public sealed class ConfigurationServiceTests
             Assert.Equal("Summit", template.Name);
             Assert.Equal("SOTA", template.Destination);
             Assert.Equal("{summit} on {freq}", template.Body);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ThemeRoundTripPersistsThemeMode()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directory, "appsettings.json"),
+                "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
+            var provider = new TestAppDataDirProvider(directory);
+            var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+
+            // Default is System (follow OS).
+            Assert.Equal(ThemeMode.System, service.Settings.Theme);
+
+            service.Settings.Theme = ThemeMode.Dark;
+            await service.SaveSettingsAsync();
+
+            var reloaded = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+            Assert.Equal(ThemeMode.Dark, reloaded.Settings.Theme);
         }
         finally
         {

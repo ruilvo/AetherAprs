@@ -241,6 +241,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Failed" xml:space="preserve"><value>Falhou</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Definições de Visualização</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configurar que intervalo de tempo de pacotes mostrar na lista e no mapa.</value></data>
+  <data name="ThemeLabel" xml:space="preserve"><value>Tema</value></data>
+  <data name="ThemeModeSystem" xml:space="preserve"><value>Padrão do Sistema</value></data>
+  <data name="ThemeModeLight" xml:space="preserve"><value>Claro</value></data>
+  <data name="ThemeModeDark" xml:space="preserve"><value>Escuro</value></data>
   <data name="MapSettings" xml:space="preserve"><value>Definições do Mapa</value></data>
   <data name="MapSettingsDescription" xml:space="preserve"><value>Escolher a fonte de tiles do mapa base. Selecionar um pacote MBTiles para usar o mapa sem ligação à internet.</value></data>
   <data name="TileSourceLabel" xml:space="preserve"><value>Fonte de Tiles</value></data>

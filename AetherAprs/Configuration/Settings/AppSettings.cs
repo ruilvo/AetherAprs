@@ -15,4 +15,9 @@ public class AppSettings
     public MessageTemplatesSettings MessageTemplates { get; set; } = new();
 
     public MapSettings Map { get; set; } = new();
+
+    /// <summary>
+    /// The application color theme. Defaults to following the operating system.
+    /// </summary>
+    public ThemeMode Theme { get; set; } = ThemeMode.System;
 }
