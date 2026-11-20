@@ -671,6 +671,153 @@ public sealed class PacketQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetMostRecentObjectsAsync_ReturnsLatestPerObjectName()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "N0CALL",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddHours(-2),
+                PortId = portId,
+                PacketType = PacketTypes.Object,
+                RawInfo = ";OBJ1     *111111z",
+                IsOutbound = false,
+                Object = new ObjectDataRecord
+                {
+                    Name = "OBJ1",
+                    IsLive = true,
+                    Location = new Coordinate(38.5, -9.0),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "N0CALL",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddHours(-1),
+                PortId = portId,
+                PacketType = PacketTypes.Object,
+                RawInfo = ";OBJ1     _111111z",
+                IsOutbound = false,
+                Object = new ObjectDataRecord
+                {
+                    Name = "OBJ1",
+                    IsLive = false,
+                    Location = new Coordinate(38.5, -9.0),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.GetMostRecentObjectsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert - only the latest (killed) object survives per name
+        Assert.Single(result);
+        Assert.False(result[0].Object?.IsLive);
+    }
+
+    [Fact]
+    public async Task GetMostRecentItemsAsync_ReturnsLatestPerItemName()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "N0CALL",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddHours(-1),
+                PortId = portId,
+                PacketType = PacketTypes.Item,
+                RawInfo = ")ITEM!",
+                IsOutbound = false,
+                Item = new ItemDataRecord
+                {
+                    Name = "ITEM",
+                    IsLive = true,
+                    Location = new Coordinate(38.5, -9.0),
+                    SymbolTable = SymbolTable.Alternate,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.GetMostRecentItemsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var item = Assert.Single(result);
+        Assert.Equal("ITEM", item.Item?.Name);
+    }
+
+    [Fact]
+    public async Task GetBulletinsAsync_ReturnsNewestFirst()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                context.Packets.Add(new PacketRecord
+                {
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.PrimaryStation,
+                    DestinationBase = "APRS",
+                    DestinationSsid = AprsSsid.PrimaryStation,
+                    Timestamp = DateTime.UtcNow.AddHours(-i),
+                    PortId = portId,
+                    PacketType = PacketTypes.Bulletin,
+                    RawInfo = $":BLN0SPCL  :bulletin {i}",
+                    IsOutbound = false,
+                    Bulletin = new BulletinDataRecord
+                    {
+                        Name = "BLN0SPCL",
+                        Text = $"bulletin {i}",
+                        Number = i
+                    }
+                });
+            }
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.GetBulletinsAsync(limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert - newest first (descending ID)
+        Assert.Equal(3, result.Count);
+        Assert.Equal(2, result[0].Bulletin?.Number);
+        Assert.Equal(1, result[1].Bulletin?.Number);
+        Assert.Equal(0, result[2].Bulletin?.Number);
+    }
+
+    [Fact]
     public async Task Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange

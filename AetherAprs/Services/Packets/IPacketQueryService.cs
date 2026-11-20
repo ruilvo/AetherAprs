@@ -55,4 +55,25 @@ public interface IPacketQueryService
     /// <param name="limit">Maximum number of packets to retrieve.</param>
     /// <returns>A list of position packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(DateTimeOffset? cutoffTime = null, int limit = 50000, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the most recent object packet per object name.
+    /// </summary>
+    /// <param name="limit">Maximum number of distinct object names to return.</param>
+    /// <returns>List of object packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetMostRecentObjectsAsync(int limit = 1000, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the most recent item packet per item name.
+    /// </summary>
+    /// <param name="limit">Maximum number of distinct item names to return.</param>
+    /// <returns>List of item packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetMostRecentItemsAsync(int limit = 1000, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the most recent bulletin packets, ordered newest first.
+    /// </summary>
+    /// <param name="limit">Maximum number of bulletins to return.</param>
+    /// <returns>List of bulletin packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(int limit = 500, CancellationToken cancellationToken = default);
 }

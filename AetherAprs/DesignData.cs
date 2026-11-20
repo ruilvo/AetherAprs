@@ -14,6 +14,7 @@ using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
@@ -75,6 +76,8 @@ public static class DesignData
         services.AddSingleton<IBeaconService, BeaconService>();
         services.AddSingleton<IMessageService, MessageService>();
         services.AddSingleton<IMessageTemplateService, DesignTimeMessageTemplateService>();
+        services.AddSingleton<IBulletinService, BulletinService>();
+        services.AddSingleton<IObjectService, ObjectService>();
         services.AddSingleton<IPacketStorageService, PacketStorageService>();
         services.AddSingleton<IPacketQueryService, PacketQueryService>();
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();

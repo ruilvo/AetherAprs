@@ -6,6 +6,7 @@ using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
+using Geo;
 using System;
 using System.Linq;
 
@@ -151,6 +152,108 @@ public sealed class PacketFactory : IPacketFactory
             Destination = new Callsign("APRS"),
             Path = path,
             Addressee = addressee,
+            MessageNumber = messageNumber
+        };
+    }
+
+    public ObjectPacket CreateObjectPacket(
+        string sourceCallsign,
+        string name,
+        Coordinate location,
+        SymbolTable symbolTable,
+        SymbolCode symbolCode,
+        bool isLive = true,
+        string? comment = null)
+    {
+        if (!Callsign.TryParse(sourceCallsign, out var source))
+        {
+            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
+        }
+
+        // Get digipeater path from settings
+        var path = Array.Empty<Callsign>();
+        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
+        if (!string.IsNullOrWhiteSpace(pathString))
+        {
+            path = PathHelper.ParsePath(pathString).ToArray();
+        }
+
+        return new ObjectPacket
+        {
+            Source = source,
+            Destination = new Callsign("APRS"),
+            Path = path,
+            Name = name,
+            IsLive = isLive,
+            Location = location,
+            Symbol = new Symbol(symbolTable, symbolCode),
+            Comment = comment,
+            Precision = 2
+        };
+    }
+
+    public ItemPacket CreateItemPacket(
+        string sourceCallsign,
+        string name,
+        Coordinate location,
+        SymbolTable symbolTable,
+        SymbolCode symbolCode,
+        bool isLive = true,
+        string? comment = null)
+    {
+        if (!Callsign.TryParse(sourceCallsign, out var source))
+        {
+            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
+        }
+
+        // Get digipeater path from settings
+        var path = Array.Empty<Callsign>();
+        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
+        if (!string.IsNullOrWhiteSpace(pathString))
+        {
+            path = PathHelper.ParsePath(pathString).ToArray();
+        }
+
+        return new ItemPacket
+        {
+            Source = source,
+            Destination = new Callsign("APRS"),
+            Path = path,
+            Name = name,
+            IsLive = isLive,
+            Location = location,
+            Symbol = new Symbol(symbolTable, symbolCode),
+            Comment = comment,
+            Precision = 2
+        };
+    }
+
+    public BulletinPacket CreateBulletinPacket(
+        string sourceCallsign,
+        string name,
+        string text,
+        int? messageNumber = null)
+    {
+        if (!Callsign.TryParse(sourceCallsign, out var source))
+        {
+            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
+        }
+
+        // Get digipeater path from settings
+        var path = Array.Empty<Callsign>();
+        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
+        if (!string.IsNullOrWhiteSpace(pathString))
+        {
+            path = PathHelper.ParsePath(pathString).ToArray();
+        }
+
+        return new BulletinPacket
+        {
+            Source = source,
+            Destination = new Callsign("APRS"),
+            Path = path,
+            Name = name,
+            Text = text,
             MessageNumber = messageNumber
         };
     }

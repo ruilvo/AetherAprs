@@ -5,6 +5,7 @@
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using Geo;
 
 namespace AetherAprs.Factories.Packets;
 
@@ -68,4 +69,58 @@ public interface IPacketFactory
         string sourceCallsign,
         Callsign addressee,
         int messageNumber);
+
+    /// <summary>
+    /// Creates an object report packet for transmission.
+    /// </summary>
+    /// <param name="sourceCallsign">The source callsign.</param>
+    /// <param name="name">The object name (up to 9 characters).</param>
+    /// <param name="location">The object's geographic coordinate.</param>
+    /// <param name="symbolTable">The APRS symbol table.</param>
+    /// <param name="symbolCode">The APRS symbol code.</param>
+    /// <param name="isLive">Whether the object is live (<c>true</c>) or killed (<c>false</c>).</param>
+    /// <param name="comment">Optional comment text.</param>
+    /// <returns>An ObjectPacket ready for transmission.</returns>
+    ObjectPacket CreateObjectPacket(
+        string sourceCallsign,
+        string name,
+        Coordinate location,
+        SymbolTable symbolTable,
+        SymbolCode symbolCode,
+        bool isLive = true,
+        string? comment = null);
+
+    /// <summary>
+    /// Creates an item report packet for transmission.
+    /// </summary>
+    /// <param name="sourceCallsign">The source callsign.</param>
+    /// <param name="name">The item name (3-9 characters).</param>
+    /// <param name="location">The item's geographic coordinate.</param>
+    /// <param name="symbolTable">The APRS symbol table.</param>
+    /// <param name="symbolCode">The APRS symbol code.</param>
+    /// <param name="isLive">Whether the item is live (<c>true</c>) or killed (<c>false</c>).</param>
+    /// <param name="comment">Optional comment text.</param>
+    /// <returns>An ItemPacket ready for transmission.</returns>
+    ItemPacket CreateItemPacket(
+        string sourceCallsign,
+        string name,
+        Coordinate location,
+        SymbolTable symbolTable,
+        SymbolCode symbolCode,
+        bool isLive = true,
+        string? comment = null);
+
+    /// <summary>
+    /// Creates a bulletin packet for transmission.
+    /// </summary>
+    /// <param name="sourceCallsign">The source callsign.</param>
+    /// <param name="name">The bulletin name (the raw addressee, e.g. <c>BLN0SPCL</c>).</param>
+    /// <param name="text">The bulletin text.</param>
+    /// <param name="messageNumber">Optional message number from the <c>{nn}</c> suffix.</param>
+    /// <returns>A BulletinPacket ready for transmission.</returns>
+    BulletinPacket CreateBulletinPacket(
+        string sourceCallsign,
+        string name,
+        string text,
+        int? messageNumber = null);
 }

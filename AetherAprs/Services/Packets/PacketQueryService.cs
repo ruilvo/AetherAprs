@@ -260,6 +260,119 @@ public sealed class PacketQueryService(
         }
     }
 
+    public async Task<IReadOnlyList<PacketRecord>> GetMostRecentObjectsAsync(
+        int limit = 1000,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+            // Two-step query (same SQLite translation workaround as positions):
+            // 1. Get max ID per object name.
+            var maxIds = await context.Packets
+                .AsNoTracking()
+                .Where(p => p.Object != null)
+                .GroupBy(p => p.Object!.Name)
+                .Select(g => g.Max(p => p.Id))
+                .ToListAsync(cancellationToken);
+
+            // 2. Fetch those packets, newest first.
+            var packets = await context.Packets
+                .AsNoTracking()
+                .Where(p => maxIds.Contains(p.Id))
+                .OrderByDescending(p => p.Id)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            logger.LogDebug("Retrieved {Count} most recent objects", packets.Count);
+            return packets;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve most recent objects");
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<PacketRecord>> GetMostRecentItemsAsync(
+        int limit = 1000,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+            // Two-step query (same SQLite translation workaround as positions):
+            // 1. Get max ID per item name.
+            var maxIds = await context.Packets
+                .AsNoTracking()
+                .Where(p => p.Item != null)
+                .GroupBy(p => p.Item!.Name)
+                .Select(g => g.Max(p => p.Id))
+                .ToListAsync(cancellationToken);
+
+            // 2. Fetch those packets, newest first.
+            var packets = await context.Packets
+                .AsNoTracking()
+                .Where(p => maxIds.Contains(p.Id))
+                .OrderByDescending(p => p.Id)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            logger.LogDebug("Retrieved {Count} most recent items", packets.Count);
+            return packets;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve most recent items");
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(
+        int limit = 500,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+            var packets = await context.Packets
+                .AsNoTracking()
+                .Where(p => p.Bulletin != null)
+                .OrderByDescending(p => p.Id)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            logger.LogDebug("Retrieved {Count} bulletins", packets.Count);
+            return packets;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve bulletins");
+            throw;
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)

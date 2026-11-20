@@ -481,5 +481,78 @@ public sealed class HomeViewModelTests : TestFixtureBase
                 MessageNumber = messageNumber
             };
         }
+
+        public ObjectPacket CreateObjectPacket(
+            string sourceCallsign,
+            string name,
+            Coordinate location,
+            SymbolTable symbolTable,
+            SymbolCode symbolCode,
+            bool isLive = true,
+            string? comment = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new ObjectPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Name = name,
+                IsLive = isLive,
+                Location = location,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Comment = comment
+            };
+        }
+
+        public ItemPacket CreateItemPacket(
+            string sourceCallsign,
+            string name,
+            Coordinate location,
+            SymbolTable symbolTable,
+            SymbolCode symbolCode,
+            bool isLive = true,
+            string? comment = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new ItemPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Name = name,
+                IsLive = isLive,
+                Location = location,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Comment = comment
+            };
+        }
+
+        public BulletinPacket CreateBulletinPacket(
+            string sourceCallsign,
+            string name,
+            string text,
+            int? messageNumber = null)
+        {
+            var parts = sourceCallsign.Split('-');
+            var source = parts.Length > 1
+                ? new Callsign(parts[0], int.Parse(parts[1]))
+                : new Callsign(parts[0]);
+
+            return new BulletinPacket
+            {
+                Source = source,
+                Destination = new Callsign("APRS"),
+                Name = name,
+                Text = text,
+                MessageNumber = messageNumber
+            };
+        }
     }
 }
