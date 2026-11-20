@@ -877,8 +877,9 @@ public static class AprsInfoFieldParser
 
         double longitude = lonDeg + (lonMin + lonHundredths / 100.0) / 60.0;
 
-        // Determine if longitude is West (message bit in dest address)
-        bool isWest = (dest.Base[3] >= 'P');
+        // Determine if longitude is West (E/W flag is the 6th destination
+        // character, index 5 — not the N/S flag at index 3).
+        bool isWest = (dest.Base[5] >= 'P');
         if (isWest)
         {
             longitude = -longitude;
@@ -931,8 +932,8 @@ public static class AprsInfoFieldParser
         {
             comment = info[pos..];
 
-            // Try to extract altitude from comment (format: }xxxyyy where xxx is base-91 altitude)
-            if (comment.Length >= 6 && comment[0] == '}')
+            // Try to extract altitude from comment (format: '}' + 3 base-91 chars).
+            if (comment.Length >= 4 && comment[0] == '}')
             {
                 var altSpan = comment.AsSpan(1, 3);
                 if (TryDecodeBase91(altSpan, out int altFeet))

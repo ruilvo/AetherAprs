@@ -54,6 +54,7 @@ public static class AprsInfoFieldSerializer
         return packet.Format switch
         {
             PositionFormat.Compressed => FormatPositionCompressed(packet),
+            PositionFormat.MicE => MicESerializer.FormatInfoField(packet),
             _ => FormatPositionUncompressed(packet)
         };
     }

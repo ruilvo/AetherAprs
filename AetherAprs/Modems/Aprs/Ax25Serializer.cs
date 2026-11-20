@@ -29,7 +29,8 @@ public static class Ax25Serializer
     public static byte[] Serialize(AprsPacket packet)
     {
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        return BuildAx25Frame(packet.Destination, packet.Source, packet.Path, infoField);
+        var destination = ResolveDestination(packet);
+        return BuildAx25Frame(destination, packet.Source, packet.Path, infoField);
     }
 
     /// <summary>
@@ -63,6 +64,18 @@ public static class Ax25Serializer
     // ---------------------------------------------------------------
     // AX.25 framer
     // ---------------------------------------------------------------
+
+    /// <summary>
+    /// Resolves the destination address for framing. Mic-E position packets encode
+    /// latitude into the destination address, so their configured destination is
+    /// replaced with the Mic-E-encoded one.
+    /// </summary>
+    internal static Callsign ResolveDestination(AprsPacket packet)
+    {
+        return packet is PositionPacket { Format: PositionFormat.MicE } position
+            ? MicESerializer.EncodeDestination(position)
+            : packet.Destination;
+    }
 
     internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, IReadOnlyList<Callsign> path, string infoField)
     {

@@ -222,7 +222,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         try
         {
-            var line = $"{packet.Source}>{packet.Destination},TCPIP*:{infoField}";
+            var line = $"{packet.Source}>{Ax25Serializer.ResolveDestination(packet)},TCPIP*:{infoField}";
 
             // Sanitize line breaks to prevent protocol injection
             if (line.Contains('\r') || line.Contains('\n'))
