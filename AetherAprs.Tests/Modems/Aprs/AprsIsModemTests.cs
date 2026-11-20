@@ -156,7 +156,7 @@ public class AprsIsModemTests
     }
 
     [Fact]
-    public async Task SendAsync_AfterVerifiedLogin_UsesTcpIpPath()
+    public async Task SendAsync_AfterVerifiedLogin_UsesQaoConstructor()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
@@ -190,7 +190,47 @@ public class AprsIsModemTests
         await modem.SendAsync(packet, TestContext.Current.CancellationToken);
 
         var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("N0CALL>APZ001,TCPIP*:!3830.00N/00906.00W#", transmitted);
+        Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
+    }
+
+    [Fact]
+    public async Task SendAsync_RfReceivedPacket_UsesQarConstructorWithPath()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        // A packet received over RF carries a non-empty RawFrameHex, which tells
+        // the modem to emit qAR (not qAo) and preserve the digipeater path.
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(38.5, -9.10),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2,
+            RawFrameHex = "DEADBEEF",
+            Path = [new Callsign("WIDE1", 1, hasBeenRepeated: true), new Callsign("WIDE2", 1)]
+        };
+
+        await modem.SendAsync(packet, TestContext.Current.CancellationToken);
+
+        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("N0CALL>APZ001,WIDE1-1*,WIDE2-1,qAR:!3830.00N/00906.00W#", transmitted);
     }
 
     [Fact]

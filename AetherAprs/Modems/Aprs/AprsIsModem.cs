@@ -198,9 +198,6 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
         }
 
-        // APRS-IS client-originated packets must identify the TCP connection in the path.
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-
         // Capture writer, ready task and connection version atomically under lock so
         // a concurrent reconnect cannot leave us awaiting a stale completion source.
         StreamWriter? writer;
@@ -222,7 +219,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         try
         {
-            var line = $"{packet.Source}>{Ax25Serializer.ResolveDestination(packet)},TCPIP*:{infoField}";
+            var line = BuildIsLine(packet);
 
             // Sanitize line breaks to prevent protocol injection
             if (line.Contains('\r') || line.Contains('\n'))
@@ -258,6 +255,54 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         {
             return _connectionVersion == expectedVersion;
         }
+    }
+
+    /// <summary>
+    /// Builds the APRS-IS transmit line (<c>source&gt;dest[,path],qXX:info</c>) with
+    /// the correct q-constructor: <c>qAo</c> for packets we originate (no RF origin),
+    /// or <c>qAR</c> for packets received over RF that we are gating into APRS-IS.
+    /// </summary>
+    private static string BuildIsLine(AprsPacket packet)
+    {
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var destination = Ax25Serializer.ResolveDestination(packet);
+
+        if (packet.RawFrameHex.Length == 0)
+        {
+            // Packets we originate carry no digipeater path.
+            return $"{packet.Source}>{destination},qAo:{infoField}";
+        }
+
+        // RF-received packet: preserve the digipeater path, marking repeated hops.
+        var path = FormatPath(packet.Path);
+        return path.Length == 0
+            ? $"{packet.Source}>{destination},qAR:{infoField}"
+            : $"{packet.Source}>{destination},{path},qAR:{infoField}";
+    }
+
+    private static string FormatPath(IReadOnlyList<Callsign> path)
+    {
+        if (path.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var builder = new StringBuilder();
+        for (var i = 0; i < path.Count; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(',');
+            }
+
+            builder.Append(path[i].ToString());
+            if (path[i].HasBeenRepeated)
+            {
+                builder.Append('*');
+            }
+        }
+
+        return builder.ToString();
     }
 
     /// <inheritdoc />
