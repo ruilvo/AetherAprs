@@ -386,6 +386,79 @@ public SettingsViewModel(...)
 }
 ```
 
+## Platform Extension Recipe (iOS)
+
+The core project targets `net10.0` and contains **zero platform-specific API
+references** — every platform capability is expressed as a core interface with a safe
+`NoOp`/unsupported default (registered in `ServiceProviderFactory`), which a platform
+project overrides with a real implementation. The Android project
+(`AetherAprs.Android`) is the reference implementation; adding a new platform (notably
+iOS) follows the same recipe.
+
+### The platform-service contract
+
+| Core interface (in `AetherAprs/Services/…`) | Core default | Android impl |
+|---|---|---|
+| `ILocationService` | `NoOpLocationService` | `LocationService` |
+| `IPermissionService` | `NoOpPermissionService` | `AndroidPermissionService` |
+| `IForegroundService` | `NoOpForegroundService` | `AndroidForegroundService` |
+| `ICompassService` | `NoOpCompassService` | `CompassService` |
+| `INotificationService` | `NoOpNotificationService` | `AndroidNotificationService` |
+| `IAudioStreamService` | `NoOpAudioStreamService` | `AudioStreamService` |
+| `IAudioPlaybackService` | `NoOpAudioPlaybackService` | `AudioPlaybackService` |
+| `IPttService` | `NoOpPttService` | `PttService` |
+| `IAppDataDirProviderService` | `AppDataDirProviderService` | `AppDataDirProviderService` |
+| `IBluetoothLeScanner` | `UnsupportedBluetoothLeScanner` | `AndroidBluetoothLeScanner` |
+| `IBluetoothClassicDeviceProvider` | `UnsupportedBluetoothClassicDeviceProvider` | `AndroidBluetoothClassicDeviceProvider` |
+| `IUiCultureProvider` | `OsUiCultureProvider` | `AndroidUiCultureProvider` |
+
+`IKeepAliveService` is core-only (`KeepAliveService`) and needs no override. The
+Bluetooth **transports** (`IKissStreamConnector` implementations) are registered per
+platform; core registers the always-available TCP connector.
+
+### How the host hooks in
+
+`App.OnFrameworkInitializationCompleted()` builds the container via:
+
+```csharp
+ServiceProvider = ServiceProviderFactory.CreateServiceProvider(
+    RegisterPlatformServices, OverrideCoreServices);
+```
+
+`App` exposes two `protected virtual` hooks (empty in core) that a platform `App`
+subclass overrides:
+
+- **`RegisterPlatformServices(IServiceCollection services)`** — add services that have
+  no core default and are platform-only (e.g. app-data directory provider, Bluetooth
+  transports/device providers, UI-culture provider). Called **after** core defaults so
+  the platform registration wins.
+- **`OverrideCoreServices(IServiceCollection services)`** — replace a core `NoOp`
+  default with a real implementation. Called **last**, so later registrations win.
+
+The Android `AndroidApp : App` (in `AetherAprs.Android/Application.cs`) demonstrates
+both hooks; a future iOS `IosApp : App` would mirror it.
+
+### Steps to add iOS
+
+1. **Add the project** — `AetherAprs.Ios/` targeting `net10.0-ios`, referencing the
+   core `AetherAprs` project (no reference to the Android project). Configure the
+   Avalonia iOS integration and link `appsettings.json` as for Android.
+2. **Implement services** — create `Services/Platform/…` implementations of the
+   interfaces in the table above (CoreLocation/CoreMotion for location/compass,
+   AVFoundation for audio, UserNotifications for notifications, CoreBluetooth for
+   Bluetooth, etc.). Each must carry the SPDX header.
+3. **Register them** — subclass `App` and override
+   `RegisterPlatformServices`/`OverrideCoreServices`, mirroring `AndroidApp`, to swap
+   the `NoOp` defaults for the iOS implementations.
+4. **Verify isolation** — confirm the core still builds for `net10.0` with zero iOS (or
+   Android) API references: `grep` the core project for platform namespaces and run
+   `dotnet build AetherAprs/AetherAprs.csproj`.
+
+App lifetime is already platform-agnostic: `App.axaml.cs` handles
+`IClassicDesktopStyleApplicationLifetime`, `IActivityApplicationLifetime` (mobile), and
+`ISingleViewApplicationLifetime` (single-view/browser), so iOS needs only its own
+`Application` bootstrap and no changes to core lifetime logic.
+
 ## Design-Time Support
 
 **Design-time previewing is a project requirement.** The Avalonia previewer must work without runtime dependencies.
