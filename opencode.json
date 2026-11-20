@@ -33,7 +33,6 @@
         "lsp": "allow"
     },
     "instructions": [
-        "AGENTS.md",
-        "CLAUDE.md"
+        "AGENTS.md"
     ]
 }

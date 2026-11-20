@@ -611,8 +611,7 @@ See [`AGENTS.md`](../../AGENTS.md) for comprehensive coding conventions includin
 
 ## Additional Resources
 
-- [`AGENTS.md`](../../AGENTS.md) - Comprehensive AI agent instructions and coding conventions
-- [`CLAUDE.md`](../../CLAUDE.md) - LLM-specific development guidelines
+- [`AGENTS.md`](../../AGENTS.md) - Comprehensive AI agent instructions, coding conventions, and behavioral guidelines
 - [Avalonia Documentation](https://docs.avaloniaui.net/)
 - [CommunityToolkit.Mvvm Documentation](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/)
 - [APRS Protocol Specification](http://www.aprs.org/doc/APRS101.PDF)
