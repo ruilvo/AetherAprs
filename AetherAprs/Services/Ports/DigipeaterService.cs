@@ -20,18 +20,18 @@ public class DigipeaterService(
     ILogger<DigipeaterService> logger) : IDigipeaterService
 {
     /// <summary>
-    /// Maximum number of recently digipeated packets tracked for duplicate suppression.
+    /// Maximum number of recently heard packets tracked for duplicate suppression.
     /// </summary>
     private const int DedupTableCapacity = 256;
 
     /// <summary>
-    /// How long a packet stays in the dedup table before it may be digipeated again.
+    /// How long a packet stays in the heard table before it may be digipeated again.
     /// </summary>
     private static readonly TimeSpan DedupRetention = TimeSpan.FromSeconds(30);
 
     private readonly object _dedupLock = new();
-    private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
-    private readonly Dictionary<string, DateTimeOffset> _dedupTable = new();
+    private readonly Queue<(int Key, DateTimeOffset Seen)> _dedupOrder = new();
+    private readonly Dictionary<int, DateTimeOffset> _dedupTable = new();
 
     /// <inheritdoc />
     public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
@@ -215,12 +215,17 @@ public class DigipeaterService(
     }
 
     /// <summary>
-    /// Records the packet in the dedup table and returns whether it was already seen
-    /// within the retention window.
+    /// Records the packet in the cross-port heard table and returns whether it was
+    /// already seen within the retention window.
     /// </summary>
     private bool IsDuplicate(AprsPacket packet)
     {
-        var key = $"{packet.Source}|{packet.Destination}|{packet.Raw}";
+        // Key on source + destination + info only, deliberately excluding the path:
+        // RF→RF forwarding rewrites the path (inserting our callsign and decrementing
+        // a hop), so a packet heard back after we digipeated it must still be
+        // recognized as already seen rather than forwarded again. Hashing keeps the
+        // bounded table independent of info-field length.
+        var key = HashCode.Combine(packet.Source, packet.Destination, packet.Raw);
         var now = DateTimeOffset.UtcNow;
 
         lock (_dedupLock)

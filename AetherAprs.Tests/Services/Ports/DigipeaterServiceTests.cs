@@ -103,6 +103,38 @@ public sealed class DigipeaterServiceTests
     }
 
     [Fact]
+    public void GetDigipeatTargets_SamePacketOnDifferentPort_IsSuppressed()
+    {
+        var service = CreateService();
+        var packet = CreatePositionPacket();
+
+        // Heard first on one RF port, then the identical packet arrives on a second
+        // port. The shared heard table (source+dest+info hash) must suppress the
+        // second digipeat so the packet is forwarded once, not once per port.
+        var first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        var second = service.GetDigipeatTargets(packet, RfPortId, sourcePortIsAprsIs: true, CreatePorts());
+
+        Assert.NotEmpty(first);
+        Assert.Empty(second);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_SamePacketDifferentInfo_IsNotSuppressed()
+    {
+        var service = CreateService();
+        var first = CreatePositionPacket();
+
+        _ = service.GetDigipeatTargets(first, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+
+        // Same source and destination but different info field: must not be treated
+        // as a duplicate by the source+dest+info hash.
+        var second = CreatePositionPacket() with { Raw = "!4903.50N/07202.75W-Different comment" };
+        var targets = service.GetDigipeatTargets(second, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+
+        Assert.NotEmpty(targets);
+    }
+
+    [Fact]
     public void GetDigipeatTargets_DifferentPacketFromSameSource_IsNotSuppressed()
     {
         var service = CreateService();
