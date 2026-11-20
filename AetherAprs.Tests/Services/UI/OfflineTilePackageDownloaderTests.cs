@@ -1,0 +1,204 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Services.UI;
+using AetherAprs.Tests.Helpers;
+using Microsoft.Data.Sqlite;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Xunit;
+
+namespace AetherAprs.Tests.Services.UI;
+
+public sealed class OfflineTilePackageDownloaderTests
+{
+    [Fact]
+    public async Task DownloadRegion_SingleTile_WritesPackageAndMetadata()
+    {
+        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        try
+        {
+            var outputPath = Path.Combine(directory, "download.mbtiles");
+            var handler = new StubTileHandler(_ => Ok(new byte[] { 1, 2, 3 }));
+            var downloader = new OfflineTilePackageDownloader(handler);
+
+            await downloader.DownloadRegionAsync(
+                new OfflineDownloadRegion(-180, -85, 180, 85, 0, 0), outputPath,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            var metadata = ReadMetadata(outputPath);
+            Assert.Equal("Offline Map", metadata["name"]);
+            Assert.Equal("png", metadata["format"]);
+            Assert.Equal("-180,-85,180,85", metadata["bounds"]);
+            Assert.Equal("0", metadata["minzoom"]);
+            Assert.Equal("0", metadata["maxzoom"]);
+
+            var tiles = ReadTiles(outputPath);
+            var tile = Assert.Single(tiles);
+            Assert.Equal((0, 0, 0), tile.Coordinates);
+            Assert.Equal(new byte[] { 1, 2, 3 }, tile.Data);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DownloadRegion_InvertsRowToTmsScheme()
+    {
+        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        try
+        {
+            var outputPath = Path.Combine(directory, "download.mbtiles");
+            var handler = new StubTileHandler(_ => Ok(new byte[] { 7 }));
+            var downloader = new OfflineTilePackageDownloader(handler);
+
+            // Northern hemisphere at zoom 1 resolves to XYZ row 0, which must be
+            // stored under TMS row (2^1 - 1) - 0 = 1.
+            await downloader.DownloadRegionAsync(
+                new OfflineDownloadRegion(-180, 1, 180, 85, 1, 1), outputPath,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            var tiles = ReadTiles(outputPath);
+            Assert.Equal(2, tiles.Count);
+            Assert.All(tiles, t => Assert.Equal(1, t.Coordinates.Row));
+            Assert.Contains(tiles, t => t.Coordinates.Column == 0);
+            Assert.Contains(tiles, t => t.Coordinates.Column == 1);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DownloadRegion_NotFoundTile_IsSkipped()
+    {
+        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        try
+        {
+            var outputPath = Path.Combine(directory, "download.mbtiles");
+            var handler = new StubTileHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+            var downloader = new OfflineTilePackageDownloader(handler);
+
+            await downloader.DownloadRegionAsync(
+                new OfflineDownloadRegion(-180, -85, 180, 85, 0, 0), outputPath,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // The package is still created but contains no tiles.
+            Assert.Empty(ReadTiles(outputPath));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DownloadRegion_ReportsProgressToCompletion()
+    {
+        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        try
+        {
+            var outputPath = Path.Combine(directory, "download.mbtiles");
+            var handler = new StubTileHandler(_ => Ok(new byte[] { 9 }));
+            var downloader = new OfflineTilePackageDownloader(handler);
+            var progress = new ProgressCapture();
+
+            await downloader.DownloadRegionAsync(
+                new OfflineDownloadRegion(-180, 1, 180, 85, 1, 1), outputPath, progress,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(2, progress.Reports.Count);
+            Assert.Equal(2, progress.Reports[^1].TotalTiles);
+            Assert.Equal(2, progress.Reports[^1].CompletedTiles);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(20, 0, 10, 10, 0, 0)] // MinLongitude >= MaxLongitude
+    [InlineData(-10, 20, 20, 10, 0, 0)] // MinLatitude >= MaxLatitude
+    [InlineData(-10, 0, 20, 10, 2, 1)] // MinZoom > MaxZoom
+    [InlineData(-10, 0, 20, 10, 0, 20)] // MaxZoom out of range
+    public async Task DownloadRegion_InvalidRegion_Throws(
+        double minLon, double minLat, double maxLon, double maxLat, int minZoom, int maxZoom)
+    {
+        var downloader = new OfflineTilePackageDownloader(new StubTileHandler(_ => Ok([])));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            downloader.DownloadRegionAsync(
+                new OfflineDownloadRegion(minLon, minLat, maxLon, maxLat, minZoom, maxZoom),
+                Path.Combine(Path.GetTempPath(), $"invalid-{Guid.NewGuid():N}.mbtiles"),
+                cancellationToken: TestContext.Current.CancellationToken));
+    }
+
+    private static HttpResponseMessage Ok(byte[] data) =>
+        new(HttpStatusCode.OK) { Content = new ByteArrayContent(data) };
+
+    private static Dictionary<string, string> ReadMetadata(string path)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=false");
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT name, value FROM metadata;";
+
+        using var reader = command.ExecuteReader();
+        var metadata = new Dictionary<string, string>();
+        while (reader.Read())
+        {
+            metadata[reader.GetString(0)] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+        }
+
+        return metadata;
+    }
+
+    private static List<StoredTile> ReadTiles(string path)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=false");
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY tile_column;";
+
+        using var reader = command.ExecuteReader();
+        var tiles = new List<StoredTile>();
+        while (reader.Read())
+        {
+            tiles.Add(new StoredTile(
+                reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2),
+                (byte[])reader[3]));
+        }
+
+        return tiles;
+    }
+
+    private sealed record StoredTile(int Zoom, int Column, int Row, byte[] Data)
+    {
+        public (int Zoom, int Column, int Row) Coordinates => (Zoom, Column, Row);
+    }
+
+    private sealed class ProgressCapture : IProgress<OfflineDownloadProgress>
+    {
+        public List<OfflineDownloadProgress> Reports { get; } = new();
+
+        public void Report(OfflineDownloadProgress value) => Reports.Add(value);
+    }
+
+    private sealed class StubTileHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(responder(request));
+    }
+}
