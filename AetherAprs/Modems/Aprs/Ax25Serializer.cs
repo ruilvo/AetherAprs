@@ -130,9 +130,11 @@ public static class Ax25Serializer
             bytes[i] = (byte)(padded[i] << 1);
         }
 
-        // SSID byte: bits 1-4 = SSID, bit 0 = 1 if last address (HDLC extension bit)
+        // SSID byte: bits 1-4 = SSID, bit 7 = "has been repeated" (H) flag,
+        // bit 0 = 1 if last address (HDLC extension bit).
         int ssid = callsign.Ssid ?? 0;
-        bytes[6] = (byte)((ssid << 1) | 0x60 | (isLast ? 0x01 : 0x00));
+        int hasBeenRepeated = callsign.HasBeenRepeated ? 0x80 : 0x00;
+        bytes[6] = (byte)((ssid << 1) | 0x60 | hasBeenRepeated | (isLast ? 0x01 : 0x00));
 
         return bytes;
     }

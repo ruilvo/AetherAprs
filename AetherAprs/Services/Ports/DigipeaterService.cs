@@ -283,14 +283,16 @@ public class DigipeaterService(
         }
 
         var forwarded = new List<Callsign>(packet.Path.Count + 1);
-        var inserted = false;
 
         foreach (var hop in packet.Path)
         {
-            if (!inserted)
+            // A hop already marked "has been repeated" was serviced by an upstream
+            // digipeater. Preserve it and keep scanning for the first unserviced hop
+            // this station is responsible for.
+            if (hop.HasBeenRepeated)
             {
-                forwarded.Add(ownCallsign.Value);
-                inserted = true;
+                forwarded.Add(hop);
+                continue;
             }
 
             // Explicit digipeater callsigns (not a WIDE/TRACE alias) are left as-is;
@@ -301,7 +303,7 @@ public class DigipeaterService(
                 continue;
             }
 
-            // The first untraced WIDE/TRACE alias determines whether we forward.
+            // The first unserviced WIDE/TRACE alias determines whether we forward.
             if (hop.Ssid is > 0)
             {
                 if (!RespondsToAlias(hop, settings))
@@ -311,8 +313,19 @@ public class DigipeaterService(
                     return forwarded;
                 }
 
-                // Decrement the hop we are servicing and stop modifying the path.
-                forwarded.Add(new Callsign(hop.Base, hop.Ssid.Value - 1));
+                // Insert our callsign (honoring the insert-callsign setting; TRACE
+                // always inserts) so the forwarded path records that we digipeated it.
+                if (settings.DigipeaterInsertCallsign || hop.Base == "TRACE")
+                {
+                    forwarded.Add(new Callsign(
+                        ownCallsign.Value.Base,
+                        ownCallsign.Value.Ssid,
+                        hasBeenRepeated: true));
+                }
+
+                // Decrement the hop we are servicing, mark it as repeated, and stop
+                // modifying the path.
+                forwarded.Add(new Callsign(hop.Base, hop.Ssid.Value - 1, hasBeenRepeated: true));
                 return forwarded;
             }
 
@@ -322,7 +335,7 @@ public class DigipeaterService(
             return forwarded;
         }
 
-        // Path contained no alias (e.g. only explicit digipeaters):
+        // Path contained no unserviced alias (e.g. only explicit digipeaters):
         // forward with our insertion only.
         return forwarded;
     }

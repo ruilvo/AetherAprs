@@ -241,6 +241,105 @@ public sealed class DigipeaterServiceTests
     }
 
     [Fact]
+    public void GetDigipeatTargets_RfToRf_AlreadyRepeatedHop_IsSkipped()
+    {
+        var service = CreateService(callsignBase: "MYCALL", ssid: 9, respondToWide2: true);
+
+        // WIDE1-1 already marked "has been repeated" by an upstream digipeater, so
+        // this station must skip it and service the next unserviced WIDE2-2 hop.
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path =
+            [
+                new Callsign("WIDE1", 1, hasBeenRepeated: true),
+                new Callsign("WIDE2", 2)
+            ]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Assert.Equal(3, rfTarget.Packet.Path.Count);
+        Assert.Equal("WIDE1", rfTarget.Packet.Path[0].Base);
+        Assert.True(rfTarget.Packet.Path[0].HasBeenRepeated);
+        Assert.Equal("MYCALL", rfTarget.Packet.Path[1].Base);
+        Assert.Equal("WIDE2", rfTarget.Packet.Path[2].Base);
+        Assert.Equal(1, rfTarget.Packet.Path[2].Ssid);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_InsertCallsignDisabled_OmitsOwnCallsign()
+    {
+        var service = CreateService(
+            callsignBase: "MYCALL",
+            ssid: 9,
+            respondToWide2: true,
+            digipeaterInsertCallsign: false);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("WIDE2", 2)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Assert.Single(rfTarget.Packet.Path);
+        Assert.Equal("WIDE2", rfTarget.Packet.Path[0].Base);
+        Assert.Equal(1, rfTarget.Packet.Path[0].Ssid);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_TraceAlwaysInsertsCallsign()
+    {
+        var service = CreateService(
+            callsignBase: "MYCALL",
+            ssid: 9,
+            respondToTrace: true,
+            digipeaterInsertCallsign: false);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("TRACE", 3)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Assert.Equal(2, rfTarget.Packet.Path.Count);
+        Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
+        Assert.Equal("TRACE", rfTarget.Packet.Path[1].Base);
+        Assert.Equal(2, rfTarget.Packet.Path[1].Ssid);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_RfToRf_ServicedHopIsMarkedRepeated()
+    {
+        var service = CreateService(callsignBase: "MYCALL", ssid: 9, respondToWide2: true);
+
+        var packet = CreatePositionPacket() with
+        {
+            Source = new Callsign("N5RF"),
+            Path = [new Callsign("WIDE2", 2)]
+        };
+
+        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+
+        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Assert.Equal(2, rfTarget.Packet.Path.Count);
+
+        // Our inserted callsign and the decremented hop are both marked as repeated.
+        Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
+        Assert.True(rfTarget.Packet.Path[0].HasBeenRepeated);
+        Assert.Equal("WIDE2", rfTarget.Packet.Path[1].Base);
+        Assert.Equal(1, rfTarget.Packet.Path[1].Ssid);
+        Assert.True(rfTarget.Packet.Path[1].HasBeenRepeated);
+    }
+
+    [Fact]
     public void GetDigipeatTargets_PortWithoutTx_IsSkipped()
     {
         var service = CreateService();
@@ -315,7 +414,8 @@ public sealed class DigipeaterServiceTests
         byte ssid = 0,
         bool respondToWide1 = false,
         bool respondToWide2 = true,
-        bool respondToTrace = false)
+        bool respondToTrace = false,
+        bool digipeaterInsertCallsign = true)
     {
         var settings = new AppSettings();
         settings.Aprs.EnableDigipeater = enableDigipeater;
@@ -326,6 +426,7 @@ public sealed class DigipeaterServiceTests
         settings.Aprs.DigipeaterRespondToWide1 = respondToWide1;
         settings.Aprs.DigipeaterRespondToWide2 = respondToWide2;
         settings.Aprs.DigipeaterRespondToTrace = respondToTrace;
+        settings.Aprs.DigipeaterInsertCallsign = digipeaterInsertCallsign;
 
         return new DigipeaterService(
             new TestConfigurationService(settings),

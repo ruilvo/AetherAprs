@@ -183,6 +183,50 @@ public class Ax25SerializerPathTests
     }
 
     [Fact]
+    public void Serialize_DigipeaterWithHasBeenRepeated_SetsHBit()
+    {
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Path = [new Callsign("WIDE1", 1, hasBeenRepeated: true)],
+            Location = new Coordinate(37.7749, -122.4194),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+            Precision = 2
+        };
+
+        var frame = Ax25Serializer.Serialize(packet);
+
+        // Destination 0..6, source 7..13, first digipeater 14..20; its SSID byte is
+        // at offset 20 and its H (has-been-repeated) flag is bit 7.
+        const int firstDigiSsidByte = 20;
+        Assert.NotEqual(0, frame[firstDigiSsidByte] & 0x80);
+
+        // Round-trip preserves the flag.
+        var parsed = Ax25Parser.ParseFrame(frame);
+        Assert.True(parsed.Path[0].HasBeenRepeated);
+    }
+
+    [Fact]
+    public void Serialize_DigipeaterWithoutHasBeenRepeated_LeavesHBitClear()
+    {
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Path = [new Callsign("WIDE1", 1)],
+            Location = new Coordinate(37.7749, -122.4194),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+            Precision = 2
+        };
+
+        var frame = Ax25Serializer.Serialize(packet);
+
+        const int firstDigiSsidByte = 20;
+        Assert.Equal(0, frame[firstDigiSsidByte] & 0x80);
+    }
+
+    [Fact]
     public void ParseFrame_DigipeaterWithoutHBit_HasBeenRepeatedIsFalse()
     {
         var packet = new PositionPacket
