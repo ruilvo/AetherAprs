@@ -180,6 +180,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BackTooltip" xml:space="preserve"><value>Back</value></data>
   <data name="CenterOnMyLocationTooltip" xml:space="preserve"><value>Center on my location</value></data>
   <data name="ShowOnMapTooltip" xml:space="preserve"><value>Show on map</value></data>
+  <data name="ZoomInTooltip" xml:space="preserve"><value>Zoom in</value></data>
+  <data name="ZoomOutTooltip" xml:space="preserve"><value>Zoom out</value></data>
   <data name="PreviewLatLon" xml:space="preserve"><value>Lat: {0}, Lon: {1}</value></data>
   <data name="PreviewMessageTo" xml:space="preserve"><value>To {0}: {1}</value></data>
   <data name="PreviewTemperature" xml:space="preserve"><value>Temp: {0}F</value></data>

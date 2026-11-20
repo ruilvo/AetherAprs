@@ -19,6 +19,16 @@ public partial class MapViewModel : ViewModelBase
 
     public event EventHandler<MPoint>? CenterOnPointRequested;
 
+    /// <summary>
+    /// Raised when the user asks to zoom the map in one level.
+    /// </summary>
+    public event EventHandler? ZoomInRequested;
+
+    /// <summary>
+    /// Raised when the user asks to zoom the map out one level.
+    /// </summary>
+    public event EventHandler? ZoomOutRequested;
+
     public MapViewModel(IUserLocationLayerService userLocationLayerService)
     {
         _userLocationLayerService = userLocationLayerService;
@@ -33,4 +43,10 @@ public partial class MapViewModel : ViewModelBase
             CenterOnPointRequested?.Invoke(this, mapPoint);
         }
     }
+
+    [RelayCommand]
+    private void ZoomIn() => ZoomInRequested?.Invoke(this, EventArgs.Empty);
+
+    [RelayCommand]
+    private void ZoomOut() => ZoomOutRequested?.Invoke(this, EventArgs.Empty);
 }

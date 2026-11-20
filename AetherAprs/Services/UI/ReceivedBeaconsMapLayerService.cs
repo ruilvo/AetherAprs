@@ -41,6 +41,12 @@ public interface IReceivedBeaconsMapLayerService : IDisposable
     /// Gets the layer containing position trails.
     /// </summary>
     ILayer TrailsLayer { get; }
+
+    /// <summary>
+    /// Updates the current viewport resolution (world units per pixel) and re-clusters
+    /// the beacon markers accordingly.
+    /// </summary>
+    void SetResolution(double resolution);
 }
 
 /// <summary>
@@ -61,6 +67,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private bool _rebuildPending;
     private bool _rebuildRunning;
     private bool _disposed;
+    private List<BeaconMarker> _markers = [];
+    private double _currentResolution = double.NaN;
 
     public ILayer BeaconsLayer => _beaconsLayer;
     public ILayer TrailsLayer => _trailsLayer;
@@ -206,16 +214,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
 
             var filteredPackets = allPositionPackets.Values
-                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
+                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
+                .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
-            filteredPackets = filteredPackets.Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
+            var markers = new List<BeaconMarker>();
 
-            var packetRecords = filteredPackets.ToList();
-
-            _beaconsLayer.Clear();
-            _trailsLayer.Clear();
-
-            foreach (var record in packetRecords)
+            foreach (var record in filteredPackets)
             {
                 if (record.Position != null)
                 {
@@ -226,12 +230,11 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                         record.Position.Location.Latitude,
                         record.Position.Location.Longitude);
 
-                    var feature = CreateFeatureFromRecord(record);
-                    _beaconsLayer.Add(feature);
+                    markers.Add(CreateMarkerFromRecord(record));
                 }
             }
 
-            // Render live objects and items as named features (killed reports are hidden).
+            // Render live objects and items as named markers (killed reports are hidden).
             var liveObjects = (await _packetQueryService.GetMostRecentObjectsAsync())
                 .Where(r => r.Object is { IsLive: true })
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
@@ -240,13 +243,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             foreach (var record in liveObjects)
             {
                 var obj = record.Object!;
-                var feature = CreateLabeledFeature(
+                markers.Add(CreateMarker(
                     obj.Location.Latitude,
                     obj.Location.Longitude,
                     obj.SymbolTable,
                     obj.SymbolCode,
-                    obj.Name);
-                _beaconsLayer.Add(feature);
+                    obj.Name));
             }
 
             var liveItems = (await _packetQueryService.GetMostRecentItemsAsync())
@@ -257,14 +259,16 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             foreach (var record in liveItems)
             {
                 var item = record.Item!;
-                var feature = CreateLabeledFeature(
+                markers.Add(CreateMarker(
                     item.Location.Latitude,
                     item.Location.Longitude,
                     item.SymbolTable,
                     item.SymbolCode,
-                    item.Name);
-                _beaconsLayer.Add(feature);
+                    item.Name));
             }
+
+            _markers = markers;
+            RenderBeaconsLayer();
 
             // Bulk fetch all position trail packets once, then group by source client-side.
             // Note: trails intentionally NOT filtered by port (preserves existing behavior
@@ -277,6 +281,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 .Where(trail => trail.Count > 1)
                 .ToList();
 
+            _trailsLayer.Clear();
+
             foreach (var trailPositions in trailsBySource)
             {
                 var trailFeature = CreateTrailFeature(trailPositions);
@@ -286,7 +292,6 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 }
             }
 
-            _beaconsLayer.DataHasChanged();
             _trailsLayer.DataHasChanged();
         }
         catch (Exception ex)
@@ -342,16 +347,118 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         return feature;
     }
 
-    private PointFeature CreateFeatureFromRecord(PacketRecord record)
+    private static BeaconMarker CreateMarkerFromRecord(PacketRecord record)
     {
         var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
-        return CreateLabeledFeature(
-            record.Position!.Location.Latitude,
+        var (x, y) = SphericalMercator.FromLonLat(
             record.Position!.Location.Longitude,
+            record.Position!.Location.Latitude);
+        return new BeaconMarker(
+            new MPoint(x, y),
             record.Position.SymbolTable,
             record.Position.SymbolCode,
             callsign,
             callsign);
+    }
+
+    private static BeaconMarker CreateMarker(
+        double latitude,
+        double longitude,
+        SymbolTable symbolTable,
+        SymbolCode symbolCode,
+        string label)
+    {
+        var (x, y) = SphericalMercator.FromLonLat(longitude, latitude);
+        return new BeaconMarker(new MPoint(x, y), symbolTable, symbolCode, label, null);
+    }
+
+    /// <summary>
+    /// Re-renders the beacons layer from the current marker set, clustering markers that
+    /// fall into the same grid cell (sized ~40 screen pixels) into a single cluster feature.
+    /// </summary>
+    private void RenderBeaconsLayer()
+    {
+        _beaconsLayer.Clear();
+
+        if (_markers.Count == 0)
+        {
+            _beaconsLayer.DataHasChanged();
+            return;
+        }
+
+        // Before the first resolution is known, render every marker individually.
+        if (double.IsNaN(_currentResolution))
+        {
+            foreach (var marker in _markers)
+            {
+                _beaconsLayer.Add(CreateLabeledFeature(
+                    marker.Point,
+                    marker.SymbolTable,
+                    marker.SymbolCode,
+                    marker.Label,
+                    marker.Callsign));
+            }
+
+            _beaconsLayer.DataHasChanged();
+            return;
+        }
+
+        var cellSize = 40.0 * _currentResolution;
+        var groups = MapClusterer.Cluster(_markers.Select(m => m.Point).ToList(), cellSize);
+
+        foreach (var group in groups)
+        {
+            if (group.Count == 1)
+            {
+                var marker = _markers[group[0]];
+                _beaconsLayer.Add(CreateLabeledFeature(
+                    marker.Point,
+                    marker.SymbolTable,
+                    marker.SymbolCode,
+                    marker.Label,
+                    marker.Callsign));
+            }
+            else
+            {
+                _beaconsLayer.Add(CreateClusterFeature(group.Select(i => _markers[i]).ToList()));
+            }
+        }
+
+        _beaconsLayer.DataHasChanged();
+    }
+
+    private static PointFeature CreateClusterFeature(IReadOnlyList<BeaconMarker> markers)
+    {
+        var centroid = new MPoint(
+            markers.Average(m => m.Point.X),
+            markers.Average(m => m.Point.Y));
+
+        var symbolStyle = new SymbolStyle
+        {
+            SymbolType = SymbolType.Ellipse,
+            Fill = new Brush(new Color(25, 118, 210, 220)),
+            Outline = new Pen(Color.White, 2),
+            SymbolScale = 0.7
+        };
+
+        var labelStyle = new LabelStyle
+        {
+            Text = markers.Count.ToString(),
+            ForeColor = Color.White,
+            BackColor = null,
+            Halo = null,
+            Font = new Font { FontFamily = "Arial", Size = 14, Bold = true }
+        };
+
+        var feature = new PointFeature(centroid)
+        {
+            Styles = [symbolStyle, labelStyle]
+        };
+
+        feature["Cluster"] = true;
+        feature["Count"] = markers.Count;
+
+        return feature;
     }
 
     /// <summary>
@@ -360,16 +467,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     /// object/item features (their name is not a callsign and has no details page yet).
     /// </summary>
     private PointFeature CreateLabeledFeature(
-        double latitude,
-        double longitude,
+        MPoint mapPoint,
         SymbolTable symbolTable,
         SymbolCode symbolCode,
         string label,
         string? callsign = null)
     {
-        var (x, y) = SphericalMercator.FromLonLat(longitude, latitude);
-        var mapPoint = new MPoint(x, y);
-
         var symbol = new Symbol(symbolTable, symbolCode);
 
         var symbolKey = $"{symbolTable.ToChar()}{symbolCode.ToChar()}";
@@ -410,6 +513,38 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             ? $"{baseCallsign}-{(byte)ssid.Value}"
             : baseCallsign;
     }
+
+    /// <summary>
+    /// Updates the current viewport resolution and re-clusters the beacons layer when the
+    /// change is significant enough to alter clustering (5% threshold).
+    /// </summary>
+    public void SetResolution(double resolution)
+    {
+        if (_disposed || resolution <= 0)
+        {
+            return;
+        }
+
+        if (!double.IsNaN(_currentResolution) &&
+            Math.Abs(resolution - _currentResolution) / _currentResolution < 0.05)
+        {
+            return;
+        }
+
+        _currentResolution = resolution;
+        RunOnUi(RenderBeaconsLayer);
+    }
+
+    /// <summary>
+    /// A beacon marker awaiting map rendering: its projected position, APRS symbol, label,
+    /// and optional click-to-navigate callsign.
+    /// </summary>
+    private sealed record BeaconMarker(
+        MPoint Point,
+        SymbolTable SymbolTable,
+        SymbolCode SymbolCode,
+        string Label,
+        string? Callsign);
 
     public void Dispose()
     {

@@ -172,11 +172,27 @@ public sealed class HomeViewModelTests : TestFixtureBase
         Assert.Throws<ArgumentException>(() => configuration.Settings.Aprs.Callsign = string.Empty);
     }
 
+    [Fact]
+    public void UpdateMapResolution_ForwardsToLayerService()
+    {
+        var receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
+        var portService = new TestPortService(CreatePort(isEnabled: true, isTx: false));
+        var viewModel = CreateViewModel(
+            portService,
+            new TestBeaconService(),
+            receivedBeaconsLayer: receivedBeaconsLayer);
+
+        viewModel.UpdateMapResolution(1234.5);
+
+        receivedBeaconsLayer.Received(1).SetResolution(1234.5);
+    }
+
     private static HomeViewModel CreateViewModel(
         TestPortService portService, 
         TestBeaconService beaconService,
         TestLocationTrackingService? locationTracking = null,
-        TestConfigurationService? configuration = null)
+        TestConfigurationService? configuration = null,
+        IReceivedBeaconsMapLayerService? receivedBeaconsLayer = null)
     {
         var isConfigurationProvided = configuration != null;
         configuration ??= new TestConfigurationService();
@@ -200,7 +216,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
             NullLogger<BeaconTransmissionService>.Instance);
         
         var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
-        var receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
+        receivedBeaconsLayer ??= Substitute.For<IReceivedBeaconsMapLayerService>();
         
         var mapViewModel = new MapViewModel(userLocationLayer);
         

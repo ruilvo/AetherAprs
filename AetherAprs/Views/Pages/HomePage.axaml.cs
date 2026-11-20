@@ -11,6 +11,8 @@ using AetherAprs.ViewModels.Pages;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Mapsui;
+using Mapsui.Animations;
+using Mapsui.Layers;
 using Mapsui.Tiling;
 using Mapsui.UI;
 using Mapsui.UI.Avalonia;
@@ -39,6 +41,13 @@ public partial class HomePage : UserControl
         MapControl.Map = new Map();
         // OSM tile cache is initialized during app startup in App.axaml.cs
         MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer(OsmUserAgent), group: -1);
+        MapControl.Map.Navigator.ViewportChanged += OnViewportChanged;
+    }
+
+    private void OnViewportChanged(object? sender, ViewportChangedEventArgs e)
+    {
+        // Forward resolution changes so the beacons layer can re-cluster as the user zooms.
+        _currentViewModel?.UpdateMapResolution(e.Viewport.Resolution);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -47,6 +56,8 @@ public partial class HomePage : UserControl
         if (_currentViewModel?.Map != null)
         {
             _currentViewModel.Map.CenterOnPointRequested -= OnCenterOnPointRequested;
+            _currentViewModel.Map.ZoomInRequested -= OnZoomInRequested;
+            _currentViewModel.Map.ZoomOutRequested -= OnZoomOutRequested;
         }
 
         if (DataContext is not HomeViewModel viewModel)
@@ -76,10 +87,12 @@ public partial class HomePage : UserControl
             }
         }
 
-        // Subscribe to map centering requests
+        // Subscribe to map centering/zoom requests
         if (viewModel.Map != null)
         {
             viewModel.Map.CenterOnPointRequested += OnCenterOnPointRequested;
+            viewModel.Map.ZoomInRequested += OnZoomInRequested;
+            viewModel.Map.ZoomOutRequested += OnZoomOutRequested;
 
             // The first location fix can arrive before this view is created (tracking
             // starts at app startup and the fused provider returns almost instantly),
@@ -114,16 +127,26 @@ public partial class HomePage : UserControl
             return;
         }
 
-        // Prefer CenterOnAndZoomTo when resolutions are available
+        // Prefer an animated CenterOnAndZoomTo when resolutions are available.
         if (navigator.Resolutions.Count > 9)
         {
-            navigator.CenterOnAndZoomTo(mapPoint, navigator.Resolutions[9]);
+            navigator.CenterOnAndZoomTo(mapPoint, navigator.Resolutions[9], 350, Easing.CubicOut);
         }
         else
         {
-            navigator.CenterOn(mapPoint);
-            navigator.ZoomTo(2000);
+            navigator.CenterOn(mapPoint, 350, Easing.CubicOut);
+            navigator.ZoomTo(2000, 350, Easing.CubicOut);
         }
+    }
+
+    private void OnZoomInRequested(object? sender, EventArgs e)
+    {
+        MapControl.Map?.Navigator.ZoomIn(300, Easing.CubicOut);
+    }
+
+    private void OnZoomOutRequested(object? sender, EventArgs e)
+    {
+        MapControl.Map?.Navigator.ZoomOut(300, Easing.CubicOut);
     }
 
     private void OnMapPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -150,10 +173,28 @@ public partial class HomePage : UserControl
                 worldY + tolerance), viewport.Resolution))
             .ToList();
 
-        // Find the first beacon feature with a callsign
+        // Find the first cluster or beacon feature at the click point.
         foreach (var feature in clickedFeatures)
         {
-            if (feature.Fields != null && feature.Fields.Contains("Callsign"))
+            if (feature.Fields == null)
+            {
+                continue;
+            }
+
+            // Cluster click: zoom in (animated), centered on the cluster centroid.
+            if (feature.Fields.Contains("Cluster") && feature is PointFeature clusterFeature)
+            {
+                MapControl.Map.Navigator.CenterOnAndZoomTo(
+                    clusterFeature.Point,
+                    viewport.Resolution * 0.5,
+                    350,
+                    Easing.CubicOut);
+                e.Handled = true;
+                return;
+            }
+
+            // Beacon click: open station details.
+            if (feature.Fields.Contains("Callsign"))
             {
                 var callsign = feature["Callsign"] as string;
                 if (!string.IsNullOrEmpty(callsign))

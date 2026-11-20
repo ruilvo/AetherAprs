@@ -171,6 +171,15 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
+    /// Forwards viewport resolution changes to the beacons layer service so it can
+    /// re-cluster markers as the user zooms.
+    /// </summary>
+    public void UpdateMapResolution(double resolution)
+    {
+        _receivedBeaconsLayerService.SetResolution(resolution);
+    }
+
+    /// <summary>
     /// Handles beacon click events from the map view.
     /// </summary>
     /// <param name="callsign">The callsign of the clicked beacon.</param>

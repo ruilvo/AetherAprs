@@ -1,0 +1,52 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Services.UI;
+using AetherAprs.ViewModels.Components;
+using NSubstitute;
+using System;
+using Xunit;
+
+namespace AetherAprs.Tests.ViewModels.Components;
+
+public sealed class MapViewModelTests
+{
+    [Fact]
+    public void ZoomIn_RaisesZoomInRequested()
+    {
+        var vm = new MapViewModel(Substitute.For<IUserLocationLayerService>());
+        var raised = 0;
+        vm.ZoomInRequested += (_, _) => raised++;
+
+        vm.ZoomInCommand.Execute(null);
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void ZoomOut_RaisesZoomOutRequested()
+    {
+        var vm = new MapViewModel(Substitute.For<IUserLocationLayerService>());
+        var raised = 0;
+        vm.ZoomOutRequested += (_, _) => raised++;
+
+        vm.ZoomOutCommand.Execute(null);
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void CenterOnUser_NoLocation_DoesNotRaise()
+    {
+        var userLocation = Substitute.For<IUserLocationLayerService>();
+        userLocation.CurrentMapPoint.Returns((Mapsui.MPoint?)null);
+        var vm = new MapViewModel(userLocation);
+        var raised = 0;
+        vm.CenterOnPointRequested += (_, _) => raised++;
+
+        vm.CenterOnUserCommand.Execute(null);
+
+        Assert.Equal(0, raised);
+    }
+}

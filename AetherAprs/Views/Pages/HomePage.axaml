@@ -24,17 +24,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch" />
 
-        <controls:FloatingButton Grid.Row="0"
-                                 HorizontalAlignment="Right"
-                                 VerticalAlignment="Bottom"
-                                 Margin="0,0,16,16"
-                                 MinHeight="56"
-                                 MinWidth="56"
-                                 ToolTip.Tip="{loc:Loc CenterOnMyLocationTooltip}"
-                                 Command="{Binding Map.CenterOnUserCommand}">
-            <Viewbox Width="24" Height="24">
-                <avalonia:MaterialIcon Kind="CrosshairsGps" Width="24" Height="24" />
-            </Viewbox>
-        </controls:FloatingButton>
+        <StackPanel Grid.Row="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,16,16"
+                    Spacing="8">
+            <controls:FloatingButton MinHeight="56"
+                                     MinWidth="56"
+                                     ToolTip.Tip="{loc:Loc ZoomInTooltip}"
+                                     Command="{Binding Map.ZoomInCommand}">
+                <Viewbox Width="24" Height="24">
+                    <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
+                </Viewbox>
+            </controls:FloatingButton>
+
+            <controls:FloatingButton MinHeight="56"
+                                     MinWidth="56"
+                                     ToolTip.Tip="{loc:Loc ZoomOutTooltip}"
+                                     Command="{Binding Map.ZoomOutCommand}">
+                <Viewbox Width="24" Height="24">
+                    <avalonia:MaterialIcon Kind="Minus" Width="24" Height="24" />
+                </Viewbox>
+            </controls:FloatingButton>
+
+            <controls:FloatingButton MinHeight="56"
+                                     MinWidth="56"
+                                     ToolTip.Tip="{loc:Loc CenterOnMyLocationTooltip}"
+                                     Command="{Binding Map.CenterOnUserCommand}">
+                <Viewbox Width="24" Height="24">
+                    <avalonia:MaterialIcon Kind="CrosshairsGps" Width="24" Height="24" />
+                </Viewbox>
+            </controls:FloatingButton>
+        </StackPanel>
     </Grid>
 </UserControl>
