@@ -231,6 +231,41 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 }
             }
 
+            // Render live objects and items as named features (killed reports are hidden).
+            var liveObjects = (await _packetQueryService.GetMostRecentObjectsAsync())
+                .Where(r => r.Object is { IsLive: true })
+                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
+                .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
+
+            foreach (var record in liveObjects)
+            {
+                var obj = record.Object!;
+                var feature = CreateLabeledFeature(
+                    obj.Location.Latitude,
+                    obj.Location.Longitude,
+                    obj.SymbolTable,
+                    obj.SymbolCode,
+                    obj.Name);
+                _beaconsLayer.Add(feature);
+            }
+
+            var liveItems = (await _packetQueryService.GetMostRecentItemsAsync())
+                .Where(r => r.Item is { IsLive: true })
+                .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
+                .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
+
+            foreach (var record in liveItems)
+            {
+                var item = record.Item!;
+                var feature = CreateLabeledFeature(
+                    item.Location.Latitude,
+                    item.Location.Longitude,
+                    item.SymbolTable,
+                    item.SymbolCode,
+                    item.Name);
+                _beaconsLayer.Add(feature);
+            }
+
             // Bulk fetch all position trail packets once, then group by source client-side.
             // Note: trails intentionally NOT filtered by port (preserves existing behavior
             // where a station's trail includes packets heard on any port).
@@ -309,14 +344,35 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     private PointFeature CreateFeatureFromRecord(PacketRecord record)
     {
-        var (x, y) = SphericalMercator.FromLonLat(
+        var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
+        return CreateLabeledFeature(
+            record.Position!.Location.Latitude,
             record.Position!.Location.Longitude,
-            record.Position!.Location.Latitude);
+            record.Position.SymbolTable,
+            record.Position.SymbolCode,
+            callsign,
+            callsign);
+    }
+
+    /// <summary>
+    /// Builds a labeled point feature for a station, object, or item.
+    /// <paramref name="callsign"/> is the click-to-navigate key; pass <c>null</c> for
+    /// object/item features (their name is not a callsign and has no details page yet).
+    /// </summary>
+    private PointFeature CreateLabeledFeature(
+        double latitude,
+        double longitude,
+        SymbolTable symbolTable,
+        SymbolCode symbolCode,
+        string label,
+        string? callsign = null)
+    {
+        var (x, y) = SphericalMercator.FromLonLat(longitude, latitude);
         var mapPoint = new MPoint(x, y);
 
-        var symbol = new Symbol(record.Position.SymbolTable, record.Position.SymbolCode);
+        var symbol = new Symbol(symbolTable, symbolCode);
 
-        var symbolKey = $"{record.Position.SymbolTable.ToChar()}{record.Position.SymbolCode.ToChar()}";
+        var symbolKey = $"{symbolTable.ToChar()}{symbolCode.ToChar()}";
         if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
             cachedStyle.symbol != symbol)
         {
@@ -325,10 +381,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             _symbolStyleCache[symbolKey] = cachedStyle;
         }
 
-        var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
         var labelStyle = new LabelStyle
         {
-            Text = callsign,
+            Text = label,
             Offset = new Offset(45, 0),
             Font = new Font { FontFamily = "Arial", Size = 14, Bold = true },
             ForeColor = Color.Black,
@@ -336,11 +391,17 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             Halo = new Pen(Color.White, 2)
         };
 
-        return new PointFeature(mapPoint)
+        var feature = new PointFeature(mapPoint)
         {
-            Styles = [cachedStyle.imageStyle, labelStyle],
-            ["Callsign"] = callsign
+            Styles = [cachedStyle.imageStyle, labelStyle]
         };
+
+        if (callsign is not null)
+        {
+            feature["Callsign"] = callsign;
+        }
+
+        return feature;
     }
 
     private static string FormatCallsign(string baseCallsign, AprsSsid? ssid)
