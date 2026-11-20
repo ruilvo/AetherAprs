@@ -267,6 +267,11 @@ and a search facility.
    raw packets (hex + APRS-IS line), weather/status/telemetry where present, distance &
    bearing from user location.
    - Files: `ViewModels/Pages/PacketDetailsViewModel.cs`, `Views/Pages/PacketDetailsPage.axaml`.
+   - Includes a radar/compass header: a relative-bearing needle computed as the station
+     bearing minus the device heading. Heading is provided by `ICompassService`
+     (`Services/Platform/ICompassService.cs`) — `NoOpCompassService` on desktop, a
+     sensor-fusion `CompassService` on Android. The service exposes `IsAvailable`,
+     `HeadingDegrees`, `HeadingUpdated`, `StartListening()`/`StopListening()`.
 
 3. **Search UI** (station/object lookup) with results list → tap opens details.
    - Files: `ViewModels/Pages/`, `Views/Pages/`, localization.
