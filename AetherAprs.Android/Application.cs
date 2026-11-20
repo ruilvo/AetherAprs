@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using Android.App;
 using Android.Runtime;
-using Avalonia;
 using Avalonia.Android;
 using AetherAprs.Android.Services.Bluetooth;
 using AetherAprs.Android.Services.Platform;
@@ -122,12 +121,6 @@ namespace AetherAprs.Android
                     throw new System.InvalidOperationException($"Failed to extract {fileName} to {targetPath}", ex);
                 }
             }
-        }
-
-        protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
-        {
-            return base.CustomizeAppBuilder(builder)
-            .WithInterFont();
         }
     }
 }

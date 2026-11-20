@@ -15,7 +15,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="$(Avalonia12Version)" />
     <PackageVersion Include="Avalonia.Android" Version="$(Avalonia12Version)" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="$(Avalonia12Version)" />
     <PackageVersion Include="Avalonia.Skia" Version="$(Avalonia12Version)" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.7" />
     <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
