@@ -7,6 +7,7 @@ using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
+using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
@@ -59,6 +60,9 @@ public static class ServiceProviderFactory
         services.AddSingleton<IAudioStreamService, NoOpAudioStreamService>();
         services.AddSingleton<IAudioPlaybackService, NoOpAudioPlaybackService>();
         services.AddSingleton<IPttService, NoOpPttService>();
+        services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
+        services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
+        services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
 
         // Register platform-specific services first
         registerPlatformServices(services);
