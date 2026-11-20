@@ -76,4 +76,14 @@ public interface IPacketQueryService
     /// <param name="limit">Maximum number of bulletins to return.</param>
     /// <returns>List of bulletin packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(int limit = 500, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches for stations (by source callsign) and objects (by object name),
+    /// matching the query as a prefix or exact match. Returns the most recent
+    /// packet for each distinct match, newest first.
+    /// </summary>
+    /// <param name="query">The search text. Empty or whitespace returns no results.</param>
+    /// <param name="limit">Maximum number of distinct matches to return.</param>
+    /// <returns>List of matching packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> SearchStationsAsync(string query, int limit = 100, CancellationToken cancellationToken = default);
 }

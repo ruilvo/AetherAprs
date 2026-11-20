@@ -841,4 +841,285 @@ public sealed class PacketQueryServiceTests : IDisposable
         await Assert.ThrowsAsync<ObjectDisposedException>(async () =>
             await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken));
     }
+
+    [Fact]
+    public async Task SearchStationsAsync_EmptyQuery_ReturnsEmptyList()
+    {
+        // Arrange
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.SearchStationsAsync("   ", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task SearchStationsAsync_ExactCallsignMatch_ReturnsStation()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "K0OTH",
+                SourceSsid = AprsSsid.AdditionalStation1,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-30),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "WX0TST",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-10),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var station = Assert.Single(result);
+        Assert.Equal("K0OTH", station.SourceBase);
+    }
+
+    [Fact]
+    public async Task SearchStationsAsync_PrefixMatch_ReturnsMatchingStations()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "K0OTH",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-30),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "K0ABC",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-10),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "WX0TST",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-5),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.SearchStationsAsync("K0", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.All(result, r => Assert.StartsWith("K0", r.SourceBase));
+    }
+
+    [Fact]
+    public async Task SearchStationsAsync_ObjectNameMatch_ReturnsObject()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "N0CALL",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-10),
+                PortId = portId,
+                PacketType = PacketTypes.Object,
+                RawInfo = ";SHELTER1 *111111z",
+                IsOutbound = false,
+                Object = new ObjectDataRecord
+                {
+                    Name = "SHELTER1",
+                    IsLive = true,
+                    Location = new Coordinate(38.5, -9.0),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.SearchStationsAsync("SHEL", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var obj = Assert.Single(result);
+        Assert.Equal("SHELTER1", obj.Object?.Name);
+    }
+
+    [Fact]
+    public async Task SearchStationsAsync_CaseInsensitive_MatchesUppercaseCallsign()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "K0OTH",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddMinutes(-10),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.SearchStationsAsync("k0oth", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var station = Assert.Single(result);
+        Assert.Equal("K0OTH", station.SourceBase);
+    }
+
+    [Fact]
+    public async Task SearchStationsAsync_MultiplePacketsSameStation_ReturnsOnlyMostRecent()
+    {
+        // Arrange
+        var portId = Guid.NewGuid();
+        using (var context = _db.CreateContext())
+        {
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "K0OTH",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddHours(-2),
+                PortId = portId,
+                PacketType = PacketTypes.Position,
+                RawInfo = "!3745.50N/12159.50W-",
+                IsOutbound = false,
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(37.758333, -121.991667),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.HyphenMinus
+                }
+            });
+
+            context.Packets.Add(new PacketRecord
+            {
+                SourceBase = "K0OTH",
+                SourceSsid = AprsSsid.PrimaryStation,
+                DestinationBase = "APRS",
+                DestinationSsid = AprsSsid.PrimaryStation,
+                Timestamp = DateTime.UtcNow.AddHours(-1),
+                PortId = portId,
+                PacketType = PacketTypes.Status,
+                RawInfo = ">status update",
+                IsOutbound = false,
+                Status = new StatusDataRecord { Text = "status update" }
+            });
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using var service = new PacketQueryService(_db.Factory, _logger);
+
+        // Act
+        var result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var station = Assert.Single(result);
+        Assert.Equal(PacketTypes.Status, station.PacketType);
+    }
 }

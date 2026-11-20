@@ -373,6 +373,74 @@ public sealed class PacketQueryService(
         }
     }
 
+    public async Task<IReadOnlyList<PacketRecord>> SearchStationsAsync(
+        string query,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var trimmed = query?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return [];
+        }
+
+        var normalized = trimmed.ToUpperInvariant();
+
+        try
+        {
+            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+            // Match stations by source base callsign (prefix or exact) and objects
+            // by object name (prefix or exact). Case is normalized by upper-casing
+            // both sides; SQLite's LIKE is case-insensitive for ASCII anyway, but
+            // callsigns/object names are always uppercase per the APRS spec.
+            var candidates = await context.Packets
+                .AsNoTracking()
+                .Where(p =>
+                    p.SourceBase.StartsWith(normalized) || p.SourceBase == normalized ||
+                    (p.Object != null && (p.Object.Name.StartsWith(normalized) || p.Object.Name == normalized)))
+                .OrderByDescending(p => p.Id)
+                .Take(limit * 10)
+                .ToListAsync(cancellationToken);
+
+            // Deduplicate in memory to the most recent packet per distinct match.
+            // Candidates are already ordered newest-first, so the first occurrence
+            // of each key is the most recent.
+            var seen = new HashSet<string>();
+            var results = new List<PacketRecord>();
+
+            foreach (var packet in candidates)
+            {
+                var key = packet.Object != null && (packet.Object.Name.StartsWith(normalized, StringComparison.Ordinal) || packet.Object.Name == normalized)
+                    ? $"obj:{packet.Object.Name}"
+                    : $"{packet.SourceBase}-{(int)packet.SourceSsid}";
+
+                if (seen.Add(key))
+                {
+                    results.Add(packet);
+                    if (results.Count >= limit)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            logger.LogDebug("Search for '{Query}' returned {Count} matches", trimmed, results.Count);
+            return results;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to search stations for query {Query}", trimmed);
+            throw;
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
