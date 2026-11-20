@@ -134,6 +134,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc MbTilesFilePathLabel}"
                      UseFloatingPlaceholder="True"
                      IsVisible="{Binding TileSource, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:TileSourceType.MbTilesOffline}}" />
+
+            <Button Content="{loc:Loc DownloadOfflineMap}"
+                    Command="{Binding OpenDownloadOfflineMapCommand}"
+                    MinWidth="120"
+                    MinHeight="48"
+                    Classes="Outline" />
           </StackPanel>
         </StackPanel>
 

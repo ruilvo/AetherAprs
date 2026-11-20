@@ -91,6 +91,7 @@ public static class DesignData
         services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
         services.AddSingleton<IUserLocationLayerService, UserLocationLayerService>();
         services.AddSingleton<IMapTileSourceService, MapTileSourceService>();
+        services.AddSingleton<IOfflineTilePackageDownloader, OfflineTilePackageDownloader>();
 
         // Register location and transmission services
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
@@ -124,6 +125,7 @@ public static class DesignData
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
+        services.AddTransient<DownloadOfflineMapViewModel>();
         services.AddTransient<ConversationViewModel>();
         services.AddTransient<MessageTemplateDialogViewModel>();
         services.AddSingleton<MessageTemplatesViewModel>();
@@ -268,6 +270,9 @@ public static class DesignData
 
     public static DynamicBeaconingViewModel DynamicBeaconingViewModel =>
         _serviceProvider.GetRequiredService<DynamicBeaconingViewModel>();
+
+    public static DownloadOfflineMapViewModel DownloadOfflineMapViewModel =>
+        _serviceProvider.GetRequiredService<DownloadOfflineMapViewModel>();
 
     public static ConversationViewModel ConversationViewModel =>
         _serviceProvider.GetRequiredService<ConversationViewModel>();

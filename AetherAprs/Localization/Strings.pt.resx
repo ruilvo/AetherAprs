@@ -248,6 +248,25 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="TileSourceMbTilesOffline" xml:space="preserve"><value>Pacote MBTiles (Offline)</value></data>
   <data name="MbTilesFilePathLabel" xml:space="preserve"><value>Caminho do Ficheiro MBTiles</value></data>
   <data name="MbTilesFilePathPlaceholder" xml:space="preserve"><value>/caminho/para/mapa.mbtiles</value></data>
+  <data name="DownloadOfflineMap" xml:space="preserve"><value>Descarregar Mapa Offline</value></data>
+  <data name="DownloadOfflineMapDescription" xml:space="preserve"><value>Pré-descarregar uma região de tiles do OpenStreetMap num pacote offline para usar sem ligação à internet.</value></data>
+  <data name="DownloadRegion" xml:space="preserve"><value>Região</value></data>
+  <data name="MinLatitude" xml:space="preserve"><value>Latitude Mínima</value></data>
+  <data name="MaxLatitude" xml:space="preserve"><value>Latitude Máxima</value></data>
+  <data name="MinLongitude" xml:space="preserve"><value>Longitude Mínima</value></data>
+  <data name="MaxLongitude" xml:space="preserve"><value>Longitude Máxima</value></data>
+  <data name="DownloadZoomRange" xml:space="preserve"><value>Níveis de Zoom</value></data>
+  <data name="DownloadZoomRangeDescription" xml:space="preserve"><value>Níveis de zoom mais altos incluem muito mais tiles e demoram muito mais a descarregar.</value></data>
+  <data name="MinZoom" xml:space="preserve"><value>Zoom Mínimo</value></data>
+  <data name="MaxZoom" xml:space="preserve"><value>Zoom Máximo</value></data>
+  <data name="Download" xml:space="preserve"><value>Descarregar</value></data>
+  <data name="OfflineMapDownloading" xml:space="preserve"><value>A descarregar tiles…</value></data>
+  <data name="OfflineMapDownloadComplete" xml:space="preserve"><value>Descarregamento concluído. Guardado em {0} e selecionado como a fonte de mapa ativa.</value></data>
+  <data name="OfflineMapDownloadCancelled" xml:space="preserve"><value>Descarregamento cancelado.</value></data>
+  <data name="OfflineMapDownloadFailed" xml:space="preserve"><value>O descarregamento falhou. Verifique a ligação e tente novamente.</value></data>
+  <data name="OfflineMapInvalidLongitude" xml:space="preserve"><value>A longitude mínima tem de ser inferior à longitude máxima.</value></data>
+  <data name="OfflineMapInvalidLatitude" xml:space="preserve"><value>A latitude mínima tem de ser inferior à latitude máxima.</value></data>
+  <data name="OfflineMapInvalidZoom" xml:space="preserve"><value>Os níveis de zoom têm de estar entre {0} e {1}, com o mínimo inferior ou igual ao máximo.</value></data>
   <data name="DefaultBeaconComment" xml:space="preserve"><value>Comentário Predefinido de Beacon</value></data>
   <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Introduzir comentário (opcional)</value></data>
   <data name="DigipeaterPath" xml:space="preserve"><value>Caminho de Digipeater</value></data>

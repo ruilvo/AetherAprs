@@ -147,6 +147,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
         services.AddSingleton<IUserLocationLayerService, UserLocationLayerService>();
         services.AddSingleton<IMapTileSourceService, MapTileSourceService>();
+        services.AddSingleton<IOfflineTilePackageDownloader, OfflineTilePackageDownloader>();
 
         // Register location and transmission services
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
@@ -172,6 +173,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<PortsViewModel>(); // Main page state
         services.AddSingleton<SettingsViewModel>(); // Main page state
         services.AddTransient<DynamicBeaconingViewModel>(); // Overlay sub-page, fresh each time
+        services.AddTransient<DownloadOfflineMapViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<AddEditPortViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ConversationViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<MessageTemplateDialogViewModel>(); // Dialog content, fresh each time a template is picked

@@ -1,0 +1,148 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:local="using:AetherAprs"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="1000"
+             x:Class="AetherAprs.Views.Pages.DownloadOfflineMapPage"
+             x:DataType="vm:DownloadOfflineMapViewModel"
+             d:DataContext="{x:Static local:DesignData.DownloadOfflineMapViewModel}">
+  <UserControl.Styles>
+    <Style Selector="NumericUpDown">
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0" Classes="PageContent">
+      <StackPanel Classes="SettingsContainer">
+
+        <!-- Header -->
+        <StackPanel Classes="PageHeader">
+          <TextBlock Classes="PageTitle"
+                     Text="{loc:Loc DownloadOfflineMap}" />
+          <TextBlock Classes="PageSubtitle"
+                     Text="{loc:Loc DownloadOfflineMapDescription}" />
+        </StackPanel>
+
+        <!-- Region bounds -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc DownloadRegion}" />
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="Body2" Text="{loc:Loc MinLatitude}" />
+            <NumericUpDown Value="{Binding MinLatitude}"
+                           Minimum="-90"
+                           Maximum="90"
+                           Increment="0.5"
+                           FormatString="F4" />
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="Body2" Text="{loc:Loc MaxLatitude}" />
+            <NumericUpDown Value="{Binding MaxLatitude}"
+                           Minimum="-90"
+                           Maximum="90"
+                           Increment="0.5"
+                           FormatString="F4" />
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="Body2" Text="{loc:Loc MinLongitude}" />
+            <NumericUpDown Value="{Binding MinLongitude}"
+                           Minimum="-180"
+                           Maximum="180"
+                           Increment="0.5"
+                           FormatString="F4" />
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="Body2" Text="{loc:Loc MaxLongitude}" />
+            <NumericUpDown Value="{Binding MaxLongitude}"
+                           Minimum="-180"
+                           Maximum="180"
+                           Increment="0.5"
+                           FormatString="F4" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Zoom range -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc DownloadZoomRange}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc DownloadZoomRangeDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="Body2" Text="{loc:Loc MinZoom}" />
+            <NumericUpDown Value="{Binding MinZoom}"
+                           Minimum="0"
+                           Maximum="19"
+                           Increment="1" />
+          </StackPanel>
+
+          <StackPanel Spacing="4">
+            <TextBlock Classes="Body2" Text="{loc:Loc MaxZoom}" />
+            <NumericUpDown Value="{Binding MaxZoom}"
+                           Minimum="0"
+                           Maximum="19"
+                           Increment="1" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Progress -->
+        <StackPanel Spacing="8">
+          <ProgressBar Minimum="0"
+                       Maximum="100"
+                       Value="{Binding ProgressPercent}"
+                       IsVisible="{Binding IsDownloading}" />
+          <TextBlock Text="{Binding StatusMessage}"
+                     Classes="Body2"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                     IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Action Buttons (sticky at bottom) -->
+    <Border Grid.Row="1"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="{loc:Loc Cancel}"
+                Command="{Binding CancelCommand}"
+                IsVisible="{Binding IsDownloading}"
+                MinWidth="80"
+                MinHeight="48"
+                Classes="Outline" />
+        <Button Content="{loc:Loc Download}"
+                Command="{Binding DownloadCommand}"
+                MinWidth="80"
+                MinHeight="48" />
+        <Button Content="{loc:Loc Close}"
+                Command="{Binding CloseCommand}"
+                MinWidth="80"
+                MinHeight="48" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>
