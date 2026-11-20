@@ -30,15 +30,16 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </StackPanel>
 
     <!-- Content -->
-    <ScrollViewer Grid.Row="1" Classes="PageContent">
-      <StackPanel Classes="PageContainer">
+    <Grid Grid.Row="1" RowDefinitions="Auto,*">
+      <!-- Distance / bearing header with radar -->
+      <StackPanel Grid.Row="0" Margin="16,8,16,0" Spacing="8">
         <!-- Loading indicator -->
         <ProgressBar IsIndeterminate="True"
                      IsVisible="{Binding IsLoading}"
-                     Margin="0,8" />
+                     Margin="0,4" />
 
         <!-- Action buttons -->
-        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
           <Button Command="{Binding SendMessageCommand}"
                   Classes="Flat">
             <Button.ContentTemplate>
@@ -52,79 +53,329 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </Button>
         </StackPanel>
 
-        <!-- Packet cards -->
-        <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Spacing="8" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="data:PacketRecord">
-              <controls:Card Classes="StandardCard">
-                <StackPanel Spacing="8">
-                  <!-- Header with time and type -->
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Grid.Column="0"
-                               Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
-                               Classes="Subtitle2"
-                               FontWeight="Bold" />
-                    <Border Grid.Column="1" Classes="TypeBadge">
-                      <TextBlock Text="{Binding PacketType}" />
-                    </Border>
-                  </Grid>
-
-                  <!-- Coordinates if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding Position, Converter={x:Static ObjectConverters.IsNotNull}}">
-                    <TextBlock Classes="Caption" Text="{loc:Loc Location}" Opacity="0.7" />
-                    <TextBlock Classes="Body2">
-                      <Run Text="{loc:Loc Latitude}" />
-                      <Run Text=": " />
-                      <Run Text="{Binding Position.Location.Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
-                      <Run Text="  " />
-                      <Run Text="{loc:Loc Longitude}" />
-                      <Run Text=": " />
-                      <Run Text="{Binding Position.Location.Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
-                    </TextBlock>
-                  </StackPanel>
-
-                  <!-- Comment if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding Position.Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Classes="Caption" Text="{loc:Loc Comment}" Opacity="0.7" />
-                    <TextBlock Text="{Binding Position.Comment}"
-                               Classes="Body2"
-                               TextWrapping="Wrap" />
-                  </StackPanel>
-
-                  <!-- Message if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding Message.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Classes="Caption" Text="{loc:Loc Message}" Opacity="0.7" />
-                    <TextBlock Text="{Binding Message.Text}"
-                               Classes="Body2"
-                               TextWrapping="Wrap" />
-                  </StackPanel>
-
-                  <!-- Status if available -->
-                  <StackPanel Spacing="4" IsVisible="{Binding Status.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Classes="Caption" Opacity="0.7">
-                      <Run Text="{loc:Loc Status}" />
-                    </TextBlock>
-                    <TextBlock Text="{Binding Status.Text}"
-                               Classes="Body2"
-                               TextWrapping="Wrap" />
-                  </StackPanel>
-                </StackPanel>
-              </controls:Card>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <!-- Empty state -->
-        <TextBlock Text="{loc:Loc NoPacketsFound}"
-                   Classes="EmptyState"
-                   IsVisible="{Binding !Packets.Count}" />
+        <!-- Radar + distance/bearing -->
+        <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding HasDistance}">
+          <Canvas Width="120" Height="120">
+            <!-- Compass ring -->
+            <Ellipse Width="120" Height="120"
+                     Stroke="{DynamicResource MaterialDividerBrush}"
+                     StrokeThickness="2" />
+            <!-- Cardinal labels -->
+            <TextBlock Text="{loc:Loc CompassNorth}" Classes="Caption" Canvas.Left="55" Canvas.Top="2" />
+            <TextBlock Text="{loc:Loc CompassEast}" Classes="Caption" Canvas.Left="110" Canvas.Top="55" />
+            <TextBlock Text="{loc:Loc CompassSouth}" Classes="Caption" Canvas.Left="55" Canvas.Top="112" />
+            <TextBlock Text="{loc:Loc CompassWest}" Classes="Caption" Canvas.Left="3" Canvas.Top="55" />
+            <!-- Needle: points north at 0 degrees, rotates to relative bearing -->
+            <Line StartPoint="60,60" EndPoint="60,14"
+                  Stroke="{DynamicResource MaterialPrimaryBrush}"
+                  StrokeThickness="3"
+                  StrokeLineCap="Round">
+              <Line.RenderTransform>
+                <RotateTransform Angle="{Binding RelativeBearingDegrees}" CenterX="60" CenterY="60" />
+              </Line.RenderTransform>
+            </Line>
+            <!-- Center hub -->
+            <Ellipse Canvas.Left="56" Canvas.Top="56" Width="8" Height="8"
+                     Fill="{DynamicResource MaterialPrimaryBrush}" />
+          </Canvas>
+          <StackPanel VerticalAlignment="Center" Spacing="4">
+            <TextBlock Classes="Body2">
+              <Run Text="{loc:Loc Distance}" />
+              <Run Text=": " />
+              <Run Text="{Binding DistanceText}" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock Classes="Body2">
+              <Run Text="{loc:Loc Bearing}" />
+              <Run Text=": " />
+              <Run Text="{Binding BearingText}" FontWeight="SemiBold" />
+            </TextBlock>
+          </StackPanel>
+        </StackPanel>
       </StackPanel>
-    </ScrollViewer>
+
+      <!-- Tabs -->
+      <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" Margin="8,8,8,0">
+        <!-- History tab -->
+        <TabItem Header="{loc:Loc PacketDetailsTabHistory}">
+          <ScrollViewer Classes="PageContent">
+            <StackPanel Classes="PageContainer">
+              <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="data:PacketRecord">
+                    <controls:Card Classes="StandardCard">
+                      <StackPanel Spacing="8">
+                        <!-- Header with time and type -->
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Grid.Column="0"
+                                     Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                                     Classes="Subtitle2"
+                                     FontWeight="Bold" />
+                          <Border Grid.Column="1" Classes="TypeBadge">
+                            <TextBlock Text="{Binding PacketType}" />
+                          </Border>
+                        </Grid>
+
+                        <!-- Coordinates if available -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Position, Converter={x:Static ObjectConverters.IsNotNull}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Location}" Opacity="0.7" />
+                          <TextBlock Classes="Body2">
+                            <Run Text="{loc:Loc Latitude}" />
+                            <Run Text=": " />
+                            <Run Text="{Binding Position.Location.Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                            <Run Text="  " />
+                            <Run Text="{loc:Loc Longitude}" />
+                            <Run Text=": " />
+                            <Run Text="{Binding Position.Location.Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                          </TextBlock>
+                        </StackPanel>
+
+                        <!-- Comment if available -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Position.Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Comment}" Opacity="0.7" />
+                          <TextBlock Text="{Binding Position.Comment}"
+                                     Classes="Body2"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Message if available -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Message.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Message}" Opacity="0.7" />
+                          <TextBlock Text="{Binding Message.Text}"
+                                     Classes="Body2"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Status if available -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Status.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Status}" Opacity="0.7" />
+                          <TextBlock Text="{Binding Status.Text}"
+                                     Classes="Body2"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </StackPanel>
+                    </controls:Card>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Empty state -->
+              <TextBlock Text="{loc:Loc NoPacketsFound}"
+                         Classes="EmptyState"
+                         IsVisible="{Binding !Packets.Count}" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+        <!-- Position tab -->
+        <TabItem Header="{loc:Loc PacketDetailsTabPosition}">
+          <ScrollViewer Classes="PageContent">
+            <StackPanel Classes="PageContainer">
+              <ItemsControl ItemsSource="{Binding PositionHistory}" Classes="CardList">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="data:PacketRecord">
+                    <controls:Card Classes="StandardCard">
+                      <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                                   Classes="Subtitle2"
+                                   FontWeight="Bold" />
+                        <TextBlock Classes="Body2">
+                          <Run Text="{loc:Loc Latitude}" />
+                          <Run Text=": " />
+                          <Run Text="{Binding Position.Location.Latitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                          <Run Text="  " />
+                          <Run Text="{loc:Loc Longitude}" />
+                          <Run Text=": " />
+                          <Run Text="{Binding Position.Location.Longitude, StringFormat='{}{0:F4}'}" FontWeight="SemiBold" />
+                        </TextBlock>
+                        <StackPanel Spacing="4" IsVisible="{Binding Position.Comment, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Text="{Binding Position.Comment}"
+                                     Classes="Body2"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </StackPanel>
+                    </controls:Card>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Text="{loc:Loc NoPositionHistory}"
+                         Classes="EmptyState"
+                         IsVisible="{Binding !PositionHistory.Count}" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+        <!-- Raw tab -->
+        <TabItem Header="{loc:Loc PacketDetailsTabRaw}">
+          <ScrollViewer Classes="PageContent">
+            <StackPanel Classes="PageContainer">
+              <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="data:PacketRecord">
+                    <controls:Card Classes="StandardCard">
+                      <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                                   Classes="Subtitle2"
+                                   FontWeight="Bold" />
+                        <!-- Reconstructed APRS-IS line -->
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="Caption" Text="{loc:Loc RawLine}" Opacity="0.7" />
+                          <TextBlock Classes="Body2" TextWrapping="Wrap">
+                            <Run Text="{Binding RawPath}" />
+                            <Run Text=":" />
+                            <Run Text="{Binding RawInfo}" />
+                          </TextBlock>
+                        </StackPanel>
+                        <!-- Raw hex frame -->
+                        <StackPanel Spacing="2" IsVisible="{Binding RawFrameHex, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc RawFrameHex}" Opacity="0.7" />
+                          <TextBlock Text="{Binding RawFrameHex}"
+                                     Classes="Body2"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </StackPanel>
+                    </controls:Card>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Text="{loc:Loc NoPacketsFound}"
+                         Classes="EmptyState"
+                         IsVisible="{Binding !Packets.Count}" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+
+        <!-- Telemetry tab -->
+        <TabItem Header="{loc:Loc PacketDetailsTabTelemetry}">
+          <ScrollViewer Classes="PageContent">
+            <StackPanel Classes="PageContainer">
+              <ItemsControl ItemsSource="{Binding WeatherStatusTelemetry}" Classes="CardList">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Spacing="8" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="data:PacketRecord">
+                    <controls:Card Classes="StandardCard">
+                      <StackPanel Spacing="4">
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBlock Grid.Column="0"
+                                     Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                                     Classes="Subtitle2"
+                                     FontWeight="Bold" />
+                          <Border Grid.Column="1" Classes="TypeBadge">
+                            <TextBlock Text="{Binding PacketType}" />
+                          </Border>
+                        </Grid>
+
+                        <!-- Status -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Status.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Status}" Opacity="0.7" />
+                          <TextBlock Text="{Binding Status.Text}" Classes="Body2" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Weather -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Weather, Converter={x:Static ObjectConverters.IsNotNull}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Weather}" Opacity="0.7" />
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.Temperature, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc Temperature}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.Temperature, StringFormat='{}{0:F1} °F'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.WindSpeed, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc WindSpeed}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.WindSpeed, StringFormat='{}{0:F1} kn'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.WindDirection, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc WindDirection}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.WindDirection, StringFormat='{}{0:F0}°'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.Humidity, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc Humidity}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.Humidity, StringFormat='{}{0:F0} %'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.Pressure, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc Pressure}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.Pressure, StringFormat='{}{0:F1} mbar'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.RainLastHour, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc RainLastHour}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.RainLastHour, StringFormat='{}{0:F2} in'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Weather.RainLast24Hours, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc RainLast24Hours}" /><Run Text=": " />
+                            <Run Text="{Binding Weather.RainLast24Hours, StringFormat='{}{0:F2} in'}" />
+                          </TextBlock>
+                        </StackPanel>
+
+                        <!-- Telemetry -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Telemetry, Converter={x:Static ObjectConverters.IsNotNull}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Telemetry}" Opacity="0.7" />
+                          <TextBlock Classes="Body2">
+                            <Run Text="{loc:Loc TelemetrySequence}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.SequenceNumber}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Telemetry.Analog1, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc TelemetryAnalog1}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.Analog1, StringFormat='{}{0:F2}'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Telemetry.Analog2, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc TelemetryAnalog2}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.Analog2, StringFormat='{}{0:F2}'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Telemetry.Analog3, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc TelemetryAnalog3}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.Analog3, StringFormat='{}{0:F2}'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Telemetry.Analog4, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc TelemetryAnalog4}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.Analog4, StringFormat='{}{0:F2}'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Telemetry.Analog5, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc TelemetryAnalog5}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.Analog5, StringFormat='{}{0:F2}'}" />
+                          </TextBlock>
+                          <TextBlock Classes="Body2" IsVisible="{Binding Telemetry.DigitalValue, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <Run Text="{loc:Loc TelemetryDigital}" /><Run Text=": " />
+                            <Run Text="{Binding Telemetry.DigitalValue}" />
+                          </TextBlock>
+                        </StackPanel>
+
+                        <!-- Capabilities -->
+                        <StackPanel Spacing="4" IsVisible="{Binding Capabilities.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                          <TextBlock Classes="Caption" Text="{loc:Loc Capabilities}" Opacity="0.7" />
+                          <TextBlock Text="{Binding Capabilities.Text}" Classes="Body2" TextWrapping="Wrap" />
+                        </StackPanel>
+                      </StackPanel>
+                    </controls:Card>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Text="{loc:Loc NoWeatherTelemetry}"
+                         Classes="EmptyState"
+                         IsVisible="{Binding !WeatherStatusTelemetry.Count}" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+      </TabControl>
+    </Grid>
   </Grid>
 
 </UserControl>

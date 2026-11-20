@@ -316,4 +316,38 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationBulletinNameMaxLength" xml:space="preserve"><value>O nome do boletim deve ter 9 caracteres ou menos</value></data>
   <data name="ValidationBulletinTextRequired" xml:space="preserve"><value>O texto do boletim é obrigatório</value></data>
   <data name="ValidationBulletinTextMaxLength" xml:space="preserve"><value>O texto do boletim deve ter 67 caracteres ou menos</value></data>
+  <data name="PacketDetailsTabHistory" xml:space="preserve"><value>Histórico</value></data>
+  <data name="PacketDetailsTabPosition" xml:space="preserve"><value>Posição</value></data>
+  <data name="PacketDetailsTabRaw" xml:space="preserve"><value>Bruto</value></data>
+  <data name="PacketDetailsTabTelemetry" xml:space="preserve"><value>Telemetria</value></data>
+  <data name="CompassNorth" xml:space="preserve"><value>N</value></data>
+  <data name="CompassEast" xml:space="preserve"><value>E</value></data>
+  <data name="CompassSouth" xml:space="preserve"><value>S</value></data>
+  <data name="CompassWest" xml:space="preserve"><value>O</value></data>
+  <data name="Distance" xml:space="preserve"><value>Distância</value></data>
+  <data name="Bearing" xml:space="preserve"><value>Rumo</value></data>
+  <data name="DistanceMetersFormat" xml:space="preserve"><value>{0:F0} m</value></data>
+  <data name="DistanceKilometersFormat" xml:space="preserve"><value>{0:F1} km</value></data>
+  <data name="BearingDegreesFormat" xml:space="preserve"><value>{0:F0}°</value></data>
+  <data name="RawLine" xml:space="preserve"><value>Linha bruta</value></data>
+  <data name="RawFrameHex" xml:space="preserve"><value>Trama bruta (hex)</value></data>
+  <data name="Weather" xml:space="preserve"><value>Meteorologia</value></data>
+  <data name="Temperature" xml:space="preserve"><value>Temperatura</value></data>
+  <data name="WindSpeed" xml:space="preserve"><value>Velocidade do vento</value></data>
+  <data name="WindDirection" xml:space="preserve"><value>Direção do vento</value></data>
+  <data name="Humidity" xml:space="preserve"><value>Humidade</value></data>
+  <data name="Pressure" xml:space="preserve"><value>Pressão</value></data>
+  <data name="RainLastHour" xml:space="preserve"><value>Chuva (1h)</value></data>
+  <data name="RainLast24Hours" xml:space="preserve"><value>Chuva (24h)</value></data>
+  <data name="Telemetry" xml:space="preserve"><value>Telemetria</value></data>
+  <data name="TelemetrySequence" xml:space="preserve"><value>Sequência</value></data>
+  <data name="TelemetryAnalog1" xml:space="preserve"><value>Analógico 1</value></data>
+  <data name="TelemetryAnalog2" xml:space="preserve"><value>Analógico 2</value></data>
+  <data name="TelemetryAnalog3" xml:space="preserve"><value>Analógico 3</value></data>
+  <data name="TelemetryAnalog4" xml:space="preserve"><value>Analógico 4</value></data>
+  <data name="TelemetryAnalog5" xml:space="preserve"><value>Analógico 5</value></data>
+  <data name="TelemetryDigital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Capabilities" xml:space="preserve"><value>Capacidades</value></data>
+  <data name="NoPositionHistory" xml:space="preserve"><value>Sem histórico de posição</value></data>
+  <data name="NoWeatherTelemetry" xml:space="preserve"><value>Sem dados meteorológicos ou de telemetria</value></data>
 </root>

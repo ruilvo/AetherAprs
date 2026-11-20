@@ -8,7 +8,9 @@ using AetherAprs.Data.Entities;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.Configuration;
@@ -391,6 +393,8 @@ public class PacketsViewModelTests : TestFixtureBase
             _packetQueryService,
             _navigationService,
             Substitute.For<IConversationViewModelFactory>(),
+            Substitute.For<ILocationTrackingService>(),
+            Substitute.For<ICompassService>(),
             Substitute.For<ILogger<PacketDetailsViewModel>>());
 
         _packetDetailsFactory.Create("N0CALL-1").Returns(detailsVm);
