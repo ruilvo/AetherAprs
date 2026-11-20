@@ -502,6 +502,34 @@ namespace AetherAprs.Data.Migrations
 
             modelBuilder.Entity("AetherAprs.Data.Entities.PortRecord", b =>
                 {
+                    b.OwnsOne("AetherAprs.Data.Entities.AfskSettingsRecord", "Afsk", b1 =>
+                        {
+                            b1.Property<Guid>("PortRecordId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<double>("AudioLevel")
+                                .HasColumnType("REAL");
+
+                            b1.Property<int>("PttMode")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<double>("SquelchThreshold")
+                                .HasColumnType("REAL");
+
+                            b1.Property<int>("TxDelayMs")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<int>("TxTailMs")
+                                .HasColumnType("INTEGER");
+
+                            b1.HasKey("PortRecordId");
+
+                            b1.ToTable("Ports");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PortRecordId");
+                        });
+
                     b.OwnsOne("AetherAprs.Data.Entities.AprsIsSettingsRecord", "AprsIs", b1 =>
                         {
                             b1.Property<Guid>("PortRecordId")
@@ -630,6 +658,8 @@ namespace AetherAprs.Data.Migrations
 
                             b1.Navigation("Tcp");
                         });
+
+                    b.Navigation("Afsk");
 
                     b.Navigation("AprsIs");
 

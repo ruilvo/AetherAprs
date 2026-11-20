@@ -85,7 +85,9 @@ public sealed class PortServiceSetPortEnabledTests
             mockPacketStorage,
             mockKeepAliveService,
             mockDigipeater,
-            Substitute.For<IAudioStreamService>());
+            Substitute.For<IAudioStreamService>(),
+            Substitute.For<IAudioPlaybackService>(),
+            Substitute.For<IPttService>());
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

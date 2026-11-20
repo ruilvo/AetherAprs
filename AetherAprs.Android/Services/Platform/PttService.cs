@@ -1,0 +1,60 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Services.Platform;
+using Android.Media;
+using Microsoft.Extensions.Logging;
+using System;
+
+namespace AetherAprs.Android.Services.Platform;
+
+/// <summary>
+/// Android implementation of <see cref="IPttService"/> that keys the
+/// transmitter by toggling the speaker-mic (voice transmit) audio routing via
+/// <see cref="AudioManager"/>.
+/// </summary>
+public sealed class PttService : IPttService
+{
+    private readonly AudioManager _audioManager;
+    private readonly ILogger<PttService>? _logger;
+
+    public PttService(ILogger<PttService>? logger = null)
+    {
+        _logger = logger;
+        _audioManager = (AudioManager)global::Android.App.Application.Context
+            .GetSystemService(global::Android.Content.Context.AudioService)!;
+    }
+
+    /// <inheritdoc/>
+    public void Engage()
+    {
+        try
+        {
+#pragma warning disable CA1422 // SpeakerphoneOn is deprecated on API 31+; no direct PTT replacement.
+            _audioManager.Mode = Mode.InCommunication;
+            _audioManager.SpeakerphoneOn = true;
+#pragma warning restore CA1422
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to key PTT (speaker-mic).");
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Release()
+    {
+        try
+        {
+#pragma warning disable CA1422 // SpeakerphoneOn is deprecated on API 31+; no direct PTT replacement.
+            _audioManager.SpeakerphoneOn = false;
+            _audioManager.Mode = Mode.Normal;
+#pragma warning restore CA1422
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to release PTT (speaker-mic).");
+        }
+    }
+}

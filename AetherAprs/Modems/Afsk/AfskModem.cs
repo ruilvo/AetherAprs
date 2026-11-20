@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Platform;
@@ -15,14 +16,16 @@ namespace AetherAprs.Modems.Afsk;
 
 /// <summary>
 /// Top-level AFSK modem that decodes received APRS packets from a captured
-/// audio stream (Bell 202 AFSK → HDLC → AX.25 → APRS).
-///
-/// Slice A is receive-only: <see cref="SendAsync"/> throws
-/// <see cref="NotSupportedException"/>. Transmission is added in Slice B.
+/// audio stream (Bell 202 AFSK → HDLC → AX.25 → APRS) and encodes outgoing
+/// packets into a played-back audio stream (APRS → AX.25 → HDLC → AFSK), with
+/// optional PTT keying.
 /// </summary>
 public sealed class AfskModem : IAprsModem, IAsyncDisposable
 {
     private readonly IAudioStreamService _audioStream;
+    private readonly IAudioPlaybackService _audioPlayback;
+    private readonly IPttService _ptt;
+    private readonly AfskSettings _settings;
     private readonly AfskDemodulator _demodulator;
     private readonly ILogger<AfskModem> _logger;
     private readonly Lock _lifecycleLock = new();
@@ -33,13 +36,27 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
     /// Initializes a new instance of <see cref="AfskModem"/>.
     /// </summary>
     /// <param name="audioStream">The audio capture source. Must not be null.</param>
+    /// <param name="audioPlayback">The audio playback sink. Must not be null.</param>
+    /// <param name="ptt">The PTT control. Must not be null.</param>
+    /// <param name="settings">The AFSK port configuration. Must not be null.</param>
     /// <param name="loggerFactory">Optional logger factory.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="audioStream"/> is null.</exception>
-    public AfskModem(IAudioStreamService audioStream, ILoggerFactory? loggerFactory = null)
+    /// <exception cref="ArgumentNullException">Thrown if any required argument is null.</exception>
+    public AfskModem(
+        IAudioStreamService audioStream,
+        IAudioPlaybackService audioPlayback,
+        IPttService ptt,
+        AfskSettings settings,
+        ILoggerFactory? loggerFactory = null)
     {
         ArgumentNullException.ThrowIfNull(audioStream);
+        ArgumentNullException.ThrowIfNull(audioPlayback);
+        ArgumentNullException.ThrowIfNull(ptt);
+        ArgumentNullException.ThrowIfNull(settings);
 
         _audioStream = audioStream;
+        _audioPlayback = audioPlayback;
+        _ptt = ptt;
+        _settings = settings;
         _demodulator = new AfskDemodulator(audioStream.SampleRate);
         _logger = loggerFactory?.CreateLogger<AfskModem>() ?? NullLogger<AfskModem>.Instance;
     }
@@ -110,9 +127,48 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
     }
 
     /// <inheritdoc/>
-    public Task SendAsync(AprsPacket packet, CancellationToken cancellationToken = default)
+    public async Task SendAsync(AprsPacket packet, CancellationToken cancellationToken = default)
     {
-        throw new NotSupportedException("AFSK transmission is not supported yet (Slice B).");
+        ArgumentNullException.ThrowIfNull(packet);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // APRS → AX.25 → HDLC → AFSK PCM.
+        var ax25Data = Ax25Serializer.Serialize(packet);
+        var bits = HdlcFramer.Encode(ax25Data);
+        var samples = AfskModulator.Modulate(bits, _audioPlayback.SampleRate, _settings.AudioLevel);
+
+        bool pttKeyed = _settings.PttMode != PttMode.None;
+        if (pttKeyed)
+        {
+            _ptt.Engage();
+        }
+
+        try
+        {
+            if (_settings.TxDelayMs > 0)
+            {
+                await Task.Delay(_settings.TxDelayMs, cancellationToken).ConfigureAwait(false);
+            }
+
+            await _audioPlayback.PlayAsync(samples, cancellationToken).ConfigureAwait(false);
+
+            if (_settings.TxTailMs > 0)
+            {
+                await Task.Delay(_settings.TxTailMs, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            if (pttKeyed)
+            {
+                _ptt.Release();
+            }
+        }
+
+        _logger.LogDebug(
+            "Transmitted APRS packet via AFSK: Type={PacketType}, Source={Source}",
+            packet.GetType().Name,
+            packet.Source);
     }
 
     private void OnSamplesAvailable(object? sender, float[] samples)

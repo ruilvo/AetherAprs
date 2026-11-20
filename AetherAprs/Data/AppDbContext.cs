@@ -59,6 +59,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                     ble.Property(transport => transport.DeviceName).HasMaxLength(200);
                 });
             });
+            entity.OwnsOne(port => port.Afsk, afsk =>
+            {
+                afsk.Property(settings => settings.PttMode).IsRequired();
+                afsk.Property(settings => settings.TxDelayMs).IsRequired();
+                afsk.Property(settings => settings.TxTailMs).IsRequired();
+                afsk.Property(settings => settings.AudioLevel).IsRequired();
+                afsk.Property(settings => settings.SquelchThreshold).IsRequired();
+            });
         });
 
         modelBuilder.Entity<PacketRecord>(entity =>

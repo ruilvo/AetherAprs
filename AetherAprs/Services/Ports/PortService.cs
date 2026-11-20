@@ -37,6 +37,8 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly IKeepAliveService _keepAliveService;
     private readonly IDigipeaterService _digipeaterService;
     private readonly IAudioStreamService _audioStreamService;
+    private readonly IAudioPlaybackService _audioPlaybackService;
+    private readonly IPttService _pttService;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
     private readonly Lock _stateLock = new();
@@ -59,7 +61,9 @@ public class PortService : IPortService, IAsyncDisposable
         IPacketStorageService packetStorageService,
         IKeepAliveService keepAliveService,
         IDigipeaterService digipeaterService,
-        IAudioStreamService audioStreamService)
+        IAudioStreamService audioStreamService,
+        IAudioPlaybackService audioPlaybackService,
+        IPttService pttService)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
@@ -70,6 +74,8 @@ public class PortService : IPortService, IAsyncDisposable
         _keepAliveService = keepAliveService;
         _digipeaterService = digipeaterService;
         _audioStreamService = audioStreamService;
+        _audioPlaybackService = audioPlaybackService;
+        _pttService = pttService;
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
         // also guarantees packets are persisted and published in receive order.
@@ -506,7 +512,12 @@ public class PortService : IPortService, IAsyncDisposable
                     }
                 case AfskSettings afsk:
                     {
-                        var modem = new AfskModem(_audioStreamService, _loggerFactory);
+                        var modem = new AfskModem(
+                            _audioStreamService,
+                            _audioPlaybackService,
+                            _pttService,
+                            afsk,
+                            _loggerFactory);
 
                         EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
                         modem.PacketReceived += packetHandler;

@@ -140,12 +140,120 @@ public class KissSettings : IPortTypeSettings
 }
 
 /// <summary>
+/// How the AFSK modem keys the transmitter.
+/// </summary>
+public enum PttMode
+{
+    /// <summary>No PTT control; the radio keys itself (VOX).</summary>
+    None = 0,
+
+    /// <summary>Toggle the device speaker-mic (voice transmit) routing.</summary>
+    SpeakerMic = 1
+}
+
+/// <summary>
 /// AFSK soundcard-modem specific port configuration.
 /// </summary>
-/// <remarks>
-/// Slice A is receive-only, so no user-configurable audio properties are
-/// required yet. Slice B will add PTT control and TX-delay settings.
-/// </remarks>
 public class AfskSettings : IPortTypeSettings
 {
+    public const PttMode DefaultPttMode = PttMode.None;
+    public const int DefaultTxDelayMs = 300;
+    public const int DefaultTxTailMs = 50;
+    public const double DefaultAudioLevel = 0.9;
+    public const double DefaultSquelchThreshold = 0.1;
+
+    private PttMode _pttMode = DefaultPttMode;
+    private int _txDelayMs = DefaultTxDelayMs;
+    private int _txTailMs = DefaultTxTailMs;
+    private double _audioLevel = DefaultAudioLevel;
+    private double _squelchThreshold = DefaultSquelchThreshold;
+
+    /// <summary>
+    /// Gets or sets how the transmitter is keyed. Default is <see cref="PttMode.None"/> (VOX).
+    /// </summary>
+    public PttMode PttMode
+    {
+        get => _pttMode;
+        set
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown PTT mode.");
+            }
+
+            _pttMode = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the transmit delay in milliseconds: the time between keying
+    /// PTT and starting audio, allowing the radio to ramp up.
+    /// </summary>
+    public int TxDelayMs
+    {
+        get => _txDelayMs;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "TX delay cannot be negative.");
+            }
+
+            _txDelayMs = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the transmit tail in milliseconds: the time audio keeps
+    /// flowing after the packet before PTT is released.
+    /// </summary>
+    public int TxTailMs
+    {
+        get => _txTailMs;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "TX tail cannot be negative.");
+            }
+
+            _txTailMs = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the transmit audio level in the range (0, 1].
+    /// </summary>
+    public double AudioLevel
+    {
+        get => _audioLevel;
+        set
+        {
+            if (value is <= 0 or > 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Audio level must be in (0, 1].");
+            }
+
+            _audioLevel = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the receive squelch threshold as a signal amplitude in the
+    /// range [0, 1]. Input below this level is treated as noise. A value of 0
+    /// disables squelch.
+    /// </summary>
+    public double SquelchThreshold
+    {
+        get => _squelchThreshold;
+        set
+        {
+            if (value is < 0 or > 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Squelch threshold must be in [0, 1].");
+            }
+
+            _squelchThreshold = value;
+        }
+    }
 }

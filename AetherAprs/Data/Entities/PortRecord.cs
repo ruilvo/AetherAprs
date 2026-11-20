@@ -36,6 +36,8 @@ public sealed class PortRecord
     public AprsIsSettingsRecord? AprsIs { get; set; }
 
     public KissSettingsRecord? Kiss { get; set; }
+
+    public AfskSettingsRecord? Afsk { get; set; }
 }
 
 public sealed class AprsIsSettingsRecord
@@ -62,6 +64,22 @@ public sealed class KissSettingsRecord
     public BluetoothClassicKissTransportRecord? BluetoothClassic { get; set; }
 
     public BluetoothLeKissTransportRecord? BluetoothLe { get; set; }
+}
+
+public sealed class AfskSettingsRecord
+{
+    /// <summary>
+    /// PTT mode discriminator: 0 = none/VOX, 1 = speaker-mic.
+    /// </summary>
+    public int PttMode { get; set; }
+
+    public int TxDelayMs { get; set; }
+
+    public int TxTailMs { get; set; }
+
+    public double AudioLevel { get; set; }
+
+    public double SquelchThreshold { get; set; }
 }
 
 public sealed class TcpKissTransportRecord

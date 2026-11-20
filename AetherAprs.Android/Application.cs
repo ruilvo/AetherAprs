@@ -41,6 +41,8 @@ namespace AetherAprs.Android
             services.AddSingleton<AetherAprs.Services.Platform.ICompassService, CompassService>();
             services.AddSingleton<AetherAprs.Services.Platform.INotificationService, AndroidNotificationService>();
             services.AddSingleton<AetherAprs.Services.Platform.IAudioStreamService, AudioStreamService>();
+            services.AddSingleton<AetherAprs.Services.Platform.IAudioPlaybackService, AudioPlaybackService>();
+            services.AddSingleton<AetherAprs.Services.Platform.IPttService, PttService>();
         }
     }
 

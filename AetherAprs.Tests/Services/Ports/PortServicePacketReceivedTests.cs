@@ -108,7 +108,9 @@ public sealed class PortServicePacketReceivedTests
             packetStorageService,
             foregroundService,
             digipeaterService,
-            Substitute.For<IAudioStreamService>());
+            Substitute.For<IAudioStreamService>(),
+            Substitute.For<IAudioPlaybackService>(),
+            Substitute.For<IPttService>());
     }
 
     private sealed class TestDbContextFactory : IDbContextFactory<AppDbContext>

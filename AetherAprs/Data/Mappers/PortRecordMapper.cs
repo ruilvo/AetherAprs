@@ -65,15 +65,25 @@ internal static class PortRecordMapper
                     Filter = aprsIs.Filter
                 };
                 record.Kiss = null;
+                record.Afsk = null;
                 break;
-            case AfskSettings:
+            case AfskSettings afsk:
                 record.Type = "afsk";
                 record.AprsIs = null;
                 record.Kiss = null;
+                record.Afsk = new AfskSettingsRecord
+                {
+                    PttMode = (int)afsk.PttMode,
+                    TxDelayMs = afsk.TxDelayMs,
+                    TxTailMs = afsk.TxTailMs,
+                    AudioLevel = afsk.AudioLevel,
+                    SquelchThreshold = afsk.SquelchThreshold
+                };
                 break;
             case KissSettings kiss:
                 record.Type = "kiss";
                 record.AprsIs = null;
+                record.Afsk = null;
                 record.Kiss = new KissSettingsRecord
                 {
                     Transport = kiss.Transport switch
@@ -109,6 +119,7 @@ internal static class PortRecordMapper
                 record.Type = null;
                 record.AprsIs = null;
                 record.Kiss = null;
+                record.Afsk = null;
                 break;
         }
     }
@@ -133,7 +144,14 @@ internal static class PortRecordMapper
 
         if (record.Type == "afsk")
         {
-            return new AfskSettings();
+            return new AfskSettings
+            {
+                PttMode = (PttMode)(record.Afsk?.PttMode ?? (int)AfskSettings.DefaultPttMode),
+                TxDelayMs = record.Afsk?.TxDelayMs ?? AfskSettings.DefaultTxDelayMs,
+                TxTailMs = record.Afsk?.TxTailMs ?? AfskSettings.DefaultTxTailMs,
+                AudioLevel = record.Afsk?.AudioLevel ?? AfskSettings.DefaultAudioLevel,
+                SquelchThreshold = record.Afsk?.SquelchThreshold ?? AfskSettings.DefaultSquelchThreshold
+            };
         }
 
         return null;
