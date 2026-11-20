@@ -99,6 +99,7 @@ public static class DesignData
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
         services.AddSingleton<IMessageTemplateEditViewModelFactory, MessageTemplateEditViewModelFactory>();
+        services.AddSingleton<IObjectEditorViewModelFactory, ObjectEditorViewModelFactory>();
 
         // Register logging
         services.AddLogging(builder =>
@@ -123,6 +124,9 @@ public static class DesignData
         services.AddSingleton<MessageTemplatesViewModel>();
         services.AddTransient<MessageTemplateEditViewModel>();
         services.AddTransient<PacketDetailsViewModel>();
+        services.AddSingleton<ObjectsViewModel>();
+        services.AddTransient<ObjectEditorViewModel>();
+        services.AddSingleton<BulletinsViewModel>();
 
         var provider = services.BuildServiceProvider();
         Localization.UiCulture.Apply(provider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
@@ -248,6 +252,15 @@ public static class DesignData
 
     public static MessageTemplatesViewModel MessageTemplatesViewModel =>
         _serviceProvider.GetRequiredService<MessageTemplatesViewModel>();
+
+    public static ObjectsViewModel ObjectsViewModel =>
+        _serviceProvider.GetRequiredService<ObjectsViewModel>();
+
+    public static ObjectEditorViewModel ObjectEditorViewModel =>
+        _serviceProvider.GetRequiredService<ObjectEditorViewModel>();
+
+    public static BulletinsViewModel BulletinsViewModel =>
+        _serviceProvider.GetRequiredService<BulletinsViewModel>();
 
     public static SymbolSelectorViewModel SymbolSelectorViewModel
     {

@@ -26,6 +26,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
     private readonly MessageTemplatesViewModel _messageTemplatesViewModel;
+    private readonly ObjectsViewModel _objectsViewModel;
+    private readonly BulletinsViewModel _bulletinsViewModel;
     private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
     private bool _isInitializing = true;
@@ -113,12 +115,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         INavigationService navigationService,
         AprsSymbolPickerViewModel aprsSymbolPicker,
         MessageTemplatesViewModel messageTemplatesViewModel,
+        ObjectsViewModel objectsViewModel,
+        BulletinsViewModel bulletinsViewModel,
         ILogger<SettingsViewModel>? logger = null)
     {
         _configurationService = configurationService;
         _navigationService = navigationService;
         _logger = logger;
         _messageTemplatesViewModel = messageTemplatesViewModel;
+        _objectsViewModel = objectsViewModel;
+        _bulletinsViewModel = bulletinsViewModel;
         SymbolPicker = aprsSymbolPicker;
 
         var aprs = _configurationService.Settings.Aprs;
@@ -365,6 +371,18 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private void OpenMessageTemplates()
     {
         _navigationService.NavigateTo(_messageTemplatesViewModel);
+    }
+
+    [RelayCommand]
+    private void OpenObjects()
+    {
+        _navigationService.NavigateTo(_objectsViewModel);
+    }
+
+    [RelayCommand]
+    private void OpenBulletins()
+    {
+        _navigationService.NavigateTo(_bulletinsViewModel);
     }
 
     public void Dispose()

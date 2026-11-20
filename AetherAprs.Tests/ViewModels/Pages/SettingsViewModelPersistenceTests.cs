@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
@@ -47,7 +48,9 @@ public sealed class SettingsViewModelPersistenceTests
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
             // Create SettingsViewModel - this should load settings from config
-            var viewModel = new SettingsViewModel(configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
+            var viewModel = new SettingsViewModel(
+                configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService),
+                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService));
 
             // Verify all settings were loaded correctly
             Assert.Equal("CT7ALW", viewModel.Callsign);
@@ -85,7 +88,9 @@ public sealed class SettingsViewModelPersistenceTests
             var navService = new TestNavigationService();
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
-            var viewModel = new SettingsViewModel(configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
+            var viewModel = new SettingsViewModel(
+                configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService),
+                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService));
 
             // Verify SSID = 0 is loaded correctly
             Assert.Equal(AprsSsid.PrimaryStation, viewModel.Ssid);
@@ -150,6 +155,22 @@ public sealed class SettingsViewModelPersistenceTests
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
+    }
+
+    private static ObjectsViewModel CreateObjectsViewModel(INavigationService navigation)
+    {
+        return new ObjectsViewModel(
+            Substitute.For<IObjectService>(),
+            navigation,
+            Substitute.For<IObjectEditorViewModelFactory>(),
+            Substitute.For<IConfirmationDialogService>());
+    }
+
+    private static BulletinsViewModel CreateBulletinsViewModel(INavigationService navigation)
+    {
+        return new BulletinsViewModel(
+            Substitute.For<IBulletinService>(),
+            navigation);
     }
 }
 

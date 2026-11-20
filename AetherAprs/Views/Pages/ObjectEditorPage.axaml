@@ -1,0 +1,111 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:local="using:AetherAprs"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="900"
+             x:Class="AetherAprs.Views.Pages.ObjectEditorPage"
+             x:DataType="vm:ObjectEditorViewModel"
+             d:DataContext="{x:Static local:DesignData.ObjectEditorViewModel}">
+
+  <UserControl.Styles>
+    <Style Selector="TextBox">
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="MinHeight" Value="48" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}"
+                 Classes="Headline5"
+                 FontWeight="Bold" />
+    </StackPanel>
+
+    <!-- Scrollable content -->
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+      <StackPanel Spacing="16" Margin="16" MaxWidth="600">
+        <!-- Object Name -->
+        <TextBox Text="{Binding Name}"
+                 PlaceholderText="{loc:Loc ObjectNamePlaceholder}"
+                 wpf:TextFieldAssist.Label="{loc:Loc ObjectName}"
+                 UseFloatingPlaceholder="True" />
+
+        <!-- Kill switch (only when editing an existing object) -->
+        <CheckBox Content="{loc:Loc KillObject}"
+                  IsChecked="{Binding KillObject}"
+                  IsVisible="{Binding IsEditing}"
+                  MinHeight="48"
+                  VerticalContentAlignment="Center" />
+
+        <!-- Position (hidden when killing) -->
+        <StackPanel Spacing="8" IsVisible="{Binding !KillObject}">
+          <TextBlock Classes="Subtitle2"
+                     Text="{loc:Loc Position}"
+                     Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
+          <TextBox Text="{Binding LatitudeText}"
+                   PlaceholderText="{loc:Loc LatitudePlaceholder}"
+                   wpf:TextFieldAssist.Label="{loc:Loc ObjectLatitude}"
+                   UseFloatingPlaceholder="True" />
+          <TextBox Text="{Binding LongitudeText}"
+                   PlaceholderText="{loc:Loc LongitudePlaceholder}"
+                   wpf:TextFieldAssist.Label="{loc:Loc ObjectLongitude}"
+                   UseFloatingPlaceholder="True" />
+        </StackPanel>
+
+        <!-- Comment -->
+        <TextBox Text="{Binding Comment}"
+                 PlaceholderText="{loc:Loc ObjectCommentPlaceholder}"
+                 wpf:TextFieldAssist.Label="{loc:Loc Comment}"
+                 UseFloatingPlaceholder="True"
+                 IsVisible="{Binding !KillObject}" />
+
+        <!-- Symbol picker -->
+        <StackPanel Spacing="8" IsVisible="{Binding !KillObject}">
+          <TextBlock Classes="Subtitle2"
+                     Text="{loc:Loc AprsSymbol}"
+                     Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
+          <ContentControl Content="{Binding SymbolPicker}" />
+        </StackPanel>
+
+        <!-- Error message -->
+        <TextBlock Classes="Caption"
+                   Foreground="{DynamicResource MaterialValidationErrorBrush}"
+                   Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Action buttons (sticky at bottom) -->
+    <Border Grid.Row="2"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="{loc:Loc Cancel}"
+                MinWidth="80"
+                MinHeight="48"
+                Command="{Binding CancelCommand}"
+                Classes="Outline" />
+        <Button Content="{loc:Loc Save}"
+                MinWidth="80"
+                MinHeight="48"
+                Command="{Binding SaveCommand}" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

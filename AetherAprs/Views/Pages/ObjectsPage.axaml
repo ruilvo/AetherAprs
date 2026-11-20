@@ -1,0 +1,108 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:packets="using:AetherAprs.Models.Aprs.Packets"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:converters="using:AetherAprs.Converters.UI"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.ObjectsPage"
+             x:DataType="vm:ObjectsViewModel"
+             d:DataContext="{x:Static local:DesignData.ObjectsViewModel}">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0" Orientation="Horizontal" Spacing="8">
+      <Button Classes="Flat"
+              Padding="8"
+              MinHeight="48"
+              ToolTip.Tip="{loc:Loc Back}"
+              Command="{Binding CloseCommand}">
+        <avalonia:MaterialIcon Kind="ArrowLeft" Width="24" Height="24" />
+      </Button>
+      <TextBlock Text="{loc:Loc ObjectsPageTitle}" Classes="PageTitle" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Classes="PageContent" Margin="16,8,16,0">
+      <StackPanel>
+        <!-- Loading indicator -->
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     Margin="0,8" />
+
+        <!-- Empty state -->
+        <TextBlock Text="{loc:Loc ObjectsEmptyState}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding Objects, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+
+        <!-- Object cards -->
+        <ItemsControl ItemsSource="{Binding Objects}"
+                      Classes="CardList"
+                      IsVisible="{Binding Objects, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="packets:ObjectPacket">
+              <controls:Card>
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                  <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Name}"
+                               Classes="Subtitle1"
+                               FontWeight="Bold" />
+                    <Border Classes="TypeBadge"
+                            IsVisible="{Binding !IsLive}"
+                            VerticalAlignment="Center">
+                      <TextBlock Text="{loc:Loc KilledObjectBadge}" />
+                    </Border>
+                  </StackPanel>
+
+                  <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                              Orientation="Horizontal"
+                              VerticalAlignment="Center"
+                              Spacing="4">
+                    <Button Classes="Flat"
+                            Padding="8"
+                            MinHeight="48"
+                            Content="{loc:Loc EditTemplate}"
+                            Command="{Binding $parent[UserControl].((vm:ObjectsViewModel)DataContext).EditCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Classes="Flat"
+                            Padding="8"
+                            MinHeight="48"
+                            Content="{loc:Loc KillObject}"
+                            Command="{Binding $parent[UserControl].((vm:ObjectsViewModel)DataContext).KillCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Grid>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <controls:FloatingButton Grid.Row="2"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Bottom"
+                             Margin="0,0,16,16"
+                             MinHeight="56"
+                             MinWidth="56"
+                             Command="{Binding AddCommand}">
+      <Viewbox Width="24" Height="24">
+        <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />
+      </Viewbox>
+    </controls:FloatingButton>
+  </Grid>
+</UserControl>

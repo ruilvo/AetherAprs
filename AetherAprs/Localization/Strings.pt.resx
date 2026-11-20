@@ -280,4 +280,40 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>O nome é obrigatório</value></data>
   <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>Já existe um modelo com este nome</value></data>
   <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>A mensagem não pode exceder {0} caracteres</value></data>
+  <data name="ObjectsPageTitle" xml:space="preserve"><value>Objetos</value></data>
+  <data name="ObjectsEmptyState" xml:space="preserve"><value>Ainda não existem objetos. Toque em + para adicionar um.</value></data>
+  <data name="KilledObjectBadge" xml:space="preserve"><value>Eliminado</value></data>
+  <data name="KillObject" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="KillObjectConfirmationTitle" xml:space="preserve"><value>Eliminar Objeto</value></data>
+  <data name="KillObjectConfirmationMessage" xml:space="preserve"><value>Eliminar o objeto '{0}'? Isto irá marcá-lo como inativo.</value></data>
+  <data name="ObjectName" xml:space="preserve"><value>Nome do Objeto</value></data>
+  <data name="ObjectNamePlaceholder" xml:space="preserve"><value>ex. SHELTER1</value></data>
+  <data name="ObjectCommentPlaceholder" xml:space="preserve"><value>Comentário opcional</value></data>
+  <data name="LatitudePlaceholder" xml:space="preserve"><value>ex. 38.7223</value></data>
+  <data name="LongitudePlaceholder" xml:space="preserve"><value>ex. -9.1393</value></data>
+  <data name="ObjectLatitude" xml:space="preserve"><value>Latitude</value></data>
+  <data name="ObjectLongitude" xml:space="preserve"><value>Longitude</value></data>
+  <data name="BulletinsPageTitle" xml:space="preserve"><value>Boletins</value></data>
+  <data name="BulletinsEmptyState" xml:space="preserve"><value>Ainda não existem boletins.</value></data>
+  <data name="BulletinName" xml:space="preserve"><value>Nome do Boletim</value></data>
+  <data name="BulletinNamePlaceholder" xml:space="preserve"><value>ex. BLN0SPCL</value></data>
+  <data name="BulletinText" xml:space="preserve"><value>Texto do Boletim</value></data>
+  <data name="BulletinTextPlaceholder" xml:space="preserve"><value>Texto do boletim</value></data>
+  <data name="ObjectsAndBulletins" xml:space="preserve"><value>Objetos &amp; Boletins</value></data>
+  <data name="ObjectsAndBulletinsDescription" xml:space="preserve"><value>Gerir objetos APRS e transmitir boletins.</value></data>
+  <data name="ObjectsSectionEntry" xml:space="preserve"><value>Objetos</value></data>
+  <data name="ObjectsSectionEntryDescription" xml:space="preserve"><value>Criar, editar e eliminar objetos APRS.</value></data>
+  <data name="BulletinsSectionEntry" xml:space="preserve"><value>Boletins</value></data>
+  <data name="BulletinsSectionEntryDescription" xml:space="preserve"><value>Enviar e ler boletins APRS.</value></data>
+  <data name="AddObject" xml:space="preserve"><value>Adicionar Objeto</value></data>
+  <data name="EditObject" xml:space="preserve"><value>Editar Objeto</value></data>
+  <data name="ValidationObjectNameRequired" xml:space="preserve"><value>O nome do objeto é obrigatório</value></data>
+  <data name="ValidationObjectNameMaxLength" xml:space="preserve"><value>O nome do objeto deve ter 9 caracteres ou menos</value></data>
+  <data name="ValidationObjectLatitudeInvalid" xml:space="preserve"><value>Introduza uma latitude válida</value></data>
+  <data name="ValidationObjectLongitudeInvalid" xml:space="preserve"><value>Introduza uma longitude válida</value></data>
+  <data name="ValidationBulletinNameRequired" xml:space="preserve"><value>O nome do boletim é obrigatório</value></data>
+  <data name="ValidationBulletinNamePrefix" xml:space="preserve"><value>O nome do boletim deve começar por 'BLN'</value></data>
+  <data name="ValidationBulletinNameMaxLength" xml:space="preserve"><value>O nome do boletim deve ter 9 caracteres ou menos</value></data>
+  <data name="ValidationBulletinTextRequired" xml:space="preserve"><value>O texto do boletim é obrigatório</value></data>
+  <data name="ValidationBulletinTextMaxLength" xml:space="preserve"><value>O texto do boletim deve ter 67 caracteres ou menos</value></data>
 </root>

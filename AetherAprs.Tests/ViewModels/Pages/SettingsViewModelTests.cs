@@ -12,6 +12,7 @@ using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
@@ -30,7 +31,9 @@ public sealed class SettingsViewModelTests
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+        var viewModel = new SettingsViewModel(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         
@@ -47,7 +50,9 @@ public sealed class SettingsViewModelTests
         var configuration = new TestConfigurationService();
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+        var viewModel = new SettingsViewModel(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
@@ -78,7 +83,8 @@ public sealed class SettingsViewModelTests
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
-            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
 
@@ -91,11 +97,43 @@ public sealed class SettingsViewModelTests
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var messageTemplates = CreateMessageTemplatesViewModel(navigation);
-        var viewModel = new SettingsViewModel(new TestConfigurationService(), navigation, symbolPicker, messageTemplates);
+        var viewModel = new SettingsViewModel(
+            new TestConfigurationService(), navigation, symbolPicker, messageTemplates,
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
 
         viewModel.OpenMessageTemplatesCommand.Execute(null);
 
         Assert.Equal(typeof(MessageTemplatesViewModel), navigation.LastNavigatedType);
+    }
+
+    [Fact]
+    public void OpenObjectsNavigatesToObjectsViewModel()
+    {
+        var navigation = new TestNavigationService();
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var objects = CreateObjectsViewModel(navigation);
+        var viewModel = new SettingsViewModel(
+            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
+            objects, CreateBulletinsViewModel(navigation));
+
+        viewModel.OpenObjectsCommand.Execute(null);
+
+        Assert.Same(objects, navigation.LastNavigatedViewModel);
+    }
+
+    [Fact]
+    public void OpenBulletinsNavigatesToBulletinsViewModel()
+    {
+        var navigation = new TestNavigationService();
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var bulletins = CreateBulletinsViewModel(navigation);
+        var viewModel = new SettingsViewModel(
+            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
+            CreateObjectsViewModel(navigation), bulletins);
+
+        viewModel.OpenBulletinsCommand.Execute(null);
+
+        Assert.Same(bulletins, navigation.LastNavigatedViewModel);
     }
 
     private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation)
@@ -105,6 +143,22 @@ public sealed class SettingsViewModelTests
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
+    }
+
+    private static ObjectsViewModel CreateObjectsViewModel(INavigationService navigation)
+    {
+        return new ObjectsViewModel(
+            Substitute.For<IObjectService>(),
+            navigation,
+            Substitute.For<IObjectEditorViewModelFactory>(),
+            Substitute.For<IConfirmationDialogService>());
+    }
+
+    private static BulletinsViewModel CreateBulletinsViewModel(INavigationService navigation)
+    {
+        return new BulletinsViewModel(
+            Substitute.For<IBulletinService>(),
+            navigation);
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
@@ -150,9 +204,14 @@ public sealed class SettingsViewModelTests
             remove { }
         }
         public Type? LastNavigatedType { get; private set; }
+        public ViewModelBase? LastNavigatedViewModel { get; private set; }
         public bool CanGoBack => false;
         public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase => LastNavigatedType = typeof(TViewModel);
-        public void NavigateTo(ViewModelBase viewModel) => LastNavigatedType = viewModel.GetType();
+        public void NavigateTo(ViewModelBase viewModel)
+        {
+            LastNavigatedType = viewModel.GetType();
+            LastNavigatedViewModel = viewModel;
+        }
         public void GoBack() { }
     }
 }

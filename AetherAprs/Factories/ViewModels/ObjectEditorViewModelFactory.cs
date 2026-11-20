@@ -1,0 +1,32 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.ViewModels.Pages;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+
+namespace AetherAprs.Factories.ViewModels;
+
+/// <summary>
+/// Factory implementation for creating and initializing ObjectEditorViewModel instances.
+/// </summary>
+public sealed class ObjectEditorViewModelFactory : IObjectEditorViewModelFactory
+{
+    private readonly IServiceProvider _serviceProvider;
+
+    public ObjectEditorViewModelFactory(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    }
+
+    public ObjectEditorViewModel Create() => Create(null);
+
+    public ObjectEditorViewModel Create(ObjectPacket? existing)
+    {
+        var viewModel = _serviceProvider.GetRequiredService<ObjectEditorViewModel>();
+        viewModel.Initialize(existing);
+        return viewModel;
+    }
+}

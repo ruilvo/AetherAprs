@@ -22,6 +22,7 @@ using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
@@ -162,11 +163,20 @@ public sealed class MainViewModelTests
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
         var ports = new PortsViewModel(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);
-        var settings = new SettingsViewModel(configuration, navigation, symbolPicker, new MessageTemplatesViewModel(
-            Substitute.For<IMessageTemplateService>(),
-            Substitute.For<IConfirmationDialogService>(),
-            navigation,
-            Substitute.For<IMessageTemplateEditViewModelFactory>()));
+        var settings = new SettingsViewModel(
+            configuration, navigation, symbolPicker, new MessageTemplatesViewModel(
+                Substitute.For<IMessageTemplateService>(),
+                Substitute.For<IConfirmationDialogService>(),
+                navigation,
+                Substitute.For<IMessageTemplateEditViewModelFactory>()),
+            new ObjectsViewModel(
+                Substitute.For<IObjectService>(),
+                navigation,
+                Substitute.For<IObjectEditorViewModelFactory>(),
+                Substitute.For<IConfirmationDialogService>()),
+            new BulletinsViewModel(
+                Substitute.For<IBulletinService>(),
+                navigation));
 
         return new MainViewModel(navigation, Substitute.For<IKeyboardInsetsService>(), home, messages, packets, ports, settings);
     }

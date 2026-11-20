@@ -280,4 +280,40 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>Name is required</value></data>
   <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>A template with this name already exists</value></data>
   <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>Message cannot exceed {0} characters</value></data>
+  <data name="ObjectsPageTitle" xml:space="preserve"><value>Objects</value></data>
+  <data name="ObjectsEmptyState" xml:space="preserve"><value>No objects yet. Tap + to add one.</value></data>
+  <data name="KilledObjectBadge" xml:space="preserve"><value>Killed</value></data>
+  <data name="KillObject" xml:space="preserve"><value>Kill</value></data>
+  <data name="KillObjectConfirmationTitle" xml:space="preserve"><value>Kill Object</value></data>
+  <data name="KillObjectConfirmationMessage" xml:space="preserve"><value>Kill object '{0}'? This will mark it as no longer active.</value></data>
+  <data name="ObjectName" xml:space="preserve"><value>Object Name</value></data>
+  <data name="ObjectNamePlaceholder" xml:space="preserve"><value>e.g. SHELTER1</value></data>
+  <data name="ObjectCommentPlaceholder" xml:space="preserve"><value>Optional comment</value></data>
+  <data name="LatitudePlaceholder" xml:space="preserve"><value>e.g. 38.7223</value></data>
+  <data name="LongitudePlaceholder" xml:space="preserve"><value>e.g. -9.1393</value></data>
+  <data name="ObjectLatitude" xml:space="preserve"><value>Latitude</value></data>
+  <data name="ObjectLongitude" xml:space="preserve"><value>Longitude</value></data>
+  <data name="BulletinsPageTitle" xml:space="preserve"><value>Bulletins</value></data>
+  <data name="BulletinsEmptyState" xml:space="preserve"><value>No bulletins yet.</value></data>
+  <data name="BulletinName" xml:space="preserve"><value>Bulletin Name</value></data>
+  <data name="BulletinNamePlaceholder" xml:space="preserve"><value>e.g. BLN0SPCL</value></data>
+  <data name="BulletinText" xml:space="preserve"><value>Bulletin Text</value></data>
+  <data name="BulletinTextPlaceholder" xml:space="preserve"><value>Bulletin text</value></data>
+  <data name="ObjectsAndBulletins" xml:space="preserve"><value>Objects &amp; Bulletins</value></data>
+  <data name="ObjectsAndBulletinsDescription" xml:space="preserve"><value>Manage APRS objects and broadcast bulletins.</value></data>
+  <data name="ObjectsSectionEntry" xml:space="preserve"><value>Objects</value></data>
+  <data name="ObjectsSectionEntryDescription" xml:space="preserve"><value>Create, edit, and kill APRS objects.</value></data>
+  <data name="BulletinsSectionEntry" xml:space="preserve"><value>Bulletins</value></data>
+  <data name="BulletinsSectionEntryDescription" xml:space="preserve"><value>Send and read APRS bulletins.</value></data>
+  <data name="AddObject" xml:space="preserve"><value>Add Object</value></data>
+  <data name="EditObject" xml:space="preserve"><value>Edit Object</value></data>
+  <data name="ValidationObjectNameRequired" xml:space="preserve"><value>Object name is required</value></data>
+  <data name="ValidationObjectNameMaxLength" xml:space="preserve"><value>Object name must be 9 characters or fewer</value></data>
+  <data name="ValidationObjectLatitudeInvalid" xml:space="preserve"><value>Enter a valid latitude</value></data>
+  <data name="ValidationObjectLongitudeInvalid" xml:space="preserve"><value>Enter a valid longitude</value></data>
+  <data name="ValidationBulletinNameRequired" xml:space="preserve"><value>Bulletin name is required</value></data>
+  <data name="ValidationBulletinNamePrefix" xml:space="preserve"><value>Bulletin name must start with 'BLN'</value></data>
+  <data name="ValidationBulletinNameMaxLength" xml:space="preserve"><value>Bulletin name must be 9 characters or fewer</value></data>
+  <data name="ValidationBulletinTextRequired" xml:space="preserve"><value>Bulletin text is required</value></data>
+  <data name="ValidationBulletinTextMaxLength" xml:space="preserve"><value>Bulletin text must be 67 characters or fewer</value></data>
 </root>

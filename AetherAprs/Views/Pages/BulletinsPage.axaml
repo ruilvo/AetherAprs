@@ -1,0 +1,119 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:packets="using:AetherAprs.Models.Aprs.Packets"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
+             xmlns:converters="using:AetherAprs.Converters.UI"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.BulletinsPage"
+             x:DataType="vm:BulletinsViewModel"
+             d:DataContext="{x:Static local:DesignData.BulletinsViewModel}">
+
+  <Grid RowDefinitions="Auto,*,Auto,Auto">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0" Orientation="Horizontal" Spacing="8">
+      <Button Classes="Flat"
+              Padding="8"
+              MinHeight="48"
+              ToolTip.Tip="{loc:Loc Back}"
+              Command="{Binding CloseCommand}">
+        <avalonia:MaterialIcon Kind="ArrowLeft" Width="24" Height="24" />
+      </Button>
+      <TextBlock Text="{loc:Loc BulletinsPageTitle}" Classes="PageTitle" VerticalAlignment="Center" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" Classes="PageContent" Margin="16,8,16,0">
+      <StackPanel>
+        <!-- Loading indicator -->
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     Margin="0,8" />
+
+        <!-- Empty state -->
+        <TextBlock Text="{loc:Loc BulletinsEmptyState}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding Bulletins, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+
+        <!-- Bulletin cards -->
+        <ItemsControl ItemsSource="{Binding Bulletins}"
+                      Classes="CardList"
+                      IsVisible="{Binding Bulletins, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="packets:BulletinPacket">
+              <controls:Card>
+                <StackPanel Spacing="4">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding Name}"
+                               Classes="Subtitle1"
+                               FontWeight="Bold" />
+                    <TextBlock Text="{Binding Source}"
+                               Classes="Caption"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding Text}"
+                             Classes="Body2"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Error message -->
+    <TextBlock Grid.Row="2"
+               Margin="16,0,16,8"
+               Classes="Caption"
+               Foreground="{DynamicResource MaterialValidationErrorBrush}"
+               Text="{Binding ErrorMessage}"
+               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+               TextWrapping="Wrap" />
+
+    <!-- Compose area -->
+    <Border Grid.Row="3"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+        <TextBox Grid.Row="0" Grid.Column="1"
+                 Text="{Binding Name}"
+                 PlaceholderText="{loc:Loc BulletinNamePlaceholder}"
+                 wpf:TextFieldAssist.Label="{loc:Loc BulletinName}"
+                 UseFloatingPlaceholder="True"
+                 MaxLength="9"
+                 Margin="0,0,0,8" />
+        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                 Text="{Binding Text}"
+                 PlaceholderText="{loc:Loc BulletinTextPlaceholder}"
+                 wpf:TextFieldAssist.Label="{loc:Loc BulletinText}"
+                 UseFloatingPlaceholder="True"
+                 AcceptsReturn="False"
+                 MaxLength="67" />
+        <Button Grid.Row="1" Grid.Column="2"
+                Content="{loc:Loc Send}"
+                MinWidth="80"
+                MinHeight="48"
+                Command="{Binding SendCommand}" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

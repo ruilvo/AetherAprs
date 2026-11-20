@@ -12,6 +12,7 @@ using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
@@ -133,6 +134,11 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<IMessageTemplateEditViewModelFactory>());
         services.AddSingleton<MessageTemplatesViewModel>();
 
+        // Register object/bulletin services and factory - required by ObjectsViewModel/BulletinsViewModel
+        services.AddSingleton(Substitute.For<IObjectService>());
+        services.AddSingleton(Substitute.For<IBulletinService>());
+        services.AddSingleton(Substitute.For<IObjectEditorViewModelFactory>());
+
         services.AddSingleton<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>(); // Required by SettingsViewModel
         services.AddSingleton<HomeViewModel>();
@@ -141,6 +147,9 @@ public sealed class NavigationServiceTests
         services.AddSingleton<PortsViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
+        services.AddSingleton<ObjectsViewModel>();
+        services.AddTransient<ObjectEditorViewModel>();
+        services.AddSingleton<BulletinsViewModel>();
 
         provider = services.BuildServiceProvider();
         return provider.GetRequiredService<INavigationService>();
