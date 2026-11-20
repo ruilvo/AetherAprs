@@ -146,6 +146,7 @@ public static class ServiceProviderFactory
         // Register map layer services
         services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
         services.AddSingleton<IUserLocationLayerService, UserLocationLayerService>();
+        services.AddSingleton<IMapTileSourceService, MapTileSourceService>();
 
         // Register location and transmission services
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();

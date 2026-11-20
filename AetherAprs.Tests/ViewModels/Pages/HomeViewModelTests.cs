@@ -29,6 +29,7 @@ using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Geo;
+using Mapsui.Layers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -217,6 +218,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         
         var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
         receivedBeaconsLayer ??= Substitute.For<IReceivedBeaconsMapLayerService>();
+        var mapTileSource = Substitute.For<IMapTileSourceService>();
+        mapTileSource.CreateBaseMapLayer().Returns(Substitute.For<ILayer>());
         
         var mapViewModel = new MapViewModel(userLocationLayer);
         
@@ -228,6 +231,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
             beaconTransmission,
             userLocationLayer,
             receivedBeaconsLayer,
+            mapTileSource,
             portService,
             mapViewModel,
             packetDetailsFactory,

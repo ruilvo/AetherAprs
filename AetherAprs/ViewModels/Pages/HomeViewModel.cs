@@ -29,6 +29,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly IBeaconTransmissionService _beaconTransmissionService;
     private readonly IUserLocationLayerService _userLocationLayerService;
     private readonly IReceivedBeaconsMapLayerService _receivedBeaconsLayerService;
+    private readonly IMapTileSourceService _mapTileSourceService;
     private readonly IPortService _portService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly INavigationService _navigationService;
@@ -54,12 +55,14 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public ILayer UserLocationLayer => _userLocationLayerService.Layer;
     public ILayer BeaconTrailsLayer => _receivedBeaconsLayerService.TrailsLayer;
     public ILayer BeaconsLayer => _receivedBeaconsLayerService.BeaconsLayer;
+    public ILayer BaseMapLayer { get; }
 
     public HomeViewModel(
         ILocationTrackingService locationTrackingService,
         IBeaconTransmissionService beaconTransmissionService,
         IUserLocationLayerService userLocationLayerService,
         IReceivedBeaconsMapLayerService receivedBeaconsLayerService,
+        IMapTileSourceService mapTileSourceService,
         IPortService portService,
         MapViewModel mapViewModel,
         IPacketDetailsViewModelFactory packetDetailsFactory,
@@ -71,12 +74,14 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _beaconTransmissionService = beaconTransmissionService;
         _userLocationLayerService = userLocationLayerService;
         _receivedBeaconsLayerService = receivedBeaconsLayerService;
+        _mapTileSourceService = mapTileSourceService;
         _portService = portService;
         _packetDetailsFactory = packetDetailsFactory;
         _navigationService = navigationService;
         _uiDispatcher = uiDispatcher;
         _logger = logger;
         Map = mapViewModel;
+        BaseMapLayer = _mapTileSourceService.CreateBaseMapLayer();
 
         _previousPortEnabledState = _portService.Ports
             .ToDictionary(port => port.Id, port => port.IsEnabled);

@@ -13,7 +13,6 @@ using Avalonia.Input;
 using Mapsui;
 using Mapsui.Animations;
 using Mapsui.Layers;
-using Mapsui.Tiling;
 using Mapsui.UI;
 using Mapsui.UI.Avalonia;
 
@@ -21,10 +20,6 @@ namespace AetherAprs.Views.Pages;
 
 public partial class HomePage : UserControl
 {
-    // OSM requires an identifiable User-Agent; generic defaults get blocked.
-    private const string OsmUserAgent =
-        "AetherAprs/1.0 (+https://github.com/ruilvo/AetherAprs)";
-
     private HomeViewModel? _currentViewModel;
 
     public HomePage()
@@ -37,10 +32,7 @@ public partial class HomePage : UserControl
 
     private void InitializeMap()
     {
-        // Initialize the map with default OpenStreetMap tiles
         MapControl.Map = new Map();
-        // OSM tile cache is initialized during app startup in App.axaml.cs
-        MapControl.Map.Layers.Add(OpenStreetMap.CreateTileLayer(OsmUserAgent), group: -1);
         MapControl.Map.Navigator.ViewportChanged += OnViewportChanged;
     }
 
@@ -71,6 +63,11 @@ public partial class HomePage : UserControl
         // Register the map layers owned by services injected into the ViewModel
         if (MapControl.Map != null)
         {
+            if (!MapControl.Map.Layers.Contains(viewModel.BaseMapLayer))
+            {
+                MapControl.Map.Layers.Add(viewModel.BaseMapLayer, group: -1);
+            }
+
             if (!MapControl.Map.Layers.Contains(viewModel.UserLocationLayer))
             {
                 MapControl.Map.Layers.Add(viewModel.UserLocationLayer, group: 1);

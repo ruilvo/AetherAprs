@@ -31,6 +31,7 @@ using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
 using Geo;
+using Mapsui.Layers;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.EntityFrameworkCore;
@@ -139,11 +140,15 @@ public sealed class MainViewModelTests
         var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
         var navigationService = Substitute.For<INavigationService>();
 
+        var mapTileSource = Substitute.For<IMapTileSourceService>();
+        mapTileSource.CreateBaseMapLayer().Returns(Substitute.For<ILayer>());
+
         var home = new HomeViewModel(
             locationTracking,
             beaconTransmission,
             userLocationLayer,
             receivedBeaconsMapLayer,
+            mapTileSource,
             portService,
             mapViewModel,
             packetDetailsFactory,

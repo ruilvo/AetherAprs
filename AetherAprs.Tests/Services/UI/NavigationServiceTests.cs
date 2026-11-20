@@ -119,6 +119,7 @@ public sealed class NavigationServiceTests
         services.AddSingleton(Substitute.For<IBeaconTransmissionService>());
         services.AddSingleton(Substitute.For<IReceivedBeaconsMapLayerService>());
         services.AddSingleton(Substitute.For<IUserLocationLayerService>());
+        services.AddSingleton(Substitute.For<IMapTileSourceService>());
 
         // Register IAddEditPortViewModelFactory - required by PortsViewModel
         services.AddSingleton(Substitute.For<IAddEditPortViewModelFactory>());

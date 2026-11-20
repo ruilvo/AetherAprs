@@ -53,6 +53,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="Mapsui.Avalonia12" />
     <PackageReference Include="Geo" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>

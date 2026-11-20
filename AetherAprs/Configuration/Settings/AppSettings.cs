@@ -13,4 +13,6 @@ public class AppSettings
     public AprsSettings Aprs { get; set; } = new();
 
     public MessageTemplatesSettings MessageTemplates { get; set; } = new();
+
+    public MapSettings Map { get; set; } = new();
 }

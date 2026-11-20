@@ -458,6 +458,11 @@ public class ConfigurationService : IConfigurationService, IDisposable
                             Body = template.Body
                         })
                         .ToList()
+                },
+                Map = new MapSettings
+                {
+                    TileSource = Settings.Map.TileSource,
+                    MbTilesFilePath = Settings.Map.MbTilesFilePath
                 }
             };
             return snapshot;
