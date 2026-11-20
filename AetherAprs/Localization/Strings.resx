@@ -241,6 +241,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Failed" xml:space="preserve"><value>Failed</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Display Settings</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configure what time range of packets to show in the list and on the map.</value></data>
+  <data name="MapSettings" xml:space="preserve"><value>Map Settings</value></data>
+  <data name="MapSettingsDescription" xml:space="preserve"><value>Choose the base map tile source. Select an MBTiles package to use the map without an internet connection.</value></data>
+  <data name="TileSourceLabel" xml:space="preserve"><value>Tile Source</value></data>
+  <data name="TileSourceOsmOnline" xml:space="preserve"><value>OpenStreetMap (Online)</value></data>
+  <data name="TileSourceMbTilesOffline" xml:space="preserve"><value>MBTiles Package (Offline)</value></data>
+  <data name="MbTilesFilePathLabel" xml:space="preserve"><value>MBTiles File Path</value></data>
+  <data name="MbTilesFilePathPlaceholder" xml:space="preserve"><value>/path/to/map.mbtiles</value></data>
   <data name="DefaultBeaconComment" xml:space="preserve"><value>Default Beacon Comment</value></data>
   <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Enter comment (optional)</value></data>
   <data name="DigipeaterPath" xml:space="preserve"><value>Digipeater Path</value></data>

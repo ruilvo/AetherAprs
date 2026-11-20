@@ -24,6 +24,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              d:DataContext="{x:Static local:DesignData.SettingsViewModel}">
   <UserControl.Resources>
     <converters:PacketDisplayTimeRangeConverter x:Key="TimeRangeConverter" />
+    <converters:TileSourceTypeConverter x:Key="TileSourceConverter" />
     <aprsConverters:AprsSsidConverter x:Key="SsidConverter" />
   </UserControl.Resources>
   <UserControl.Styles>
@@ -102,6 +103,37 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc CustomTimeRangeHoursLabel}"
                      UseFloatingPlaceholder="True"
                      IsVisible="{Binding DisplayTimeRange, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:PacketDisplayTimeRange.Custom}}" />
+          </StackPanel>
+        </StackPanel>
+
+        <!-- Map Settings Section -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc MapSettings}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc MapSettingsDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+
+          <StackPanel Spacing="12">
+            <ComboBox ItemsSource="{Binding AvailableTileSources}"
+                      SelectedItem="{Binding TileSource}"
+                      MinHeight="48"
+                      wpf:ComboBoxAssist.Label="{loc:Loc TileSourceLabel}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Converter={StaticResource TileSourceConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBox Text="{Binding MbTilesFilePath}"
+                     PlaceholderText="{loc:Loc MbTilesFilePathPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc MbTilesFilePathLabel}"
+                     UseFloatingPlaceholder="True"
+                     IsVisible="{Binding TileSource, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:TileSourceType.MbTilesOffline}}" />
           </StackPanel>
         </StackPanel>
 

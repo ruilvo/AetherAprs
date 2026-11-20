@@ -81,6 +81,28 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task ChangingTileSourceAutoSavesMapSettings()
+    {
+        var configuration = new TestConfigurationService();
+        var navigation = new TestNavigationService();
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
+            CreateSearchViewModel(navigation));
+
+        viewModel.TileSource = TileSourceType.MbTilesOffline;
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+
+        viewModel.MbTilesFilePath = "/data/map.mbtiles";
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(TileSourceType.MbTilesOffline, configuration.Settings.Map.TileSource);
+        Assert.Equal("/data/map.mbtiles", configuration.Settings.Map.MbTilesFilePath);
+        Assert.True(configuration.SaveCount > 0);
+    }
+
+    [Fact]
     public void OpenBeaconingSettingsNavigatesToDynamicBeaconingViewModel()
     {
         var navigation = new TestNavigationService();

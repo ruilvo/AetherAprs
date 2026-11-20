@@ -241,6 +241,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Failed" xml:space="preserve"><value>Falhou</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Definições de Visualização</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configurar que intervalo de tempo de pacotes mostrar na lista e no mapa.</value></data>
+  <data name="MapSettings" xml:space="preserve"><value>Definições do Mapa</value></data>
+  <data name="MapSettingsDescription" xml:space="preserve"><value>Escolher a fonte de tiles do mapa base. Selecionar um pacote MBTiles para usar o mapa sem ligação à internet.</value></data>
+  <data name="TileSourceLabel" xml:space="preserve"><value>Fonte de Tiles</value></data>
+  <data name="TileSourceOsmOnline" xml:space="preserve"><value>OpenStreetMap (Online)</value></data>
+  <data name="TileSourceMbTilesOffline" xml:space="preserve"><value>Pacote MBTiles (Offline)</value></data>
+  <data name="MbTilesFilePathLabel" xml:space="preserve"><value>Caminho do Ficheiro MBTiles</value></data>
+  <data name="MbTilesFilePathPlaceholder" xml:space="preserve"><value>/caminho/para/mapa.mbtiles</value></data>
   <data name="DefaultBeaconComment" xml:space="preserve"><value>Comentário Predefinido de Beacon</value></data>
   <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Introduzir comentário (opcional)</value></data>
   <data name="DigipeaterPath" xml:space="preserve"><value>Caminho de Digipeater</value></data>

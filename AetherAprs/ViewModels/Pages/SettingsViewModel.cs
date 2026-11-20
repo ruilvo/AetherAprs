@@ -64,6 +64,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     [ObservableProperty]
+    public partial Configuration.TileSourceType TileSource { get; set; } = Configuration.TileSourceType.OsmOnline;
+
+    [ObservableProperty]
+    public partial string? MbTilesFilePath { get; set; } = string.Empty;
+
+    [ObservableProperty]
     public partial bool EnableDigipeater { get; set; }
 
     [ObservableProperty]
@@ -111,6 +117,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public AprsSsid[] AvailableSsids { get; } = 
         Enum.GetValues<AprsSsid>();
 
+    public Configuration.TileSourceType[] AvailableTileSources { get; } = 
+        Enum.GetValues<Configuration.TileSourceType>();
+
     public SettingsViewModel(
         IConfigurationService configurationService,
         INavigationService navigationService,
@@ -150,6 +159,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         DigipeaterRespondToWide1 = aprs.DigipeaterRespondToWide1;
         DigipeaterRespondToWide2 = aprs.DigipeaterRespondToWide2;
         DigipeaterRespondToTrace = aprs.DigipeaterRespondToTrace;
+
+        TileSource = _configurationService.Settings.Map.TileSource;
+        MbTilesFilePath = _configurationService.Settings.Map.MbTilesFilePath;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             SymbolTableCharacter, SymbolCodeCharacter, SymbolOverlayCharacter);
@@ -232,6 +244,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     partial void OnCustomDisplayTimeRangeHoursChanged(int value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnTileSourceChanged(Configuration.TileSourceType value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnMbTilesFilePathChanged(string? value)
     {
         SaveSettings();
     }
@@ -342,6 +364,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
             _configurationService.Settings.Aprs.DigipeaterRespondToTrace = DigipeaterRespondToTrace;
+
+            _configurationService.Settings.Map.TileSource = TileSource;
+            _configurationService.Settings.Map.MbTilesFilePath = MbTilesFilePath ?? string.Empty;
 
             // Fire-and-forget is acceptable here as we don't need to wait for save completion,
             // but the exception must be observed and logged or it is silently lost.
