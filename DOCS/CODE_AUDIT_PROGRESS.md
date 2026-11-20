@@ -281,7 +281,7 @@ SPDX-License-Identifier: CC0-1.0
   - AetherAprs/Data/Migrations/20261014101527_AddAllowDigipeatToPorts.cs + .Designer.cs
   - AetherAprs/Data/Migrations/20261014103502_AddPacketPortIdIndex.cs + .Designer.cs
   - AetherAprs/Data/Migrations/AppDbContextModelSnapshot.cs
-- Verified with glob + read operations â€” all files have correct `// SPDX-FileCopyrightText` and `// SPDX-License-Identifier: GPL-3.0-or-later` headers.
+- Verified with glob + read operations â€” all files have correct SPDX copyright and license identifier headers (GPL-3.0-or-later).
 - Progress log line 33 correctly reported Fixed on 2026-10-14 but FINDINGS document was not updated.
 - Removed AUDIT-032 from FINDINGS.
 
