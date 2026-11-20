@@ -51,6 +51,20 @@ public static class AprsInfoFieldSerializer
     /// <returns>The APRS info field string.</returns>
     private static string FormatPosition(PositionPacket packet)
     {
+        return packet.Format switch
+        {
+            PositionFormat.Compressed => FormatPositionCompressed(packet),
+            _ => FormatPositionUncompressed(packet)
+        };
+    }
+
+    /// <summary>
+    /// Formats an uncompressed <see cref="PositionPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The position packet to format.</param>
+    /// <returns>The APRS info field string.</returns>
+    private static string FormatPositionUncompressed(PositionPacket packet)
+    {
         // Format: !DDMM.mmX[overlay]/DDDMM.mmYC[comment]
         // (using '!' — no timestamp, suitable for typical fixed/generic positions)
         // The '/' or '\' between lat and lon IS the symbol table indicator.
@@ -78,6 +92,94 @@ public static class AprsInfoFieldSerializer
         }
 
         return info.ToString();
+    }
+
+    /// <summary>
+    /// Formats a <see cref="PositionPacket"/> as an APRS compressed (base-91) position.
+    /// </summary>
+    /// <param name="packet">The position packet to format.</param>
+    /// <returns>The APRS info field string.</returns>
+    private static string FormatPositionCompressed(PositionPacket packet)
+    {
+        // Compressed position format (aprslib-compatible):
+        //   ! + [table|overlay] + 4 base-91 lat + 4 base-91 lon + symbol + csT[ + comment]
+        // Latitude is encoded as 90 - latN/380926, longitude as -180 + lonN/190463
+        // (inverse of the parser's TryParseCompressedPosition decode).
+
+        int latN = (int)Math.Round((90.0 - packet.Location.Latitude) * 380926.0, MidpointRounding.AwayFromZero);
+        int lonN = (int)Math.Round((packet.Location.Longitude + 180.0) * 190463.0, MidpointRounding.AwayFromZero);
+
+        var info = new StringBuilder();
+        info.Append('!');
+
+        if (packet.Symbol.Overlay.HasValue)
+        {
+            info.Append(packet.Symbol.Overlay.Value);
+        }
+        else
+        {
+            info.Append(packet.Symbol.TableChar);
+        }
+
+        info.Append(EncodeBase91(latN, 4));
+        info.Append(EncodeBase91(lonN, 4));
+        info.Append(packet.Symbol.CodeChar);
+        info.Append(FormatCompressedCsT(packet));
+
+        if (!string.IsNullOrEmpty(packet.Comment))
+        {
+            info.Append(packet.Comment);
+        }
+
+        return info.ToString();
+    }
+
+    /// <summary>
+    /// Formats the compressed-position course/speed/type (csT) triple. When no
+    /// course/speed/altitude is available, three spaces are emitted (the parser
+    /// treats a space as "absent").
+    /// </summary>
+    private static string FormatCompressedCsT(PositionPacket packet)
+    {
+        if (packet.Altitude.HasValue)
+        {
+            // Altitude mode: c1*91 + s1 encodes log1.002(altitude).
+            int combined = (int)Math.Round(Math.Log(packet.Altitude.Value) / Math.Log(1.002), MidpointRounding.AwayFromZero);
+            char c1 = (char)(combined / 91 + 33);
+            char s1 = (char)(combined % 91 + 33);
+            char ctype = (char)(0x10 + 33); // altitude flag set (bit 4)
+            return $"{c1}{s1}{ctype}";
+        }
+
+        if (packet.Course.HasValue && packet.Speed.HasValue)
+        {
+            // Course in units of 4 degrees (c1==0 means 360), speed as 1.08^s1 - 1.
+            int course = (int)Math.Round(packet.Course.Value, MidpointRounding.AwayFromZero);
+            int c1 = course >= 360 ? 0 : (int)Math.Round(course / 4.0, MidpointRounding.AwayFromZero);
+            int s1 = (int)Math.Round(Math.Log(packet.Speed.Value + 1.0) / Math.Log(1.08), MidpointRounding.AwayFromZero);
+            char c = (char)(c1 + 33);
+            char s = (char)(s1 + 33);
+            char ctype = (char)33; // no altitude flag
+            return $"{c}{s}{ctype}";
+        }
+
+        return "   ";
+    }
+
+    /// <summary>
+    /// Encodes an integer value as a fixed number of base-91 digits (most
+    /// significant digit first), each mapped to the printable range '!' (33) .. '{' (123).
+    /// </summary>
+    private static string EncodeBase91(int value, int digits)
+    {
+        var chars = new char[digits];
+        for (int i = digits - 1; i >= 0; i--)
+        {
+            chars[i] = (char)(value % 91 + 33);
+            value /= 91;
+        }
+
+        return new string(chars);
     }
 
     /// <summary>

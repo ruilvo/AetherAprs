@@ -249,6 +249,13 @@ public class AprsSettings
     public string? BeaconComment { get; set; } = "Using AetherAPRS!";
 
     /// <summary>
+    /// Gets or sets the wire encoding used when transmitting position beacons.
+    /// Compressed (base-91) is the default for mobile use; Mic-E additionally
+    /// encodes latitude into the AX.25 destination address.
+    /// </summary>
+    public PositionFormat PositionFormat { get; set; } = PositionFormat.Compressed;
+
+    /// <summary>
     /// Gets or sets the digipeater path for transmitted packets.
     /// Common values: "WIDE1-1,WIDE2-1" (recommended), "WIDE2-2", or empty
     /// for direct only.

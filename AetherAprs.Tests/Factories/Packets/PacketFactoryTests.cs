@@ -24,7 +24,8 @@ public sealed class PacketFactoryTests
 
     private static IPacketFactory CreateFactory(
         string? digipeaterPath = null,
-        string beaconComment = DefaultBeaconComment)
+        string beaconComment = DefaultBeaconComment,
+        PositionFormat positionFormat = PositionFormat.Compressed)
     {
         var configuration = Substitute.For<IConfigurationService>();
         configuration.Settings.Returns(new AppSettings
@@ -34,6 +35,7 @@ public sealed class PacketFactoryTests
                 Callsign = "N0CALL",
                 Ssid = AprsSsid.PrimaryStation,
                 BeaconComment = beaconComment,
+                PositionFormat = positionFormat,
                 DigipeaterPath = digipeaterPath ?? string.Empty
             }
         });
@@ -69,8 +71,39 @@ public sealed class PacketFactoryTests
         Assert.Equal(-9.0, packet.Location.Longitude);
         Assert.Equal(90, packet.Course);
         Assert.Equal(new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus), packet.Symbol);
-        Assert.Equal(2, packet.Precision);
+        Assert.Equal(PositionFormat.Compressed, packet.Format);
+        Assert.Equal(3, packet.Precision);
         Assert.Empty(packet.Path);
+    }
+
+    [Fact]
+    public void CreatePositionPacket_UncompressedFormat_UsesPrecision2()
+    {
+        var factory = CreateFactory(positionFormat: PositionFormat.Uncompressed);
+
+        var packet = factory.CreatePositionPacket(
+            CreateLocation(),
+            "N0CALL",
+            SymbolTable.Primary,
+            SymbolCode.HyphenMinus);
+
+        Assert.Equal(PositionFormat.Uncompressed, packet.Format);
+        Assert.Equal(2, packet.Precision);
+    }
+
+    [Fact]
+    public void CreatePositionPacket_MicEFormat_PropagatesFormat()
+    {
+        var factory = CreateFactory(positionFormat: PositionFormat.MicE);
+
+        var packet = factory.CreatePositionPacket(
+            CreateLocation(),
+            "N0CALL",
+            SymbolTable.Primary,
+            SymbolCode.HyphenMinus);
+
+        Assert.Equal(PositionFormat.MicE, packet.Format);
+        Assert.Equal(2, packet.Precision);
     }
 
     [Fact]

@@ -52,6 +52,8 @@ public sealed class PacketFactory : IPacketFactory
             path = PathHelper.ParsePath(pathString).ToArray();
         }
 
+        var format = _configurationService.Settings.Aprs.PositionFormat;
+
         return new PositionPacket
         {
             Source = sourceCallsign,
@@ -62,7 +64,8 @@ public sealed class PacketFactory : IPacketFactory
             Course = course,
             Symbol = new Symbol(symbolTable, symbolCode),
             Comment = packetComment,
-            Precision = 2
+            Format = format,
+            Precision = format == PositionFormat.Compressed ? 3 : 2
         };
     }
 

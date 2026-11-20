@@ -45,4 +45,10 @@ public sealed record PositionPacket : AprsPacket
     /// Gets the number of decimal digits of minute precision (0-3).
     /// </summary>
     public int Precision { get; init; }
+
+    /// <summary>
+    /// Gets the wire encoding used for this position (uncompressed, compressed
+    /// base-91, or Mic-E). Serializers honor this when emitting the info field.
+    /// </summary>
+    public PositionFormat Format { get; init; } = PositionFormat.Uncompressed;
 }

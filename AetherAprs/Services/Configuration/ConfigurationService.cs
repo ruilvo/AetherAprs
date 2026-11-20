@@ -445,6 +445,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
                     EnableAprsIsToRfGate = Settings.Aprs.EnableAprsIsToRfGate,
                     EnableRfToAprsIsGate = Settings.Aprs.EnableRfToAprsIsGate,
                     BeaconComment = Settings.Aprs.BeaconComment,
+                    PositionFormat = Settings.Aprs.PositionFormat,
                     DigipeaterPath = Settings.Aprs.DigipeaterPath
                 },
                 MessageTemplates = new MessageTemplatesSettings

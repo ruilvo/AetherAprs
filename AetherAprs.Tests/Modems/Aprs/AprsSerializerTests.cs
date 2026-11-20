@@ -195,6 +195,100 @@ public class AprsSerializerTests
     }
 
     [Fact]
+    public void FormatInfoField_CompressedPosition_StartsWithBangAndEncodesBase91()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(42.2419, -8.59665),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterU),
+            Precision = 3,
+            Format = PositionFormat.Compressed
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+
+        // Compressed positions begin with '!' then a symbol table char ('/' for primary)
+        Assert.StartsWith("!/", infoField);
+        // 8 base-91 chars + symbol code + csT triple = at least 13 chars after the table char
+        Assert.True(infoField.Length >= 14, $"Expected >=14 chars, got '{infoField}'");
+    }
+
+    [Fact]
+    public void FormatInfoField_CompressedPosition_RoundTripsThroughParser()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(42.2419, -8.59665),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterU),
+            Course = 180,
+            Speed = 12.5,
+            Comment = "Compressed",
+            Precision = 3,
+            Format = PositionFormat.Compressed
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var pos = Assert.IsType<PositionPacket>(parsed);
+        Assert.Equal(42.2419, pos.Location.Latitude, 3);
+        Assert.Equal(-8.59665, pos.Location.Longitude, 3);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal(SymbolCode.LatinSmallLetterU, pos.Symbol.Code);
+        Assert.Equal(3, pos.Precision);
+        Assert.Equal("Compressed", pos.Comment);
+    }
+
+    [Fact]
+    public void FormatInfoField_CompressedPosition_WithAltitude_RoundTrips()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(42.2419, -8.59665),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinSmallLetterU),
+            Altitude = 467.71,
+            Precision = 3,
+            Format = PositionFormat.Compressed
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var pos = Assert.IsType<PositionPacket>(parsed);
+        Assert.NotNull(pos.Altitude);
+        Assert.Equal(467.71, pos.Altitude.Value, 1);
+        Assert.Null(pos.Course);
+        Assert.Null(pos.Speed);
+    }
+
+    [Fact]
+    public void FormatInfoField_CompressedPosition_AlternateTableAndOverlay_RoundTrips()
+    {
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(42.2419, -8.59665),
+            Symbol = new Symbol(SymbolTable.Alternate, SymbolCode.LatinSmallLetterU, 'A'),
+            Precision = 3,
+            Format = PositionFormat.Compressed
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var pos = Assert.IsType<PositionPacket>(parsed);
+        Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
+        Assert.Equal('A', pos.Symbol.Overlay);
+    }
+
+    [Fact]
     public void Serialize_And_Parse_RoundTrip_Works()
     {
         var packet = new PositionPacket
