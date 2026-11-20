@@ -30,6 +30,12 @@ public interface IPermissionService
     Task<bool> RequestLocationPermissionAsync();
 
     /// <summary>
+    /// Requests microphone (audio recording) permission if required by the platform.
+    /// </summary>
+    /// <returns>True if permission is granted or not required, false if denied.</returns>
+    Task<bool> RequestAudioPermissionAsync();
+
+    /// <summary>
     /// Requests exemption from battery optimization (Doze/App Standby) so background
     /// tracking is not deferred or killed. Only meaningful on Android.
     /// </summary>

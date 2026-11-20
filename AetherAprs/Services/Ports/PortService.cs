@@ -7,6 +7,7 @@ using AetherAprs.Data;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Modems.Afsk;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
 using AetherAprs.Services.Configuration;
@@ -35,6 +36,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly IPacketStorageService _packetStorageService;
     private readonly IKeepAliveService _keepAliveService;
     private readonly IDigipeaterService _digipeaterService;
+    private readonly IAudioStreamService _audioStreamService;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
     private readonly Lock _stateLock = new();
@@ -56,7 +58,8 @@ public class PortService : IPortService, IAsyncDisposable
         IKissStreamFactory kissStreamFactory,
         IPacketStorageService packetStorageService,
         IKeepAliveService keepAliveService,
-        IDigipeaterService digipeaterService)
+        IDigipeaterService digipeaterService,
+        IAudioStreamService audioStreamService)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
@@ -66,6 +69,7 @@ public class PortService : IPortService, IAsyncDisposable
         _packetStorageService = packetStorageService;
         _keepAliveService = keepAliveService;
         _digipeaterService = digipeaterService;
+        _audioStreamService = audioStreamService;
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
         // also guarantees packets are persisted and published in receive order.
@@ -498,6 +502,28 @@ public class PortService : IPortService, IAsyncDisposable
                         }
 
                         _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
+                        break;
+                    }
+                case AfskSettings afsk:
+                    {
+                        var modem = new AfskModem(_audioStreamService, _loggerFactory);
+
+                        EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+                        modem.PacketReceived += packetHandler;
+                        modem.ReceiveError += OnModemReceiveError;
+                        modem.Start();
+
+                        lock (_stateLock)
+                        {
+                            _activeSessions[port.Id] = new ActivePortSession
+                            {
+                                PortId = port.Id,
+                                Modem = modem,
+                                PacketHandler = packetHandler
+                            };
+                        }
+
+                        _logger.LogInformation("Started AFSK modem for port {PortName} ({PortId}).", port.Name, port.Id);
                         break;
                     }
                 default:

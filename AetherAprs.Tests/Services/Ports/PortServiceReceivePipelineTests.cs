@@ -232,7 +232,8 @@ public sealed class PortServiceReceivePipelineTests
             kissStreamFactory,
             storage,
             Substitute.For<IKeepAliveService>(),
-            digipeater);
+            digipeater,
+            Substitute.For<IAudioStreamService>());
     }
 
     private static byte[] BuildAx25Frame(string destination, string source, string infoField)

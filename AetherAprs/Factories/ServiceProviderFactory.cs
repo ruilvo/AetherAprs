@@ -56,6 +56,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<ICompassService, NoOpCompassService>();
         services.AddSingleton<IKeepAliveService, KeepAliveService>();
         services.AddSingleton<INotificationService, NoOpNotificationService>();
+        services.AddSingleton<IAudioStreamService, NoOpAudioStreamService>();
 
         // Register platform-specific services first
         registerPlatformServices(services);

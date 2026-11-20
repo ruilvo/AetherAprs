@@ -39,8 +39,10 @@ public class MainActivity : AvaloniaMainActivity
 
     private const int NotificationPermissionRequestCode = 1000;
     private const int BluetoothPermissionRequestCode = 1100;
+    private const int AudioPermissionRequestCode = 1200;
     private TaskCompletionSource<bool>? _notificationPermissionTcs;
     private TaskCompletionSource<bool>? _bluetoothPermissionTcs;
+    private TaskCompletionSource<bool>? _audioPermissionTcs;
 
     /// <summary>
     /// Gets the current MainActivity instance for permission requests.
@@ -142,6 +144,41 @@ public class MainActivity : AvaloniaMainActivity
         catch (Exception ex)
         {
             global::Android.Util.Log.Error("AetherAprs", $"Error requesting Bluetooth permission: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Requests microphone (audio recording) permission and waits for user response.
+    /// </summary>
+    public async Task<bool> RequestAudioPermissionAsync()
+    {
+        var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio);
+        global::Android.Util.Log.Info("AetherAprs", $"Audio permission current status: {currentStatus}");
+
+        if (currentStatus == Permission.Granted)
+        {
+            global::Android.Util.Log.Info("AetherAprs", "Audio permission already granted");
+            return true;
+        }
+
+        global::Android.Util.Log.Info("AetherAprs", "Requesting audio permission dialog...");
+        _audioPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var audioTcs = _audioPermissionTcs;
+        using var audioTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var audioRegistration = audioTimeoutCts.Token.Register(
+            () => audioTcs.TrySetCanceled(audioTimeoutCts.Token));
+
+        try
+        {
+            RequestPermissions(new[] { global::Android.Manifest.Permission.RecordAudio }, AudioPermissionRequestCode);
+            var result = await _audioPermissionTcs.Task.ConfigureAwait(false);
+            global::Android.Util.Log.Info("AetherAprs", $"Audio permission dialog result: {result}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Error("AetherAprs", $"Error requesting audio permission: {ex.Message}");
             return false;
         }
     }
@@ -261,6 +298,11 @@ public class MainActivity : AvaloniaMainActivity
             global::Android.Util.Log.Info("AetherAprs", "Requesting location permissions from MainActivity...");
             var locationGranted = await RequestLocationPermissionsAsync();
             global::Android.Util.Log.Info("AetherAprs", $"Location permission result: {locationGranted}");
+
+            // Request audio (microphone) permission
+            global::Android.Util.Log.Info("AetherAprs", "Requesting audio permission from MainActivity...");
+            var audioGranted = await RequestAudioPermissionAsync();
+            global::Android.Util.Log.Info("AetherAprs", $"Audio permission result: {audioGranted}");
 
             // Request background location (non-fatal when denied; Android 11+
             // routes this to the app settings page)
@@ -473,6 +515,14 @@ public class MainActivity : AvaloniaMainActivity
             var granted = grantResults.Length > 0 && grantResults.All(r => r == Permission.Granted);
             _bluetoothPermissionTcs.TrySetResult(granted);
             _bluetoothPermissionTcs = null;
+        }
+
+        // Handle audio (microphone) permission result
+        if (requestCode == AudioPermissionRequestCode && _audioPermissionTcs != null)
+        {
+            var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
+            _audioPermissionTcs.TrySetResult(granted);
+            _audioPermissionTcs = null;
         }
 
         // Notify any listeners about permission results

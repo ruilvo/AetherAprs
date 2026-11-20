@@ -99,6 +99,21 @@ public class AndroidPermissionService : IPermissionService
     }
 
     /// <inheritdoc/>
+    public async Task<bool> RequestAudioPermissionAsync()
+    {
+        await WaitForPermissionsAsync();
+
+        var activity = MainActivity.Instance;
+        if (activity == null)
+        {
+            return false;
+        }
+
+        return activity.CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio)
+            == global::Android.Content.PM.Permission.Granted;
+    }
+
+    /// <inheritdoc/>
     public async Task<bool> RequestIgnoreBatteryOptimizationsAsync()
     {
         await WaitForPermissionsAsync();

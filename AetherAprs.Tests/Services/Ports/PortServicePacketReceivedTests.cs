@@ -107,7 +107,8 @@ public sealed class PortServicePacketReceivedTests
             kissStreamFactory,
             packetStorageService,
             foregroundService,
-            digipeaterService);
+            digipeaterService,
+            Substitute.For<IAudioStreamService>());
     }
 
     private sealed class TestDbContextFactory : IDbContextFactory<AppDbContext>

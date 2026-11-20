@@ -66,6 +66,11 @@ internal static class PortRecordMapper
                 };
                 record.Kiss = null;
                 break;
+            case AfskSettings:
+                record.Type = "afsk";
+                record.AprsIs = null;
+                record.Kiss = null;
+                break;
             case KissSettings kiss:
                 record.Type = "kiss";
                 record.AprsIs = null;
@@ -124,6 +129,11 @@ internal static class PortRecordMapper
         if (record.Type == "kiss")
         {
             return new KissSettings { Transport = ToKissTransport(record.Kiss) };
+        }
+
+        if (record.Type == "afsk")
+        {
+            return new AfskSettings();
         }
 
         return null;

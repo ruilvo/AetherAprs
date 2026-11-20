@@ -29,7 +29,7 @@ public sealed class PortRecord
     public bool AllowDigipeat { get; set; } = true;
 
     /// <summary>
-    /// Discriminator for <see cref="AprsIs"/> vs <see cref="Kiss"/>: "aprs-is", "kiss", or null.
+    /// Discriminator for <see cref="AprsIs"/> vs <see cref="Kiss"/>: "aprs-is", "kiss", "afsk", or null.
     /// </summary>
     public string? Type { get; set; }
 

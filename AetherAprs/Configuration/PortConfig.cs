@@ -47,6 +47,7 @@ public class PortConfig
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AprsIsSettings), "aprs-is")]
 [JsonDerivedType(typeof(KissSettings), "kiss")]
+[JsonDerivedType(typeof(AfskSettings), "afsk")]
 public interface IPortTypeSettings
 {
 }
@@ -136,4 +137,15 @@ public class AprsIsSettings : IPortTypeSettings
 public class KissSettings : IPortTypeSettings
 {
     public IKissTransportSettings? Transport { get; set; }
+}
+
+/// <summary>
+/// AFSK soundcard-modem specific port configuration.
+/// </summary>
+/// <remarks>
+/// Slice A is receive-only, so no user-configurable audio properties are
+/// required yet. Slice B will add PTT control and TX-delay settings.
+/// </remarks>
+public class AfskSettings : IPortTypeSettings
+{
 }
