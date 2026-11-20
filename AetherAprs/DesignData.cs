@@ -128,6 +128,7 @@ public static class DesignData
         services.AddSingleton<ObjectsViewModel>();
         services.AddTransient<ObjectEditorViewModel>();
         services.AddSingleton<BulletinsViewModel>();
+        services.AddSingleton<SearchViewModel>();
 
         var provider = services.BuildServiceProvider();
         Localization.UiCulture.Apply(provider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
@@ -291,6 +292,9 @@ public static class DesignData
 
     public static BulletinsViewModel BulletinsViewModel =>
         _serviceProvider.GetRequiredService<BulletinsViewModel>();
+
+    public static SearchViewModel SearchViewModel =>
+        _serviceProvider.GetRequiredService<SearchViewModel>();
 
     public static SymbolSelectorViewModel SymbolSelectorViewModel
     {

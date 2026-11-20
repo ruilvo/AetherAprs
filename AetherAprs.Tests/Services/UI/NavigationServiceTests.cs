@@ -150,6 +150,7 @@ public sealed class NavigationServiceTests
         services.AddSingleton<ObjectsViewModel>();
         services.AddTransient<ObjectEditorViewModel>();
         services.AddSingleton<BulletinsViewModel>();
+        services.AddSingleton<SearchViewModel>();
 
         provider = services.BuildServiceProvider();
         return provider.GetRequiredService<INavigationService>();

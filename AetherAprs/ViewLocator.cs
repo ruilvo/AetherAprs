@@ -35,6 +35,7 @@ public class ViewLocator : IDataTemplate
             ObjectsViewModel => new ObjectsPage(),
             ObjectEditorViewModel => new ObjectEditorPage(),
             BulletinsViewModel => new BulletinsPage(),
+            SearchViewModel => new SearchPage(),
             PacketDetailsViewModel => new PacketDetailsPage(),
             PortItemViewModel => new PortItemComponent(),
             AprsSymbolPickerViewModel => new AprsSymbolPickerComponent(),

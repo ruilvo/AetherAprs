@@ -176,7 +176,11 @@ public sealed class MainViewModelTests
                 Substitute.For<IConfirmationDialogService>()),
             new BulletinsViewModel(
                 Substitute.For<IBulletinService>(),
-                navigation));
+                navigation),
+            new SearchViewModel(
+                packetQuery,
+                navigation,
+                packetDetailsFactory));
 
         return new MainViewModel(navigation, Substitute.For<IKeyboardInsetsService>(), home, messages, packets, ports, settings);
     }

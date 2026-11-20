@@ -9,6 +9,7 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Objects;
+using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
@@ -50,7 +51,8 @@ public sealed class SettingsViewModelPersistenceTests
             // Create SettingsViewModel - this should load settings from config
             var viewModel = new SettingsViewModel(
                 configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService),
-                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService));
+                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService),
+                CreateSearchViewModel(navService));
 
             // Verify all settings were loaded correctly
             Assert.Equal("CT7ALW", viewModel.Callsign);
@@ -90,7 +92,8 @@ public sealed class SettingsViewModelPersistenceTests
 
             var viewModel = new SettingsViewModel(
                 configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService),
-                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService));
+                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService),
+                CreateSearchViewModel(navService));
 
             // Verify SSID = 0 is loaded correctly
             Assert.Equal(AprsSsid.PrimaryStation, viewModel.Ssid);
@@ -171,6 +174,14 @@ public sealed class SettingsViewModelPersistenceTests
         return new BulletinsViewModel(
             Substitute.For<IBulletinService>(),
             navigation);
+    }
+
+    private static SearchViewModel CreateSearchViewModel(INavigationService navigation)
+    {
+        return new SearchViewModel(
+            Substitute.For<IPacketQueryService>(),
+            navigation,
+            Substitute.For<IPacketDetailsViewModelFactory>());
     }
 }
 

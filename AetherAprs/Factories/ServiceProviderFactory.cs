@@ -170,6 +170,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<ObjectsViewModel>(); // Overlay page state
         services.AddTransient<ObjectEditorViewModel>(); // Overlay sub-page, fresh each time (via factory)
         services.AddSingleton<BulletinsViewModel>(); // Overlay page state
+        services.AddSingleton<SearchViewModel>(); // Overlay page state
 
         // Allow overriding core services for testing or platform-specific
         // implementations

@@ -13,6 +13,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Objects;
+using AetherAprs.Services.Packets;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
@@ -33,7 +34,8 @@ public sealed class SettingsViewModelTests
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
             configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
+            CreateSearchViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         
@@ -52,7 +54,8 @@ public sealed class SettingsViewModelTests
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
             configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
+            CreateSearchViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
@@ -84,7 +87,8 @@ public sealed class SettingsViewModelTests
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
             new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
+            CreateSearchViewModel(navigation));
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
 
@@ -99,7 +103,8 @@ public sealed class SettingsViewModelTests
         var messageTemplates = CreateMessageTemplatesViewModel(navigation);
         var viewModel = new SettingsViewModel(
             new TestConfigurationService(), navigation, symbolPicker, messageTemplates,
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation));
+            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
+            CreateSearchViewModel(navigation));
 
         viewModel.OpenMessageTemplatesCommand.Execute(null);
 
@@ -114,7 +119,7 @@ public sealed class SettingsViewModelTests
         var objects = CreateObjectsViewModel(navigation);
         var viewModel = new SettingsViewModel(
             new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            objects, CreateBulletinsViewModel(navigation));
+            objects, CreateBulletinsViewModel(navigation), CreateSearchViewModel(navigation));
 
         viewModel.OpenObjectsCommand.Execute(null);
 
@@ -129,7 +134,7 @@ public sealed class SettingsViewModelTests
         var bulletins = CreateBulletinsViewModel(navigation);
         var viewModel = new SettingsViewModel(
             new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), bulletins);
+            CreateObjectsViewModel(navigation), bulletins, CreateSearchViewModel(navigation));
 
         viewModel.OpenBulletinsCommand.Execute(null);
 
@@ -159,6 +164,14 @@ public sealed class SettingsViewModelTests
         return new BulletinsViewModel(
             Substitute.For<IBulletinService>(),
             navigation);
+    }
+
+    private static SearchViewModel CreateSearchViewModel(INavigationService navigation)
+    {
+        return new SearchViewModel(
+            Substitute.For<IPacketQueryService>(),
+            navigation,
+            Substitute.For<IPacketDetailsViewModelFactory>());
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider

@@ -350,4 +350,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Capabilities" xml:space="preserve"><value>Capabilities</value></data>
   <data name="NoPositionHistory" xml:space="preserve"><value>No position history</value></data>
   <data name="NoWeatherTelemetry" xml:space="preserve"><value>No weather or telemetry data</value></data>
+  <data name="SearchPageTitle" xml:space="preserve"><value>Search</value></data>
+  <data name="SearchPlaceholder" xml:space="preserve"><value>Search callsign or object</value></data>
+  <data name="SearchInitialPrompt" xml:space="preserve"><value>Type to search for a station or object</value></data>
+  <data name="SearchNoResults" xml:space="preserve"><value>No stations or objects found</value></data>
+  <data name="SearchStationKind" xml:space="preserve"><value>Station</value></data>
+  <data name="SearchObjectKind" xml:space="preserve"><value>Object</value></data>
+  <data name="SearchObjectReportedBy" xml:space="preserve"><value>Reported by {0}</value></data>
+  <data name="SearchSectionEntry" xml:space="preserve"><value>Search</value></data>
+  <data name="SearchSectionEntryDescription" xml:space="preserve"><value>Find stations and objects by callsign or name.</value></data>
 </root>
