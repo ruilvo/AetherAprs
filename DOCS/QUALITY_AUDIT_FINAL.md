@@ -10,13 +10,16 @@ Run per `DOCS/QUALITY_AUDIT_PROMPT.md` as the "Final Quality Audit (release gate
 
 **Date:** 2026-11-20
 **Environment:** Windows, .NET SDK 10.0.400 (pinned by `global.json`).
-**HEAD:** `9a1c476` (clean working tree, `main`).
+**HEAD:** `648d28a` (clean working tree, `main`).
 **Baseline:** `DOCS/QUALITY_AUDIT_BASELINE.md` (`bf8bd70`).
 
 ## 1. Executive summary
 
 The feature phases (0–9) are complete and the codebase still meets its engineering bar.
-The suite has grown from **632/632** (baseline) to **868/868 passing tests** with a
+Phase 6 (offline maps) was completed after the initial audit pass: an MBTiles tile source,
+base-map selection from settings, an offline tile-package downloader, and a localized
+download-region UI are now in place. The suite has grown from **632/632** (baseline) to
+**892/892 passing tests** with a
 **0-warning / 0-error** core build and a passing REUSE check. The two-flow architecture,
 MVVM/DI boundaries, platform abstraction (zero `Android.*` in core), REUSE compliance, and
 localization remain intact.
@@ -65,7 +68,7 @@ feature phases.
 - **E — REUSE/SPDX:** `pre-commit run reuse-lint-file --all-files` passes.
 - **F — localization:** all user-facing strings use `{loc:Loc}`/`Strings.Get`; new feature
   strings present in both `Strings.resx` and `Strings.pt.resx`.
-- **M — tests:** 868/868 passing (xUnit v3 + NSubstitute).
+- **M — tests:** 892/892 passing (xUnit v3 + NSubstitute).
 - **Platform-service completeness (Phase 9 item 1):** every platform capability now has a
   core interface + NoOp/unsupported default + Android impl. Added the missing core defaults
   for `IBluetoothLeScanner`, `IBluetoothClassicDeviceProvider`, and `IUiCultureProvider`.
