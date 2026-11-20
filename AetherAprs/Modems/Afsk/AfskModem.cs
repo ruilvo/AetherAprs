@@ -26,6 +26,7 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
     private readonly IAudioPlaybackService _audioPlayback;
     private readonly IPttService _ptt;
     private readonly AfskSettings _settings;
+    private readonly TxTiming _txTiming;
     private readonly AfskDemodulator _demodulator;
     private readonly ILogger<AfskModem> _logger;
     private readonly Lock _lifecycleLock = new();
@@ -40,13 +41,15 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
     /// <param name="ptt">The PTT control. Must not be null.</param>
     /// <param name="settings">The AFSK port configuration. Must not be null.</param>
     /// <param name="loggerFactory">Optional logger factory.</param>
+    /// <param name="txTiming">Optional channel-access timing helper; defaults to a shared instance.</param>
     /// <exception cref="ArgumentNullException">Thrown if any required argument is null.</exception>
     public AfskModem(
         IAudioStreamService audioStream,
         IAudioPlaybackService audioPlayback,
         IPttService ptt,
         AfskSettings settings,
-        ILoggerFactory? loggerFactory = null)
+        ILoggerFactory? loggerFactory = null,
+        TxTiming? txTiming = null)
     {
         ArgumentNullException.ThrowIfNull(audioStream);
         ArgumentNullException.ThrowIfNull(audioPlayback);
@@ -57,6 +60,7 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
         _audioPlayback = audioPlayback;
         _ptt = ptt;
         _settings = settings;
+        _txTiming = txTiming ?? new TxTiming();
         _demodulator = new AfskDemodulator(audioStream.SampleRate);
         _logger = loggerFactory?.CreateLogger<AfskModem>() ?? NullLogger<AfskModem>.Instance;
     }
@@ -132,6 +136,24 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(packet);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        var frameKey = $"{packet.Source}|{packet.Destination}|{packet.Raw}";
+
+        // Holdoff: skip a frame we recently transmitted so a digipeated frame is not
+        // immediately re-keyed (double-transmit suppression).
+        if (_txTiming.ShouldHoldOff(frameKey, DateTimeOffset.UtcNow))
+        {
+            _logger.LogDebug("Suppressed duplicate AFSK transmission of {Source}.", packet.Source);
+            return;
+        }
+
+        // Channel access: randomized slottime + persist-aloha backoff happens before
+        // keying the transmitter, giving other stations a chance to use the channel.
+        var channelAccessDelay = _txTiming.ComputeChannelAccessDelay(_settings.SlotTimeMs, _settings.Persist);
+        if (channelAccessDelay > TimeSpan.Zero)
+        {
+            await Task.Delay(channelAccessDelay, cancellationToken).ConfigureAwait(false);
+        }
+
         // APRS → AX.25 → HDLC → AFSK PCM.
         var ax25Data = Ax25Serializer.Serialize(packet);
         var bits = HdlcFramer.Encode(ax25Data);
@@ -164,6 +186,8 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
                 _ptt.Release();
             }
         }
+
+        _txTiming.MarkTransmitted(frameKey, DateTimeOffset.UtcNow);
 
         _logger.LogDebug(
             "Transmitted APRS packet via AFSK: Type={PacketType}, Source={Source}",

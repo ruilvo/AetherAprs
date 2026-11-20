@@ -77,6 +77,10 @@ public sealed class AfskSettingsRecord
 
     public int TxTailMs { get; set; }
 
+    public int SlotTimeMs { get; set; }
+
+    public int Persist { get; set; }
+
     public double AudioLevel { get; set; }
 
     public double SquelchThreshold { get; set; }

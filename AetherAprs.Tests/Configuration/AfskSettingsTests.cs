@@ -18,6 +18,8 @@ public sealed class AfskSettingsTests
         Assert.Equal(PttMode.None, settings.PttMode);
         Assert.Equal(AfskSettings.DefaultTxDelayMs, settings.TxDelayMs);
         Assert.Equal(AfskSettings.DefaultTxTailMs, settings.TxTailMs);
+        Assert.Equal(AfskSettings.DefaultSlotTimeMs, settings.SlotTimeMs);
+        Assert.Equal(AfskSettings.DefaultPersist, settings.Persist);
         Assert.Equal(AfskSettings.DefaultAudioLevel, settings.AudioLevel);
         Assert.Equal(AfskSettings.DefaultSquelchThreshold, settings.SquelchThreshold);
     }
@@ -72,6 +74,43 @@ public sealed class AfskSettingsTests
     {
         var settings = new AfskSettings { TxTailMs = value };
         Assert.Equal(value, settings.TxTailMs);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(int.MinValue)]
+    public void SlotTimeMs_Negative_Throws(int value)
+    {
+        var settings = new AfskSettings();
+        Assert.Throws<ArgumentOutOfRangeException>(() => settings.SlotTimeMs = value);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100)]
+    public void SlotTimeMs_NonNegative_IsAccepted(int value)
+    {
+        var settings = new AfskSettings { SlotTimeMs = value };
+        Assert.Equal(value, settings.SlotTimeMs);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(256)]
+    public void Persist_OutsideByteRange_Throws(int value)
+    {
+        var settings = new AfskSettings();
+        Assert.Throws<ArgumentOutOfRangeException>(() => settings.Persist = value);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(63)]
+    [InlineData(255)]
+    public void Persist_WithinByteRange_IsAccepted(int value)
+    {
+        var settings = new AfskSettings { Persist = value };
+        Assert.Equal(value, settings.Persist);
     }
 
     [Theory]

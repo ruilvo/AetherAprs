@@ -76,6 +76,8 @@ internal static class PortRecordMapper
                     PttMode = (int)afsk.PttMode,
                     TxDelayMs = afsk.TxDelayMs,
                     TxTailMs = afsk.TxTailMs,
+                    SlotTimeMs = afsk.SlotTimeMs,
+                    Persist = afsk.Persist,
                     AudioLevel = afsk.AudioLevel,
                     SquelchThreshold = afsk.SquelchThreshold
                 };
@@ -149,6 +151,8 @@ internal static class PortRecordMapper
                 PttMode = (PttMode)(record.Afsk?.PttMode ?? (int)AfskSettings.DefaultPttMode),
                 TxDelayMs = record.Afsk?.TxDelayMs ?? AfskSettings.DefaultTxDelayMs,
                 TxTailMs = record.Afsk?.TxTailMs ?? AfskSettings.DefaultTxTailMs,
+                SlotTimeMs = record.Afsk?.SlotTimeMs ?? AfskSettings.DefaultSlotTimeMs,
+                Persist = record.Afsk?.Persist ?? AfskSettings.DefaultPersist,
                 AudioLevel = record.Afsk?.AudioLevel ?? AfskSettings.DefaultAudioLevel,
                 SquelchThreshold = record.Afsk?.SquelchThreshold ?? AfskSettings.DefaultSquelchThreshold
             };

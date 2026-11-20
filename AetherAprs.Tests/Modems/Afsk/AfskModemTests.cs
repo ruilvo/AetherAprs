@@ -57,13 +57,15 @@ public sealed class AfskModemTests
         AfskSettings settings,
         IAudioStreamService? audioStream = null,
         IAudioPlaybackService? playback = null,
-        IPttService? ptt = null)
+        IPttService? ptt = null,
+        TxTiming? txTiming = null)
     {
         return new AfskModem(
             audioStream ?? CreateAudioStream(),
             playback ?? CreatePlayback(),
             ptt ?? Substitute.For<IPttService>(),
-            settings);
+            settings,
+            txTiming: txTiming ?? new TxTiming(new FixedRandom(0)));
     }
 
     [Fact]
@@ -167,5 +169,23 @@ public sealed class AfskModemTests
 
         await Assert.ThrowsAsync<ObjectDisposedException>(
             () => modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SendAsync_RecentlyTransmittedFrame_IsSuppressed()
+    {
+        var playback = Substitute.For<IAudioPlaybackService>();
+        playback.SampleRate.Returns(48000);
+        playback.PlayAsync(Arg.Any<ReadOnlyMemory<float>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        var modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, playback: playback);
+
+        await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
+        await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
+
+        await playback.Received(1).PlayAsync(
+            Arg.Any<ReadOnlyMemory<float>>(),
+            Arg.Any<CancellationToken>());
     }
 }

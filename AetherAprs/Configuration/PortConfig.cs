@@ -159,12 +159,16 @@ public class AfskSettings : IPortTypeSettings
     public const PttMode DefaultPttMode = PttMode.None;
     public const int DefaultTxDelayMs = 300;
     public const int DefaultTxTailMs = 50;
+    public const int DefaultSlotTimeMs = 100;
+    public const int DefaultPersist = 63;
     public const double DefaultAudioLevel = 0.9;
     public const double DefaultSquelchThreshold = 0.1;
 
     private PttMode _pttMode = DefaultPttMode;
     private int _txDelayMs = DefaultTxDelayMs;
     private int _txTailMs = DefaultTxTailMs;
+    private int _slotTimeMs = DefaultSlotTimeMs;
+    private int _persist = DefaultPersist;
     private double _audioLevel = DefaultAudioLevel;
     private double _squelchThreshold = DefaultSquelchThreshold;
 
@@ -218,6 +222,43 @@ public class AfskSettings : IPortTypeSettings
             }
 
             _txTailMs = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the channel-access slottime in milliseconds: the base interval
+    /// used by the randomized p-persistent backoff before keying the transmitter.
+    /// Zero disables the randomized backoff.
+    /// </summary>
+    public int SlotTimeMs
+    {
+        get => _slotTimeMs;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Slottime cannot be negative.");
+            }
+
+            _slotTimeMs = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the p-persistence value (0-255) controlling how eagerly the modem
+    /// transmits in each slottime. Higher values transmit sooner (255 = immediately).
+    /// </summary>
+    public int Persist
+    {
+        get => _persist;
+        set
+        {
+            if (value is < 0 or > 255)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Persist must be in [0, 255].");
+            }
+
+            _persist = value;
         }
     }
 

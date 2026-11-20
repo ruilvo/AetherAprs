@@ -510,7 +510,13 @@ namespace AetherAprs.Data.Migrations
                             b1.Property<double>("AudioLevel")
                                 .HasColumnType("REAL");
 
+                            b1.Property<int>("Persist")
+                                .HasColumnType("INTEGER");
+
                             b1.Property<int>("PttMode")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<int>("SlotTimeMs")
                                 .HasColumnType("INTEGER");
 
                             b1.Property<double>("SquelchThreshold")
