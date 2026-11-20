@@ -157,6 +157,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<MainViewModel>(); // Application-wide navigation state
         services.AddTransient<MapViewModel>(); // Sub-component, created per HomeViewModel
         services.AddTransient<AprsSymbolPickerViewModel>(); // Sub-component, created per SettingsViewModel
+        services.AddTransient<AprsIsFilterBuilderViewModel>(); // Sub-component, created per AddEditPortViewModel
         services.AddSingleton<HomeViewModel>(); // Main page state
         services.AddSingleton<MessagesViewModel>(); // Main page state
         services.AddSingleton<PacketsViewModel>(); // Main page state

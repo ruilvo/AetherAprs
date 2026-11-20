@@ -52,7 +52,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Passcode" xml:space="preserve"><value>Passcode</value></data>
   <data name="PasscodePlaceholder" xml:space="preserve"><value>Auto-filled from callsign</value></data>
   <data name="FilterOptional" xml:space="preserve"><value>Filter (optional)</value></data>
-  <data name="FilterPlaceholder" xml:space="preserve"><value>e.g. m/50</value></data>
+  <data name="FilterRangeSection" xml:space="preserve"><value>Range filter (around a point)</value></data>
+  <data name="FilterLatitude" xml:space="preserve"><value>Latitude</value></data>
+  <data name="FilterLongitude" xml:space="preserve"><value>Longitude</value></data>
+  <data name="FilterDistanceKm" xml:space="preserve"><value>Distance (km)</value></data>
+  <data name="FilterPrefixSection" xml:space="preserve"><value>Prefix filter</value></data>
+  <data name="FilterPrefixes" xml:space="preserve"><value>Prefixes (space-separated)</value></data>
+  <data name="FilterBuddySection" xml:space="preserve"><value>Buddy filter</value></data>
+  <data name="FilterBuddies" xml:space="preserve"><value>Callsigns (space-separated)</value></data>
+  <data name="FilterTypeSection" xml:space="preserve"><value>Packet types</value></data>
+  <data name="PacketTypePosition" xml:space="preserve"><value>Position</value></data>
+  <data name="PacketTypeObject" xml:space="preserve"><value>Object</value></data>
+  <data name="PacketTypeItem" xml:space="preserve"><value>Item</value></data>
+  <data name="PacketTypeMessage" xml:space="preserve"><value>Message</value></data>
+  <data name="PacketTypeQuery" xml:space="preserve"><value>Query</value></data>
+  <data name="PacketTypeStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="PacketTypeTelemetry" xml:space="preserve"><value>Telemetry</value></data>
+  <data name="PacketTypeUserDefined" xml:space="preserve"><value>User-defined</value></data>
+  <data name="PacketTypeNws" xml:space="preserve"><value>NWS</value></data>
+  <data name="PacketTypeWeather" xml:space="preserve"><value>Weather</value></data>
+  <data name="FilterAreaSection" xml:space="preserve"><value>Area filter (bounding box)</value></data>
+  <data name="FilterNorthLatitude" xml:space="preserve"><value>North latitude</value></data>
+  <data name="FilterWestLongitude" xml:space="preserve"><value>West longitude</value></data>
+  <data name="FilterSouthLatitude" xml:space="preserve"><value>South latitude</value></data>
+  <data name="FilterEastLongitude" xml:space="preserve"><value>East longitude</value></data>
+  <data name="FilterMyRangeSection" xml:space="preserve"><value>My range filter</value></data>
+  <data name="FilterPreview" xml:space="preserve"><value>Generated filter</value></data>
   <data name="KissSettings" xml:space="preserve"><value>KISS Settings</value></data>
   <data name="Transport" xml:space="preserve"><value>Transport</value></data>
   <data name="Host" xml:space="preserve"><value>Host</value></data>

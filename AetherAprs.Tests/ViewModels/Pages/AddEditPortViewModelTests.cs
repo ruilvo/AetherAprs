@@ -11,6 +11,7 @@ using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using NSubstitute;
 using Xunit;
@@ -55,7 +56,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         Assert.Equal("example.com", viewModel.Server);
         Assert.Equal(14580, viewModel.ServerPort);
         Assert.Equal("12345", viewModel.Passcode);
-        Assert.Equal("r/50/0/100", viewModel.Filter);
+        Assert.Equal("r/50/0/100", viewModel.FilterBuilder.Filter);
         Assert.True(viewModel.IsRx);
         Assert.False(viewModel.IsTx);
         Assert.True(viewModel.ShowOnMap);
@@ -124,7 +125,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         var bleScanner = Substitute.For<IBluetoothLeScanner>();
         var btClassic = Substitute.For<IBluetoothClassicDeviceProvider>();
         
-        var vm = new AddEditPortViewModel(nav, portService, kissFactory, bleScanner, btClassic);
+        var vm = new AddEditPortViewModel(nav, portService, kissFactory, bleScanner, btClassic, new AprsIsFilterBuilderViewModel());
         if (initialize)
         {
             vm.Initialize("N0CALL", 1);

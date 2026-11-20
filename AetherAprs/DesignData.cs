@@ -116,6 +116,7 @@ public static class DesignData
         services.AddSingleton<MainViewModel>();
         services.AddTransient<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>();
+        services.AddTransient<AprsIsFilterBuilderViewModel>();
         services.AddSingleton<HomeViewModel>();
         services.AddSingleton<MessagesViewModel>();
         services.AddSingleton<PacketsViewModel>();
@@ -318,7 +319,8 @@ public static class DesignData
                 _serviceProvider.GetRequiredService<IPortService>(),
                 _serviceProvider.GetRequiredService<IKissStreamFactory>(),
                 _serviceProvider.GetRequiredService<IBluetoothLeScanner>(),
-                _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>());
+                _serviceProvider.GetRequiredService<IBluetoothClassicDeviceProvider>(),
+                _serviceProvider.GetRequiredService<AprsIsFilterBuilderViewModel>());
             vm.Initialize(callsign, 1);
             return vm;
         }

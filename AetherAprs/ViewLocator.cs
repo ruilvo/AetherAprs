@@ -40,6 +40,7 @@ public class ViewLocator : IDataTemplate
             PortItemViewModel => new PortItemComponent(),
             AprsSymbolPickerViewModel => new AprsSymbolPickerComponent(),
             SymbolSelectorViewModel => new SymbolSelectorComponent(),
+            AprsIsFilterBuilderViewModel => new AprsIsFilterBuilderComponent(),
             _ => param is null
                 ? null
                 : new TextBlock { Text = $"No view for {param.GetType().Name}" }

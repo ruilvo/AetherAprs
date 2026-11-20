@@ -121,18 +121,12 @@ public class AprsIsSettings : IPortTypeSettings
 
     /// <summary>
     /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
+    /// An empty or whitespace string represents "no filter" (receive everything).
     /// </summary>
     public string Filter
     {
         get => _filter;
-        set
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                throw new ArgumentException("Filter cannot be empty.", nameof(value));
-            }
-            _filter = value;
-        }
+        set => _filter = string.IsNullOrWhiteSpace(value) ? string.Empty : value;
     }
 }
 

@@ -9,6 +9,7 @@ using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
+using AetherAprs.ViewModels.Components;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -51,8 +52,10 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string Passcode { get; set; } = AprsIsSettings.DefaultPasscode;
 
-    [ObservableProperty]
-    public partial string Filter { get; set; } = AprsIsSettings.DefaultFilter;
+    /// <summary>
+    /// Visual APRS-IS filter builder. Replaces the free-text filter field.
+    /// </summary>
+    public AprsIsFilterBuilderViewModel FilterBuilder { get; }
 
     [ObservableProperty]
     public partial Type SelectedKissTransportType { get; set; } = typeof(TcpKissTransportSettings);
@@ -110,6 +113,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         IKissStreamFactory kissStreamFactory,
         IBluetoothLeScanner bleScanner,
         IBluetoothClassicDeviceProvider classicDeviceProvider,
+        AprsIsFilterBuilderViewModel filterBuilder,
         ILogger<AddEditPortViewModel>? logger = null)
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
@@ -117,6 +121,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         ArgumentNullException.ThrowIfNull(kissStreamFactory);
         _bleScanner = bleScanner ?? throw new ArgumentNullException(nameof(bleScanner));
         _classicDeviceProvider = classicDeviceProvider ?? throw new ArgumentNullException(nameof(classicDeviceProvider));
+        FilterBuilder = filterBuilder ?? throw new ArgumentNullException(nameof(filterBuilder));
         _logger = logger;
 
         var supported = kissStreamFactory.SupportedTransports;
@@ -382,7 +387,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             Server = aprsIs.Server;
             ServerPort = aprsIs.ServerPort;
             Passcode = aprsIs.Passcode;
-            Filter = aprsIs.Filter;
+            FilterBuilder.Load(aprsIs.Filter);
         }
 
         if (config.TypeSettings is KissSettings kiss)
@@ -445,7 +450,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                 Server = Server,
                 ServerPort = ServerPort,
                 Passcode = Passcode,
-                Filter = Filter
+                Filter = FilterBuilder.Filter
             };
         }
         else if (SelectedPortSettingsType == typeof(KissSettings))
