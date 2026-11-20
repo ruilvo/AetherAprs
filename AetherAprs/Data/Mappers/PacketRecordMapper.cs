@@ -27,6 +27,9 @@ internal static class PacketTypes
     public const string Weather = "Weather";
     public const string Telemetry = "Telemetry";
     public const string Capabilities = "Capabilities";
+    public const string Object = "Object";
+    public const string Item = "Item";
+    public const string Bulletin = "Bulletin";
     public const string Unknown = "Unknown";
 }
 
@@ -47,6 +50,9 @@ internal static class PacketRecordMapper
         WeatherPacket => PacketTypes.Weather,
         TelemetryPacket => PacketTypes.Telemetry,
         CapabilitiesPacket => PacketTypes.Capabilities,
+        ObjectPacket => PacketTypes.Object,
+        ItemPacket => PacketTypes.Item,
+        BulletinPacket => PacketTypes.Bulletin,
         _ => PacketTypes.Unknown
     };
 
@@ -154,6 +160,46 @@ internal static class PacketRecordMapper
                     Text = capabilities.Text
                 };
                 break;
+
+            case ObjectPacket obj:
+                record.Object = new ObjectDataRecord
+                {
+                    Name = obj.Name,
+                    IsLive = obj.IsLive,
+                    RawTimestamp = obj.RawTimestamp,
+                    Location = obj.Location,
+                    Altitude = obj.Altitude,
+                    Course = obj.Course,
+                    Speed = obj.Speed,
+                    SymbolTable = obj.Symbol.Table,
+                    SymbolCode = obj.Symbol.Code,
+                    Comment = obj.Comment
+                };
+                break;
+
+            case ItemPacket item:
+                record.Item = new ItemDataRecord
+                {
+                    Name = item.Name,
+                    IsLive = item.IsLive,
+                    Location = item.Location,
+                    Altitude = item.Altitude,
+                    Course = item.Course,
+                    Speed = item.Speed,
+                    SymbolTable = item.Symbol.Table,
+                    SymbolCode = item.Symbol.Code,
+                    Comment = item.Comment
+                };
+                break;
+
+            case BulletinPacket bulletin:
+                record.Bulletin = new BulletinDataRecord
+                {
+                    Name = bulletin.Name,
+                    Text = bulletin.Text,
+                    Number = bulletin.MessageNumber
+                };
+                break;
         }
 
         return record;
@@ -254,6 +300,59 @@ internal static class PacketRecordMapper
                         Source = source,
                         Destination = destination,
                         Text = record.Capabilities.Text,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
+                    },
+
+                PacketTypes.Object when record.Object != null =>
+                    new ObjectPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Name = record.Object.Name,
+                        IsLive = record.Object.IsLive,
+                        RawTimestamp = record.Object.RawTimestamp,
+                        Location = record.Object.Location,
+                        Altitude = record.Object.Altitude,
+                        Course = record.Object.Course,
+                        Speed = record.Object.Speed,
+                        Symbol = new Symbol(
+                            record.Object.SymbolTable,
+                            record.Object.SymbolCode
+                        ),
+                        Comment = record.Object.Comment,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
+                    },
+
+                PacketTypes.Item when record.Item != null =>
+                    new ItemPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Name = record.Item.Name,
+                        IsLive = record.Item.IsLive,
+                        Location = record.Item.Location,
+                        Altitude = record.Item.Altitude,
+                        Course = record.Item.Course,
+                        Speed = record.Item.Speed,
+                        Symbol = new Symbol(
+                            record.Item.SymbolTable,
+                            record.Item.SymbolCode
+                        ),
+                        Comment = record.Item.Comment,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
+                    },
+
+                PacketTypes.Bulletin when record.Bulletin != null =>
+                    new BulletinPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Name = record.Bulletin.Name,
+                        Text = record.Bulletin.Text,
+                        MessageNumber = record.Bulletin.Number,
                         Raw = record.RawInfo,
                         Timestamp = timestamp
                     },

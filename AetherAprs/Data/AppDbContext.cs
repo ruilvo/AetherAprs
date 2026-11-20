@@ -129,6 +129,43 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             {
                 capabilities.Property(c => c.Text).IsRequired().HasMaxLength(256);
             });
+
+            // Object data (named position report)
+            entity.OwnsOne(packet => packet.Object, obj =>
+            {
+                obj.Property(o => o.Name).IsRequired().HasMaxLength(9);
+                obj.Property(o => o.IsLive).IsRequired();
+                obj.Property(o => o.RawTimestamp).HasMaxLength(7);
+                obj.Property(o => o.Location)
+                    .HasConversion(new CoordinateValueConverter())
+                    .HasColumnName("Object_Location")
+                    .IsRequired();
+                obj.Property(o => o.SymbolTable).IsRequired();
+                obj.Property(o => o.SymbolCode).IsRequired();
+                obj.Property(o => o.Comment).HasMaxLength(43);
+            });
+
+            // Item data (named position report)
+            entity.OwnsOne(packet => packet.Item, item =>
+            {
+                item.Property(i => i.Name).IsRequired().HasMaxLength(9);
+                item.Property(i => i.IsLive).IsRequired();
+                item.Property(i => i.Location)
+                    .HasConversion(new CoordinateValueConverter())
+                    .HasColumnName("Item_Location")
+                    .IsRequired();
+                item.Property(i => i.SymbolTable).IsRequired();
+                item.Property(i => i.SymbolCode).IsRequired();
+                item.Property(i => i.Comment).HasMaxLength(43);
+            });
+
+            // Bulletin data (broadcast message)
+            entity.OwnsOne(packet => packet.Bulletin, bulletin =>
+            {
+                bulletin.Property(b => b.Name).IsRequired().HasMaxLength(9);
+                bulletin.Property(b => b.Text).IsRequired().HasMaxLength(67);
+                bulletin.Property(b => b.Number);
+            });
         });
 
         modelBuilder.Entity<BeaconConfigRecord>(entity =>

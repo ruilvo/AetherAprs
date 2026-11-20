@@ -85,6 +85,12 @@ public sealed class PacketRecord
     public WeatherDataRecord? Weather { get; set; }
     public TelemetryDataRecord? Telemetry { get; set; }
     public CapabilitiesDataRecord? Capabilities { get; set; }
+
+#pragma warning disable CA1720 // Identifier 'Object' mirrors the APRS object packet type
+    public ObjectDataRecord? Object { get; set; }
+#pragma warning restore CA1720
+    public ItemDataRecord? Item { get; set; }
+    public BulletinDataRecord? Bulletin { get; set; }
 }
 
 /// <summary>
@@ -189,4 +195,78 @@ public sealed class TelemetryDataRecord
 public sealed class CapabilitiesDataRecord
 {
     public string Text { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Object packet data (named position report, live or killed).
+/// </summary>
+public sealed class ObjectDataRecord
+{
+    /// <summary>
+    /// Object name (up to 9 characters).
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the object is live (true) or killed (false).
+    /// </summary>
+    public bool IsLive { get; set; }
+
+    /// <summary>
+    /// Raw 7-character <c>DDHHMMz</c> timestamp from the object report, if present.
+    /// </summary>
+    public string? RawTimestamp { get; set; }
+
+    public Coordinate Location { get; set; } = new Coordinate();
+    public double? Altitude { get; set; }
+    public double? Course { get; set; }
+    public double? Speed { get; set; }
+    public SymbolTable SymbolTable { get; set; }
+    public SymbolCode SymbolCode { get; set; }
+    public string? Comment { get; set; }
+}
+
+/// <summary>
+/// Item packet data (named position report, live or killed).
+/// </summary>
+public sealed class ItemDataRecord
+{
+    /// <summary>
+    /// Item name (3-9 characters).
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether the item is live (true) or killed (false).
+    /// </summary>
+    public bool IsLive { get; set; }
+
+    public Coordinate Location { get; set; } = new Coordinate();
+    public double? Altitude { get; set; }
+    public double? Course { get; set; }
+    public double? Speed { get; set; }
+    public SymbolTable SymbolTable { get; set; }
+    public SymbolCode SymbolCode { get; set; }
+    public string? Comment { get; set; }
+}
+
+/// <summary>
+/// Bulletin packet data (broadcast message addressed to a BLN-prefixed name).
+/// </summary>
+public sealed class BulletinDataRecord
+{
+    /// <summary>
+    /// Bulletin name (the raw addressee, e.g. <c>BLN0SPCL</c>).
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Bulletin text.
+    /// </summary>
+    public string Text { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional message number from the <c>{nn}</c> suffix.
+    /// </summary>
+    public int? Number { get; set; }
 }

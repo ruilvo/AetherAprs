@@ -182,6 +182,32 @@ namespace AetherAprs.Data.Migrations
 
             modelBuilder.Entity("AetherAprs.Data.Entities.PacketRecord", b =>
                 {
+                    b.OwnsOne("AetherAprs.Data.Entities.BulletinDataRecord", "Bulletin", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(9)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<int?>("Number")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Text")
+                                .IsRequired()
+                                .HasMaxLength(67)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
                     b.OwnsOne("AetherAprs.Data.Entities.CapabilitiesDataRecord", "Capabilities", b1 =>
                         {
                             b1.Property<long>("PacketRecordId")
@@ -191,6 +217,51 @@ namespace AetherAprs.Data.Migrations
                                 .IsRequired()
                                 .HasMaxLength(256)
                                 .HasColumnType("TEXT");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
+                    b.OwnsOne("AetherAprs.Data.Entities.ItemDataRecord", "Item", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<double?>("Altitude")
+                                .HasColumnType("REAL");
+
+                            b1.Property<string>("Comment")
+                                .HasMaxLength(43)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<double?>("Course")
+                                .HasColumnType("REAL");
+
+                            b1.Property<bool>("IsLive")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Location")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Item_Location");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(9)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<double?>("Speed")
+                                .HasColumnType("REAL");
+
+                            b1.Property<byte>("SymbolCode")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<byte>("SymbolTable")
+                                .HasColumnType("INTEGER");
 
                             b1.HasKey("PacketRecordId");
 
@@ -229,6 +300,55 @@ namespace AetherAprs.Data.Migrations
                                 .IsRequired()
                                 .HasMaxLength(67)
                                 .HasColumnType("TEXT");
+
+                            b1.HasKey("PacketRecordId");
+
+                            b1.ToTable("Packets");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PacketRecordId");
+                        });
+
+                    b.OwnsOne("AetherAprs.Data.Entities.ObjectDataRecord", "Object", b1 =>
+                        {
+                            b1.Property<long>("PacketRecordId")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<double?>("Altitude")
+                                .HasColumnType("REAL");
+
+                            b1.Property<string>("Comment")
+                                .HasMaxLength(43)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<double?>("Course")
+                                .HasColumnType("REAL");
+
+                            b1.Property<bool>("IsLive")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Location")
+                                .IsRequired()
+                                .HasColumnType("TEXT")
+                                .HasColumnName("Object_Location");
+
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasMaxLength(9)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("RawTimestamp")
+                                .HasMaxLength(7)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<double?>("Speed")
+                                .HasColumnType("REAL");
+
+                            b1.Property<byte>("SymbolCode")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<byte>("SymbolTable")
+                                .HasColumnType("INTEGER");
 
                             b1.HasKey("PacketRecordId");
 
@@ -361,9 +481,15 @@ namespace AetherAprs.Data.Migrations
                                 .HasForeignKey("PacketRecordId");
                         });
 
+                    b.Navigation("Bulletin");
+
                     b.Navigation("Capabilities");
 
+                    b.Navigation("Item");
+
                     b.Navigation("Message");
+
+                    b.Navigation("Object");
 
                     b.Navigation("Position");
 

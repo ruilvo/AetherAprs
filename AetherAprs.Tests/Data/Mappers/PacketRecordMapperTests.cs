@@ -299,6 +299,173 @@ public sealed class PacketRecordMapperTests
     }
 
     [Fact]
+    public void MapToPacket_ObjectRecord_ReturnsObjectPacket()
+    {
+        var record = CreateRecord("Object");
+        record.Object = new ObjectDataRecord
+        {
+            Name = "OBJNAME",
+            IsLive = true,
+            RawTimestamp = "010203z",
+            Location = new Coordinate(38.5, -9.0),
+            Altitude = 328.084,
+            Course = 90,
+            Speed = 10,
+            SymbolTable = SymbolTable.Primary,
+            SymbolCode = SymbolCode.HyphenMinus,
+            Comment = "object comment"
+        };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var obj = Assert.IsType<ObjectPacket>(packet);
+        Assert.Equal("OBJNAME", obj.Name);
+        Assert.True(obj.IsLive);
+        Assert.Equal("010203z", obj.RawTimestamp);
+        Assert.Equal(38.5, obj.Location.Latitude);
+        Assert.Equal(-9.0, obj.Location.Longitude);
+        Assert.Equal(328.084, obj.Altitude);
+        Assert.Equal(90, obj.Course);
+        Assert.Equal(10, obj.Speed);
+        Assert.Equal(new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus), obj.Symbol);
+        Assert.Equal("object comment", obj.Comment);
+        Assert.Equal("raw", obj.Raw);
+    }
+
+    [Fact]
+    public void ToRecord_ObjectPacket_PersistsFields()
+    {
+        var packet = new ObjectPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Name = "OBJNAME",
+            IsLive = false,
+            RawTimestamp = "010203z",
+            Location = new Coordinate(38.5, -9.0),
+            Altitude = 328.084,
+            Course = 90,
+            Speed = 10,
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus),
+            Comment = "object comment"
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+
+        Assert.Equal("Object", record.PacketType);
+        Assert.NotNull(record.Object);
+        Assert.Equal("OBJNAME", record.Object!.Name);
+        Assert.False(record.Object.IsLive);
+        Assert.Equal("010203z", record.Object.RawTimestamp);
+        Assert.Equal(38.5, record.Object.Location.Latitude);
+        Assert.Equal(-9.0, record.Object.Location.Longitude);
+        Assert.Equal(328.084, record.Object.Altitude);
+        Assert.Equal(90, record.Object.Course);
+        Assert.Equal(10, record.Object.Speed);
+        Assert.Equal(SymbolTable.Primary, record.Object.SymbolTable);
+        Assert.Equal(SymbolCode.HyphenMinus, record.Object.SymbolCode);
+        Assert.Equal("object comment", record.Object.Comment);
+    }
+
+    [Fact]
+    public void MapToPacket_ItemRecord_ReturnsItemPacket()
+    {
+        var record = CreateRecord("Item");
+        record.Item = new ItemDataRecord
+        {
+            Name = "ITEM",
+            IsLive = true,
+            Location = new Coordinate(38.5, -9.0),
+            Altitude = 328.084,
+            Course = 90,
+            Speed = 10,
+            SymbolTable = SymbolTable.Alternate,
+            SymbolCode = SymbolCode.HyphenMinus,
+            Comment = "item comment"
+        };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var item = Assert.IsType<ItemPacket>(packet);
+        Assert.Equal("ITEM", item.Name);
+        Assert.True(item.IsLive);
+        Assert.Equal(38.5, item.Location.Latitude);
+        Assert.Equal(-9.0, item.Location.Longitude);
+        Assert.Equal(328.084, item.Altitude);
+        Assert.Equal(90, item.Course);
+        Assert.Equal(10, item.Speed);
+        Assert.Equal(new Symbol(SymbolTable.Alternate, SymbolCode.HyphenMinus), item.Symbol);
+        Assert.Equal("item comment", item.Comment);
+    }
+
+    [Fact]
+    public void ToRecord_ItemPacket_PersistsFields()
+    {
+        var packet = new ItemPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Name = "ITEM",
+            IsLive = false,
+            Location = new Coordinate(38.5, -9.0),
+            Symbol = new Symbol(SymbolTable.Alternate, SymbolCode.HyphenMinus),
+            Comment = "item comment"
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+
+        Assert.Equal("Item", record.PacketType);
+        Assert.NotNull(record.Item);
+        Assert.Equal("ITEM", record.Item!.Name);
+        Assert.False(record.Item.IsLive);
+        Assert.Equal(38.5, record.Item.Location.Latitude);
+        Assert.Equal(-9.0, record.Item.Location.Longitude);
+        Assert.Equal(SymbolTable.Alternate, record.Item.SymbolTable);
+        Assert.Equal(SymbolCode.HyphenMinus, record.Item.SymbolCode);
+        Assert.Equal("item comment", record.Item.Comment);
+    }
+
+    [Fact]
+    public void MapToPacket_BulletinRecord_ReturnsBulletinPacket()
+    {
+        var record = CreateRecord("Bulletin");
+        record.Bulletin = new BulletinDataRecord
+        {
+            Name = "BLN0SPCL",
+            Text = "Special event",
+            Number = 5
+        };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var bulletin = Assert.IsType<BulletinPacket>(packet);
+        Assert.Equal("BLN0SPCL", bulletin.Name);
+        Assert.Equal("Special event", bulletin.Text);
+        Assert.Equal(5, bulletin.MessageNumber);
+    }
+
+    [Fact]
+    public void ToRecord_BulletinPacket_PersistsFields()
+    {
+        var packet = new BulletinPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Name = "BLN0SPCL",
+            Text = "Special event",
+            MessageNumber = 5
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+
+        Assert.Equal("Bulletin", record.PacketType);
+        Assert.NotNull(record.Bulletin);
+        Assert.Equal("BLN0SPCL", record.Bulletin!.Name);
+        Assert.Equal("Special event", record.Bulletin.Text);
+        Assert.Equal(5, record.Bulletin.Number);
+    }
+
+    [Fact]
     public void MapToPacket_NullLogger_OnParseFailure_ReturnsNullWithoutThrowing()
     {
         var record = CreateRecord("Status");
