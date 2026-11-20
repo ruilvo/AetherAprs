@@ -28,4 +28,11 @@ public interface IPermissionService
     /// </summary>
     /// <returns>True if permission is granted or not required, false if denied.</returns>
     Task<bool> RequestLocationPermissionAsync();
+
+    /// <summary>
+    /// Requests exemption from battery optimization (Doze/App Standby) so background
+    /// tracking is not deferred or killed. Only meaningful on Android.
+    /// </summary>
+    /// <returns>True if already exempt or not required, false if the user prompt was shown.</returns>
+    Task<bool> RequestIgnoreBatteryOptimizationsAsync();
 }

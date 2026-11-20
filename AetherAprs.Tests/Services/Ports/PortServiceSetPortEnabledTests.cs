@@ -67,7 +67,7 @@ public sealed class PortServiceSetPortEnabledTests
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = Substitute.For<IPacketStorageService>();
-        var mockForegroundService = Substitute.For<IForegroundService>();
+        var mockKeepAliveService = Substitute.For<IKeepAliveService>();
         var mockDigipeater = Substitute.For<IDigipeaterService>();
         mockDigipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
@@ -83,7 +83,7 @@ public sealed class PortServiceSetPortEnabledTests
             NullLogger<PortService>.Instance,
             kissStreamFactory,
             mockPacketStorage,
-            mockForegroundService,
+            mockKeepAliveService,
             mockDigipeater);
     }
 

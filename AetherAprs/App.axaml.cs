@@ -172,7 +172,13 @@ public partial class App : Application, IDisposable
                 _logger?.LogWarning("Location permission was denied by user");
                 return;
             }
-            
+
+            // Request exemption from battery optimization so background tracking
+            // (foreground service + wake lock) is not deferred by Doze/App Standby.
+            _logger?.LogInformation("Requesting battery optimization exemption...");
+            var batteryOptimizationExempt = await permissionService.RequestIgnoreBatteryOptimizationsAsync();
+            _logger?.LogInformation("Battery optimization exempt: {Exempt}", batteryOptimizationExempt);
+
             // Check if location is available
             if (!locationService.IsLocationAvailable())
             {

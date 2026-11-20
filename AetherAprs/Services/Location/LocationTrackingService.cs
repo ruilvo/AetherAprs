@@ -63,6 +63,7 @@ public sealed class LocationTrackingService : ILocationTrackingService
     private const int ErrorRetryIntervalSeconds = 10;
 
     private readonly ILocationService _locationService;
+    private readonly IKeepAliveService _keepAliveService;
     private readonly ILogger<LocationTrackingService> _logger;
     private readonly Lock _stateLock = new();
     private CancellationTokenSource? _locationUpdateCancellation;
@@ -79,9 +80,11 @@ public sealed class LocationTrackingService : ILocationTrackingService
 
     public LocationTrackingService(
         ILocationService locationService,
+        IKeepAliveService keepAliveService,
         ILogger<LocationTrackingService> logger)
     {
         _locationService = locationService;
+        _keepAliveService = keepAliveService;
         _logger = logger;
     }
 
@@ -118,6 +121,10 @@ public sealed class LocationTrackingService : ILocationTrackingService
             _updateLoopTask = RunLocationUpdateLoopAsync(_locationUpdateCancellation.Token);
             _isTracking = true;
         }
+
+        // Keep the app alive (foreground service + wake lock on Android) while
+        // tracking is active, so GPS polling continues in the background.
+        await _keepAliveService.AcquireAsync(KeepAliveReason.LocationTracking).ConfigureAwait(false);
 
         // Give the old loop a moment to observe cancellation, then dispose its
         // CTS. The old loop must never see a disposed CTS while awaiting.
@@ -189,6 +196,9 @@ public sealed class LocationTrackingService : ILocationTrackingService
         // never dispose a CTS that a pending Task.Delay is still using (H3).
         cancellation?.Cancel();
         _ = RetireLoopAsync(cancellation, loopTask);
+
+        // Release the location-tracking keep-alive reason.
+        _ = ReleaseKeepAliveAsync();
     }
 
     private async Task RunLocationUpdateLoopAsync(CancellationToken cancellationToken)
@@ -256,6 +266,18 @@ public sealed class LocationTrackingService : ILocationTrackingService
         cancellation?.Dispose();
     }
 
+    private async Task ReleaseKeepAliveAsync()
+    {
+        try
+        {
+            await _keepAliveService.ReleaseAsync(KeepAliveReason.LocationTracking).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to release location-tracking keep-alive");
+        }
+    }
+
     public void Dispose()
     {
         CancellationTokenSource? cancellation;
@@ -278,5 +300,6 @@ public sealed class LocationTrackingService : ILocationTrackingService
 
         cancellation?.Cancel();
         _ = RetireLoopAsync(cancellation, loopTask);
+        _ = ReleaseKeepAliveAsync();
     }
 }

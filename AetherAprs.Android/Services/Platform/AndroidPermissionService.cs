@@ -97,4 +97,38 @@ public class AndroidPermissionService : IPermissionService
             == global::Android.Content.PM.Permission.Granted;
         return fineGranted || coarseGranted;
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> RequestIgnoreBatteryOptimizationsAsync()
+    {
+        await WaitForPermissionsAsync();
+
+        var activity = MainActivity.Instance;
+        if (activity == null)
+        {
+            return false;
+        }
+
+        var powerManager = activity.GetSystemService(global::Android.Content.Context.PowerService) as global::Android.OS.PowerManager;
+        if (powerManager == null)
+        {
+            return false;
+        }
+
+        // Already exempt — nothing to request.
+        if (powerManager.IsIgnoringBatteryOptimizations(activity.PackageName!))
+        {
+            return true;
+        }
+
+        // Launch the system dialog asking the user to exempt the app from
+        // battery optimization. The result is asynchronous and outside our
+        // control; report "prompt shown" (false) so callers don't block.
+        var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionRequestIgnoreBatteryOptimizations);
+        intent.SetData(global::Android.Net.Uri.Parse($"package:{activity.PackageName}"));
+        intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+        activity.StartActivity(intent);
+
+        return false;
+    }
 }

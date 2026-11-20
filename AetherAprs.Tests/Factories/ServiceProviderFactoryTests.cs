@@ -24,6 +24,7 @@ public class ServiceProviderFactoryTests
         Assert.IsType<NoOpLocationService>(provider.GetRequiredService<ILocationService>());
         Assert.IsType<NoOpPermissionService>(provider.GetRequiredService<IPermissionService>());
         Assert.IsType<NoOpForegroundService>(provider.GetRequiredService<IForegroundService>());
+        Assert.IsType<KeepAliveService>(provider.GetRequiredService<IKeepAliveService>());
     }
 
     [Fact]

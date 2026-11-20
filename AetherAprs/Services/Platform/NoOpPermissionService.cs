@@ -21,4 +21,7 @@ public sealed class NoOpPermissionService : IPermissionService
 
     /// <inheritdoc/>
     public Task<bool> RequestLocationPermissionAsync() => Task.FromResult(true);
+
+    /// <inheritdoc/>
+    public Task<bool> RequestIgnoreBatteryOptimizationsAsync() => Task.FromResult(true);
 }

@@ -15,19 +15,46 @@ using Microsoft.Extensions.Logging;
 namespace AetherAprs.Android.Services.Platform;
 
 /// <summary>
-/// Android foreground service to keep the app active while receiving/transmitting packets.
+/// Android foreground service to keep the app active while receiving/transmitting packets
+/// and while location tracking is enabled.
 /// </summary>
-[Service(ForegroundServiceType = ForegroundService.TypeDataSync)]
+[Service(ForegroundServiceType = ForegroundService.TypeDataSync | ForegroundService.TypeLocation)]
 public class AetherAprsForegroundService : Service
 {
     private const int NotificationId = 1001;
     private const string ChannelId = "aetheraprs_foreground";
     private const string ActionStart = "START_FOREGROUND";
     private const string ActionStop = "STOP_FOREGROUND";
+    private const string WakeLockTag = "AetherAprs:ForegroundService";
+
+    private PowerManager.WakeLock? _wakeLock;
 
     public override IBinder? OnBind(Intent? intent)
     {
         return null;
+    }
+
+    public override void OnCreate()
+    {
+        base.OnCreate();
+
+        // Hold a partial wake lock so the CPU stays awake while the foreground
+        // service is running (e.g. GPS polling, packet processing). Released in
+        // OnDestroy.
+        var powerManager = GetSystemService(PowerService) as PowerManager;
+        _wakeLock = powerManager?.NewWakeLock(WakeLockFlags.Partial, WakeLockTag);
+        _wakeLock?.Acquire();
+    }
+
+    public override void OnDestroy()
+    {
+        if (_wakeLock?.IsHeld == true)
+        {
+            _wakeLock.Release();
+        }
+
+        _wakeLock = null;
+        base.OnDestroy();
     }
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)

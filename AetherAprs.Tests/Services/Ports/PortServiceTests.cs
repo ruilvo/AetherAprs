@@ -256,7 +256,7 @@ public sealed class PortServiceTests
         var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = new MockPacketStorageService();
-        var mockForegroundService = Substitute.For<IForegroundService>();
+        var mockKeepAliveService = Substitute.For<IKeepAliveService>();
         var mockDigipeaterService = new MockDigipeaterService();
         return new PortService(
             db.Factory,
@@ -265,7 +265,7 @@ public sealed class PortServiceTests
             NullLogger<PortService>.Instance,
             kissStreamFactory,
             mockPacketStorage,
-            mockForegroundService,
+            mockKeepAliveService,
             mockDigipeaterService);
     }
 

@@ -82,7 +82,7 @@ public sealed class PortServicePacketReceivedTests
         var packetStorageService = Substitute.For<IPacketStorageService>();
         var digipeaterService = Substitute.For<IDigipeaterService>();
         var configurationService = Substitute.For<IConfigurationService>();
-        var foregroundService = Substitute.For<IForegroundService>();
+        var foregroundService = Substitute.For<IKeepAliveService>();
         var logger = Substitute.For<ILogger<PortService>>();
         var loggerFactory = Substitute.For<ILoggerFactory>();
         var kissStreamFactory = Substitute.For<IKissStreamFactory>();

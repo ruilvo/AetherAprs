@@ -231,7 +231,7 @@ public sealed class PortServiceReceivePipelineTests
             NullLogger<PortService>.Instance,
             kissStreamFactory,
             storage,
-            Substitute.For<IForegroundService>(),
+            Substitute.For<IKeepAliveService>(),
             digipeater);
     }
 

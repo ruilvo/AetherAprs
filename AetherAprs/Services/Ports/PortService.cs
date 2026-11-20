@@ -33,7 +33,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly ILogger<PortService> _logger;
     private readonly IKissStreamFactory _kissStreamFactory;
     private readonly IPacketStorageService _packetStorageService;
-    private readonly IForegroundService _foregroundService;
+    private readonly IKeepAliveService _keepAliveService;
     private readonly IDigipeaterService _digipeaterService;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
@@ -44,6 +44,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly CancellationTokenSource _disposalCts = new();
     private readonly Channel<QueuedPacket> _packetChannel;
     private readonly Task _packetProcessorTask;
+    private bool _portsKeepAliveActive;
 
     private sealed record QueuedPacket(Guid PortId, AprsPacket Packet);
 
@@ -54,7 +55,7 @@ public class PortService : IPortService, IAsyncDisposable
         ILogger<PortService> logger,
         IKissStreamFactory kissStreamFactory,
         IPacketStorageService packetStorageService,
-        IForegroundService foregroundService,
+        IKeepAliveService keepAliveService,
         IDigipeaterService digipeaterService)
     {
         _dbContextFactory = dbContextFactory;
@@ -63,7 +64,7 @@ public class PortService : IPortService, IAsyncDisposable
         _logger = logger;
         _kissStreamFactory = kissStreamFactory;
         _packetStorageService = packetStorageService;
-        _foregroundService = foregroundService;
+        _keepAliveService = keepAliveService;
         _digipeaterService = digipeaterService;
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
@@ -562,15 +563,17 @@ public class PortService : IPortService, IAsyncDisposable
             hasEnabledPorts = _activeSessions.Count > 0;
         }
 
-        if (hasEnabledPorts && !_foregroundService.IsRunning)
+        if (hasEnabledPorts && !_portsKeepAliveActive)
         {
-            await _foregroundService.StartAsync().ConfigureAwait(false);
-            _logger.LogInformation("Started foreground service");
+            _portsKeepAliveActive = true;
+            await _keepAliveService.AcquireAsync(KeepAliveReason.Ports).ConfigureAwait(false);
+            _logger.LogInformation("Acquired keep-alive for ports");
         }
-        else if (!hasEnabledPorts && _foregroundService.IsRunning)
+        else if (!hasEnabledPorts && _portsKeepAliveActive)
         {
-            await _foregroundService.StopAsync().ConfigureAwait(false);
-            _logger.LogInformation("Stopped foreground service");
+            _portsKeepAliveActive = false;
+            await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
+            _logger.LogInformation("Released keep-alive for ports");
         }
     }
 
@@ -755,10 +758,11 @@ public class PortService : IPortService, IAsyncDisposable
 
         await StopAllPortsAsync().ConfigureAwait(false);
 
-        // Stop foreground service on disposal
-        if (_foregroundService.IsRunning)
+        // Release the port keep-alive reason on disposal.
+        if (_portsKeepAliveActive)
         {
-            await _foregroundService.StopAsync().ConfigureAwait(false);
+            _portsKeepAliveActive = false;
+            await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
         }
     }
 
