@@ -167,8 +167,9 @@ public class DigipeaterService(
     /// </summary>
     private static bool IsDigipeatable(AprsPacket packet) => packet switch
     {
-        PositionPacket or MessagePacket or MessageAckPacket or MessageRejPacket
-            or StatusPacket or WeatherPacket or UnknownPacket => true,
+        PositionPacket or ObjectPacket or ItemPacket or MessagePacket or MessageAckPacket
+            or MessageRejPacket or BulletinPacket or StatusPacket or WeatherPacket
+            or ThirdPartyPacket or QueryPacket or RawGpsPacket or UnknownPacket => true,
         _ => false
     };
 

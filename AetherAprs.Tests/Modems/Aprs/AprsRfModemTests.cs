@@ -257,7 +257,7 @@ public class AprsRfModemTests
     [Fact]
     public async Task PacketReceived_UnknownPacket_FiresEvent()
     {
-        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", "$weird format data");
+        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", "#weird format data");
         var kissBuffer = BuildKissFrame(ax25Data);
 
         await using var stream = new MemoryStream(kissBuffer);

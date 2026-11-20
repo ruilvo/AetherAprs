@@ -34,11 +34,17 @@ public static class AprsInfoFieldSerializer
         return packet switch
         {
             PositionPacket pos => FormatPosition(pos),
+            ObjectPacket obj => FormatObject(obj),
+            ItemPacket item => FormatItem(item),
             MessagePacket msg => FormatMessage(msg),
+            BulletinPacket bulletin => FormatBulletin(bulletin),
             MessageAckPacket ack => FormatMessageAckRej(ack.Addressee, "ack", ack.MessageNumber),
             MessageRejPacket rej => FormatMessageAckRej(rej.Addressee, "rej", rej.MessageNumber),
             StatusPacket status => FormatStatus(status),
             WeatherPacket weather => FormatWeather(weather),
+            ThirdPartyPacket thirdParty => "}" + thirdParty.Encapsulated,
+            QueryPacket query => "?" + query.Query,
+            RawGpsPacket rawGps => "$" + rawGps.Sentence,
             UnknownPacket unknown => unknown.Raw,
             _ => throw new ArgumentException($"Unsupported packet type: {packet.GetType().Name}.")
         };
@@ -60,11 +66,11 @@ public static class AprsInfoFieldSerializer
     }
 
     /// <summary>
-    /// Formats an uncompressed <see cref="PositionPacket"/> into its APRS info field string.
+    /// Formats an uncompressed <see cref="PositionPacketBase"/> into its APRS info field string.
     /// </summary>
-    /// <param name="packet">The position packet to format.</param>
+    /// <param name="packet">The position-bearing packet to format.</param>
     /// <returns>The APRS info field string.</returns>
-    private static string FormatPositionUncompressed(PositionPacket packet)
+    private static string FormatPositionUncompressed(PositionPacketBase packet)
     {
         // Format: !DDMM.mmX[overlay]/DDDMM.mmYC[comment]
         // (using '!' — no timestamp, suitable for typical fixed/generic positions)
@@ -286,6 +292,64 @@ public static class AprsInfoFieldSerializer
         var info = new StringBuilder();
         info.Append(':');
         info.Append(packet.Addressee.ToString().PadRight(9, ' '));
+        info.Append(':');
+
+        if (packet.MessageNumber.HasValue)
+        {
+            info.Append($"{packet.Text}{{{packet.MessageNumber.Value}}}");
+        }
+        else
+        {
+            info.Append(packet.Text);
+        }
+
+        return info.ToString();
+    }
+
+    /// <summary>
+    /// Formats an <see cref="ObjectPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The object packet to format.</param>
+    /// <returns>The formatted APRS info field string.</returns>
+    private static string FormatObject(ObjectPacket packet)
+    {
+        // Format: ;NAME(9)*DDHHMMz<position> (or '_' for a killed object).
+        var info = new StringBuilder();
+        info.Append(';');
+        info.Append(packet.Name.PadRight(9, ' '));
+        info.Append(packet.IsLive ? '*' : '_');
+        info.Append(string.IsNullOrEmpty(packet.RawTimestamp) ? "000000z" : packet.RawTimestamp);
+        info.Append(FormatPositionUncompressed(packet)[1..]);
+        return info.ToString();
+    }
+
+    /// <summary>
+    /// Formats an <see cref="ItemPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The item packet to format.</param>
+    /// <returns>The formatted APRS info field string.</returns>
+    private static string FormatItem(ItemPacket packet)
+    {
+        // Format: )NAME(3-9)!<position> (or '_' for a killed item).
+        var info = new StringBuilder();
+        info.Append(')');
+        info.Append(packet.Name);
+        info.Append(packet.IsLive ? '!' : '_');
+        info.Append(FormatPositionUncompressed(packet)[1..]);
+        return info.ToString();
+    }
+
+    /// <summary>
+    /// Formats a <see cref="BulletinPacket"/> into its APRS info field string.
+    /// </summary>
+    /// <param name="packet">The bulletin packet to format.</param>
+    /// <returns>The formatted APRS info field string.</returns>
+    private static string FormatBulletin(BulletinPacket packet)
+    {
+        // Format: :NAME(9):text{msgid}
+        var info = new StringBuilder();
+        info.Append(':');
+        info.Append(packet.Name.PadRight(9, ' '));
         info.Append(':');
 
         if (packet.MessageNumber.HasValue)

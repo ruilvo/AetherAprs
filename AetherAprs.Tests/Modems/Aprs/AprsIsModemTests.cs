@@ -309,7 +309,7 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_UnknownPacket_ReturnsUnknownPacket()
     {
-        var line = "N0CALL>APZ001:$some weird data";
+        var line = "N0CALL>APZ001:#some weird data";
         var result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
@@ -360,12 +360,15 @@ public class AprsIsModemTests
         var line = "7000tgi9>APHPIB,TCPIP*,qAC,T2CAEAST:;7000tgi9 *290819z0019.85S\\12017.83E!Earthquake";
         var result = InvokeParseIsLine(line);
 
-        var position = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(new Callsign("APRS"), position.Source);
-        Assert.Equal("7000TGI9", position.RawSource);
-        Assert.Equal(-0.330833, position.Location.Latitude, 5);
-        Assert.Equal(120.297167, position.Location.Longitude, 5);
-        Assert.Equal("Earthquake", position.Comment);
+        var obj = Assert.IsType<ObjectPacket>(result);
+        Assert.Equal(new Callsign("APRS"), obj.Source);
+        Assert.Equal("7000TGI9", obj.RawSource);
+        Assert.Equal("7000tgi9", obj.Name);
+        Assert.True(obj.IsLive);
+        Assert.Equal("290819z", obj.RawTimestamp);
+        Assert.Equal(-0.330833, obj.Location.Latitude, 5);
+        Assert.Equal(120.297167, obj.Location.Longitude, 5);
+        Assert.Equal("Earthquake", obj.Comment);
     }
 
     [Fact]

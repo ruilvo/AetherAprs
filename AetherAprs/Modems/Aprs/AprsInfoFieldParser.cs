@@ -51,6 +51,10 @@ public static class AprsInfoFieldParser
             '!' or '=' => ParsePosition(info, source, destination, path, hasTimestamp: false),
             '@' or '/' => ParsePosition(info, source, destination, path, hasTimestamp: true),
             ';' => ParseObjectPosition(info, source, destination, path),
+            ')' => ParseItem(info, source, destination, path),
+            '}' => ParseThirdParty(info, source, destination, path),
+            '?' => ParseQuery(info, source, destination, path),
+            '$' => ParseRawGps(info, source, destination, path),
             ':' => ParseMessage(info, source, destination, path),
             '>' => ParseStatus(info, source, destination, path),
             '_' => ParseWeather(info, source, destination, path),
@@ -431,12 +435,145 @@ public static class AprsInfoFieldParser
             return AsUnknown(info, source, destination, path.ToArray());
         }
 
+        var name = info.AsSpan(1, 9).TrimEnd().ToString();
+        var isLive = info[10] == '*';
+        var rawTimestamp = info.Length >= 18 ? info.AsSpan(11, 7).ToString() : null;
+
         var positionInfo = "@" + info[11..];
         var packet = ParsePosition(positionInfo, source, destination, path, hasTimestamp: true);
 
-        return packet is PositionPacket
-            ? packet with { Raw = info }
+        return packet is PositionPacket pos
+            ? new ObjectPacket
+            {
+                Source = source,
+                Destination = destination,
+                Path = path,
+                Raw = info,
+                Name = name,
+                IsLive = isLive,
+                RawTimestamp = rawTimestamp,
+                Location = pos.Location,
+                Symbol = pos.Symbol,
+                Comment = pos.Comment,
+                Course = pos.Course,
+                Speed = pos.Speed,
+                Altitude = pos.Altitude,
+                Precision = pos.Precision
+            }
             : packet;
+    }
+
+    /// <summary>
+    /// Parses an APRS item packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="destination">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed APRS item packet.</returns>
+    private static AprsPacket ParseItem(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    {
+        // Item format: )name(3-9)!<position> (or '_' for a killed item).
+        int flagIndex = -1;
+        for (int i = 1; i < info.Length; i++)
+        {
+            if (info[i] == '!' || info[i] == '_')
+            {
+                flagIndex = i;
+                break;
+            }
+        }
+
+        var nameLength = flagIndex - 1;
+        if (nameLength < 3 || nameLength > 9 || flagIndex + 1 >= info.Length)
+        {
+            return AsUnknown(info, source, destination, path.ToArray());
+        }
+
+        var name = info.AsSpan(1, nameLength).ToString();
+        var isLive = info[flagIndex] == '!';
+
+        var positionInfo = "!" + info[(flagIndex + 1)..];
+        var packet = ParsePosition(positionInfo, source, destination, path, hasTimestamp: false);
+
+        return packet is PositionPacket pos
+            ? new ItemPacket
+            {
+                Source = source,
+                Destination = destination,
+                Path = path,
+                Raw = info,
+                Name = name,
+                IsLive = isLive,
+                Location = pos.Location,
+                Symbol = pos.Symbol,
+                Comment = pos.Comment,
+                Course = pos.Course,
+                Speed = pos.Speed,
+                Altitude = pos.Altitude,
+                Precision = pos.Precision
+            }
+            : packet;
+    }
+
+    /// <summary>
+    /// Parses an APRS third-party traffic packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="destination">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed third-party packet.</returns>
+    private static ThirdPartyPacket ParseThirdParty(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    {
+        return new ThirdPartyPacket
+        {
+            Source = source,
+            Destination = destination,
+            Path = path,
+            Raw = info,
+            Encapsulated = info.Length > 1 ? info[1..] : string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Parses an APRS query packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="destination">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed query packet.</returns>
+    private static QueryPacket ParseQuery(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    {
+        return new QueryPacket
+        {
+            Source = source,
+            Destination = destination,
+            Path = path,
+            Raw = info,
+            Query = info.Length > 1 ? info[1..] : string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Parses a raw GPS/NMEA packet from the info field string.
+    /// </summary>
+    /// <param name="info">The info field string.</param>
+    /// <param name="source">The source callsign.</param>
+    /// <param name="destination">The destination callsign.</param>
+    /// <param name="path">The path of the packet.</param>
+    /// <returns>The parsed raw GPS packet.</returns>
+    private static RawGpsPacket ParseRawGps(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    {
+        return new RawGpsPacket
+        {
+            Source = source,
+            Destination = destination,
+            Path = path,
+            Raw = info,
+            Sentence = info.Length > 1 ? info[1..] : string.Empty
+        };
     }
 
     private static bool TryParseLatitude(ReadOnlySpan<char> segment, out double latitude, out int precision)
@@ -610,6 +747,12 @@ public static class AprsInfoFieldParser
             addresseeStr = "APRS";
         }
 
+        // Bulletins are broadcast messages addressed to a BLN-prefixed name
+        // (e.g. BLN0SPCL). Capture the raw addressee before the callsign
+        // fallback below overwrites it.
+        var bulletinName = addresseeStr;
+        var isBulletin = addresseeStr.StartsWith("BLN", StringComparison.OrdinalIgnoreCase);
+
         // The addressee is arbitrary 9-character text per the APRS spec (e.g.
         // "EMAIL", bulletin names, third-party IDs) — a non-callsign must not
         // throw out of the parser; fall back to the standard APRS addressee and
@@ -702,6 +845,20 @@ public static class AprsInfoFieldParser
                     }
                 }
             }
+        }
+
+        if (isBulletin)
+        {
+            return new BulletinPacket
+            {
+                Source = source,
+                Destination = dest,
+                Path = path,
+                Raw = info,
+                Name = bulletinName,
+                Text = text,
+                MessageNumber = msgNumber
+            };
         }
 
         return new MessagePacket

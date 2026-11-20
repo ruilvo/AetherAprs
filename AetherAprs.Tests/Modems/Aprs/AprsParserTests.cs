@@ -130,17 +130,20 @@ public class AprsParserTests
     }
 
     [Fact]
-    public void ParseInfoField_CompressedObjectPosition_ReturnsPositionPacket()
+    public void ParseInfoField_CompressedObjectPosition_ReturnsObjectPacket()
     {
         var result = AprsInfoFieldParser.ParseInfoField(";TESTOBJ  *123456z/9-pFL>:4uBkQ",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(42.2419, pos.Location.Latitude, 4);
-        Assert.Equal(-8.59665, pos.Location.Longitude, 5);
-        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
-        Assert.Equal('u'.ToSymbolCode(), pos.Symbol.Code);
-        Assert.Equal(";TESTOBJ  *123456z/9-pFL>:4uBkQ", pos.Raw);
+        var obj = Assert.IsType<ObjectPacket>(result);
+        Assert.Equal("TESTOBJ", obj.Name);
+        Assert.True(obj.IsLive);
+        Assert.Equal("123456z", obj.RawTimestamp);
+        Assert.Equal(42.2419, obj.Location.Latitude, 4);
+        Assert.Equal(-8.59665, obj.Location.Longitude, 5);
+        Assert.Equal(SymbolTable.Primary, obj.Symbol.Table);
+        Assert.Equal('u'.ToSymbolCode(), obj.Symbol.Code);
+        Assert.Equal(";TESTOBJ  *123456z/9-pFL>:4uBkQ", obj.Raw);
     }
 
     [Fact]
@@ -205,17 +208,20 @@ public class AprsParserTests
     }
 
     [Fact]
-    public void ParseInfoField_ObjectPositionWithOverlayK_ReturnsPositionPacket()
+    public void ParseInfoField_ObjectPositionWithOverlayK_ReturnsObjectPacket()
     {
         var result = AprsInfoFieldParser.ParseInfoField(";EA1RKF   *251030z4327.49N/00808.92WKAbierto viernes 19h-22h",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
-        Assert.Equal(43.45816667, pos.Location.Latitude, 6);
-        Assert.Equal(-8.14866667, pos.Location.Longitude, 6);
-        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
-        Assert.Equal('K'.ToSymbolCode(), pos.Symbol.Code);
-        Assert.Equal("Abierto viernes 19h-22h", pos.Comment);
+        var obj = Assert.IsType<ObjectPacket>(result);
+        Assert.Equal("EA1RKF", obj.Name);
+        Assert.True(obj.IsLive);
+        Assert.Equal("251030z", obj.RawTimestamp);
+        Assert.Equal(43.45816667, obj.Location.Latitude, 6);
+        Assert.Equal(-8.14866667, obj.Location.Longitude, 6);
+        Assert.Equal(SymbolTable.Primary, obj.Symbol.Table);
+        Assert.Equal('K'.ToSymbolCode(), obj.Symbol.Code);
+        Assert.Equal("Abierto viernes 19h-22h", obj.Comment);
     }
 
     [Fact]
@@ -598,13 +604,125 @@ public class AprsParserTests
     }
 
     // ---------------------------------------------------------------
+    // Item parsing
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ParseInfoField_ItemLive_ReturnsItemPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(")ITEM123!4327.49N/00808.92WKTest",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var item = Assert.IsType<ItemPacket>(result);
+        Assert.Equal("ITEM123", item.Name);
+        Assert.True(item.IsLive);
+        Assert.Equal(43.45816667, item.Location.Latitude, 6);
+        Assert.Equal(-8.14866667, item.Location.Longitude, 6);
+        Assert.Equal(SymbolTable.Primary, item.Symbol.Table);
+        Assert.Equal('K'.ToSymbolCode(), item.Symbol.Code);
+        Assert.Equal("Test", item.Comment);
+    }
+
+    [Fact]
+    public void ParseInfoField_ItemKilled_ReturnsItemPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(")ITEM123_4327.49N/00808.92WK",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var item = Assert.IsType<ItemPacket>(result);
+        Assert.Equal("ITEM123", item.Name);
+        Assert.False(item.IsLive);
+        Assert.Equal(43.45816667, item.Location.Latitude, 6);
+    }
+
+    [Fact]
+    public void ParseInfoField_ItemNameTooShort_ReturnsUnknownPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(")AB!4327.49N/00808.92WK",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        Assert.IsType<UnknownPacket>(result);
+    }
+
+    // ---------------------------------------------------------------
+    // Third-party, query, and raw GPS parsing
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ParseInfoField_ThirdParty_ReturnsThirdPartyPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("}N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var thirdParty = Assert.IsType<ThirdPartyPacket>(result);
+        Assert.Equal("N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK", thirdParty.Encapsulated);
+    }
+
+    [Fact]
+    public void ParseInfoField_Query_ReturnsQueryPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("?APRS?",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var query = Assert.IsType<QueryPacket>(result);
+        Assert.Equal("APRS?", query.Query);
+    }
+
+    [Fact]
+    public void ParseInfoField_RawGps_ReturnsRawGpsPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("$GPGGA,123519,4807.038,N,01131.000,E",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var rawGps = Assert.IsType<RawGpsPacket>(result);
+        Assert.Equal("GPGGA,123519,4807.038,N,01131.000,E", rawGps.Sentence);
+    }
+
+    // ---------------------------------------------------------------
+    // Bulletin parsing
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public void ParseInfoField_Bulletin_ReturnsBulletinPacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":BLN0SPCL :Club meeting Friday",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var bulletin = Assert.IsType<BulletinPacket>(result);
+        Assert.Equal("BLN0SPCL", bulletin.Name);
+        Assert.Equal("Club meeting Friday", bulletin.Text);
+        Assert.Null(bulletin.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_BulletinWithNumber_ReturnsBulletinWithNumber()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":BLN0SPCL :Club meeting{7}",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var bulletin = Assert.IsType<BulletinPacket>(result);
+        Assert.Equal("BLN0SPCL", bulletin.Name);
+        Assert.Equal("Club meeting", bulletin.Text);
+        Assert.Equal(7, bulletin.MessageNumber);
+    }
+
+    [Fact]
+    public void ParseInfoField_NonBulletinMessage_ReturnsMessagePacket()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        Assert.IsType<MessagePacket>(result);
+    }
+
+    // ---------------------------------------------------------------
     // Unknown parsing
     // ---------------------------------------------------------------
 
     [Fact]
     public void ParseInfoField_UnknownType_ReturnsUnknownPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("$some weird data",
+        var result = AprsInfoFieldParser.ParseInfoField("#some weird data",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<UnknownPacket>(result);

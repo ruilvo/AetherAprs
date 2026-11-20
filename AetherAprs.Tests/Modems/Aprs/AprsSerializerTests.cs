@@ -587,19 +587,168 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Raw = "$SOME,WEIRD,DATA"
+            Raw = "#SOME,WEIRD,DATA"
         };
 
         var bytes = Ax25Serializer.Serialize(packet);
         var parsed = Ax25Parser.ParseFrame(bytes);
 
         var unknown = Assert.IsType<UnknownPacket>(parsed);
-        Assert.Equal("$SOME,WEIRD,DATA", unknown.Raw);
+        Assert.Equal("#SOME,WEIRD,DATA", unknown.Raw);
     }
 
     // ---------------------------------------------------------------
     // AprsPacket dispatch via FormatInfoField
     // ---------------------------------------------------------------
+
+    [Fact]
+    public void FormatInfoField_Object_RoundTripsThroughParser()
+    {
+        var packet = new ObjectPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Name = "TESTOBJ",
+            IsLive = true,
+            RawTimestamp = "123456z",
+            Location = new Coordinate(43.45816667, -8.14866667),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinCapitalLetterK),
+            Comment = "Abierto viernes 19h-22h",
+            Precision = 2
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var obj = Assert.IsType<ObjectPacket>(parsed);
+        Assert.Equal("TESTOBJ", obj.Name);
+        Assert.True(obj.IsLive);
+        Assert.Equal("123456z", obj.RawTimestamp);
+        Assert.Equal(43.45816667, obj.Location.Latitude, 4);
+        Assert.Equal(-8.14866667, obj.Location.Longitude, 4);
+        Assert.Equal(SymbolTable.Primary, obj.Symbol.Table);
+        Assert.Equal('K'.ToSymbolCode(), obj.Symbol.Code);
+        Assert.Equal("Abierto viernes 19h-22h", obj.Comment);
+    }
+
+    [Fact]
+    public void FormatInfoField_KilledObject_RoundTripsThroughParser()
+    {
+        var packet = new ObjectPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Name = "TESTOBJ",
+            IsLive = false,
+            RawTimestamp = "123456z",
+            Location = new Coordinate(43.45816667, -8.14866667),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinCapitalLetterK),
+            Precision = 2
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var obj = Assert.IsType<ObjectPacket>(parsed);
+        Assert.False(obj.IsLive);
+    }
+
+    [Fact]
+    public void FormatInfoField_Item_RoundTripsThroughParser()
+    {
+        var packet = new ItemPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Name = "ITEM123",
+            IsLive = true,
+            Location = new Coordinate(43.45816667, -8.14866667),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LatinCapitalLetterK),
+            Comment = "Test",
+            Precision = 2
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var item = Assert.IsType<ItemPacket>(parsed);
+        Assert.Equal("ITEM123", item.Name);
+        Assert.True(item.IsLive);
+        Assert.Equal(43.45816667, item.Location.Latitude, 4);
+        Assert.Equal(-8.14866667, item.Location.Longitude, 4);
+        Assert.Equal("Test", item.Comment);
+    }
+
+    [Fact]
+    public void FormatInfoField_Bulletin_RoundTripsThroughParser()
+    {
+        var packet = new BulletinPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Name = "BLN0SPCL",
+            Text = "Club meeting Friday"
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var bulletin = Assert.IsType<BulletinPacket>(parsed);
+        Assert.Equal("BLN0SPCL", bulletin.Name);
+        Assert.Equal("Club meeting Friday", bulletin.Text);
+        Assert.Null(bulletin.MessageNumber);
+    }
+
+    [Fact]
+    public void FormatInfoField_ThirdParty_RoundTripsThroughParser()
+    {
+        var packet = new ThirdPartyPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Encapsulated = "N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK"
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var thirdParty = Assert.IsType<ThirdPartyPacket>(parsed);
+        Assert.Equal("N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK", thirdParty.Encapsulated);
+    }
+
+    [Fact]
+    public void FormatInfoField_Query_RoundTripsThroughParser()
+    {
+        var packet = new QueryPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Query = "APRS?"
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var query = Assert.IsType<QueryPacket>(parsed);
+        Assert.Equal("APRS?", query.Query);
+    }
+
+    [Fact]
+    public void FormatInfoField_RawGps_RoundTripsThroughParser()
+    {
+        var packet = new RawGpsPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Sentence = "GPGGA,123519,4807.038,N,01131.000,E"
+        };
+
+        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+
+        var rawGps = Assert.IsType<RawGpsPacket>(parsed);
+        Assert.Equal("GPGGA,123519,4807.038,N,01131.000,E", rawGps.Sentence);
+    }
 
     [Fact]
     public void FormatInfoField_DispatchesOnConcreteType()
