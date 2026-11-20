@@ -42,4 +42,16 @@ public abstract record AprsPacket
     /// Gets the original source identifier when it is not a standard callsign.
     /// </summary>
     public string? RawSource { get; init; }
+
+    /// <summary>
+    /// Gets the raw AX.25 frame as uppercase hexadecimal (RF receive path only).
+    /// Empty for packets that did not originate from a KISS frame (e.g. APRS-IS).
+    /// </summary>
+    public string RawFrameHex { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the raw path portion of the packet (<c>source&gt;dest,path</c>).
+    /// Empty when the source did not expose a textual path.
+    /// </summary>
+    public string RawPath { get; init; } = string.Empty;
 }

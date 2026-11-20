@@ -152,4 +152,55 @@ public class Ax25SerializerPathTests
 
         Assert.Throws<ArgumentException>(() => Ax25Serializer.Serialize(packet));
     }
+
+    [Fact]
+    public void ParseFrame_DigipeaterWithHBitSet_PreservesHasBeenRepeated()
+    {
+        // Serialize a normal frame, then set the H bit (bit 7) on the first
+        // digipeater's SSID byte to simulate a hop that has already been repeated.
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Path = [new Callsign("WIDE1", 1), new Callsign("WIDE2", 1)],
+            Location = new Coordinate(37.7749, -122.4194),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+            Precision = 2
+        };
+
+        var frame = Ax25Serializer.Serialize(packet);
+
+        // Destination occupies bytes 0..6, source 7..13, first digipeater 14..20.
+        // The SSID byte of the first digipeater is at offset 20.
+        const int firstDigiSsidByte = 20;
+        frame[firstDigiSsidByte] |= 0x80;
+
+        var parsed = Ax25Parser.ParseFrame(frame);
+
+        Assert.Equal(2, parsed.Path.Count);
+        Assert.True(parsed.Path[0].HasBeenRepeated);
+        Assert.False(parsed.Path[1].HasBeenRepeated);
+    }
+
+    [Fact]
+    public void ParseFrame_DigipeaterWithoutHBit_HasBeenRepeatedIsFalse()
+    {
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Path = [new Callsign("WIDE1", 1)],
+            Location = new Coordinate(37.7749, -122.4194),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.LeftSquareBracket),
+            Precision = 2
+        };
+
+        var frame = Ax25Serializer.Serialize(packet);
+
+        var parsed = Ax25Parser.ParseFrame(frame);
+
+        var pos = Assert.IsType<PositionPacket>(parsed);
+        Assert.False(pos.Path[0].HasBeenRepeated);
+        Assert.False(pos.Source.HasBeenRepeated);
+    }
 }

@@ -128,8 +128,6 @@ public sealed class PacketRecordMapperTests
     [InlineData("Unknown")]
     [InlineData("MessageAck")]
     [InlineData("MessageRej")]
-    [InlineData("Telemetry")]
-    [InlineData("Capabilities")]
     [InlineData("Bogus")]
     public void MapToPacket_UnmappedPacketType_ReturnsUnknownPacket(string packetType)
     {
@@ -193,6 +191,111 @@ public sealed class PacketRecordMapperTests
 
         var status = Assert.IsType<StatusPacket>(packet);
         Assert.Null(status.Timestamp);
+    }
+
+    [Fact]
+    public void ToRecord_CopiesRawFrameAndPath()
+    {
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Location = new Coordinate(38.5, -9.0),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus),
+            RawFrameHex = "AA0000",
+            RawPath = "N0CALL>APRS,WIDE1-1"
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+
+        Assert.Equal("AA0000", record.RawFrameHex);
+        Assert.Equal("N0CALL>APRS,WIDE1-1", record.RawPath);
+    }
+
+    [Fact]
+    public void MapToPacket_RestoresRawFrameAndPath()
+    {
+        var record = CreateRecord("Status");
+        record.Status = new StatusDataRecord { Text = "x" };
+        record.RawFrameHex = "AA0000";
+        record.RawPath = "N0CALL>APRS,WIDE1-1";
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var status = Assert.IsType<StatusPacket>(packet);
+        Assert.Equal("AA0000", status.RawFrameHex);
+        Assert.Equal("N0CALL>APRS,WIDE1-1", status.RawPath);
+    }
+
+    [Fact]
+    public void MapToPacket_TelemetryRecord_ReturnsTelemetryPacket()
+    {
+        var record = CreateRecord("Telemetry");
+        record.Telemetry = new TelemetryDataRecord
+        {
+            SequenceNumber = 42,
+            Analog1 = 1.5,
+            Analog2 = 2.5,
+            Analog3 = 3.5,
+            DigitalValue = 0b101
+        };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var telemetry = Assert.IsType<TelemetryPacket>(packet);
+        Assert.Equal(42, telemetry.SequenceNumber);
+        Assert.Equal([1.5, 2.5, 3.5], telemetry.AnalogValues);
+        Assert.Equal((byte?)0b101, telemetry.DigitalValue);
+    }
+
+    [Fact]
+    public void ToRecord_TelemetryPacket_PersistsAnalogChannels()
+    {
+        var packet = new TelemetryPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            SequenceNumber = 7,
+            AnalogValues = [10.0, 20.0],
+            DigitalValue = 0xF0
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+
+        Assert.NotNull(record.Telemetry);
+        Assert.Equal(7, record.Telemetry!.SequenceNumber);
+        Assert.Equal(10.0, record.Telemetry.Analog1);
+        Assert.Equal(20.0, record.Telemetry.Analog2);
+        Assert.Null(record.Telemetry.Analog3);
+        Assert.Equal((byte?)0xF0, record.Telemetry.DigitalValue);
+    }
+
+    [Fact]
+    public void MapToPacket_CapabilitiesRecord_ReturnsCapabilitiesPacket()
+    {
+        var record = CreateRecord("Capabilities");
+        record.Capabilities = new CapabilitiesDataRecord { Text = "IGATE,MSG_CNT=0" };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var capabilities = Assert.IsType<CapabilitiesPacket>(packet);
+        Assert.Equal("IGATE,MSG_CNT=0", capabilities.Text);
+    }
+
+    [Fact]
+    public void ToRecord_CapabilitiesPacket_PersistsText()
+    {
+        var packet = new CapabilitiesPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Text = "IGATE,MSG_CNT=0"
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+
+        Assert.NotNull(record.Capabilities);
+        Assert.Equal("IGATE,MSG_CNT=0", record.Capabilities!.Text);
     }
 
     [Fact]

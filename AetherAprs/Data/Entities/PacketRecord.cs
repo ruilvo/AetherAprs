@@ -67,11 +67,24 @@ public sealed class PacketRecord
     /// </summary>
     public string RawInfo { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Raw AX.25 frame as uppercase hexadecimal (RF receive path only).
+    /// Empty for packets that did not originate from a KISS frame (e.g. APRS-IS).
+    /// </summary>
+    public string RawFrameHex { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Raw path portion of the packet (<c>source&gt;dest,path</c>).
+    /// </summary>
+    public string RawPath { get; set; } = string.Empty;
+
     // Owned types for packet-type-specific data
     public PositionDataRecord? Position { get; set; }
     public MessageDataRecord? Message { get; set; }
     public StatusDataRecord? Status { get; set; }
     public WeatherDataRecord? Weather { get; set; }
+    public TelemetryDataRecord? Telemetry { get; set; }
+    public CapabilitiesDataRecord? Capabilities { get; set; }
 }
 
 /// <summary>
@@ -153,4 +166,27 @@ public sealed class WeatherDataRecord
     public double? Pressure { get; set; }
     public double? RainLastHour { get; set; }
     public double? RainLast24Hours { get; set; }
+}
+
+/// <summary>
+/// Telemetry packet data (T#nnn format). Analog channels are stored as five
+/// fixed nullable columns (APRS telemetry supports up to five analog values).
+/// </summary>
+public sealed class TelemetryDataRecord
+{
+    public int SequenceNumber { get; set; }
+    public double? Analog1 { get; set; }
+    public double? Analog2 { get; set; }
+    public double? Analog3 { get; set; }
+    public double? Analog4 { get; set; }
+    public double? Analog5 { get; set; }
+    public byte? DigitalValue { get; set; }
+}
+
+/// <summary>
+/// Station capabilities packet data (&lt; format).
+/// </summary>
+public sealed class CapabilitiesDataRecord
+{
+    public string Text { get; set; } = string.Empty;
 }

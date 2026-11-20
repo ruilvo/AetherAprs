@@ -22,13 +22,22 @@ public readonly record struct Callsign
     public int? Ssid { get; }
 
     /// <summary>
+    /// Gets whether the "has been repeated" (H) bit was set on this address in the
+    /// received AX.25 frame. Meaningful for digipeater path entries (a repeated
+    /// digipeater has already handled the frame); always false when constructed
+    /// directly (e.g. for transmission).
+    /// </summary>
+    public bool HasBeenRepeated { get; }
+
+    /// <summary>
     /// Initializes a new instance of <see cref="Callsign"/>.
     /// </summary>
     /// <param name="callsignBase">The base callsign (2-6 alphanumeric characters).</param>
     /// <param name="ssid">Optional SSID (0-15).</param>
+    /// <param name="hasBeenRepeated">Whether the H bit was set on the received address.</param>
     /// <exception cref="ArgumentException">Thrown if <paramref name="callsignBase"/> is invalid.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="ssid"/> is out of range.</exception>
-    public Callsign(string callsignBase, int? ssid = null)
+    public Callsign(string callsignBase, int? ssid = null, bool hasBeenRepeated = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(callsignBase);
         callsignBase = callsignBase.Trim().ToUpperInvariant();
@@ -53,6 +62,7 @@ public readonly record struct Callsign
 
         Base = callsignBase;
         Ssid = ssid;
+        HasBeenRepeated = hasBeenRepeated;
     }
 
     /// <summary>

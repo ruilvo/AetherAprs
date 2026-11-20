@@ -71,6 +71,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(packet => packet.DestinationSsid).IsRequired();
             entity.Property(packet => packet.PacketType).IsRequired().HasMaxLength(16);
             entity.Property(packet => packet.RawInfo).IsRequired().HasMaxLength(256);
+            entity.Property(packet => packet.RawFrameHex).IsRequired().HasMaxLength(512);
+            entity.Property(packet => packet.RawPath).IsRequired().HasMaxLength(256);
             entity.Property(packet => packet.IsOutbound).IsRequired();
 
             // Indexes for efficient querying
@@ -114,6 +116,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.OwnsOne(packet => packet.Weather, weather =>
             {
                 // All weather fields are nullable
+            });
+
+            // Telemetry data (T#nnn): five nullable analog channels + digital value
+            entity.OwnsOne(packet => packet.Telemetry, telemetry =>
+            {
+                telemetry.Property(t => t.SequenceNumber).IsRequired();
+            });
+
+            // Capabilities data
+            entity.OwnsOne(packet => packet.Capabilities, capabilities =>
+            {
+                capabilities.Property(c => c.Text).IsRequired().HasMaxLength(256);
             });
         });
 

@@ -9,6 +9,7 @@ using AetherAprs.Models.Messaging;
 using Geo;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 
 namespace AetherAprs.Data.Mappers;
 
@@ -77,7 +78,9 @@ internal static class PacketRecordMapper
             PacketTimestamp = packet.Timestamp?.UtcDateTime,
             PortId = portId,
             IsOutbound = isOutbound,
-            RawInfo = packet.Raw
+            RawInfo = packet.Raw,
+            RawFrameHex = packet.RawFrameHex,
+            RawPath = packet.RawPath
         };
 
         // Map type-specific fields to owned types
@@ -129,6 +132,26 @@ internal static class PacketRecordMapper
                     Pressure = weather.Pressure,
                     RainLastHour = weather.Rain1h,
                     RainLast24Hours = weather.Rain24h
+                };
+                break;
+
+            case TelemetryPacket telemetry:
+                record.Telemetry = new TelemetryDataRecord
+                {
+                    SequenceNumber = telemetry.SequenceNumber,
+                    Analog1 = telemetry.AnalogValues.Count > 0 ? telemetry.AnalogValues[0] : null,
+                    Analog2 = telemetry.AnalogValues.Count > 1 ? telemetry.AnalogValues[1] : null,
+                    Analog3 = telemetry.AnalogValues.Count > 2 ? telemetry.AnalogValues[2] : null,
+                    Analog4 = telemetry.AnalogValues.Count > 3 ? telemetry.AnalogValues[3] : null,
+                    Analog5 = telemetry.AnalogValues.Count > 4 ? telemetry.AnalogValues[4] : null,
+                    DigitalValue = telemetry.DigitalValue
+                };
+                break;
+
+            case CapabilitiesPacket capabilities:
+                record.Capabilities = new CapabilitiesDataRecord
+                {
+                    Text = capabilities.Text
                 };
                 break;
         }
@@ -213,6 +236,28 @@ internal static class PacketRecordMapper
                         Timestamp = timestamp
                     },
 
+                PacketTypes.Telemetry when record.Telemetry != null =>
+                    new TelemetryPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        SequenceNumber = record.Telemetry.SequenceNumber,
+                        AnalogValues = BuildAnalogValues(record.Telemetry),
+                        DigitalValue = record.Telemetry.DigitalValue,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
+                    },
+
+                PacketTypes.Capabilities when record.Capabilities != null =>
+                    new CapabilitiesPacket
+                    {
+                        Source = source,
+                        Destination = destination,
+                        Text = record.Capabilities.Text,
+                        Raw = record.RawInfo,
+                        Timestamp = timestamp
+                    },
+
                 _ =>
                     new UnknownPacket
                     {
@@ -223,7 +268,13 @@ internal static class PacketRecordMapper
                     }
             };
 
-            return packet;
+            // Restore the raw frame/path metadata (present on RF/IS receive paths)
+            // via a with-expression so the concrete packet type is preserved.
+            return packet with
+            {
+                RawFrameHex = record.RawFrameHex,
+                RawPath = record.RawPath
+            };
         }
         catch (Exception ex)
         {
@@ -236,5 +287,32 @@ internal static class PacketRecordMapper
             );
             return null;
         }
+    }
+
+    /// <summary>
+    /// Rebuilds the telemetry analog-channel list from the five fixed nullable
+    /// columns, stopping at the first null (channels are populated contiguously).
+    /// </summary>
+    private static IReadOnlyList<double> BuildAnalogValues(TelemetryDataRecord telemetry)
+    {
+        var values = new List<double>(5);
+        foreach (var channel in new double?[]
+                 {
+                     telemetry.Analog1,
+                     telemetry.Analog2,
+                     telemetry.Analog3,
+                     telemetry.Analog4,
+                     telemetry.Analog5
+                 })
+        {
+            if (channel is null)
+            {
+                break;
+            }
+
+            values.Add(channel.Value);
+        }
+
+        return values;
     }
 }

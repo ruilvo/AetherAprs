@@ -284,6 +284,17 @@ public class AprsIsModemTests
     }
 
     [Fact]
+    public void ParseIsLine_SetsRawPath_ToPathPortionBeforeColon()
+    {
+        var line = "N0CALL>APZ001,WIDE1-1,WIDE2-1:!3830.00N/00906.00E#";
+        var result = InvokeParseIsLine(line);
+
+        Assert.NotNull(result);
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal("N0CALL>APZ001,WIDE1-1,WIDE2-1", pos.RawPath);
+    }
+
+    [Fact]
     public void ParseIsLine_WithSSID_ParsesCorrectly()
     {
         var line = "N0CALL-1>APZ001-5:!3830.00N/00906.00E#";

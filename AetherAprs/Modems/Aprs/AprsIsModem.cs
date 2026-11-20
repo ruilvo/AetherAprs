@@ -550,7 +550,13 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
 
         var packet = AprsInfoFieldParser.ParseInfoField(info, source, destination, pathList);
-        return packet with { RawSource = rawSource };
+        return packet with
+        {
+            RawSource = rawSource,
+            // The raw path portion of the IS line ("source>dest,path") before the
+            // colon, preserved verbatim for downstream raw-packet display.
+            RawPath = path
+        };
     }
 
     private static bool IsExtendedSourceIdentifier(string value)

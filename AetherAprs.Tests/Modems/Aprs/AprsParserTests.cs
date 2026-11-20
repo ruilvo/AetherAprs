@@ -701,6 +701,49 @@ public class AprsParserTests
         Assert.DoesNotContain('\0', pos.Source.Base);
     }
 
+    [Fact]
+    public void ParseFrame_SetsRawFrameHex_ToHexOfInputBytes()
+    {
+        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+
+        var result = Ax25Parser.ParseFrame(frame);
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(Convert.ToHexString(frame), pos.RawFrameHex);
+    }
+
+    [Fact]
+    public void ParseFrame_SetsRawPath_WithSourceDestAndDigipeaters()
+    {
+        // Use the real serializer so SSIDs in the path are faithfully encoded.
+        var packet = new PositionPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APZ001"),
+            Path = [new Callsign("WIDE1", 1), new Callsign("WIDE2", 1)],
+            Location = new Coordinate(38.5, -9.1),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2
+        };
+        var frame = Ax25Serializer.Serialize(packet);
+
+        var result = Ax25Parser.ParseFrame(frame);
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal("N0CALL>APZ001,WIDE1-1,WIDE2-1", pos.RawPath);
+    }
+
+    [Fact]
+    public void ParseFrame_SetsRawPath_WithoutDigipeaters_OmitsTrailingComma()
+    {
+        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+
+        var result = Ax25Parser.ParseFrame(frame);
+
+        var pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal("N0CALL>APZ001", pos.RawPath);
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
