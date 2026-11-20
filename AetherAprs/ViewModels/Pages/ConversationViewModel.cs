@@ -54,6 +54,7 @@ public partial class ConversationViewModel(
         DetachThread();
         _isNewConversation = true;
         _thread = null;
+        messageService.SetActiveConversation(null);
         Title = Strings.Get("NewMessage");
         DestinationCallsign = string.Empty;
         MessageText = string.Empty;
@@ -70,6 +71,7 @@ public partial class ConversationViewModel(
         MessageText = string.Empty;
         ErrorMessage = null;
         IsDestinationEditable = false;
+        messageService.SetActiveConversation(peer);
         AttachThread(messageService.GetOrCreateConversation(peer));
     }
 
@@ -172,8 +174,13 @@ public partial class ConversationViewModel(
     /// </summary>
     public void Detach()
     {
+        var peer = _thread?.Peer;
         DetachThread();
         _thread = null;
+        if (peer.HasValue)
+        {
+            messageService.ClearActiveConversation(peer.Value);
+        }
     }
 
     /// <inheritdoc />

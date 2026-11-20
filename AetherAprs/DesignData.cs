@@ -85,6 +85,7 @@ public static class DesignData
         services.AddSingleton<AprsSymbolMapConverter>();
         services.AddSingleton<IForegroundService, DesignTimeForegroundService>();
         services.AddSingleton<IKeepAliveService, KeepAliveService>();
+        services.AddSingleton<INotificationService, NoOpNotificationService>();
 
         // Register map layer services
         services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();

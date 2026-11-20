@@ -39,6 +39,7 @@ namespace AetherAprs.Android
             services.AddSingleton<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
             services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
             services.AddSingleton<AetherAprs.Services.Platform.ICompassService, CompassService>();
+            services.AddSingleton<AetherAprs.Services.Platform.INotificationService, AndroidNotificationService>();
         }
     }
 

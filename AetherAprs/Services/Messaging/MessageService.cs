@@ -10,6 +10,7 @@ using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using Avalonia;
 using Avalonia.Threading;
@@ -48,12 +49,14 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IPacketFactory _packetFactory;
     private readonly ILogger<MessageService> _logger;
     private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
+    private readonly INotificationService? _notificationService;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = new();
     private readonly object _dedupLock = new();
     private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
     private readonly Dictionary<string, DateTimeOffset> _dedupTable = new();
     private readonly Timer _retryTimer;
+    private Callsign? _activeConversationPeer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
@@ -66,7 +69,8 @@ public sealed class MessageService : IMessageService, IDisposable
         IAprsPortSettingsResolver portSettingsResolver,
         IPacketFactory packetFactory,
         ILogger<MessageService> logger,
-        IDbContextFactory<AppDbContext>? dbContextFactory = null)
+        IDbContextFactory<AppDbContext>? dbContextFactory = null,
+        INotificationService? notificationService = null)
     {
         _portService = portService;
         _packetStorageService = packetStorageService;
@@ -75,6 +79,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _packetFactory = packetFactory;
         _logger = logger;
         _dbContextFactory = dbContextFactory;
+        _notificationService = notificationService;
         _portService.PacketReceived += OnPacketReceived;
         _retryTimer = new Timer(ProcessRetries, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
@@ -89,6 +94,29 @@ public sealed class MessageService : IMessageService, IDisposable
         lock (_gate)
         {
             return GetOrCreateConversationUnlocked(peer);
+        }
+    }
+
+    public void SetActiveConversation(Callsign? peer)
+    {
+        lock (_gate)
+        {
+            _activeConversationPeer = peer;
+        }
+    }
+
+    public void ClearActiveConversation(Callsign peer)
+    {
+        lock (_gate)
+        {
+            // Only clear if the retired conversation is still the active one.
+            // Opening conversation B retires conversation A *after* B's
+            // Initialize already ran (MainViewModel retire-ordering), so an
+            // unconditional clear here would wipe B's active state.
+            if (_activeConversationPeer == peer)
+            {
+                _activeConversationPeer = null;
+            }
         }
     }
 
@@ -308,6 +336,20 @@ public sealed class MessageService : IMessageService, IDisposable
                 MoveConversationToFront(thread);
             }
         });
+
+        // Post a notification unless the user is already viewing this peer's
+        // conversation. Fire-and-forget: notifications must never break message
+        // ingestion, so any error is logged and swallowed.
+        if (_notificationService is not null)
+        {
+            lock (_gate)
+            {
+                if (_activeConversationPeer != peer)
+                {
+                    _ = ShowMessageNotificationAsync(peer, message.Text);
+                }
+            }
+        }
 
         // Auto-send ACK if enabled and message has a number
         if (_configurationService.Settings.Aprs.AutoAcknowledgeMessages && message.MessageNumber.HasValue)
@@ -540,6 +582,21 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         Dispatcher.UIThread.Post(action);
+    }
+
+    private async Task ShowMessageNotificationAsync(Callsign peer, string text)
+    {
+        try
+        {
+            await _notificationService!.ShowMessageNotificationAsync(
+                peer.ToString(),
+                text,
+                peer.ToString()).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to post message notification for {Peer}", peer);
+        }
     }
 
     /// <summary>

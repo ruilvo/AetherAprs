@@ -121,5 +121,13 @@ public sealed class MessagesViewModelTests : TestFixtureBase
             Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void SetActiveConversation(Callsign? peer)
+        {
+        }
+
+        public void ClearActiveConversation(Callsign peer)
+        {
+        }
     }
 }

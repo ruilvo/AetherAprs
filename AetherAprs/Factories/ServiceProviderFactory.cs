@@ -55,6 +55,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
         services.AddSingleton<ICompassService, NoOpCompassService>();
         services.AddSingleton<IKeepAliveService, KeepAliveService>();
+        services.AddSingleton<INotificationService, NoOpNotificationService>();
 
         // Register platform-specific services first
         registerPlatformServices(services);

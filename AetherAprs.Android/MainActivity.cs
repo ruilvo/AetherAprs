@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
+using AetherAprs.Factories.ViewModels;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Android.Services.Platform;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -32,6 +35,7 @@ public class MainActivity : AvaloniaMainActivity
     private BackInvokedCallback? backInvokedCallback;
     private StopPortsBroadcastReceiver? stopPortsReceiver;
     private bool permissionsRequested = false;
+    private string? pendingConversationCallsign;
 
     private const int NotificationPermissionRequestCode = 1000;
     private const int BluetoothPermissionRequestCode = 1100;
@@ -186,6 +190,56 @@ public class MainActivity : AvaloniaMainActivity
         if (backInvokedCallback != null)
         {
             OnBackInvokedDispatcher?.RegisterOnBackInvokedCallback(0, backInvokedCallback);
+        }
+
+        // Process a notification deep-link (cold start or resume with intent).
+        ProcessPendingConversation();
+    }
+
+    protected override void OnNewIntent(Intent? intent)
+    {
+        base.OnNewIntent(intent);
+
+        // Tapping a message notification reuses the activity (SingleTop|ClearTop)
+        // and delivers the new intent here rather than relaunching.
+        if (intent != null)
+        {
+            Intent = intent;
+            pendingConversationCallsign = intent.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra);
+        }
+    }
+
+    private void ProcessPendingConversation()
+    {
+        // Prefer the extra from the current intent, then any OnNewIntent value.
+        var callsign = Intent?.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra)
+            ?? pendingConversationCallsign;
+
+        pendingConversationCallsign = null;
+        if (string.IsNullOrWhiteSpace(callsign))
+        {
+            return;
+        }
+
+        // Clear the extra so a subsequent plain resume does not re-navigate.
+        Intent?.RemoveExtra(AndroidNotificationService.ConversationCallsignExtra);
+
+        if (!Callsign.TryParse(callsign, out var peer))
+        {
+            return;
+        }
+
+        var app = (App?)Avalonia.Application.Current;
+        if (app == null)
+        {
+            return;
+        }
+
+        var factory = app.ServiceProvider.GetService<IConversationViewModelFactory>();
+        var conversation = factory?.Create(peer);
+        if (conversation != null)
+        {
+            navigationService?.NavigateTo(conversation);
         }
     }
 

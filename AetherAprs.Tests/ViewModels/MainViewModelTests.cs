@@ -268,6 +268,14 @@ public sealed class MainViewModelTests
             Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public void SetActiveConversation(Callsign? peer)
+        {
+        }
+
+        public void ClearActiveConversation(Callsign peer)
+        {
+        }
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider

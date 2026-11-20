@@ -19,6 +19,7 @@ using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using Geo;
 using Microsoft.Extensions.Logging;
@@ -111,6 +112,160 @@ public sealed class MessageServiceTests
         var stored = Assert.Single(thread.Messages);
         Assert.False(stored.IsOutbound);
         Assert.Equal("Ping", stored.Text);
+    }
+
+    [Fact]
+    public async Task PacketReceived_NotViewingConversation_PostsNotification()
+    {
+        var portService = new FakePortService();
+        var notificationService = Substitute.For<INotificationService>();
+        var service = new MessageService(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            notificationService: notificationService);
+
+        var peer = new Callsign("K0PEER", 1);
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = peer,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL"),
+                Text = "Ping"
+            }
+        });
+
+        // Notification is fire-and-forget; give it a moment to complete.
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        await notificationService.Received(1).ShowMessageNotificationAsync(
+            "K0PEER-1",
+            "Ping",
+            "K0PEER-1",
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PacketReceived_ViewingConversation_SuppressesNotification()
+    {
+        var portService = new FakePortService();
+        var notificationService = Substitute.For<INotificationService>();
+        var service = new MessageService(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            notificationService: notificationService);
+
+        var peer = new Callsign("K0PEER", 1);
+        service.SetActiveConversation(peer);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = peer,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL"),
+                Text = "Ping"
+            }
+        });
+
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        await notificationService.DidNotReceive().ShowMessageNotificationAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void ClearActiveConversation_MatchingPeer_ClearsState()
+    {
+        var portService = new FakePortService();
+        var notificationService = Substitute.For<INotificationService>();
+        var service = new MessageService(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            notificationService: notificationService);
+
+        var peer = new Callsign("K0PEER", 1);
+        service.SetActiveConversation(peer);
+        service.ClearActiveConversation(peer);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = peer,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL"),
+                Text = "Ping"
+            }
+        });
+
+        // After clearing, the incoming message should post a notification again.
+        notificationService.Received(1).ShowMessageNotificationAsync(
+            "K0PEER-1",
+            "Ping",
+            "K0PEER-1",
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void ClearActiveConversation_DifferentPeer_DoesNotClear()
+    {
+        var portService = new FakePortService();
+        var notificationService = Substitute.For<INotificationService>();
+        var service = new MessageService(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            notificationService: notificationService);
+
+        var viewed = new Callsign("K0PEER", 1);
+        var other = new Callsign("K0OTH", 2);
+        service.SetActiveConversation(viewed);
+
+        // Clearing a different peer (e.g. retiring a stale overlay) must NOT
+        // clear the conversation actually being viewed.
+        service.ClearActiveConversation(other);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = viewed,
+                Destination = new Callsign("APRS"),
+                Addressee = new Callsign("N0CALL"),
+                Text = "Ping"
+            }
+        });
+
+        notificationService.DidNotReceive().ShowMessageNotificationAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
     }
 
 

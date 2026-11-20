@@ -259,6 +259,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Recebendo e transmitindo pacotes APRS</value></data>
   <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>Serviço em Primeiro Plano do AetherAprs</value></data>
   <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Mantém o AetherAprs ativo enquanto recebe e transmite pacotes</value></data>
+  <data name="MessageNotificationChannelName" xml:space="preserve"><value>Mensagens APRS</value></data>
+  <data name="MessageNotificationChannelDescription" xml:space="preserve"><value>Notificações de mensagens APRS recebidas</value></data>
   <data name="UseTemplate" xml:space="preserve"><value>Usar modelo</value></data>
   <data name="TemplatePickerTitle" xml:space="preserve"><value>Modelos de Mensagem</value></data>
   <data name="TemplatePickerTemplate" xml:space="preserve"><value>Modelo</value></data>
