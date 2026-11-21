@@ -12,6 +12,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:automation="clr-namespace:Avalonia.Automation;assembly=Avalonia.Controls"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.MessagesPage"
@@ -26,35 +27,40 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" Classes="PageContent">
-      <ItemsControl ItemsSource="{Binding Conversations}" 
-                    x:Name="ConversationsList"
-                    Classes="CardList"
-                    Margin="16,0">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Spacing="8" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="messaging:ConversationThread">
-            <controls:Card Classes="ClickableCard">
-              <Button Command="{Binding $parent[UserControl].((vm:MessagesViewModel)DataContext).OpenConversationCommand}"
-                      CommandParameter="{Binding}">
-                <StackPanel Spacing="4">
-                  <TextBlock Text="{Binding PeerDisplay}"
-                             Classes="Subtitle1"
-                             FontWeight="Bold" />
-                  <TextBlock Text="{Binding Preview}"
-                             Classes="Body2"
-                             TextWrapping="NoWrap"
-                             TextTrimming="CharacterEllipsis"
-                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
-                </StackPanel>
-              </Button>
-            </controls:Card>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <StackPanel>
+        <TextBlock Text="{loc:Loc MessagesEmptyState}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding !HasConversations}" />
+        <ItemsControl ItemsSource="{Binding Conversations}"
+                      x:Name="ConversationsList"
+                      Classes="CardList"
+                      Margin="16,0"
+                      IsVisible="{Binding HasConversations}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="messaging:ConversationThread">
+              <controls:Card Classes="ClickableCard">
+                <Button Command="{Binding $parent[UserControl].((vm:MessagesViewModel)DataContext).OpenConversationCommand}"
+                        CommandParameter="{Binding}">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding PeerDisplay}"
+                               Classes="Subtitle1" />
+                    <TextBlock Text="{Binding Preview}"
+                               Classes="Body2"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                  </StackPanel>
+                </Button>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
     </ScrollViewer>
 
     <controls:FloatingButton Grid.Row="1"
@@ -64,6 +70,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              MinHeight="56"
                              MinWidth="56"
                              x:Name="NewMessageButton"
+                             automation:AutomationProperties.Name="{loc:Loc NewMessage}"
                              Command="{Binding NewMessageCommand}">
       <Viewbox Width="24" Height="24">
         <avalonia:MaterialIcon Kind="Plus" Width="24" Height="24" />

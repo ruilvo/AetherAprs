@@ -25,7 +25,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <Button Classes="Flat"
               Padding="8"
               MinHeight="48"
-              ToolTip.Tip="{loc:Loc Back}"
+               ToolTip.Tip="{loc:Loc Back}"
+               AutomationProperties.Name="{loc:Loc Back}"
               Command="{Binding CloseCommand}">
         <avalonia:MaterialIcon Kind="ArrowLeft" Width="24" Height="24" />
       </Button>

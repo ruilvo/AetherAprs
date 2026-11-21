@@ -6,5 +6,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 <resources>
-  <color name="splash_background">#FFFFFF</color>
+  <color name="splash_background">#4CAF50</color>
 </resources>

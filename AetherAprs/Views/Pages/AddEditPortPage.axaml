@@ -41,8 +41,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <!-- Header -->
     <StackPanel Grid.Row="0" Spacing="8" Margin="16,16,16,0">
       <TextBlock Text="{Binding Title}"
-                 Classes="Headline5"
-                 FontWeight="Bold" />
+                 Classes="PageTitle" />
       <TextBlock Text="{loc:Loc ConfigureAprsPortSettings}"
                  Classes="Body2"
                  TextWrapping="Wrap"
@@ -184,7 +183,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Text="{Binding BleStatusText}"
                        TextWrapping="Wrap"
                        IsVisible="{Binding BleStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                       Foreground="{DynamicResource MaterialErrorBrush}" />
+                        Foreground="{DynamicResource MaterialValidationErrorBrush}" />
             <controls:Card Padding="0" Margin="0">
               <ListBox ItemsSource="{Binding BleDevices}"
                        SelectedItem="{Binding SelectedBleDevice}"
@@ -193,9 +192,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="bt:BluetoothLeAdvertisement">
                     <StackPanel Spacing="4" Margin="0,4">
-                      <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="SemiBold" />
-                      <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
-                      <TextBlock Text="{Binding Rssi, Converter={StaticResource RssiFormatConverter}}" Opacity="0.7" FontSize="12" />
+                      <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="Medium" />
+                      <TextBlock Text="{Binding Address}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" Classes="Caption" />
+                      <TextBlock Text="{Binding Rssi, Converter={StaticResource RssiFormatConverter}}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" Classes="Caption" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -219,7 +218,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Text="{Binding SppStatusText}"
                        TextWrapping="Wrap"
                        IsVisible="{Binding SppStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                       Foreground="{DynamicResource MaterialErrorBrush}" />
+                        Foreground="{DynamicResource MaterialValidationErrorBrush}" />
             <controls:Card Padding="0" Margin="0">
               <ListBox ItemsSource="{Binding SppDevices}"
                        SelectedItem="{Binding SelectedSppDevice}"
@@ -228,8 +227,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="bt:BluetoothClassicDevice">
                     <StackPanel Spacing="4" Margin="0,4">
-                      <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="SemiBold" />
-                      <TextBlock Text="{Binding Address}" Opacity="0.7" FontSize="12" />
+                      <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="Medium" />
+                      <TextBlock Text="{Binding Address}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" Classes="Caption" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>

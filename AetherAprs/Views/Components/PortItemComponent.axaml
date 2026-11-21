@@ -57,6 +57,7 @@ xmlns:loc="clr-namespace:AetherAprs.Localization;assembly=AetherAprs"
                 Padding="8"
                 VerticalAlignment="Center"
                 ToolTip.Tip="{loc:Loc ShowOnMapTooltip}"
+                AutomationProperties.Name="{loc:Loc ShowOnMapTooltip}"
                 Command="{Binding ToggleShowOnMapCommand}">
           <Panel>
             <avalonia:MaterialIcon Kind="Map"
@@ -77,6 +78,7 @@ xmlns:loc="clr-namespace:AetherAprs.Localization;assembly=AetherAprs"
                 BorderThickness="0"
                 Command="{Binding DeleteCommand}"
                 ToolTip.Tip="{loc:Loc DeletePortTooltip}"
+                AutomationProperties.Name="{loc:Loc DeletePortTooltip}"
                 VerticalAlignment="Center"
                 Padding="8">
           <avalonia:MaterialIcon Kind="Delete" Width="24" Height="24" Foreground="{DynamicResource MaterialErrorBrush}" />

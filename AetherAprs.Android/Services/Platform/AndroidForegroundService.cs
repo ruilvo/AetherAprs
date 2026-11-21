@@ -99,7 +99,22 @@ public class AetherAprsForegroundService : Service
 
         if (notification != null)
         {
-            StartForeground(NotificationId, notification);
+            try
+            {
+                StartForeground(NotificationId, notification);
+            }
+            catch (Java.Lang.SecurityException ex)
+            {
+                global::Android.Util.Log.Warn("AetherAprs", $"Foreground service unavailable: {ex.Message}");
+                StopSelf();
+                return StartCommandResult.NotSticky;
+            }
+            catch (ForegroundServiceStartNotAllowedException ex)
+            {
+                global::Android.Util.Log.Warn("AetherAprs", $"Foreground service unavailable: {ex.Message}");
+                StopSelf();
+                return StartCommandResult.NotSticky;
+            }
         }
 
         return StartCommandResult.Sticky;

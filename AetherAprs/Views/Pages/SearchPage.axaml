@@ -26,6 +26,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               Padding="8"
               MinHeight="48"
               ToolTip.Tip="{loc:Loc Back}"
+              AutomationProperties.Name="{loc:Loc Back}"
               Command="{Binding CloseCommand}">
         <avalonia:MaterialIcon Kind="ArrowLeft" Width="24" Height="24" />
       </Button>
@@ -85,7 +86,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                Classes="Body2"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0"
-                               Opacity="0.7"
+                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
                                IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                   </Grid>
                 </Button>

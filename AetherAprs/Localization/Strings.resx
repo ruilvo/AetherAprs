@@ -31,6 +31,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PortTypeKiss" xml:space="preserve"><value>KISS</value></data>
   <data name="PortTypeUnknown" xml:space="preserve"><value>Unknown</value></data>
   <data name="AddPort" xml:space="preserve"><value>Add Port</value></data>
+  <data name="PortsEmptyState" xml:space="preserve"><value>No ports configured yet.</value></data>
+  <data name="PortStartedFeedback" xml:space="preserve"><value>Port {0} started.</value></data>
+  <data name="PortStoppedFeedback" xml:space="preserve"><value>Port {0} stopped.</value></data>
+  <data name="PortSavedFeedback" xml:space="preserve"><value>Port saved.</value></data>
+  <data name="OfflineMapDownloadFinishedFeedback" xml:space="preserve"><value>Offline map downloaded.</value></data>
   <data name="EditPort" xml:space="preserve"><value>Edit Port</value></data>
   <data name="EditPortNamed" xml:space="preserve"><value>Edit {0}</value></data>
   <data name="ConfigureAprsPortSettings" xml:space="preserve"><value>Configure your APRS port settings</value></data>
@@ -134,6 +139,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Close" xml:space="preserve"><value>CLOSE</value></data>
   <data name="AprsMessageConversations" xml:space="preserve"><value>APRS message conversations</value></data>
   <data name="NewMessage" xml:space="preserve"><value>New Message</value></data>
+  <data name="MessagesEmptyState" xml:space="preserve"><value>No message conversations yet.</value></data>
   <data name="Back" xml:space="preserve"><value>Back</value></data>
   <data name="To" xml:space="preserve"><value>To</value></data>
   <data name="DestinationCallsignPlaceholder" xml:space="preserve"><value>Destination callsign (e.g. N0CALL-1)</value></data>

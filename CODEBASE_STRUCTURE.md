@@ -43,7 +43,7 @@ Converters/
 ├── Aprs/                  # APRS-specific converters
 │   └── AprsSsidConverter.cs
 └── UI/                    # General UI converters
-    ├── BoolToTrackingStatusConverter.cs
+    ├── CollectionEmptyToBoolConverter.cs
     ├── EnumDisplayConverter.cs
     ├── EnumToBoolConverter.cs
     ├── PacketDisplayTimeRangeConverter.cs

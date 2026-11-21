@@ -116,6 +116,7 @@ public static class ServiceProviderFactory
 
         // Register confirmation dialog service (shows dialogs through the main DialogHost)
         services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();
+        services.AddSingleton<ITransientFeedbackService, SnackbarTransientFeedbackService>();
 
         // Register KISS transport (TCP is always available; BLE/SPP come from platform)
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();

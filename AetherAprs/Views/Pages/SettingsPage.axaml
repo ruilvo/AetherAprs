@@ -297,7 +297,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Text="{loc:Loc MessageTemplatesSectionEntry}"
                                Classes="Subtitle1"
-                               FontWeight="Bold" />
+                               FontWeight="Medium" />
                     <TextBlock Text="{loc:Loc MessageTemplatesSectionEntryDescription}"
                                Classes="Body2"
                                TextWrapping="Wrap"
@@ -305,6 +305,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   </StackPanel>
                   <avalonia:MaterialIcon Grid.Column="1"
                                          Kind="ChevronRight"
+                                         AutomationProperties.IsControlElementOverride="False"
                                          Width="24"
                                          Height="24"
                                          VerticalAlignment="Center" />
@@ -330,7 +331,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <StackPanel Grid.Column="0" Spacing="4">
                   <TextBlock Text="{loc:Loc SearchSectionEntry}"
                              Classes="Subtitle1"
-                             FontWeight="Bold" />
+                             FontWeight="Medium" />
                   <TextBlock Text="{loc:Loc SearchSectionEntryDescription}"
                              Classes="Body2"
                              TextWrapping="Wrap"
@@ -338,6 +339,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 </StackPanel>
                 <avalonia:MaterialIcon Grid.Column="1"
                                        Kind="ChevronRight"
+                                       AutomationProperties.IsControlElementOverride="False"
                                        Width="24"
                                        Height="24"
                                        VerticalAlignment="Center" />
@@ -363,7 +365,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Text="{loc:Loc ObjectsSectionEntry}"
                                Classes="Subtitle1"
-                               FontWeight="Bold" />
+                               FontWeight="Medium" />
                     <TextBlock Text="{loc:Loc ObjectsSectionEntryDescription}"
                                Classes="Body2"
                                TextWrapping="Wrap"
@@ -371,6 +373,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   </StackPanel>
                   <avalonia:MaterialIcon Grid.Column="1"
                                          Kind="ChevronRight"
+                                         AutomationProperties.IsControlElementOverride="False"
                                          Width="24"
                                          Height="24"
                                          VerticalAlignment="Center" />
@@ -384,7 +387,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Text="{loc:Loc BulletinsSectionEntry}"
                                Classes="Subtitle1"
-                               FontWeight="Bold" />
+                               FontWeight="Medium" />
                     <TextBlock Text="{loc:Loc BulletinsSectionEntryDescription}"
                                Classes="Body2"
                                TextWrapping="Wrap"
@@ -392,6 +395,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   </StackPanel>
                   <avalonia:MaterialIcon Grid.Column="1"
                                          Kind="ChevronRight"
+                                         AutomationProperties.IsControlElementOverride="False"
                                          Width="24"
                                          Height="24"
                                          VerticalAlignment="Center" />

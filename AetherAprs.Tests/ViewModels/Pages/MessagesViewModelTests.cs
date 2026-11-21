@@ -36,6 +36,26 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     }
 
     [Fact]
+    public void ConversationChangesUpdateEmptyState()
+    {
+        var service = new FakeMessageService();
+        using var vm = CreateViewModel(service, Substitute.For<INavigationService>());
+        var changes = 0;
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MessagesViewModel.HasConversations))
+                changes++;
+        };
+
+        Assert.False(vm.HasConversations);
+        service.GetOrCreateConversation(new Callsign("K0PEER", 1));
+        Assert.True(vm.HasConversations);
+        service.Conversations.Clear();
+        Assert.False(vm.HasConversations);
+        Assert.Equal(2, changes);
+    }
+
+    [Fact]
     public void NewMessage_NavigatesToInitializedConversation()
     {
         var navigation = Substitute.For<INavigationService>();

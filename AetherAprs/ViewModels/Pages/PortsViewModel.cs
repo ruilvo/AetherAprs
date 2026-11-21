@@ -18,13 +18,15 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
-public partial class PortsViewModel : ViewModelBase
+public partial class PortsViewModel : ViewModelBase, IDisposable
 {
     private readonly IPortService _portService;
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
     private readonly IAddEditPortViewModelFactory _addEditPortViewModelFactory;
     private readonly IConfirmationDialogService _confirmationDialogService;
+    private readonly ITransientFeedbackService? _transientFeedbackService;
+    private readonly IUiDispatcher? _uiDispatcher;
     private readonly ILogger<PortsViewModel> _logger;
     private readonly ILoggerFactory _loggerFactory;
 
@@ -32,6 +34,7 @@ public partial class PortsViewModel : ViewModelBase
     public partial string Title { get; set; } = Localization.Strings.Get("Ports");
 
     public ObservableCollection<PortItemViewModel> PortItems { get; } = new();
+    public bool HasPorts => PortItems.Count > 0;
 
     public PortsViewModel(
         IPortService portService,
@@ -40,13 +43,17 @@ public partial class PortsViewModel : ViewModelBase
         IAddEditPortViewModelFactory addEditPortViewModelFactory,
         IConfirmationDialogService confirmationDialogService,
         ILogger<PortsViewModel> logger,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        ITransientFeedbackService? transientFeedbackService = null,
+        IUiDispatcher? uiDispatcher = null)
     {
         _portService = portService;
         _configurationService = configurationService;
         _navigationService = navigationService;
         _addEditPortViewModelFactory = addEditPortViewModelFactory;
         _confirmationDialogService = confirmationDialogService;
+        _transientFeedbackService = transientFeedbackService;
+        _uiDispatcher = uiDispatcher;
         _logger = logger;
         _loggerFactory = loggerFactory;
         _portService.PortsChanged += OnPortsChanged;
@@ -67,17 +74,33 @@ public partial class PortsViewModel : ViewModelBase
                 _loggerFactory.CreateLogger<PortItemViewModel>());
             PortItems.Add(item);
         }
+        OnPropertyChanged(nameof(HasPorts));
     }
 
     private void OnPortsChanged(object? sender, EventArgs e)
     {
-        LoadPorts();
+        if (_uiDispatcher is null)
+        {
+            LoadPorts();
+        }
+        else
+        {
+            _uiDispatcher.Post(LoadPorts);
+        }
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _portService.PortsChanged -= OnPortsChanged;
     }
 
     private async Task OnTogglePortAsync(PortItemViewModel item)
     {
         _logger.LogInformation("Toggle port {PortName} ({PortId}) Enabled={IsEnabled}", item.Name, item.Id, item.IsEnabled);
         await _portService.SetPortEnabledAsync(item.Id, item.IsEnabled);
+        _transientFeedbackService?.Show(Localization.Strings.Format(
+            item.IsEnabled ? "PortStartedFeedback" : "PortStoppedFeedback", item.Name));
     }
 
     private async Task OnToggleShowOnMapAsync(PortItemViewModel item)

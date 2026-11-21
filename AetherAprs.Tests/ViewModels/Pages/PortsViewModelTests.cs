@@ -60,6 +60,29 @@ public sealed class PortsViewModelTests
     }
 
     [Fact]
+    public void PortsChangedUpdatesEmptyState()
+    {
+        var portService = new TestPortService();
+        using var viewModel = new PortsViewModel(
+            portService, new TestConfigurationService(), Substitute.For<INavigationService>(),
+            Substitute.For<IAddEditPortViewModelFactory>(), new TestConfirmationDialogService(),
+            NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        var changes = 0;
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PortsViewModel.HasPorts))
+                changes++;
+        };
+
+        Assert.False(viewModel.HasPorts);
+        portService.ReplacePorts(CreatePort(new AprsIsSettings(), "Test"));
+        Assert.True(viewModel.HasPorts);
+        portService.ReplacePorts();
+        Assert.False(viewModel.HasPorts);
+        Assert.Equal(2, changes);
+    }
+
+    [Fact]
     public async Task TogglingPortForwardsEnabledState()
     {
         var port = CreatePort(new AprsIsSettings(), "Port");

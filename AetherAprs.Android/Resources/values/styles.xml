@@ -12,7 +12,16 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <style name="AetherAprsTheme.NoActionBar" parent="@style/Theme.AppCompat.DayNight.NoActionBar">
     <item name="android:windowActionBar">false</item>
-    <item name="android:windowBackground">@drawable/splash_screen</item>
     <item name="android:windowNoTitle">true</item>
+    <item name="android:statusBarColor">@android:color/transparent</item>
+    <item name="android:navigationBarColor">@android:color/transparent</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:windowLightNavigationBar">false</item>
+  </style>
+
+  <style name="AetherAprsTheme.Splash" parent="Theme.SplashScreen">
+    <item name="windowSplashScreenBackground">@color/splash_background</item>
+    <item name="windowSplashScreenAnimatedIcon">@drawable/icon_400px</item>
+    <item name="postSplashScreenTheme">@style/AetherAprsTheme.NoActionBar</item>
   </style>
 </resources>

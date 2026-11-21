@@ -49,6 +49,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         {
             Content = Strings.Get("Cancel"),
             MinWidth = 88,
+            MinHeight = 48,
             Padding = new Thickness(16, 0),
             HorizontalAlignment = HorizontalAlignment.Right
         };
@@ -58,6 +59,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         {
             Content = Strings.Get("Confirm"),
             MinWidth = 88,
+            MinHeight = 48,
             Padding = new Thickness(16, 0),
             HorizontalAlignment = HorizontalAlignment.Right
         };

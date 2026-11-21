@@ -32,6 +32,7 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
     private readonly IConfigurationService _configurationService;
     private readonly IAppDataDirProviderService _appDataDirProviderService;
     private readonly ILogger<DownloadOfflineMapViewModel>? _logger;
+    private readonly ITransientFeedbackService? _transientFeedbackService;
 
     private CancellationTokenSource? _downloadCts;
 
@@ -71,13 +72,15 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
         INavigationService navigationService,
         IConfigurationService configurationService,
         IAppDataDirProviderService appDataDirProviderService,
-        ILogger<DownloadOfflineMapViewModel>? logger = null)
+        ILogger<DownloadOfflineMapViewModel>? logger = null,
+        ITransientFeedbackService? transientFeedbackService = null)
     {
         _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         _appDataDirProviderService = appDataDirProviderService ?? throw new ArgumentNullException(nameof(appDataDirProviderService));
         _logger = logger;
+        _transientFeedbackService = transientFeedbackService;
     }
 
     private bool CanDownload() => !IsDownloading;
@@ -121,6 +124,7 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
 
             ProgressPercent = 100;
             StatusMessage = Strings.Format("OfflineMapDownloadComplete", outputPath);
+            _transientFeedbackService?.Show(Strings.Get("OfflineMapDownloadFinishedFeedback"));
         }
         catch (OperationCanceledException)
         {

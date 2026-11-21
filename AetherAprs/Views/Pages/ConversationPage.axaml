@@ -83,7 +83,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 Padding="8"
                 MinHeight="48"
                 VerticalAlignment="Stretch"
-                ToolTip.Tip="{loc:Loc UseTemplate}"
+                 ToolTip.Tip="{loc:Loc UseTemplate}"
+                 AutomationProperties.Name="{loc:Loc UseTemplate}"
                 Click="OnTemplateButtonClick">
           <avalonia:MaterialIcon Kind="CommentText" Width="24" Height="24" />
         </Button>

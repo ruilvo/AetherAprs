@@ -35,8 +35,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <!-- Badge style for type indicators -->
   <Style Selector="Border.TypeBadge">
     <Setter Property="Background" Value="{DynamicResource MaterialPrimaryLightBrush}" />
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Padding" Value="8,4" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
@@ -48,13 +48,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <!-- Primary badge (for important info like port type) -->
   <Style Selector="Border.PrimaryBadge">
     <Setter Property="Background" Value="{DynamicResource MaterialPrimaryBrush}" />
-    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="CornerRadius" Value="2" />
     <Setter Property="Padding" Value="8,4" />
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <Style Selector="Border.PrimaryBadge > TextBlock">
-    <Setter Property="Foreground" Value="White" />
+    <Setter Property="Foreground" Value="{DynamicResource MaterialPrimaryForegroundBrush}" />
     <Setter Property="TextAlignment" Value="Center" />
     <Setter Property="FontSize" Value="12" />
   </Style>

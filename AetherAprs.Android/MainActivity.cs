@@ -12,6 +12,7 @@ using Android.Content.PM;
 using Android.OS;
 using Android.Views;
 using Android.Window;
+using AndroidX.Core.View;
 using Avalonia.Android;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,7 @@ namespace AetherAprs.Android;
 
 [Activity(
     Label = "AetherAprs",
-    Theme = "@style/AetherAprsTheme.NoActionBar",
+    Theme = "@style/AetherAprsTheme.Splash",
     Icon = "@drawable/icon_400px",
     MainLauncher = true,
     WindowSoftInputMode = SoftInput.AdjustResize,
@@ -33,6 +34,7 @@ public class MainActivity : AvaloniaMainActivity
 {
     private INavigationService? navigationService;
     private BackInvokedCallback? backInvokedCallback;
+    private bool _backCallbackRegistered;
     private StopPortsBroadcastReceiver? stopPortsReceiver;
     private bool permissionsRequested = false;
     private string? pendingConversationCallsign;
@@ -185,7 +187,9 @@ public class MainActivity : AvaloniaMainActivity
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
+        AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
         base.OnCreate(savedInstanceState);
+        ConfigureSystemBars();
 
         Localization.UiCulture.Apply(new AetherAprs.Android.Services.Platform.AndroidUiCultureProvider().GetUiCulture());
 
@@ -204,6 +208,11 @@ public class MainActivity : AvaloniaMainActivity
     protected override void OnResume()
     {
         base.OnResume();
+        if (Avalonia.Application.Current is { } themeApplication)
+        {
+            themeApplication.ActualThemeVariantChanged += OnActualThemeVariantChanged;
+        }
+        ConfigureSystemBars();
 
         // Get navigation service and subscribe to exit requests
         if (navigationService == null)
@@ -223,14 +232,61 @@ public class MainActivity : AvaloniaMainActivity
             _ = RequestInitialPermissionsAsync();
         }
 
-        // Register callback for modern back handling on Android 13+
-        if (backInvokedCallback != null)
+        if (navigationService != null)
         {
-            OnBackInvokedDispatcher?.RegisterOnBackInvokedCallback(0, backInvokedCallback);
+            navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
         }
+        UpdateBackCallback();
 
         // Process a notification deep-link (cold start or resume with intent).
         ProcessPendingConversation();
+    }
+
+    private void ConfigureSystemBars()
+    {
+        var window = Window;
+        if (window is null)
+        {
+            return;
+        }
+        var isLightTheme = (Avalonia.Application.Current?.ActualThemeVariant
+            ?? Avalonia.Styling.ThemeVariant.Light) == Avalonia.Styling.ThemeVariant.Light;
+        var controller = WindowCompat.GetInsetsController(window, window.DecorView);
+        if (controller != null)
+        {
+            controller.AppearanceLightStatusBars = isLightTheme;
+            controller.AppearanceLightNavigationBars = isLightTheme;
+        }
+    }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
+    {
+        ConfigureSystemBars();
+    }
+
+    private void OnCurrentViewModelChanged(object? sender, AetherAprs.ViewModels.ViewModelBase? viewModel)
+    {
+        UpdateBackCallback();
+    }
+
+    private void UpdateBackCallback()
+    {
+        if (backInvokedCallback is null || OnBackInvokedDispatcher is null)
+        {
+            return;
+        }
+
+        var shouldRegister = navigationService?.CanGoBack == true;
+        if (shouldRegister && !_backCallbackRegistered)
+        {
+            OnBackInvokedDispatcher.RegisterOnBackInvokedCallback(0, backInvokedCallback);
+            _backCallbackRegistered = true;
+        }
+        else if (!shouldRegister && _backCallbackRegistered)
+        {
+            OnBackInvokedDispatcher.UnregisterOnBackInvokedCallback(backInvokedCallback);
+            _backCallbackRegistered = false;
+        }
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -445,10 +501,19 @@ public class MainActivity : AvaloniaMainActivity
 
     protected override void OnPause()
     {
+        if (Avalonia.Application.Current is { } app)
+        {
+            app.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
+        }
+        if (navigationService != null)
+        {
+            navigationService.CurrentViewModelChanged -= OnCurrentViewModelChanged;
+        }
         // Unregister the modern back callback for Android 13+
-        if (backInvokedCallback != null)
+        if (_backCallbackRegistered && backInvokedCallback != null)
         {
             OnBackInvokedDispatcher?.UnregisterOnBackInvokedCallback(backInvokedCallback);
+            _backCallbackRegistered = false;
         }
 
         base.OnPause();

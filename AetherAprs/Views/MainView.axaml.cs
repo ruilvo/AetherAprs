@@ -26,6 +26,10 @@ public partial class MainView : UserControl
             // Keyboard insets are wired through the ViewModel to avoid
             // service-locator use in the view.
             var topLevel = TopLevel.GetTopLevel(this);
+            if (OperatingSystem.IsAndroid() && topLevel?.InsetsManager is { } insetsManager)
+            {
+                insetsManager.DisplayEdgeToEdgePreference = true;
+            }
             if (DataContext is MainViewModel viewModel && topLevel != null)
             {
                 viewModel.InitializeKeyboardInsets(topLevel);

@@ -29,6 +29,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     private readonly IBluetoothLeScanner _bleScanner;
     private readonly IBluetoothClassicDeviceProvider _classicDeviceProvider;
     private readonly ILogger<AddEditPortViewModel>? _logger;
+    private readonly ITransientFeedbackService? _transientFeedbackService;
     private CancellationTokenSource? _bleScanCts;
     private PortConfig? _existingConfig;
     private bool _isNameManuallyEdited;
@@ -114,7 +115,8 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         IBluetoothLeScanner bleScanner,
         IBluetoothClassicDeviceProvider classicDeviceProvider,
         AprsIsFilterBuilderViewModel filterBuilder,
-        ILogger<AddEditPortViewModel>? logger = null)
+        ILogger<AddEditPortViewModel>? logger = null,
+        ITransientFeedbackService? transientFeedbackService = null)
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
@@ -123,6 +125,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         _classicDeviceProvider = classicDeviceProvider ?? throw new ArgumentNullException(nameof(classicDeviceProvider));
         FilterBuilder = filterBuilder ?? throw new ArgumentNullException(nameof(filterBuilder));
         _logger = logger;
+        _transientFeedbackService = transientFeedbackService;
 
         var supported = kissStreamFactory.SupportedTransports;
         AvailableKissTransportTypes = supported.Count > 0
@@ -199,6 +202,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             }
 
             _navigationService.GoBack();
+            _transientFeedbackService?.Show(Strings.Get("PortSavedFeedback"));
         }
         catch (Exception ex)
         {

@@ -13,6 +13,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:components="using:AetherAprs.Views.Components"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:automation="clr-namespace:Avalonia.Automation;assembly=Avalonia.Controls"
              xmlns:loc="using:AetherAprs.Localization"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PortsPage"
@@ -28,20 +29,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <!-- Port list or empty state -->
     <ScrollViewer Grid.Row="1" Classes="PageContent">
-      <ItemsControl ItemsSource="{Binding PortItems}" 
-                    Classes="CardList"
-                    Margin="16,0">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Spacing="8" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vmc:PortItemViewModel">
-            <ContentControl Content="{Binding}" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <StackPanel>
+        <TextBlock Text="{loc:Loc PortsEmptyState}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding !HasPorts}" />
+        <ItemsControl ItemsSource="{Binding PortItems}"
+                      Classes="CardList"
+                      Margin="16,0"
+                      IsVisible="{Binding HasPorts}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vmc:PortItemViewModel">
+              <ContentControl Content="{Binding}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
     </ScrollViewer>
 
     <!-- Floating Action Button -->
@@ -50,6 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                              VerticalAlignment="Bottom"
                              Margin="0,0,16,16"
                              x:Name="AddPortButton"
+                             automation:AutomationProperties.Name="{loc:Loc AddPort}"
                              MinHeight="56"
                              MinWidth="56"
                              Command="{Binding AddPortCommand}">
