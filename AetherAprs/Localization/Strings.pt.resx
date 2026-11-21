@@ -277,6 +277,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="OfflineMapInvalidLongitude" xml:space="preserve"><value>A longitude mínima tem de ser inferior à longitude máxima.</value></data>
   <data name="OfflineMapInvalidLatitude" xml:space="preserve"><value>A latitude mínima tem de ser inferior à latitude máxima.</value></data>
   <data name="OfflineMapInvalidZoom" xml:space="preserve"><value>Os níveis de zoom têm de estar entre {0} e {1}, com o mínimo inferior ou igual ao máximo.</value></data>
+  <data name="OfflineMapDrawArea" xml:space="preserve"><value>Desenhar área</value></data>
+  <data name="OfflineMapStopDrawing" xml:space="preserve"><value>Parar desenho</value></data>
+  <data name="OfflineMapDrawInstructions" xml:space="preserve"><value>Toque em “Desenhar área” e arraste no mapa para selecionar a região a descarregar.</value></data>
+  <data name="OfflineMapRegionSelected" xml:space="preserve"><value>Região selecionada: {0}</value></data>
+  <data name="OfflineMapClearSelection" xml:space="preserve"><value>Limpar seleção</value></data>
   <data name="DefaultBeaconComment" xml:space="preserve"><value>Comentário Predefinido de Beacon</value></data>
   <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Introduzir comentário (opcional)</value></data>
   <data name="DigipeaterPath" xml:space="preserve"><value>Caminho de Digipeater</value></data>

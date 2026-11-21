@@ -4,12 +4,14 @@
 
 using AetherAprs.Localization;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +35,7 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
     private readonly IAppDataDirProviderService _appDataDirProviderService;
     private readonly ILogger<DownloadOfflineMapViewModel>? _logger;
     private readonly ITransientFeedbackService? _transientFeedbackService;
+    private readonly ILocationTrackingService? _locationTrackingService;
 
     private CancellationTokenSource? _downloadCts;
 
@@ -67,13 +70,44 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool HasError { get; set; }
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DownloadCommand))]
+    public partial bool HasSelection { get; set; }
+
+    [ObservableProperty]
+    public partial string SelectionLabel { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool IsDrawMode { get; set; }
+
+    [ObservableProperty]
+    public partial string DrawModeButtonLabel { get; set; } = Strings.Get("OfflineMapDrawArea");
+
+    partial void OnIsDrawModeChanged(bool value)
+    {
+        DrawModeButtonLabel = Strings.Get(value ? "OfflineMapStopDrawing" : "OfflineMapDrawArea");
+    }
+
+    /// <summary>
+    /// Latitude to center the selection map on when it first loads, or null if the
+    /// device has not reported a location yet.
+    /// </summary>
+    public double? InitialLatitude => _locationTrackingService?.CurrentLocation?.Location.Latitude;
+
+    /// <summary>
+    /// Longitude to center the selection map on when it first loads, or null if the
+    /// device has not reported a location yet.
+    /// </summary>
+    public double? InitialLongitude => _locationTrackingService?.CurrentLocation?.Location.Longitude;
+
     public DownloadOfflineMapViewModel(
         IOfflineTilePackageDownloader downloader,
         INavigationService navigationService,
         IConfigurationService configurationService,
         IAppDataDirProviderService appDataDirProviderService,
         ILogger<DownloadOfflineMapViewModel>? logger = null,
-        ITransientFeedbackService? transientFeedbackService = null)
+        ITransientFeedbackService? transientFeedbackService = null,
+        ILocationTrackingService? locationTrackingService = null)
     {
         _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
@@ -81,9 +115,58 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
         _appDataDirProviderService = appDataDirProviderService ?? throw new ArgumentNullException(nameof(appDataDirProviderService));
         _logger = logger;
         _transientFeedbackService = transientFeedbackService;
+        _locationTrackingService = locationTrackingService;
     }
 
-    private bool CanDownload() => !IsDownloading;
+    private bool CanDownload() => !IsDownloading && HasSelection;
+
+    /// <summary>
+    /// Records a selection drawn on the map. The bounds are normalized so the smaller
+    /// longitude/latitude always become the minimums.
+    /// </summary>
+    public void SetSelection(double minLongitude, double minLatitude, double maxLongitude, double maxLatitude)
+    {
+        MinLongitude = Math.Min(minLongitude, maxLongitude);
+        MinLatitude = Math.Min(minLatitude, maxLatitude);
+        MaxLongitude = Math.Max(minLongitude, maxLongitude);
+        MaxLatitude = Math.Max(minLatitude, maxLatitude);
+        HasSelection = true;
+        HasError = false;
+        StatusMessage = string.Empty;
+        SelectionLabel = Strings.Format(
+            "OfflineMapRegionSelected",
+            FormatBounds(MinLatitude, MinLongitude, MaxLatitude, MaxLongitude));
+    }
+
+    [RelayCommand]
+    private void ToggleDrawMode()
+    {
+        IsDrawMode = !IsDrawMode;
+    }
+
+    [RelayCommand]
+    private void ClearSelection()
+    {
+        HasSelection = false;
+        MinLongitude = 0;
+        MinLatitude = 0;
+        MaxLongitude = 0;
+        MaxLatitude = 0;
+        SelectionLabel = string.Empty;
+        HasError = false;
+        StatusMessage = string.Empty;
+    }
+
+    private static string FormatBounds(double minLatitude, double minLongitude, double maxLatitude, double maxLongitude)
+    {
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "{0:F4}, {1:F4} → {2:F4}, {3:F4}",
+            minLatitude,
+            minLongitude,
+            maxLatitude,
+            maxLongitude);
+    }
 
     [RelayCommand(CanExecute = nameof(CanDownload))]
     private async Task DownloadAsync()

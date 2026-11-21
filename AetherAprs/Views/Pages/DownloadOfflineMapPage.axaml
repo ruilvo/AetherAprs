@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:loc="using:AetherAprs.Localization"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="1000"
              x:Class="AetherAprs.Views.Pages.DownloadOfflineMapPage"
              x:DataType="vm:DownloadOfflineMapViewModel"
@@ -22,62 +23,56 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </Style>
   </UserControl.Styles>
 
-  <Grid RowDefinitions="*,Auto">
-    <ScrollViewer Grid.Row="0" Classes="PageContent">
-      <StackPanel Classes="SettingsContainer">
+  <Grid RowDefinitions="Auto,3*,2*,Auto">
 
-        <!-- Header -->
-        <StackPanel Classes="PageHeader">
-          <TextBlock Classes="PageTitle"
-                     Text="{loc:Loc DownloadOfflineMap}" />
-          <TextBlock Classes="PageSubtitle"
-                     Text="{loc:Loc DownloadOfflineMapDescription}" />
-        </StackPanel>
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Margin="16,16,16,8" Spacing="8">
+      <TextBlock Classes="PageTitle"
+                 Text="{loc:Loc DownloadOfflineMap}" />
+      <TextBlock Classes="PageSubtitle"
+                 Text="{loc:Loc DownloadOfflineMapDescription}" />
+    </StackPanel>
 
-        <!-- Region bounds -->
+    <!-- Interactive selection map -->
+    <Border Grid.Row="1"
+            Margin="16,0"
+            CornerRadius="8"
+            ClipToBounds="True"
+            BorderThickness="1"
+            BorderBrush="{DynamicResource MaterialDividerBrush}">
+      <mapsui:MapControl x:Name="SelectionMap" />
+    </Border>
+
+    <!-- Controls -->
+    <ScrollViewer Grid.Row="2">
+      <StackPanel Classes="PageContainer">
+
         <StackPanel Spacing="12">
-          <TextBlock Classes="SectionTitle"
-                     Text="{loc:Loc DownloadRegion}" />
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc OfflineMapDrawInstructions}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
-          <StackPanel Spacing="4">
-            <TextBlock Classes="Body2" Text="{loc:Loc MinLatitude}" />
-            <NumericUpDown Value="{Binding MinLatitude}"
-                           Minimum="-90"
-                           Maximum="90"
-                           Increment="0.5"
-                           FormatString="F4" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="{Binding DrawModeButtonLabel}"
+                    Command="{Binding ToggleDrawModeCommand}"
+                    MinHeight="48" />
+            <Button Content="{loc:Loc OfflineMapClearSelection}"
+                    Command="{Binding ClearSelectionCommand}"
+                    Classes="Outline"
+                    MinHeight="48"
+                    IsVisible="{Binding HasSelection}" />
           </StackPanel>
 
-          <StackPanel Spacing="4">
-            <TextBlock Classes="Body2" Text="{loc:Loc MaxLatitude}" />
-            <NumericUpDown Value="{Binding MaxLatitude}"
-                           Minimum="-90"
-                           Maximum="90"
-                           Increment="0.5"
-                           FormatString="F4" />
-          </StackPanel>
-
-          <StackPanel Spacing="4">
-            <TextBlock Classes="Body2" Text="{loc:Loc MinLongitude}" />
-            <NumericUpDown Value="{Binding MinLongitude}"
-                           Minimum="-180"
-                           Maximum="180"
-                           Increment="0.5"
-                           FormatString="F4" />
-          </StackPanel>
-
-          <StackPanel Spacing="4">
-            <TextBlock Classes="Body2" Text="{loc:Loc MaxLongitude}" />
-            <NumericUpDown Value="{Binding MaxLongitude}"
-                           Minimum="-180"
-                           Maximum="180"
-                           Increment="0.5"
-                           FormatString="F4" />
-          </StackPanel>
+          <TextBlock Classes="Body2"
+                     Text="{Binding SelectionLabel}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}"
+                     IsVisible="{Binding HasSelection}" />
         </StackPanel>
 
         <!-- Zoom range -->
-        <StackPanel Spacing="12">
+        <StackPanel Spacing="8">
           <TextBlock Classes="SectionTitle"
                      Text="{loc:Loc DownloadZoomRange}" />
 
@@ -86,21 +81,23 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      TextWrapping="Wrap"
                      Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
-          <StackPanel Spacing="4">
-            <TextBlock Classes="Body2" Text="{loc:Loc MinZoom}" />
-            <NumericUpDown Value="{Binding MinZoom}"
-                           Minimum="0"
-                           Maximum="19"
-                           Increment="1" />
-          </StackPanel>
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="4">
+              <TextBlock Classes="Body2" Text="{loc:Loc MinZoom}" />
+              <NumericUpDown Value="{Binding MinZoom}"
+                             Minimum="0"
+                             Maximum="19"
+                             Increment="1" />
+            </StackPanel>
 
-          <StackPanel Spacing="4">
-            <TextBlock Classes="Body2" Text="{loc:Loc MaxZoom}" />
-            <NumericUpDown Value="{Binding MaxZoom}"
-                           Minimum="0"
-                           Maximum="19"
-                           Increment="1" />
-          </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+              <TextBlock Classes="Body2" Text="{loc:Loc MaxZoom}" />
+              <NumericUpDown Value="{Binding MaxZoom}"
+                             Minimum="0"
+                             Maximum="19"
+                             Increment="1" />
+            </StackPanel>
+          </Grid>
         </StackPanel>
 
         <!-- Progress -->
@@ -120,7 +117,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     </ScrollViewer>
 
     <!-- Action Buttons (sticky at bottom) -->
-    <Border Grid.Row="1"
+    <Border Grid.Row="3"
             Background="{DynamicResource MaterialBackgroundBrush}"
             BorderThickness="0,1,0,0"
             BorderBrush="{DynamicResource MaterialDividerBrush}"
@@ -141,7 +138,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <Button Content="{loc:Loc Close}"
                 Command="{Binding CloseCommand}"
                 MinWidth="80"
-                MinHeight="48" />
+                MinHeight="48"
+                Classes="Outline" />
       </StackPanel>
     </Border>
   </Grid>
