@@ -38,6 +38,7 @@ The user guides are in [`DOCS/wiki`](DOCS/wiki):
 - [Beaconing](DOCS/wiki/Beaconing-Setup.md)
 - [Messaging](DOCS/wiki/Messaging.md)
 - [APRS Paths and Comments](DOCS/wiki/APRS-Path-and-Comments.md)
+- [Production-Grade Design Sheet](DOCS/wiki/Production-Grade-Design-Sheet.md)
 
 ## Build
 

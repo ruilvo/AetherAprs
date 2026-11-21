@@ -10,6 +10,10 @@ AetherAprs is an Android-first Avalonia UI 12 application targeting .NET 10. It 
 CommunityToolkit.Mvvm, Material.Avalonia, EF Core with SQLite, Mapsui, and
 Microsoft.Extensions.DependencyInjection.
 
+The product roadmap, GA requirements, capability matrix, architecture decisions, and
+field-test gates are maintained in the
+[Production-Grade Design Sheet](Production-Grade-Design-Sheet.md).
+
 ## Data flows
 
 Received packets follow:
