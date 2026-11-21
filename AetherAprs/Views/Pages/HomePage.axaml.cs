@@ -21,6 +21,7 @@ namespace AetherAprs.Views.Pages;
 public partial class HomePage : UserControl
 {
     private HomeViewModel? _currentViewModel;
+    private MPoint? _pendingCenterPoint;
 
     public HomePage()
     {
@@ -28,6 +29,8 @@ public partial class HomePage : UserControl
         InitializeMap();
         DataContextChanged += OnDataContextChanged;
         MapControl.PointerPressed += OnMapPointerPressed;
+        Loaded += (_, _) => TryApplyPendingCenter();
+        SizeChanged += (_, _) => TryApplyPendingCenter();
     }
 
     private void InitializeMap()
@@ -119,11 +122,40 @@ public partial class HomePage : UserControl
     private void OnCenterOnPointRequested(object? sender, MPoint mapPoint)
     {
         var navigator = MapControl.Map?.Navigator;
-        if (navigator is null)
+        if (navigator is null || !HasMapViewport(navigator))
+        {
+            _pendingCenterPoint = mapPoint;
+            return;
+        }
+
+        ApplyCenterPoint(navigator, mapPoint);
+    }
+
+    private void TryApplyPendingCenter()
+    {
+        if (_pendingCenterPoint is not { } mapPoint)
         {
             return;
         }
 
+        var navigator = MapControl.Map?.Navigator;
+        if (navigator is null || !HasMapViewport(navigator))
+        {
+            return;
+        }
+
+        _pendingCenterPoint = null;
+        ApplyCenterPoint(navigator, mapPoint);
+    }
+
+    private static bool HasMapViewport(Navigator navigator)
+    {
+        var viewport = navigator.Viewport;
+        return viewport.Width > 0 && viewport.Height > 0;
+    }
+
+    private static void ApplyCenterPoint(Navigator navigator, MPoint mapPoint)
+    {
         // Prefer an animated CenterOnAndZoomTo when resolutions are available.
         if (navigator.Resolutions.Count > 9)
         {

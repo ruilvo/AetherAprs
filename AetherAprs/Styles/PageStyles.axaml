@@ -22,6 +22,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <Style Selector="TextBlock.PageTitle">
     <Setter Property="FontSize" Value="20" />
     <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="Foreground" Value="{DynamicResource MaterialBodyBrush}" />
   </Style>
 
   <!-- Page subtitle/description text -->

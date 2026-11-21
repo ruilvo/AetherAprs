@@ -35,7 +35,7 @@ public interface IPacketQueryService
     /// Gets packets from a specific port.
     /// </summary>
     /// <param name="portId">The port ID to filter by.</param>
-    /// <param name="limit">Maximum number of packets to retrieve.</param>
+    /// <param name="limit">Maximum number of packets to retrieve. Defaults to a bounded map history.</param>
     /// <returns>List of packet records from the specified port.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPacketsByPortAsync(Guid portId, int limit = 500, CancellationToken cancellationToken = default);
 
@@ -54,7 +54,7 @@ public interface IPacketQueryService
     /// <param name="cutoffTime">Optional cutoff; only packets received at or after this time are returned.</param>
     /// <param name="limit">Maximum number of packets to retrieve.</param>
     /// <returns>A list of position packet records ordered by most recent first.</returns>
-    Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(DateTimeOffset? cutoffTime = null, int limit = 50000, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(DateTimeOffset? cutoffTime = null, int limit = 5000, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the most recent object packet per object name.

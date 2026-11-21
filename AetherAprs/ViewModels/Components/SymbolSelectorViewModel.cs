@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Components;
 
@@ -20,6 +21,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
     private readonly IAprsSymbolBitmapProvider? _symbolBitmapProvider;
     private readonly Func<SKBitmap, Bitmap?> _previewFactory;
     private readonly bool _isOverlayMode;
+    private bool _previewsLoading;
 
     [ObservableProperty]
     public partial int SelectedTabIndex { get; set; }
@@ -71,56 +73,64 @@ public partial class SymbolSelectorViewModel : ViewModelBase
         }
     }
 
-    private IReadOnlyList<SymbolGridItem> GenerateSymbolGridItems(SymbolTable table, IEnumerable<SymbolCode> codes)
+    public async Task LoadPreviewsAsync()
     {
-        return [.. codes.Select(code =>
+        if (_symbolBitmapProvider == null || _previewsLoading)
         {
-            Bitmap? preview = null;
-            if (_symbolBitmapProvider != null)
+            return;
+        }
+
+        _previewsLoading = true;
+        try
+        {
+            // Let the dialog render before doing the first synchronous bitmap extraction.
+            await Task.Yield();
+
+            foreach (var item in PrimarySymbols.Concat(AlternateSymbols))
             {
                 try
                 {
-                    var symbol = new Symbol(table, code);
-                    preview = _previewFactory(_symbolBitmapProvider.GetSymbolBitmap(symbol));
+                    var preview = _isOverlayMode
+                        ? _previewFactory(_symbolBitmapProvider.GetOverlayBitmap(item.Code))
+                        : _previewFactory(_symbolBitmapProvider.GetSymbolBitmap(new Symbol(item.Table, item.Code)));
+                    item.Preview = preview;
                 }
                 catch
                 {
-                    preview = null;
+                    // A missing glyph must not prevent the remaining symbols from loading.
                 }
-            }
 
+                // Keep the UI responsive and let each generated image appear incrementally.
+                await Task.Yield();
+            }
+        }
+        finally
+        {
+            _previewsLoading = false;
+        }
+    }
+
+    private static IReadOnlyList<SymbolGridItem> GenerateSymbolGridItems(SymbolTable table, IEnumerable<SymbolCode> codes)
+    {
+        return [.. codes.Select(code =>
+        {
             return new SymbolGridItem
             {
                 Code = code,
                 Table = table,
-                Preview = preview,
                 Character = code.ToChar().ToString()
             };
         })];
     }
 
-    private IReadOnlyList<SymbolGridItem> GenerateOverlayGridItems(IEnumerable<SymbolCode> codes)
+    private static IReadOnlyList<SymbolGridItem> GenerateOverlayGridItems(IEnumerable<SymbolCode> codes)
     {
         return [.. codes.Select(code =>
         {
-            Bitmap? preview = null;
-            if (_symbolBitmapProvider != null)
-            {
-                try
-                {
-                    preview = _previewFactory(_symbolBitmapProvider.GetOverlayBitmap(code));
-                }
-                catch
-                {
-                    preview = null;
-                }
-            }
-
             return new SymbolGridItem
             {
                 Code = code,
                 Table = SymbolTable.Alternate, // Overlays are always associated with Alternate table
-                Preview = preview,
                 Character = code.ToChar().ToString()
             };
         })];
@@ -161,10 +171,13 @@ public partial class SymbolSelectorViewModel : ViewModelBase
     }
 }
 
-public class SymbolGridItem
+public partial class SymbolGridItem : ObservableObject
 {
     public SymbolCode Code { get; init; }
     public SymbolTable Table { get; init; }
-    public Bitmap? Preview { get; init; }
+
+    [ObservableProperty]
+    public partial Bitmap? Preview { get; set; }
+
     public string Character { get; init; } = string.Empty;
 }

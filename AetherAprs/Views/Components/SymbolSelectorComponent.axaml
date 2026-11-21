@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="500"
              x:Class="AetherAprs.Views.Components.SymbolSelectorComponent"
              x:DataType="vm:SymbolSelectorViewModel">
-  <StackPanel>
+   <StackPanel Spacing="12">
     <!-- TabControl for symbol tables (not overlay mode) -->
     <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" 
                 Height="400"
@@ -100,6 +100,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
-    </ScrollViewer>
-  </StackPanel>
+     </ScrollViewer>
+
+     <Button Content="{loc:Loc Cancel}"
+             HorizontalAlignment="Right"
+             MinWidth="120"
+             Click="OnCancelClick"
+             Classes="Outline" />
+   </StackPanel>
 </UserControl>

@@ -106,6 +106,10 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
             foreach (var name in GetPlaceholderNames(template.Body))
             {
                 var field = new TemplateFieldViewModel(name);
+                if (template.FieldDefaults.TryGetValue(name, out var defaultValue))
+                {
+                    field.Value = defaultValue;
+                }
                 field.PropertyChanged += OnFieldPropertyChanged;
                 Fields.Add(field);
             }

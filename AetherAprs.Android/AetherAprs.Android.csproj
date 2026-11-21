@@ -15,6 +15,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <!-- Device validation uses a self-contained APK; do not depend on Fast Deployment files. -->
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
     <!-- Material.Avalonia.DataGrid 3.20.0 references an absent TreeDataGrid
          assembly from a DynamicDependency attribute; trimming fails before
          packaging. Keep all managed assemblies until the package is fixed. -->

@@ -11,6 +11,7 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Views;
+using DialogHostAvalonia;
 using Android.Window;
 using AndroidX.Core.View;
 using Avalonia.Android;
@@ -525,6 +526,12 @@ public class MainActivity : AvaloniaMainActivity
 
     private void HandleBackPressed()
     {
+        if (DialogHost.GetDialogSession("MainDialogHost") != null)
+        {
+            DialogHost.Close("MainDialogHost", false);
+            return;
+        }
+
         if (navigationService != null)
         {
             navigationService.GoBack();

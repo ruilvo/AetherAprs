@@ -454,7 +454,9 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                 }
                 else
                 {
-                    FaultConnectionReady(connectionReady, new InvalidOperationException($"APRS-IS login was rejected: {line}"));
+                    var exception = new InvalidOperationException($"APRS-IS login was rejected: {line}");
+                    FaultConnectionReady(connectionReady, exception);
+                    throw exception;
                 }
             }
 

@@ -26,7 +26,8 @@ xmlns:loc="clr-namespace:AetherAprs.Localization;assembly=AetherAprs"
         <StackPanel>
           <!-- Port name -->
           <TextBlock Text="{Binding Name}"
-                     Classes="Headline6" />
+                     Classes="Headline6"
+                     Foreground="{DynamicResource MaterialBodyBrush}" />
           
           <!-- Status text -->
           <TextBlock Text="{Binding StatusText}"

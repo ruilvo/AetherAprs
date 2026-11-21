@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System.Collections.Generic;
+
 namespace AetherAprs.Configuration.Settings;
 
 /// <summary>
@@ -25,4 +27,9 @@ public class MessageTemplate
     /// {summit}, {freq}, {mode} and {comment}.
     /// </summary>
     public string Body { get; set; } = "";
+
+    /// <summary>
+    /// Gets or sets optional initial values for named placeholders.
+    /// </summary>
+    public Dictionary<string, string> FieldDefaults { get; set; } = new();
 }

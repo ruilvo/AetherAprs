@@ -195,7 +195,6 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 "Failed to bind appsettings values; some settings may use defaults.");
         }
 
-        EnsureMessageTemplatesSeeded();
         SanitizeMessageTemplates();
     }
 
@@ -332,42 +331,6 @@ public class ConfigurationService : IConfigurationService, IDisposable
     }
 
     /// <summary>
-    /// Appends the default message template and persists it when the
-    /// configuration has no MessageTemplates section, so the section exists
-    /// on disk for later edits.
-    /// </summary>
-    private void EnsureMessageTemplatesSeeded()
-    {
-        if (_configuration.GetSection("MessageTemplates").Exists())
-        {
-            return;
-        }
-
-        _logger.LogInformation(
-            "MessageTemplates section missing; seeding default message template.");
-
-        Settings.MessageTemplates.Templates.Add(new MessageTemplate
-        {
-            Name = "APRS2SOTA Spot",
-            Destination = "SOTA",
-            Body = "{summit} {freq} {mode} {comment}"
-        });
-
-        try
-        {
-            SaveSettingsSync();
-        }
-        catch (Exception ex)
-        {
-            // Seeding must not prevent startup when the settings file cannot
-            // be written (e.g. read-only storage).
-            _logger.LogError(
-                ex,
-                "Failed to persist seeded message templates.");
-        }
-    }
-
-    /// <summary>
     /// Drops message templates that are unusable: a null/whitespace name, a
     /// destination that is not a valid callsign, or a name that duplicates an
     /// earlier template (case-insensitive). First occurrences are kept in
@@ -455,7 +418,8 @@ public class ConfigurationService : IConfigurationService, IDisposable
                         {
                             Name = template.Name,
                             Destination = template.Destination,
-                            Body = template.Body
+                            Body = template.Body,
+                            FieldDefaults = new Dictionary<string, string>(template.FieldDefaults)
                         })
                         .ToList()
                 },

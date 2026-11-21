@@ -19,6 +19,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <themes:MaterialTheme BaseTheme="Inherit" PrimaryColor="Green" SecondaryColor="Teal" />
         <dialogHost:DialogHostStyles />
         <materialIcons:MaterialIconStyles />
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource MaterialBodyBrush}" />
+        </Style>
         <StyleInclude Source="/Styles/PageStyles.axaml" />
         <StyleInclude Source="/Styles/CardStyles.axaml" />
     </Application.Styles>

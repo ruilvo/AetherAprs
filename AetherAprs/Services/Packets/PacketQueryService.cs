@@ -222,7 +222,7 @@ public sealed class PacketQueryService(
 
     public async Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(
         DateTimeOffset? cutoffTime = null,
-        int limit = 50000,
+        int limit = 5000,
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

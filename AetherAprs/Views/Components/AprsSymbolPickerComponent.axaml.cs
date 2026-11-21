@@ -117,7 +117,13 @@ public partial class AprsSymbolPickerComponent : UserControl
                 DialogHost.Close("MainDialogHost");
             }
 
+            static void OnCancelRequested(object? s, EventArgs args)
+            {
+                DialogHost.Close("MainDialogHost", false);
+            }
+
             selectorViewModel.SymbolSelected += OnSymbolSelected;
+            view.CancelRequested += OnCancelRequested;
 
             try
             {
@@ -131,6 +137,7 @@ public partial class AprsSymbolPickerComponent : UserControl
             finally
             {
                 selectorViewModel.SymbolSelected -= OnSymbolSelected;
+                view.CancelRequested -= OnCancelRequested;
             }
         }
         catch (Exception ex)
@@ -160,7 +167,13 @@ public partial class AprsSymbolPickerComponent : UserControl
                 DialogHost.Close("MainDialogHost");
             }
 
+            static void OnCancelRequested(object? s, EventArgs args)
+            {
+                DialogHost.Close("MainDialogHost", false);
+            }
+
             selectorViewModel.SymbolSelected += OnSymbolSelected;
+            view.CancelRequested += OnCancelRequested;
 
             try
             {
@@ -174,6 +187,7 @@ public partial class AprsSymbolPickerComponent : UserControl
             finally
             {
                 selectorViewModel.SymbolSelected -= OnSymbolSelected;
+                view.CancelRequested -= OnCancelRequested;
             }
         }
         catch (Exception ex)

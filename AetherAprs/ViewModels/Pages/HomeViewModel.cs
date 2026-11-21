@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
@@ -35,7 +36,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly INavigationService _navigationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<HomeViewModel> _logger;
-    private Dictionary<Guid, bool> _previousPortEnabledState = new();
+    private readonly HashSet<Guid> _initialBeaconSentPorts = [];
+    private readonly SemaphoreSlim _initialBeaconLock = new(1, 1);
     private bool _disposed;
     private bool _hasReceivedFirstLocation;
 
@@ -83,9 +85,6 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         Map = mapViewModel;
         BaseMapLayer = _mapTileSourceService.CreateBaseMapLayer();
 
-        _previousPortEnabledState = _portService.Ports
-            .ToDictionary(port => port.Id, port => port.IsEnabled);
-
         // Subscribe to events
         _portService.PortsChanged += OnPortsChanged;
         _locationTrackingService.LocationUpdated += OnLocationUpdated;
@@ -124,6 +123,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
                 {
                     _beaconTransmissionService.ProcessLocationUpdate(currentLocation);
                 }
+
+                _ = ReconcileInitialBeaconsAsync();
             }
             catch (Exception ex)
             {
@@ -136,24 +137,54 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            var enabledTxPorts = _portService.Ports.Where(port => port.IsTx).ToList();
-            var portsJustEnabled = enabledTxPorts
-                .Where(port => port.IsEnabled && !_previousPortEnabledState.GetValueOrDefault(port.Id))
-                .ToList();
-
-            _previousPortEnabledState = enabledTxPorts
-                .ToDictionary(port => port.Id, port => port.IsEnabled);
-
-            if (portsJustEnabled.Count > 0 && _locationTrackingService.CurrentLocation != null)
-            {
-                await _beaconTransmissionService.SendInitialBeaconOnPortActivationAsync(
-                    _locationTrackingService.CurrentLocation,
-                    portsJustEnabled);
-            }
+            await ReconcileInitialBeaconsAsync();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending initial beacon on port activation");
+        }
+    }
+
+    private async Task ReconcileInitialBeaconsAsync()
+    {
+        var location = _locationTrackingService.CurrentLocation;
+        if (location is null)
+        {
+            return;
+        }
+
+        await _initialBeaconLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var ports = _portService.Ports;
+            _initialBeaconSentPorts.RemoveWhere(portId =>
+                !ports.Any(port => port.Id == portId && port.IsEnabled && port.IsTx));
+
+            var portsToBeacon = ports
+                .Where(port => port.IsEnabled && port.IsTx && !_initialBeaconSentPorts.Contains(port.Id))
+                .ToList();
+
+            if (portsToBeacon.Count == 0)
+            {
+                return;
+            }
+
+            await _beaconTransmissionService.SendInitialBeaconOnPortActivationAsync(
+                location,
+                portsToBeacon).ConfigureAwait(false);
+
+            foreach (var port in portsToBeacon)
+            {
+                _initialBeaconSentPorts.Add(port.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reconciling initial beacons after startup state change");
+        }
+        finally
+        {
+            _initialBeaconLock.Release();
         }
     }
 
@@ -212,5 +243,6 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _portService.PortsChanged -= OnPortsChanged;
         _locationTrackingService.LocationUpdated -= OnLocationUpdated;
         _beaconTransmissionService.BeaconStatusChanged -= OnBeaconStatusChanged;
+        _initialBeaconLock.Dispose();
     }
 }

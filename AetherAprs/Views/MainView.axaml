@@ -20,7 +20,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
              x:DataType="vm:MainViewModel"
              d:DataContext="{x:Static local:DesignData.MainViewModel}">
 
-  <dialogHost:DialogHost Name="MainDialogHost" Identifier="MainDialogHost">
+   <dialogHost:DialogHost Name="MainDialogHost"
+                          Identifier="MainDialogHost"
+                          CloseOnClickAway="True"
+                          CloseOnClickAwayParameter="False">
     <controls:SnackbarHost x:Name="MainSnackbarHost" HostName="MainSnackbarHost">
       <i:Interaction.Behaviors>
         <behaviors:KeyboardInsetsBehavior />

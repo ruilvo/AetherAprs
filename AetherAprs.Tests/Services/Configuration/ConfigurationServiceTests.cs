@@ -75,14 +75,18 @@ public sealed class ConfigurationServiceTests
     }
 
     [Fact]
-    public void Constructor_SeedsDefaultTemplate_WhenSectionAbsent()
+    public void Constructor_LoadsTemplatesAndFieldDefaultsFromAppSettings()
     {
         var directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
-                "{\"Logging\":{\"LogLevel\":{\"Default\":\"Information\"}}}");
+                "{\"MessageTemplates\":{\"Templates\":["
+                + "{\"Name\":\"APRS2SOTA Spot\",\"Destination\":\"SOTA\","
+                + "\"Body\":\"{summit} {freq} {mode} {comment}\","
+                + "\"FieldDefaults\":{\"summit\":\"W7A/XX-001\",\"freq\":\"144.300\","
+                + "\"mode\":\"FM\",\"comment\":\"SOTA\"}}]}}");
             var provider = new TestAppDataDirProvider(directory);
             var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
 
@@ -90,14 +94,7 @@ public sealed class ConfigurationServiceTests
             Assert.Equal("APRS2SOTA Spot", template.Name);
             Assert.Equal("SOTA", template.Destination);
             Assert.Equal("{summit} {freq} {mode} {comment}", template.Body);
-
-#if DEBUG
-            var savedPath = Path.Combine(directory, "appsettings.Development.json");
-#else
-            var savedPath = Path.Combine(directory, "appsettings.json");
-#endif
-            Assert.True(File.Exists(savedPath));
-            Assert.Contains("\"MessageTemplates\"", File.ReadAllText(savedPath));
+            Assert.Equal("144.300", template.FieldDefaults["freq"]);
         }
         finally
         {
@@ -106,7 +103,7 @@ public sealed class ConfigurationServiceTests
     }
 
     [Fact]
-    public void Constructor_DoesNotReseed_WhenSectionPresentButEmpty()
+    public void Constructor_PreservesEmptyTemplatesFromAppSettings()
     {
         var directory = CreateTemporaryDirectory();
         try
@@ -221,4 +218,3 @@ public sealed class ConfigurationServiceTests
         public string GetPrivateAppDataDirectory() => directory;
     }
 }
-

@@ -55,6 +55,32 @@ public sealed class MessageTemplateDialogViewModelTests
     }
 
     [Fact]
+    public void SelectTemplate_UsesConfiguredFieldDefaults()
+    {
+        var vm = new MessageTemplateDialogViewModel();
+        var template = new MessageTemplate
+        {
+            Name = "APRS2SOTA",
+            Body = "{summit} {freq} {mode} {comment}",
+            FieldDefaults = new Dictionary<string, string>
+            {
+                ["summit"] = "W7A/XX-001",
+                ["freq"] = "144.300",
+                ["mode"] = "FM",
+                ["comment"] = "SOTA"
+            }
+        };
+
+        vm.Initialize([template], null);
+        vm.SelectedTemplate = template;
+
+        Assert.Equal("W7A/XX-001", vm.Fields[0].Value);
+        Assert.Equal("144.300", vm.Fields[1].Value);
+        Assert.Equal("FM", vm.Fields[2].Value);
+        Assert.Equal("SOTA", vm.Fields[3].Value);
+    }
+
+    [Fact]
     public void SelectTemplate_WithCallerDestination_KeepsCallerDestination()
     {
         var vm = new MessageTemplateDialogViewModel();

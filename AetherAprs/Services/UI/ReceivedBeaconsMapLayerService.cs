@@ -54,15 +54,22 @@ public interface IReceivedBeaconsMapLayerService : IDisposable
 /// </summary>
 public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerService
 {
+    private const int MaxTrailPointsPerStation = 20;
+    private const double MaxTrailJumpMeters = 100_000;
+    private const double MaxTrailResolutionMetersPerPixel = 1_000;
+
     private readonly IPortService _portService;
     private readonly IPacketQueryService _packetQueryService;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly ILogger<ReceivedBeaconsMapLayerService> _logger;
+    private readonly DateTimeOffset _sessionStartedUtc = DateTimeOffset.UtcNow;
     private readonly WritableLayer _beaconsLayer;
     private readonly WritableLayer _trailsLayer;
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
+    private readonly Dictionary<string, GeometryFeature> _trailFeatures = new();
+    private readonly HashSet<string> _clusteredCallsigns = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _rebuildLock = new();
     private bool _rebuildPending;
     private bool _rebuildRunning;
@@ -210,6 +217,10 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
             var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
             var cutoffTime = GetCutoffTime(timeRange, customHours);
+            if (!cutoffTime.HasValue || _sessionStartedUtc > cutoffTime.Value)
+            {
+                cutoffTime = _sessionStartedUtc;
+            }
 
             var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
 
@@ -268,7 +279,6 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             }
 
             _markers = markers;
-            RenderBeaconsLayer();
 
             // Bulk fetch all position trail packets once, then group by source client-side.
             // Note: trails intentionally NOT filtered by port (preserves existing behavior
@@ -277,22 +287,26 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
             var trailsBySource = allTrailPackets
                 .GroupBy(r => (r.SourceBase, r.SourceSsid))
-                .Select(g => g.OrderBy(r => r.Timestamp).ToList())
+                .Select(g => g
+                    .OrderBy(r => r.Timestamp)
+                    .TakeLast(MaxTrailPointsPerStation)
+                    .ToList())
                 .Where(trail => trail.Count > 1)
                 .ToList();
 
-            _trailsLayer.Clear();
+            _trailFeatures.Clear();
 
             foreach (var trailPositions in trailsBySource)
             {
                 var trailFeature = CreateTrailFeature(trailPositions);
                 if (trailFeature != null)
                 {
-                    _trailsLayer.Add(trailFeature);
+                    var latest = trailPositions[^1];
+                    _trailFeatures[FormatCallsign(latest.SourceBase, latest.SourceSsid)] = trailFeature;
                 }
             }
 
-            _trailsLayer.DataHasChanged();
+            RenderBeaconsLayer();
         }
         catch (Exception ex)
         {
@@ -322,11 +336,36 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             return null;
         }
 
-        var coordinates = trail
-            .Where(p => p.Position != null)
+        var recentTrail = new List<PacketRecord>();
+        for (var index = trail.Count - 1; index >= 0; index--)
+        {
+            var packet = trail[index];
+            if (packet.Position is null)
+            {
+                continue;
+            }
+
+            if (recentTrail.Count > 0)
+            {
+                var previous = recentTrail[^1].Position!.Location;
+                var current = packet.Position.Location;
+                if (GetDistanceMeters(previous.Latitude, previous.Longitude, current.Latitude, current.Longitude)
+                    > MaxTrailJumpMeters)
+                {
+                    break;
+                }
+            }
+
+            recentTrail.Add(packet);
+        }
+
+        recentTrail.Reverse();
+        var coordinates = recentTrail
             .Select(p =>
             {
-                var (x, y) = SphericalMercator.FromLonLat(p.Position!.Location.Longitude, p.Position!.Location.Latitude);
+                var (x, y) = SphericalMercator.FromLonLat(
+                    p.Position!.Location.Longitude,
+                    p.Position.Location.Latitude);
                 return new Coordinate(x, y);
             })
             .ToArray();
@@ -346,6 +385,22 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
         return feature;
     }
+
+    private static double GetDistanceMeters(double latitude1, double longitude1, double latitude2, double longitude2)
+    {
+        const double earthRadiusMeters = 6_371_000;
+        var latitudeDelta = DegreesToRadians(latitude2 - latitude1);
+        var longitudeDelta = DegreesToRadians(longitude2 - longitude1);
+        var sineLatitude = Math.Sin(latitudeDelta / 2);
+        var sineLongitude = Math.Sin(longitudeDelta / 2);
+        var a = sineLatitude * sineLatitude
+            + Math.Cos(DegreesToRadians(latitude1))
+            * Math.Cos(DegreesToRadians(latitude2))
+            * sineLongitude * sineLongitude;
+        return earthRadiusMeters * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
 
     private static BeaconMarker CreateMarkerFromRecord(PacketRecord record)
     {
@@ -379,10 +434,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private void RenderBeaconsLayer()
     {
         _beaconsLayer.Clear();
+        _clusteredCallsigns.Clear();
 
         if (_markers.Count == 0)
         {
             _beaconsLayer.DataHasChanged();
+            RenderTrailsLayer();
             return;
         }
 
@@ -400,6 +457,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             }
 
             _beaconsLayer.DataHasChanged();
+            RenderTrailsLayer();
             return;
         }
 
@@ -420,11 +478,42 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             }
             else
             {
+                foreach (var marker in group.Select(i => _markers[i]))
+                {
+                    if (marker.Callsign is not null)
+                    {
+                        _clusteredCallsigns.Add(marker.Callsign);
+                    }
+                }
+
                 _beaconsLayer.Add(CreateClusterFeature(group.Select(i => _markers[i]).ToList()));
             }
         }
 
         _beaconsLayer.DataHasChanged();
+        RenderTrailsLayer();
+    }
+
+    private void RenderTrailsLayer()
+    {
+        _trailsLayer.Clear();
+
+        if (double.IsNaN(_currentResolution) ||
+            _currentResolution > MaxTrailResolutionMetersPerPixel)
+        {
+            _trailsLayer.DataHasChanged();
+            return;
+        }
+
+        foreach (var (callsign, feature) in _trailFeatures)
+        {
+            if (!_clusteredCallsigns.Contains(callsign))
+            {
+                _trailsLayer.Add(feature);
+            }
+        }
+
+        _trailsLayer.DataHasChanged();
     }
 
     private static PointFeature CreateClusterFeature(IReadOnlyList<BeaconMarker> markers)
@@ -565,6 +654,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         _beaconsLayer.Clear();
         _trailsLayer.Clear();
         _symbolStyleCache.Clear();
+        _trailFeatures.Clear();
+        _clusteredCallsigns.Clear();
         _symbolConverter.Dispose();
     }
 }

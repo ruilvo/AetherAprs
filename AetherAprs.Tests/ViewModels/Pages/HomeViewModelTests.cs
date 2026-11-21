@@ -64,7 +64,40 @@ public sealed class HomeViewModelTests : TestFixtureBase
         // Verify the status contains the base resource text (before formatting)
         var expectedBase = Localization.Strings.Get("InitialBeaconSentOnPortActivation").Split('(')[0].Trim();
         Assert.Contains(expectedBase, viewModel.BeaconStatus);
+         Assert.Equal(1, portService.SendCount);
+    }
+
+    [Fact]
+    public async Task StartupEnabledTxPortSendsInitialBeaconWhenLocationArrives()
+    {
+        var port = CreatePort(isEnabled: true, isTx: true);
+        var portService = new TestPortService(port);
+        var locationTracking = new TestLocationTrackingService();
+        _ = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
+
+        var packet = await portService.PacketSent.Task.WaitAsync(
+            TimeSpan.FromSeconds(1),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(port.Id, portService.LastSentPortId);
+        Assert.Equal(41.41764, packet.Location.Latitude);
         Assert.Equal(1, portService.SendCount);
+    }
+
+    [Fact]
+    public async Task StartupEnabledRxOnlyPortDoesNotSendWhenLocationArrives()
+    {
+        var port = CreatePort(isEnabled: true, isTx: false);
+        var portService = new TestPortService(port);
+        var locationTracking = new TestLocationTrackingService();
+        _ = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+
+        locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, portService.SendCount);
     }
 
     [Fact]
@@ -144,7 +177,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         await viewModel.SendManualBeaconAsync();
 
         var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
-        Assert.Equal(1, portService.SendCount);
+        Assert.Equal(2, portService.SendCount);
         Assert.Equal(41.41764, packet.Location.Latitude);
         Assert.Contains(Localization.Strings.Get("ManualBeaconSent"), viewModel.BeaconStatus);
     }
