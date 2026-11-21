@@ -65,15 +65,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Text="{loc:Loc CompassEast}" Classes="Caption" Canvas.Left="110" Canvas.Top="55" />
             <TextBlock Text="{loc:Loc CompassSouth}" Classes="Caption" Canvas.Left="55" Canvas.Top="112" />
             <TextBlock Text="{loc:Loc CompassWest}" Classes="Caption" Canvas.Left="3" Canvas.Top="55" />
-            <!-- Needle: points north at 0 degrees, rotates to relative bearing -->
-            <Line StartPoint="60,60" EndPoint="60,14"
-                  Stroke="{DynamicResource MaterialPrimaryMidBrush}"
-                  StrokeThickness="3"
-                  StrokeLineCap="Round">
-              <Line.RenderTransform>
-                <RotateTransform Angle="{Binding RelativeBearingDegrees}" CenterX="60" CenterY="60" />
-              </Line.RenderTransform>
-            </Line>
+            <!-- Needle: points north at 0 degrees, rotates to relative bearing.
+                 Rotating a full-size panel around its center keeps the pivot at the
+                 hub (60,60) instead of drifting off-center as a bare RotateTransform
+                 with CenterX/CenterY offsets does. -->
+            <Panel Width="120" Height="120" RenderTransformOrigin="50%,50%">
+              <Panel.RenderTransform>
+                <RotateTransform Angle="{Binding RelativeBearingDegrees}" />
+              </Panel.RenderTransform>
+              <Line StartPoint="60,60" EndPoint="60,14"
+                    Stroke="{DynamicResource MaterialPrimaryMidBrush}"
+                    StrokeThickness="3"
+                    StrokeLineCap="Round" />
+            </Panel>
             <!-- Center hub -->
             <Ellipse Canvas.Left="56" Canvas.Top="56" Width="8" Height="8"
                      Fill="{DynamicResource MaterialPrimaryMidBrush}" />
