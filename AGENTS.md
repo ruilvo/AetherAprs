@@ -3,926 +3,143 @@ This file is part of AetherAprs
 SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
-# AGENTS.md
 
-Quick-reference instructions for AI agents working in the AetherAprs codebase.
+# AetherAprs development guide
 
-## Behavioral Guidelines
+This is the working guide for contributors and coding agents. Keep it aligned with the
+code. The supported application target is Android; the core project targets `net10.0`
+and the test project targets `net10.0`.
 
-Behavioral guidelines to reduce common LLM coding mistakes.
+## Before changing code
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+1. Read the relevant source and tests.
+2. Check the package source references in `opencode.json` before guessing an Avalonia,
+   Material.Avalonia, Mapsui, BruTile, Geo, or xUnit API.
+3. Keep the change limited to the requested behavior.
+4. State assumptions when the repository does not make the intended behavior clear.
 
-### Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
-
-## References (opencode.json)
-
-The `opencode.json` `references` section pins several upstream repositories. OpenCode
-exposes each as an `@name` mention. **Always consult these before guessing an API, usage
-pattern, or behavior from memory** — the source of truth for these dependencies is the
-referenced repository, not the agent's prior knowledge.
-
-| Mention | Repository | Branch | Used for |
-|---|---|---|---|
-| `@material-avalonia` | `AvaloniaCommunity/material.avalonia` | `master` | Material.Avalonia UI controls and styles |
-| `@maps-avalonia-12` | `Mapsui/Mapsui` | `main` | Mapsui map rendering (Avalonia) |
-| `@xunit-v3` | `xunit/xunit.net` | `main` | xUnit v3 test framework |
-| `@bruTile` | `BruTile/BruTile` | `master` | BruTile tile handling |
-| `@geo` | `sibartlett/Geo` | `master` | Geo coordinate/geometry types |
-
-When working with any of these libraries, open the corresponding `@mention` to read the
-actual source rather than relying on memory of the API.
-
-## Project Overview
-
-AetherAprs is a cross-platform ham radio APRS application built with Avalonia UI and .NET 10. Three projects:
-
-| Project | Path | Target |
-|---|---|---|
-| Core library | `AetherAprs/` | net10.0 |
-| Android app | `AetherAprs.Android/` | net10.0-android |
-| Test project | `AetherAprs.Tests/` | net10.0 |
-
-## Build Commands
+## Build and test
 
 ```powershell
-# Build solution
 dotnet build AetherAprs.slnx
-
-# Build specific project
 dotnet build AetherAprs/AetherAprs.csproj
 dotnet build AetherAprs.Android/AetherAprs.Android.csproj
-
-# Run desktop (if supported on platform)
-dotnet run --project AetherAprs/AetherAprs.csproj
-
-# Build only the test project
 dotnet build AetherAprs.Tests/AetherAprs.Tests.csproj
-
-# Run all tests
 dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
-
-# Run tests without rebuilding (after a successful build)
-dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj --no-build
+pre-commit run reuse-lint-file --all-files
 ```
 
-## Critical Requirements
+Use `--no-build` for `dotnet test` only after a successful build. The Android project
+requires the .NET Android workload and Android SDK.
 
-### REUSE License Compliance
+## Repository layout
 
-Every file MUST have an SPDX license header. Pre-commit hook enforces this via `reuse-lint-file`.
-
-Code files (C#):
-```csharp
-// This file is part of AetherAprs
-// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
-// SPDX-License-Identifier: GPL-3.0-or-later
+```text
+AetherAprs/                 Core application and platform-neutral services
+AetherAprs.Android/         Android entry point and Android service adapters
+AetherAprs.Tests/            xUnit v3 tests
+DOCS/wiki/                  User and developer guides
 ```
 
-XML files (.csproj, .axaml, .slnx):
-```xml
-<!--
-This file is part of AetherAprs
-SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
-SPDX-License-Identifier: GPL-3.0-or-later
--->
+Within the core project:
+
+- `Configuration/` contains settings and port configuration.
+- `Data/` contains EF Core entities, mappers, migrations, and database infrastructure.
+- `Models/Aprs/Packets/` contains APRS packet types.
+- `Services/{Beaconing,Location,Messaging,Packets,Platform,Ports,Transmission,UI}/`
+  contains domain services and platform abstractions.
+- `Factories/` contains service and ViewModel factories.
+- `ViewModels/Pages/` and `ViewModels/Components/` mirror `Views/Pages/` and
+  `Views/Components/`.
+- `Converters/Aprs/` and `Converters/UI/` contain Avalonia converters.
+- New namespaces must match their folder path.
+
+See [CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md) for the folder map.
+
+## Architecture boundaries
+
+Incoming packets follow:
+
+```text
+Port → PortService → PacketStorageService → SQLite
 ```
 
-YAML/config files:
-```yaml
-# This file is part of AetherAprs
-# SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
-# SPDX-License-Identifier: CC0-1.0
+Database reads follow:
+
+```text
+SQLite → PacketQueryService → consumers
 ```
 
-Verify compliance: `pre-commit run reuse-lint-file --all-files`
+Outgoing packets follow:
 
-### ImplicitUsings Disabled
-
-All projects have `<ImplicitUsings>disable</ImplicitUsings>`. You MUST include explicit using statements for everything, including `System`, `System.Collections.Generic`, etc. Do not assume any default usings.
-
-### Central Package Management
-
-Package versions are centralized in `Directory.Packages.props`. When adding a new package:
-
-1. Add version to `Directory.Packages.props`:
-   ```xml
-   <PackageVersion Include="PackageName" Version="x.y.z" />
-   ```
-
-2. Reference without version in `.csproj`:
-   ```xml
-   <PackageReference Include="PackageName" />
-   ```
-
-Do NOT specify versions in individual project files.
-
-## Codebase Structure
-
-**See [CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md) for comprehensive folder organization and file placement guidelines.**
-
-Key structural patterns:
-- Services organized by domain: `Services/{Beaconing|Location|Messaging|Packets|Ports|Platform|Transmission|UI}/`
-- Data layer separated: `Data/{Entities|Mappers|Converters|Migrations}/`
-- APRS packets grouped: `Models/Aprs/Packets/`
-- Factories categorized: `Factories/{Packets|ViewModels}/`
-- Converters categorized: `Converters/{Aprs|UI}/`
-- Namespace MUST match folder structure exactly
-
-When adding new files, consult CODEBASE_STRUCTURE.md for proper placement and namespace conventions.
-
-## Test Project
-
-Tests use **xUnit v3** (`xunit.v3` package, **not** `xunit` v2) running on the **VSTest platform** (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`). Important differences from v2:
-- `[Fact]` is in `Xunit` namespace (not `Xunit.FactAttribute`)
-- Test classes do NOT need `public` (but can be)
-- Use `Assert.ThrowsAsync<T>` instead of `await Assert.ThrowsAsync<T>` with `.AsTask()` extension - `ValueTask`-returning methods work directly
-- `IAsyncDisposable` types require `await using` (not `using`) in tests
-- `TestContext.Current.CancellationToken` is available for test cancellation (suppresses xUnit1051 warnings)
-
-The mocking library is **NSubstitute** (already referenced and used across the test suite). When adding another package, follow the central package management rules.
-
-### Where to place tests
-
-Mirror the source namespace structure under `AetherAprs.Tests/`:
-- Source: `AetherAprs/Modems/Kiss/KissSerializer.cs` → Tests: `AetherAprs.Tests/Kiss/KissSerializerTests.cs`
-- Namespace for tests: `AetherAprs.Tests.<Subnamespace>` (e.g. `AetherAprs.Tests.Kiss`)
-
-## Architecture Overview
-
-AetherAprs follows a clean two-flow architecture with clear separation between packet reception/persistence and packet querying/display.
-
-### Data Flow: RECEIVE (Port → Database)
-
-Incoming packets flow through a strictly enforced pipeline:
-
-```
-Port (RF/APRS-IS)
-  ↓ receives packet, fires PacketReceived event
-PortService (coordinates all ports)
-  ↓ handles PacketReceived event
-  ↓ calls PacketStorageService.StorePacketAsync()
-PacketStorageService
-  ↓ creates PacketRecord via PacketRecordMapper.ToRecord()
-  ↓ saves to database via EF Core
-SQLite Database
-  ↓ PacketStored event raised after successful save
-ViewModels subscribe to PacketStored event
+```text
+consumer → PortService.SendPacketAsync() → Port
 ```
 
-**Key Rules:**
-- Ports MUST NOT directly access the database
-- Ports MUST NOT persist received data themselves
-- PortService coordinates all port operations and delegates persistence to PacketStorageService
-- PacketStorageService is the ONLY component that writes packet data to the database
-
-### Data Flow: READ (Database → Consumers)
-
-Database-backed packet information is accessed through the query service:
-
-```
-SQLite Database
-  ↑ EF Core queries
-PacketQueryService (IPacketQueryService)
-  ↑ provides read-only query methods:
-    - GetMostRecentPacketsAsync() - latest packet per callsign
-    - GetMostRecentPositionPacketsAsync() - latest position per callsign  
-    - GetPacketsByPortAsync() - packets from specific port
-    - GetPacketsByCallsignAsync() - historical packets for trail display
-  ↑
-Consumers (ViewModels and Services)
-  - ReceivedBeaconsMapLayerService: provides map layers for display
-  - PacketsViewModel: queries for packet list
-  - PacketDetailsViewModel: queries for callsign history
-```
-
-**Key Rules:**
-- ViewModels MUST NOT access EF Core or DbContext directly
-- ViewModels MUST use PacketQueryService for all database reads
-- Services MAY use PacketQueryService for business logic requiring packet data
-- Map display MUST obtain data via ReceivedBeaconsMapLayerService (which uses PacketQueryService)
-- Packet details MUST obtain data via PacketQueryService (not direct database access)
-- PacketQueryService provides read-only access - no data modification
-
-### Data Flow: TRANSMIT (Consumer → Port)
-
-Outgoing packets flow through PortService:
-
-```
-Consumer/ViewModel
-  ↓ calls PortService.SendPacketAsync(portId, packet)
-PortService
-  ↓ routes to appropriate Port
-Port (RF/APRS-IS)
-  ↓ transmits packet
-```
-
-**Key Rules:**
-- Consumers MUST use PortService.SendPacketAsync() for transmission
-- Direct Port access for transmission is prohibited
-- PortService handles port routing and coordination
-
-### Architecture Boundaries - PROHIBITED
-
-The following patterns violate the architecture and MUST NOT be used:
-
-```
-❌ ViewModel → EF Core (bypass query service)
-❌ ViewModel → DbContext (bypass query service)
-❌ Map → Database (bypass query service)
-❌ PacketDetails → Database (bypass query service)
-❌ Port → Database (bypass storage service)
-❌ View → Database (views are presentation only)
-❌ Consumer → Port directly (bypass port service)
-```
-
-### Service Responsibilities
-
-**PortService** (`IPortService`):
-- Manages port lifecycle (start, stop, add, remove, update)
-- Receives packets from ports via event callbacks
-- Delegates persistence to PacketStorageService
-- Raises PacketReceived event for application-level consumers
-- Handles outgoing transmission via SendPacketAsync()
-- Coordinates digipeater service
-
-**PacketStorageService** (`IPacketStorageService`):
-- Writes received packets to database via EF Core
-- Raises PacketStored event after successful storage
-- Handles packet retention/cleanup based on configuration
-- ONLY service that writes packet data
-
-**PacketQueryService** (`IPacketQueryService`):
-- Provides read-only database queries for packet data
-- Aggregates data (most recent per callsign, etc.)
-- Provides historical data for trails and details
-- Used by ViewModels to obtain database-backed information
-
-**MessageService** (`IMessageService`):
-- Manages APRS messaging conversations
-- Persists messages via EF Core (message-specific data)
-- Coordinates message transmission via PortService
-- Handles message acknowledgments and retries
-
-**BeaconService** (`IBeaconService`):
-- Evaluates beacon transmission conditions using state machine
-- Runs on internal timer (1 second intervals)
-- Raises BeaconRequested event when conditions are met
-- Tracks location history and calculates course
-- Does NOT handle actual transmission (delegated to BeaconTransmissionService)
-
-**BeaconTransmissionService** (`IBeaconTransmissionService`):
-- Handles beacon transmission logic
-- Subscribes to BeaconService.BeaconRequested event
-- Creates beacon packets via IPacketFactory
-- Transmits via PortService.SendPacketAsync()
-- Manages beacon status messages for UI
-
-**LocationTrackingService** (`ILocationTrackingService`):
-- Manages GPS location tracking lifecycle
-- Polls location every 5 seconds when active
-- Raises LocationUpdated event with new coordinates
-- Handles permission requests and error recovery
-
-**ReceivedBeaconsMapLayerService** (`IReceivedBeaconsMapLayerService`):
-- Provides map layers for received APRS beacons and position trails
-- Queries PacketQueryService for station data
-- Creates Mapsui features with APRS symbols
-- Filters by port visibility and time range
-- Updates layers in response to PacketStored events
-
-**UserLocationLayerService** (`IUserLocationLayerService`):
-- Provides map layer for user's current location marker
-- Updates layer when location changes
-- Exposes CurrentMapPoint for centering operations
-
-**KeyboardInsetsService** (`IKeyboardInsetsService`):
-- Manages keyboard insets for on-screen keyboard
-- Provides padding adjustments to avoid keyboard overlap
-- Raises InsetsChanged event when keyboard appears/disappears
-
-**PermissionService** (`IPermissionService`):
-- Platform-specific runtime permission requests
-- Handles notification, Bluetooth, and location permissions
-- NoOp implementation for desktop platforms
-
-**DigipeaterService** (`IDigipeaterService`):
-- Implements APRS digipeater functionality
-- Coordinates with PortService for packet forwarding
-
-**PacketFactory** (`IPacketFactory`):
-- Creates APRS packets (position, message, ack, rej)
-- Handles digipeater path and destination configuration
-- Centralizes packet construction logic
-
-## MVVM Architecture
-
-AetherAprs uses Avalonia UI with the MVVM pattern via CommunityToolkit.Mvvm.
-
-### ViewModels are UI-Layer Classes
-
-**ViewModels represent UI state and user interaction.**
-
-ViewModels should contain:
-- UI state (IsLoading, IsEnabled, validation errors)
-- User interaction commands ([RelayCommand])
-- Presentation data (formatted strings, display collections)
-- Orchestration of service calls
-- UI-specific validation
-- Navigation logic
-
-**ViewModels are NOT general-purpose service classes.**
-
-ViewModels should NOT contain:
-- Database access logic (use PacketQueryService instead)
-- Packet processing algorithms (belongs in services)
-- Port management (belongs in PortService)
-- Network operations (belongs in ports/transports)
-- Business rule engines (belongs in services)
-- Infrastructure logic (belongs in services)
-
-**Correct ViewModel responsibility:**
-```csharp
-public partial class PacketsViewModel : ViewModelBase
-{
-    private readonly IPacketQueryService _packetQueryService;
-    
-    [ObservableProperty]
-    public partial ObservableCollection<PacketSummary> Packets { get; set; }
-    
-    private async Task LoadPacketsAsync()
-    {
-        // ViewModel orchestrates service call and updates UI state
-        IsLoading = true;
-        var packets = await _packetQueryService.GetMostRecentPacketsAsync();
-        Packets.Clear();
-        foreach (var packet in packets.Values)
-        {
-            Packets.Add(CreateSummary(packet)); // UI presentation logic
-        }
-        IsLoading = false;
-    }
-}
-```
-
-**WRONG - ViewModel with business/database logic:**
-```csharp
-public partial class SomeViewModel : ViewModelBase
-{
-    private readonly IDbContextFactory<AppDbContext> _dbFactory; // ❌ NO
-    
-    private async Task LoadDataAsync()
-    {
-        // ❌ ViewModels should not query database directly
-        using var context = await _dbFactory.CreateDbContextAsync();
-        var data = await context.Packets.Where(...).ToListAsync();
-    }
-}
-```
-
-### Views and ViewModels
-
-**Every relevant View should have a corresponding ViewModel.**
-
-- Page Views (HomePage, PacketsPage, PortsPage) → Page ViewModels
-- Dialog Views (AddEditPortPage, PacketDetailsPage) → Dialog ViewModels  
-- Component Views (AprsSymbolPickerComponent, SymbolSelectorComponent, PortItemComponent) → Component ViewModels
-
-Simple presentational controls without logic may not need ViewModels (e.g., ScrollablePageContent).
-
-**Services vs ViewModels:**
-- Location tracking, beacon transmission, and map layer management are implemented as **services**, not ViewModels
-- ViewModels consume these services and expose UI-specific state
-- Services can be used by multiple ViewModels and don't depend on UI lifecycle
-
-**Dependency Injection**: `ServiceProviderFactory.CreateServiceProvider()` in `App.axaml.cs:OnFrameworkInitializationCompleted()` builds the DI container. Platform-specific services registered via `RegisterPlatformServices()` override (Android app provides its own `IAppDataDirProviderService`). Core must register safe defaults (e.g. NoOp/desktop implementations) for every platform service interface so non-Android hosts can start; platform projects replace them.
-
-**Factory Pattern for Transient ViewModels**: When a ViewModel requires post-construction initialization with context-specific data, use the factory pattern instead of service locator:
-- Create `IViewModelFactory` interface with `Create(...)` methods accepting context parameters
-- Implementation uses `IServiceProvider.GetRequiredService<>()` to get transient ViewModel, calls `Initialize()`, returns initialized instance
-- Register factory as singleton in both `ServiceProviderFactory.cs` and `DesignData.cs`
-- Examples: `IAddEditPortViewModelFactory`, `IPacketDetailsViewModelFactory`, `IConversationViewModelFactory`
-
-**MVVM**: Uses CommunityToolkit.Mvvm. ViewModels resolved from DI container and assigned to DataContext.
-
-**ViewLocator Pattern**: `ViewLocator.cs` provides automatic ViewModel-to-View mapping. The ViewLocator is registered in `App.axaml` as an application-level DataTemplate.
-
-When creating new ViewModels:
-1. Register in `ServiceProviderFactory.cs` (runtime DI) - use appropriate lifetime (Singleton/Transient)
-2. Register in `DesignData.cs` (design-time DI)
-3. Add public property to expose the ViewModel instance in DesignData
-4. Add ViewModel → View mapping in `ViewLocator.cs`
-
-**ViewModel Lifetime Guidelines:**
-- **Singleton**: Page-level ViewModels that persist across app lifetime (MainViewModel, HomeViewModel, PortsViewModel, etc.)
-- **Transient**: Dialog ViewModels created on-demand (AddEditPortViewModel, PacketDetailsViewModel, ConversationViewModel, DynamicBeaconingViewModel)
-- **Transient with Factory**: ViewModels requiring post-construction initialization with context data
-
-**Child ViewModel Injection**: Parent ViewModels should inject child ViewModels via constructor, not create them directly:
-```csharp
-// CORRECT - Inject child ViewModel
-public HomeViewModel(
-    MapViewModel map,
-    ILocationTrackingService locationTracking,
-    IBeaconTransmissionService beaconTransmission,
-    ...)
-{
-    Map = map;
-    _locationTrackingService = locationTracking;
-    _beaconTransmissionService = beaconTransmission;
-}
-
-// WRONG - Don't create child ViewModels directly
-public SettingsViewModel(...)
-{
-    SymbolPicker = new AprsSymbolPickerViewModel(...); // Anti-pattern
-}
-```
-
-**Exception - stateless presentation wrappers**: Directly `new`-ing a child ViewModel inside a parent ViewModel is acceptable when the child is a stateless presentation wrapper with no service dependencies, created on demand with arguments derived at invocation time (a DI factory would only delegate to `new`). Documented examples: `BeaconConfigurationItemViewModel` (wraps a `BeaconConfig` record, created by `DynamicBeaconingViewModel`) and `SymbolSelectorViewModel` (transient per-dialog selector, created by `AprsSymbolPickerViewModel`).
-
-When binding ViewModels to UI:
-- ALWAYS use `<ContentControl Content="{Binding ViewModelProperty}" />`
-- NEVER manually instantiate views with `<views:SomeView DataContext="{Binding ...}" />`
-- NEVER use inline DataTemplates for ViewModel-to-View mapping
-- Let the ViewLocator handle all ViewModel-to-View resolution automatically
-
-Without proper registration in all three places (ServiceProviderFactory, DesignData, ViewLocator), views won't work at runtime or in the designer.
-
-## Design-Time Support
-
-**Design-time previewing is a project requirement.** Avalonia designer must be able to preview Views without runtime dependencies.
-
-### Design-Time Architecture
-
-- `DesignData.cs` provides a design-time service provider with mock/fake services
-- All ViewModels MUST be registered in both `ServiceProviderFactory.cs` (runtime) and `DesignData.cs` (design-time)
-- `ViewLocator.cs` maps ViewModels to Views for both runtime and design-time
-
-### Design-Time Requirements
-
-Design-time support MUST NOT require:
-- Production database connections
-- Live network ports (RF/APRS-IS)
-- Network services
-- Authentication
-- File system access beyond app data directory
-- Platform-specific APIs unavailable in the designer
-
-### Providing Design-Time Data
-
-Use fake/mock implementations in `DesignData.cs`:
-
-```csharp
-// Runtime uses real location service
-services.AddSingleton<ILocationService, GeolocatorLocationService>();
-
-// Design-time uses fake that doesn't require GPS hardware
-services.AddSingleton<ILocationService, DesignTimeLocationService>();
-```
-
-Provide realistic preview data where useful:
-```csharp
-public class DesignTimeLocationService : ILocationService
-{
-    public Task<LocationData?> GetCurrentLocationAsync(CancellationToken ct = default)
-    {
-        // Realistic preview location
-        return Task.FromResult<LocationData?>(new LocationData
-        {
-            Latitude = 37.7749,
-            Longitude = -122.4194,
-            Altitude = 50,
-            Timestamp = DateTimeOffset.UtcNow
-        });
-    }
-}
-```
-
-### Adding Design-Time Support to New Views
-
-When creating a new View/ViewModel:
-1. Register ViewModel in `ServiceProviderFactory.cs` with appropriate lifetime
-2. Register ViewModel in `DesignData.cs` with the same lifetime
-3. Add public property in `DesignData.cs` to expose the ViewModel instance
-4. Add ViewModel → View mapping in `ViewLocator.cs`
-5. Test the View in the Avalonia previewer
-
-Without proper registration in all three places (ServiceProviderFactory, DesignData, ViewLocator), views won't work at runtime or in the designer.
-
-**Configuration**: Uses Microsoft.Extensions.Configuration with `appsettings.json` and `appsettings.Development.json`. Files copied to output directory. Android project links these from core project via `<AndroidAsset Include="..\AetherAprs\appsettings.json">`. Development config only included in Android Debug builds.
-
-**Multi-platform lifecycle**: App.axaml.cs handles three Avalonia lifetime types:
-- `IClassicDesktopStyleApplicationLifetime` - Desktop (Windows, macOS, Linux)
-- `IActivityApplicationLifetime` - Android/iOS with factory pattern
-- `ISingleViewApplicationLifetime` - Browser/single-view platforms
-
-## C# Naming Conventions
-
-Follow these conventions consistently throughout the codebase:
-
-**Fields:**
-- Private instance fields MUST use `_camelCase`
-  ```csharp
-  private readonly ILogger _logger;
-  ```
-- Private static fields SHOULD use `_camelCase`
-  ```csharp
-  private static readonly Foo _instance;
-  ```
-
-**Properties and Methods:**
-- Public and protected properties MUST use `PascalCase`
-  ```csharp
-  public AppSettings Settings { get; set; }
-  ```
-- Public and protected methods MUST use `PascalCase`
-  ```csharp
-  public void StartService()
-  ```
-- Private methods SHOULD use `PascalCase`
-  ```csharp
-  private void ValidateSettings()
-  ```
-
-**Variables and Parameters:**
-- Method parameters MUST use `camelCase`
-  ```csharp
-  public void Configure(AppSettings settings)
-  ```
-- Local variables MUST use `camelCase`
-  ```csharp
-  var connectionString = ...;
-  ```
-
-**Constants and Types:**
-- Constants SHOULD use `PascalCase`
-  ```csharp
-  private const int DefaultTimeout = 30;
-  ```
-- Types (classes, structs, interfaces, enums, records) MUST use `PascalCase`
-  ```csharp
-  public class ConfigurationService
-  ```
-- Interfaces MUST start with `I`
-  ```csharp
-  public interface IConfigurationService
-  ```
-- Enum members MUST use `PascalCase`
-  ```csharp
-  LogLevel.Warning
-  ```
-
-**MVVM Toolkit:**
-- Use `[ObservableProperty]` on partial properties, NOT backing fields
-  ```csharp
-  // Correct
-  [ObservableProperty]
-  public partial string Title { get; set; } = "Default";
-
-  // Incorrect - don't use backing field approach
-  [ObservableProperty]
-  private string _title = "Default";
-  ```
-
-**General Rules:**
-- Do NOT use `this.` prefix when `_camelCase` fields distinguish fields from parameters
-- The `_` prefix is specifically for fields. Do NOT prefix properties, methods, parameters, or local variables with `_`
-
-## Memory Leak Prevention
-
-**Event Handler Subscriptions**: Always unsubscribe from events to prevent memory leaks.
-
-```csharp
-// WRONG - Memory leak: subscription never cleaned up
-public MyView()
-{
-    InitializeComponent();
-    this.DataContextChanged += (s, e) =>
-    {
-        if (e.NewValue is MyViewModel vm)
-        {
-            vm.PropertyChanged += (s2, e2) => { /* ... */ };
-        }
-    };
-}
-
-// CORRECT - Track and unsubscribe
-private MyViewModel? _currentViewModel;
-
-private void OnDataContextChanged(object? sender, EventArgs e)
-{
-    if (_currentViewModel != null)
-    {
-        _currentViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-    }
-
-    _currentViewModel = DataContext as MyViewModel;
-
-    if (_currentViewModel != null)
-    {
-        _currentViewModel.PropertyChanged += OnViewModelPropertyChanged;
-    }
-}
-
-private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-{
-    // Handle property changes
-}
-```
-
-**Self-Referencing PropertyChanged**: Never subscribe to your own PropertyChanged event with lambdas. Use CommunityToolkit.Mvvm partial methods instead.
-
-```csharp
-// WRONG - Memory leak: object holds reference to itself
-public BeaconConfigurationItemViewModel()
-{
-    PropertyChanged += (s, e) =>
-    {
-        if (e.PropertyName == nameof(SlowIntervalSeconds))
-        {
-            UpdateConfiguration();
-        }
-    };
-}
-
-// CORRECT - Use partial methods
-[ObservableProperty]
-public partial int SlowIntervalSeconds { get; set; }
-
-partial void OnSlowIntervalSecondsChanged(int value)
-{
-    UpdateConfiguration();
-}
-```
-
-**Async Void Event Handlers**: Avoid `async void` except for event handlers, and add try-catch for error handling.
-
-```csharp
-// ACCEPTABLE with error handling
-private async void OnSomeEvent(object? sender, EventArgs e)
-{
-    try
-    {
-        await DoSomethingAsync();
-    }
-    catch (Exception ex)
-    {
-        // Log error - exceptions in async void crash the app
-        _logger?.LogError(ex, "Error in event handler");
-    }
-}
-
-// BETTER - Use RelayCommand for user actions
-[RelayCommand]
-private async Task DoSomethingAsync()
-{
-    // Exceptions are captured by the command infrastructure
-}
-```
-
-**Disposal and Cancellation**: Pass cancellation tokens to background tasks and cancel them during disposal.
-
-```csharp
-// WRONG - Fire-and-forget task continues after disposal
-public async ValueTask DisposeAsync()
-{
-    // Task continues running
-}
-
-// CORRECT - Cancellation token stops task
-private readonly CancellationTokenSource _disposalCts = new();
-
-private void StartBackgroundWork()
-{
-    _ = Task.Run(async () =>
-    {
-        try
-        {
-            while (!_disposalCts.Token.IsCancellationRequested)
-            {
-                await DoWorkAsync(_disposalCts.Token);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected during disposal
-        }
-    }, _disposalCts.Token);
-}
-
-public async ValueTask DisposeAsync()
-{
-    _disposalCts.Cancel();
-    _disposalCts.Dispose();
-}
-```
-
-**Thread Safety in Disposal**: Capture references before nulling them when disposing from potentially different threads.
-
-```csharp
-// WRONG - Race condition
-public void Dispose()
-{
-    _someLayer?.Dispose();
-    _someLayer = null;
-}
-
-// CORRECT - Capture then null
-public void Dispose()
-{
-    var layer = _someLayer;
-    _someLayer = null;
-    layer?.Dispose();
-}
-```
-
-## Common Mistakes to Avoid
-
-- Creating files without SPDX headers - pre-commit will reject
-- Adding `using System;` style imports and assuming implicit usings - they're disabled
-- Putting package versions in .csproj instead of Directory.Packages.props
-- Assuming standard .NET namespaces are available without explicit using statements
-- Adding Android-specific code to core project instead of Android project
-- Creating new ViewModels without registering them in `ServiceProviderFactory.cs`, `DesignData.cs`, AND `ViewLocator.cs`
-- Manually instantiating views or using inline DataTemplates instead of letting ViewLocator handle ViewModel-to-View resolution
-- Using inconsistent naming conventions for private fields (always use `_camelCase`)
-- Using backing field approach with `[ObservableProperty]` instead of partial properties
-- Subscribing to events without unsubscribing (memory leaks)
-- Using lambda subscriptions to own PropertyChanged event (memory leaks)
-- Fire-and-forget async operations without cancellation tokens or error handling
-- Missing try-catch in async void event handlers (app crashes on exception)
-- Using service locator pattern (`App.GetService<>()` or `IServiceProvider.GetRequiredService<>()`) instead of constructor injection or factory pattern (documented exception: `App.GetService<T>()` is allowed only in platform entry points where constructor injection is unavailable, e.g. the Android BroadcastReceiver in `MainActivity.cs` and framework-created views — see the XML docs on `App.GetService<T>`)
-- Creating child ViewModels directly instead of injecting them via constructor
-- Using `System.Diagnostics.Debug.WriteLine` instead of `ILogger<T>` for error logging
-- **Adding hardcoded user-facing text in AXAML or code without using localization** - ALL user-facing strings MUST use `{loc:Loc StringKey}` in AXAML or `Strings.Get("StringKey")` in code
-- **Placing files in wrong folders** - consult CODEBASE_STRUCTURE.md for proper organization
-- **Using wrong namespace** - namespace MUST match folder structure exactly (e.g., `Data/Entities/` → `AetherAprs.Data.Entities`)
-
-## Database Best Practices
-
-### SQLite and EF Core Compatibility
-
-**Use `DateTime` (UTC) instead of `DateTimeOffset` for database timestamps:**
-- SQLite stores both as TEXT in ISO 8601 format, but EF Core has poor LINQ translation support for `DateTimeOffset`
-- `DateTimeOffset` comparisons and ORDER BY operations often fail to translate to SQL
-- Store timestamps as `DateTime` in UTC, convert to `DateTimeOffset` for UI display when needed
-- Example: `record.ReceivedAt = receivedAt.UtcDateTime;` when storing, `new DateTimeOffset(record.ReceivedAt, TimeSpan.Zero)` when displaying
-
-## Localization Requirements
-
-**ALL user-facing text MUST be localized.** Never hardcode English (or any language) strings in UI code or AXAML files.
-
-### In AXAML Files
-Use the `{loc:Loc}` markup extension:
-```xml
-<TextBlock Text="{loc:Loc SettingsPageTitle}" />
-<CheckBox Content="{loc:Loc EnableDigipeater}" />
-<TextBox wpf:TextFieldAssist.Label="{loc:Loc PortName}" />
-```
-
-### In C# Code
-Use `Strings.Get()` or `Strings.Format()`:
-```csharp
-// Simple string
-var title = Strings.Get("SettingsPageTitle");
-
-// Formatted string with parameters
-var message = Strings.Format("ErrorConnecting", portName);
-```
-
-### Adding New Strings
-When adding new UI text:
-
-1. **Add to `AetherAprs/Localization/Strings.resx`** (English, default):
-```xml
-<data name="EnableDigipeater" xml:space="preserve">
-  <value>Enable Digipeater</value>
-</data>
-```
-
-2. **Add to `AetherAprs/Localization/Strings.pt.resx`** (Portuguese translation):
-```xml
-<data name="EnableDigipeater" xml:space="preserve">
-  <value>Ativar Digipeater</value>
-</data>
-```
-
-3. Use consistent naming conventions:
-   - Page titles: `PageNameTitle` (e.g., `SettingsPageTitle`)
-   - Section titles: `SectionName` (e.g., `StationSettings`, `DigipeaterAndGating`)
-   - Field labels: descriptive names (e.g., `EnableDigipeater`, `MaximumRetryAttempts`)
-   - Descriptions: append `Description` (e.g., `DigipeaterGatingDescription`)
-   - Placeholders: append `Placeholder` (e.g., `CallsignPlaceholder`)
-
-### When NOT to Localize
-- Log messages (use English for consistency in logs)
-- Exception messages in code (use English)
-- Developer comments
-- Configuration keys
-- Technical identifiers
-
-## Async/Await Best Practices
-
-**Fire-and-Forget Pattern**: Only acceptable when properly wrapped with error handling and cancellation:
-```csharp
-// ACCEPTABLE - Fire-and-forget with error recovery
-private async Task HandleToggleAsync()
-{
-    try
-    {
-        await _onToggle(this);
-    }
-    catch (Exception ex)
-    {
-        _logger?.LogError(ex, "Error toggling port {PortName}", Name);
-        // Revert UI state on failure
-        _isInitializing = true;
-        IsEnabled = !IsEnabled;
-        _isInitializing = false;
-    }
-}
-
-partial void OnIsEnabledChanged(bool value)
-{
-    if (!_isInitializing)
-        _ = HandleToggleAsync(); // Fire-and-forget with error handling
-}
-```
-
-**Async Callbacks**: When property change handlers need to call async methods, use async callbacks:
-```csharp
-// Callback signature
-private readonly Func<PortItemViewModel, Task> _onToggle;
-
-// Usage in parent
-private async Task OnTogglePortAsync(PortItemViewModel item)
-{
-    await _portService.SetPortEnabledAsync(item.Id, item.IsEnabled);
-}
-```
-
-**Logging Best Practices**: Use structured logging with `ILogger<T>` consistently:
-```csharp
-// CORRECT - Structured logging
-_logger?.LogError(ex, "Error toggling port {PortName} (ID: {PortId})", Name, Id);
-
-// WRONG - Debug.WriteLine (inconsistent, no structure)
-System.Diagnostics.Debug.WriteLine($"Error: {ex.Message}");
-```
+Ports must not write to the database. `PacketStorageService` is the only packet writer.
+ViewModels must use `PacketQueryService` for packet database reads; message data goes
+through `MessageService`. Consumers must use `PortService` for transmission. Views
+contain presentation and bindings, not business or infrastructure logic.
+
+## MVVM and dependency injection
+
+- Use CommunityToolkit.Mvvm.
+- Use partial `[ObservableProperty]` properties, not backing-field generator syntax.
+- Inject services and child ViewModels through constructors.
+- Register every new ViewModel in `ServiceProviderFactory`, `DesignData`, and `ViewLocator`.
+- Use a factory for transient ViewModels that need post-construction context.
+- Let `ViewLocator` map ViewModels to views. Use `ContentControl` for child ViewModels.
+- Keep design-time registrations free of live databases, network connections, hardware,
+  and platform-only APIs.
+
+## Events, async code, and disposal
+
+- Unsubscribe from events when the owning object is disposed.
+- Do not subscribe to an object's own `PropertyChanged` with a lambda; use toolkit
+  partial change methods.
+- Avoid `async void` except for event handlers, and catch/log failures in those handlers.
+- Give background work cancellation and stop it during disposal.
+- Use `ILogger<T>` with structured messages; do not use `Debug.WriteLine`.
+- Use `System.DateTime` in UTC for SQLite timestamps and convert at UI boundaries.
+
+## Naming and source conventions
+
+- Private fields: `_camelCase`
+- Public types, properties, methods, and enum members: `PascalCase`
+- Parameters and locals: `camelCase`
+- Interfaces start with `I`.
+- `ImplicitUsings` is disabled. Add every required `using`.
+- Package versions belong in `Directory.Packages.props`; project references omit versions.
+
+## Localization
+
+All user-facing text must be localized:
+
+- AXAML uses `{loc:Loc Key}`.
+- C# uses `Strings.Get("Key")` or `Strings.Format("Key", ...)`.
+- Add new keys to both `AetherAprs/Localization/Strings.resx` and
+  `Strings.pt.resx`.
+
+Logs, developer comments, configuration keys, and technical identifiers remain in English.
+
+## Licensing
+
+Every new file needs SPDX licensing metadata accepted by REUSE. Text files normally
+carry a header; binary assets use a `.license` sidecar:
+
+- C# and source code: `GPL-3.0-or-later`
+- Application AXAML/XML: `GPL-3.0-or-later`
+- Documentation: `CC-BY-SA-4.0`
+- Configuration: use the license already established for that file type
+
+Run `pre-commit run reuse-lint-file --all-files` before committing.
+
+## Pull request checklist
+
+- The change is limited to the requested scope.
+- Relevant tests were added or updated.
+- Build and tests pass.
+- REUSE lint passes.
+- No stale docs, hardcoded UI strings, direct database access, or unregistered ViewModels
+  were introduced.
+- User-facing behavior is documented in `DOCS/wiki` when it changes.

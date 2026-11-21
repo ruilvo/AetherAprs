@@ -4,77 +4,31 @@ SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 SPDX-License-Identifier: CC-BY-SA-4.0
 -->
 
-# AetherAprs Wiki
+# AetherAprs documentation
 
-Welcome to the AetherAprs documentation! This wiki provides comprehensive guides for users and developers.
+AetherAprs is an Android APRS application for amateur radio operators. It connects to
+APRS-IS and KISS TNCs, displays stations and trails on a map, sends beacons and messages,
+and supports digipeating and RF/Internet gating.
 
-## About AetherAprs
+## User guides
 
-AetherAprs is a modern, cross-platform ham radio APRS (Automatic Packet Reporting System) application built with Avalonia UI and .NET 10. It combines RF and Internet connectivity, intelligent beaconing, messaging, and digipeater functionality in a clean, Material Design interface.
+- [Getting Started](Getting-Started.md)
+- [Port Configuration](Port-Configuration.md)
+- [Beaconing](Beaconing-Setup.md)
+- [Messaging](Messaging.md)
+- [APRS Paths and Comments](APRS-Path-and-Comments.md)
 
-## Quick Links
+## Developer guides
 
-### For Users
-- **[Getting Started](Getting-Started.md)** - First-time setup and basic configuration
-- **[Port Configuration](Port-Configuration.md)** - Configure APRS-IS, KISS TNC connections
-- **[Beaconing Setup](Beaconing-Setup.md)** - Configure position reporting
-- **[APRS Path and Beacon Comments](APRS-Path-and-Comments.md)** - Configure digipeater paths and beacon comments
-- **[Messaging Guide](Messaging.md)** - Send and receive APRS messages
+- [Building from Source](Building-from-Source.md)
+- [Developer Guide](Developer-Guide.md)
 
-### For Developers
-- **[Building from Source](Building-from-Source.md)** - Compile and run AetherAprs
-- **[Developer Guide](Developer-Guide.md)** - Architecture and contribution guidelines
-- **[AGENTS.md](https://github.com/RuiOliveira/AetherAprs/blob/main/AGENTS.md)** - Coding conventions for AI agents and humans
+## Support
 
-## Features Overview
-
-### 🌐 Multi-Protocol Connectivity
-Connect to APRS networks via APRS-IS (Internet) or KISS TNCs over TCP/IP, Bluetooth Classic, or Bluetooth LE.
-
-### 📡 Smart Beaconing
-Intelligent position reporting that adapts to your speed and direction with preset modes for walking, driving, or custom configurations.
-
-### 💬 Messaging
-Full APRS messaging with automatic acknowledgments, retry logic, and delivery tracking.
-
-### 🔄 Digipeater & Gating
-Route packets between RF ports and Internet with flexible control over digipeater participation.
-
-### 🗺️ Interactive Mapping
-Real-time position display with trails, filtering, and APRS symbol rendering.
-
-### 📦 Packet Management
-View, filter, and inspect all received APRS packets with persistent storage.
-
-## Platform Support
-
-| Platform | Status | Features |
-|----------|--------|----------|
-| Android | ✅ Full | Bluetooth, GPS, foreground service |
-
-**Note**: AetherAprs currently supports Android only. While built with Avalonia UI (cross-platform framework), desktop platforms are not yet supported.
-
-## Getting Help
-
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/RuiOliveira/AetherAprs/issues)
-- **Discussions**: Ask questions on [GitHub Discussions](https://github.com/RuiOliveira/AetherAprs/discussions)
-- **Documentation**: Browse this wiki for detailed guides
+Report reproducible bugs through [GitHub Issues](https://github.com/RuiOliveira/AetherAprs/issues).
+Read the repository [README](../../README.md) for the current feature and build summary.
 
 ## License
 
-AetherAprs is free and open source software:
-- Code: GPL-3.0-or-later
-- Documentation: CC-BY-SA-4.0
-- Configuration: CC0-1.0
-
-See the [LICENSE files](https://github.com/RuiOliveira/AetherAprs/tree/main/LICENSES) for details.
-
-## Amateur Radio Notice
-
-AetherAprs is designed for licensed amateur radio operators. Users must:
-- Comply with their license privileges
-- Follow local regulations for APRS frequencies and power
-- Properly identify with their assigned callsign
-- Follow APRS network best practices
-
-**73!** 📡
+Code is GPL-3.0-or-later. Documentation is CC-BY-SA-4.0. License texts are in
+[`LICENSES`](../../LICENSES).

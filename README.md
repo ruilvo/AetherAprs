@@ -6,250 +6,94 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # AetherAprs
 
-<p align="center">
-  <img src="AetherAprs.Android/Assets/icon_400px.png" alt="AetherAprs Logo" width="200"/>
-</p>
+AetherAprs is an Android APRS application for amateur radio operators. It connects to
+APRS-IS and KISS TNCs, displays received stations on a map, sends position beacons and
+messages, and supports digipeating and RF/Internet gating.
 
-**AetherAprs** is a modern, cross-platform ham radio APRS (Automatic Packet Reporting System) application built with Avalonia UI and .NET 10. It brings together RF and Internet connectivity, intelligent beaconing, messaging, and digipeater functionality in a clean, Material Design interface.
-
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![REUSE Compliant](https://img.shields.io/badge/REUSE-compliant-green)](https://reuse.software/)
-[![.NET 10](https://img.shields.io/badge/.NET-10-purple)](https://dotnet.microsoft.com/)
+The application is built with Avalonia UI 12, Material.Avalonia, and .NET 10. Android is
+the supported application target. The core project also builds on `net10.0` for tests and
+platform-independent development.
 
 ## Features
 
-### 🌐 Multi-Protocol Connectivity
-- **APRS-IS**: Connect to APRS Internet servers with filtering and authentication
-- **KISS TNC Support** via:
-  - TCP/IP (local or remote TNCs)
-  - Bluetooth Classic (SPP) - Android only
-  - Bluetooth LE (Nordic UART Service) - Android only
-- Manage multiple ports simultaneously with per-port RX/TX control
+- APRS-IS connections with server-side filters
+- KISS TNC connections over TCP, Bluetooth Classic, and Bluetooth LE
+- Position beaconing with Walk, Drive, and Custom profiles
+- APRS messaging with acknowledgments, retries, and conversation history
+- Packet history, packet details, station trails, and map display
+- Digipeating and configurable RF/APRS-IS gating
+- Offline map packages and cached map tiles
+- English and Portuguese localization
 
-### 📡 Smart Beaconing System
-- **Dynamic position reporting** with three preset modes:
-  - **Walk Mode**: Optimized for pedestrians (30min/10min/5min intervals)
-  - **Drive Mode**: Optimized for vehicles (10min/2min/30sec intervals)
-  - **Custom Mode**: Fully configurable parameters
-- **Intelligent transmission logic**:
-  - Speed-based intervals (slow/normal/fast)
-  - Course change detection triggers immediate beacons
-  - Minimum distance filtering prevents GPS jitter
-  - Configurable beacon comments and status text
+## Install
 
-### 💬 Messaging
-- Send and receive APRS messages with conversation threads
-- **Automatic ACK/REJ handling** with exponential backoff retry
-- Message delivery status tracking (Pending/Acknowledged/Rejected/Timeout)
-- Persistent conversation history
+Download the latest signed Android APK from
+[GitHub Releases](https://github.com/RuiOliveira/AetherAprs/releases). Android asks for
+location, Bluetooth, notification, and foreground-service permissions as needed.
 
-### 🔄 Digipeater & Gating
-- **RF-to-RF digipeating**: Relay packets between radio ports
-- **RF-to-APRS-IS gating**: Forward RF packets to Internet
-- **APRS-IS-to-RF gating**: Forward Internet packets to RF (optional)
-- Per-port digipeater participation control
-- Optional callsign insertion in digipeated paths
+The user guides are in [`DOCS/wiki`](DOCS/wiki):
 
-### 🗺️ Interactive Mapping
-- Real-time position display with APRS symbol icons
-- Position trails showing historical movement
-- Time-range filtering (last hour/day/week/month/custom/all)
-- Per-port map visibility control
-- User location tracking with auto-center on first fix
+- [Getting Started](DOCS/wiki/Getting-Started.md)
+- [Port Configuration](DOCS/wiki/Port-Configuration.md)
+- [Beaconing](DOCS/wiki/Beaconing-Setup.md)
+- [Messaging](DOCS/wiki/Messaging.md)
+- [APRS Paths and Comments](DOCS/wiki/APRS-Path-and-Comments.md)
 
-### 📦 Packet Management
-- View most recent packets per callsign
-- Detailed packet inspection (position, message, weather, status)
-- SQLite database with configurable retention (default: 30 days)
-- Automatic cleanup of old packets
-- Support for all APRS packet types
+## Build
 
-### 🌍 Localization
-- Multi-language support (English, Portuguese)
-- Easy to add new translations
+Prerequisites:
 
-## Documentation
-
-📚 **[Visit the Wiki](https://github.com/RuiOliveira/AetherAprs/wiki)** for comprehensive documentation:
-
-- [Getting Started Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Getting-Started)
-- [Port Configuration](https://github.com/RuiOliveira/AetherAprs/wiki/Port-Configuration)
-- [Beaconing Setup](https://github.com/RuiOliveira/AetherAprs/wiki/Beaconing-Setup)
-- [Messaging Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Messaging)
-- [Digipeater Configuration](https://github.com/RuiOliveira/AetherAprs/wiki/Digipeater-Configuration)
-- [Android Release Setup](https://github.com/RuiOliveira/AetherAprs/wiki/Android-Release-Setup)
-- [Developer Guide](https://github.com/RuiOliveira/AetherAprs/wiki/Developer-Guide)
-
-## Platform Support
-
-| Platform | Status | Notes |
-|----------|--------|-------|
-| **Android** | ✅ Fully Supported | Bluetooth, GPS, foreground service |
-| **Desktop** | 🚧 Not Yet Supported | Planned for future release |
-
-**Note**: AetherAprs is built with Avalonia UI (cross-platform framework) but currently supports Android only.
-
-## Installation
-
-### Android
-Download the latest APK from the [Releases](https://github.com/RuiOliveira/AetherAprs/releases) page.
-
-**Required Permissions:**
-- Location (for GPS beaconing)
-- Bluetooth (for Bluetooth TNCs)
-- Foreground service (keeps app active while ports are enabled)
-
-### Desktop
-Pre-built binaries coming soon. For now, build from source (see below).
-
-## Quick Start
-
-1. **Configure Your Station**
-   - Go to Settings
-   - Enter your callsign and default SSID
-   - Select your APRS symbol
-
-2. **Add a Port**
-   - Go to Ports page
-   - Tap "Add Port"
-   - Choose APRS-IS or KISS TNC
-   - Configure connection details
-
-3. **Enable Position Beaconing** (Optional)
-   - On Home page, ensure location tracking shows your position
-   - Beacons will transmit automatically based on your configured mode
-
-4. **Start Receiving**
-   - Enable your port (toggle switch)
-   - Watch packets appear in real-time on the map and packets page
-
-## Building from Source
-
-### Prerequisites
 - .NET 10 SDK
-- Android workload (for Android builds): `dotnet workload install android`
+- Android workload for Android builds
+- Android SDK for Android builds
 - Git
 
-### Clone and Build
 ```bash
 git clone https://github.com/RuiOliveira/AetherAprs.git
 cd AetherAprs
-
-# Build all projects
 dotnet build AetherAprs.slnx
-
-# Run desktop app (Windows/Linux/macOS)
-dotnet run --project AetherAprs/AetherAprs.csproj
-
-# Build Android APK (requires Android SDK)
+dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 dotnet build AetherAprs.Android/AetherAprs.Android.csproj -c Release
 ```
 
-### Running Tests
-```bash
-dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
-```
+For Android deployment, emulator setup, signing, and troubleshooting, see
+[Building from Source](DOCS/wiki/Building-from-Source.md).
 
 ## Architecture
 
-AetherAprs follows a clean two-flow architecture with clear separation between data persistence and querying.
+The receive path is:
 
-### Technology Stack
-
-- **UI Framework**: Avalonia UI with Material Design
-- **Pattern**: MVVM with CommunityToolkit.Mvvm
-- **Database**: SQLite with Entity Framework Core
-- **DI Container**: Microsoft.Extensions.DependencyInjection
-- **Configuration**: Microsoft.Extensions.Configuration (JSON)
-- **Mapping**: Mapsui library
-- **Logging**: Microsoft.Extensions.Logging
-
-### Data Flows
-
-**Receiving Packets (Port → Database)**:
+```text
+RF/APRS-IS port → PortService → PacketStorageService → SQLite
 ```
-RF/APRS-IS Port → PortService → PacketStorageService → SQLite
-```
-Ports receive packets and fire events. PortService coordinates persistence through PacketStorageService, which writes to the database via EF Core.
 
-**Querying Packets (Database → UI)**:
-```
-SQLite → PacketQueryService → ViewModels → Views
-```
-ViewModels query packet data through PacketQueryService, which provides read-only database access via EF Core. ViewModels never access the database directly.
+The read path is:
 
-**Transmitting Packets (UI → Port)**:
+```text
+SQLite → PacketQueryService → ViewModels → Avalonia views
 ```
-ViewModel → PortService → RF/APRS-IS Port
-```
-ViewModels use PortService to coordinate packet transmission through the appropriate port.
 
-### Key Architectural Rules
-
-- **Ports** handle transport/protocol communication only (no persistence)
-- **PortService** coordinates ports and delegates packet persistence
-- **PacketStorageService** writes received packets to database (exclusive writer)
-- **PacketQueryService** provides read-only database queries
-- **ViewModels** are UI-layer classes that orchestrate service calls
-- **Views** contain only presentation logic and bindings
-
-For detailed architecture documentation, see [`AGENTS.md`](AGENTS.md).
+Transmission always goes through `PortService`. Ports do not access the database,
+`PacketStorageService` is the packet writer, and ViewModels do not query EF Core directly.
+The [Developer Guide](DOCS/wiki/Developer-Guide.md) describes the project structure and
+development workflow. [AGENTS.md](AGENTS.md) contains the repository rules.
 
 ## Contributing
 
-Contributions are welcome! Please:
+Keep changes focused, preserve the MVVM and service boundaries, localize user-facing
+strings, and add tests for new behavior. Before submitting changes, run:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Ensure all files have proper SPDX headers (pre-commit hook enforces this)
-4. Follow the coding conventions in `AGENTS.md`
-5. **Update documentation**:
-   - Add user-facing features to the [Wiki](https://github.com/RuiOliveira/AetherAprs/wiki)
-   - Update `README.md` features section if adding major functionality
-   - Update `AGENTS.md` if changing architecture or developer workflows
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
-
-### Development Guidelines
-
-- **All user-facing text must be localized** (see `AGENTS.md` for details)
-- Use `ILogger<T>` for logging, not `Debug.WriteLine`
-- Follow MVVM pattern with proper DI registration
-- Add tests for new features
-- Run `pre-commit run --all-files` before committing
-
-See [`AGENTS.md`](AGENTS.md) for detailed developer guidelines.
+```bash
+dotnet build AetherAprs.slnx
+dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
+pre-commit run reuse-lint-file --all-files
+```
 
 ## License
 
-This project is compliant with the [REUSE specification](https://reuse.software/), enforced by a git pre-commit hook.
+Code is licensed under GPL-3.0-or-later. Documentation is licensed under CC-BY-SA-4.0.
+Configuration files use the license stated in their SPDX header. License texts are in
+[`LICENSES`](LICENSES).
 
-- **Code**: GPL-3.0-or-later
-- **Documentation**: CC-BY-SA-4.0
-- **Configuration files**: CC0-1.0
-
-For detailed license information, see [LICENSES](/LICENSES).
-
-## Acknowledgments
-
-- **Avalonia UI** - Cross-platform UI framework
-- **Mapsui** - Mapping library
-- **APRS Community** - Protocol specifications and support
-- All contributors and testers
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/RuiOliveira/AetherAprs/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/RuiOliveira/AetherAprs/discussions)
-- **Wiki**: [Documentation](https://github.com/RuiOliveira/AetherAprs/wiki)
-
-## Amateur Radio Compliance
-
-AetherAprs is designed for use by licensed amateur radio operators. Users are responsible for:
-- Ensuring transmissions comply with their license privileges
-- Following local regulations regarding APRS frequencies and power limits
-- Properly identifying their station with their assigned callsign
-- Understanding and following APRS network best practices
-
-**73 de CT7ALW!** 📡
+APRS transmissions must comply with the operator's license privileges, local regulations,
+and applicable APRS network practices.
