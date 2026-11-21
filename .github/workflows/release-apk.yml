@@ -101,7 +101,7 @@ jobs:
           echo "Found APK at: $APK_PATH"
           
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -n 1)
-          "$BUILD_TOOLS/zipalign" -c -P 4 "$APK_PATH"
+          "$BUILD_TOOLS/zipalign" -c -P 4 4 "$APK_PATH"
           "$BUILD_TOOLS/apksigner" verify --verbose "$APK_PATH"
           "$BUILD_TOOLS/aapt" dump badging "$APK_PATH" | grep -E "package:|sdkVersion:"
           # Keep the release asset name deterministic.
