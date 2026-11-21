@@ -86,7 +86,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                Classes="Body2"
                                TextWrapping="Wrap"
                                Margin="0,4,0,0"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                               Foreground="{DynamicResource MaterialBodyLightBrush}"
                                IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                   </Grid>
                 </Button>

@@ -67,7 +67,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Text="{loc:Loc CompassWest}" Classes="Caption" Canvas.Left="3" Canvas.Top="55" />
             <!-- Needle: points north at 0 degrees, rotates to relative bearing -->
             <Line StartPoint="60,60" EndPoint="60,14"
-                  Stroke="{DynamicResource MaterialPrimaryBrush}"
+                  Stroke="{DynamicResource MaterialPrimaryMidBrush}"
                   StrokeThickness="3"
                   StrokeLineCap="Round">
               <Line.RenderTransform>
@@ -76,7 +76,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </Line>
             <!-- Center hub -->
             <Ellipse Canvas.Left="56" Canvas.Top="56" Width="8" Height="8"
-                     Fill="{DynamicResource MaterialPrimaryBrush}" />
+                     Fill="{DynamicResource MaterialPrimaryMidBrush}" />
           </Canvas>
           <StackPanel VerticalAlignment="Center" Spacing="4">
             <TextBlock Classes="Body2">

@@ -73,7 +73,15 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
             var filter = new AprsIsFilter();
 
             AddList(filter.Prefixes, Prefixes);
-            filter.PacketTypes = BuildPacketTypes();
+
+            // A type filter that selects every type (or none) is a no-op that
+            // would otherwise subscribe to the full global feed, so only emit
+            // t/ when the user has chosen a meaningful subset.
+            var types = BuildPacketTypes();
+            if (types != AprsIsPacketType.All)
+            {
+                filter.PacketTypes = types;
+            }
 
             if (TryParse(MyRangeKm, out var myRange))
             {

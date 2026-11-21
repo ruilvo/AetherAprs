@@ -46,7 +46,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc StationSettingsDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <!-- Callsign -->
@@ -82,7 +82,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc DisplaySettingsDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <!-- Time Range Selection -->
@@ -128,7 +128,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc MapSettingsDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <ComboBox ItemsSource="{Binding AvailableTileSources}"
@@ -165,7 +165,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc DynamicBeaconingDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <Button Content="{loc:Loc ConfigureBeaconingModes}"
                   Command="{Binding OpenBeaconingSettingsCommand}"
@@ -183,7 +183,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc BeaconSettingsDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <TextBox Text="{Binding BeaconComment}"
@@ -200,7 +200,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Classes="Caption"
                        Text="{loc:Loc DigipeaterPathDescription}"
                        TextWrapping="Wrap"
-                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}"
                        Margin="0,-8,0,0" />
           </StackPanel>
         </StackPanel>
@@ -213,7 +213,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc DigipeaterGatingDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <CheckBox Content="{loc:Loc EnableDigipeater}"
@@ -273,7 +273,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc MessagingDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <CheckBox Content="{loc:Loc AutoAcknowledgeIncomingMessages}"
@@ -301,7 +301,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <TextBlock Text="{loc:Loc MessageTemplatesSectionEntryDescription}"
                                Classes="Body2"
                                TextWrapping="Wrap"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                               Foreground="{DynamicResource MaterialBodyLightBrush}" />
                   </StackPanel>
                   <avalonia:MaterialIcon Grid.Column="1"
                                          Kind="ChevronRight"
@@ -323,7 +323,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc SearchSectionEntryDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <controls:Card Classes="ClickableCard">
             <Button Command="{Binding OpenSearchCommand}">
@@ -335,7 +335,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <TextBlock Text="{loc:Loc SearchSectionEntryDescription}"
                              Classes="Body2"
                              TextWrapping="Wrap"
-                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                             Foreground="{DynamicResource MaterialBodyLightBrush}" />
                 </StackPanel>
                 <avalonia:MaterialIcon Grid.Column="1"
                                        Kind="ChevronRight"
@@ -356,7 +356,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc ObjectsAndBulletinsDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
             <controls:Card Classes="ClickableCard">
@@ -369,7 +369,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <TextBlock Text="{loc:Loc ObjectsSectionEntryDescription}"
                                Classes="Body2"
                                TextWrapping="Wrap"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                               Foreground="{DynamicResource MaterialBodyLightBrush}" />
                   </StackPanel>
                   <avalonia:MaterialIcon Grid.Column="1"
                                          Kind="ChevronRight"
@@ -391,7 +391,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <TextBlock Text="{loc:Loc BulletinsSectionEntryDescription}"
                                Classes="Body2"
                                TextWrapping="Wrap"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                               Foreground="{DynamicResource MaterialBodyLightBrush}" />
                   </StackPanel>
                   <avalonia:MaterialIcon Grid.Column="1"
                                          Kind="ChevronRight"

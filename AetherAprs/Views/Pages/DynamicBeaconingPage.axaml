@@ -77,7 +77,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Classes="Caption"
                        Text="{loc:Loc WalkModeDescription}"
                        TextWrapping="Wrap"
-                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
             <StackPanel Spacing="12">
               <StackPanel Spacing="4">
@@ -191,7 +191,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Classes="Caption"
                        Text="{loc:Loc DriveModeDescription}"
                        TextWrapping="Wrap"
-                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
             <StackPanel Spacing="12">
               <StackPanel Spacing="4">
@@ -305,7 +305,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             <TextBlock Classes="Caption"
                        Text="{loc:Loc CustomModeDescription}"
                        TextWrapping="Wrap"
-                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
             <StackPanel Spacing="12">
               <StackPanel Spacing="4">

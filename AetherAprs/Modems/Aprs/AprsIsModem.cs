@@ -448,7 +448,26 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
             if (line.StartsWith("# logresp ", StringComparison.OrdinalIgnoreCase))
             {
-                if (line.Contains(" verified", StringComparison.OrdinalIgnoreCase))
+                // Per the APRS-IS protocol, only "failed" is a rejection. A
+                // "verified" response grants a full login, while "unverified"
+                // is a successful READ-ONLY login (missing/invalid passcode):
+                // receiving works, but the server will not relay transmitted
+                // packets.
+                if (line.Contains(" failed", StringComparison.OrdinalIgnoreCase))
+                {
+                    var exception = new InvalidOperationException($"APRS-IS login was rejected: {line}");
+                    FaultConnectionReady(connectionReady, exception);
+                    throw exception;
+                }
+
+                if (line.Contains(" unverified", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "APRS-IS login is unverified (read-only): {Response}. Receiving works, but transmitted packets will not be relayed.",
+                        line);
+                    connectionReady.TrySetResult(true);
+                }
+                else if (line.Contains(" verified", StringComparison.OrdinalIgnoreCase))
                 {
                     connectionReady.TrySetResult(true);
                 }

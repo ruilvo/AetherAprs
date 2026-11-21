@@ -14,7 +14,8 @@ public class AprsIsFilterBuilderViewModelTests
     {
         var vm = new AprsIsFilterBuilderViewModel();
 
-        Assert.Equal("t/poimqstunw m/100", vm.Filter);
+        // All types selected is a no-op type filter, so only the distance is emitted.
+        Assert.Equal("m/100", vm.Filter);
         Assert.Equal("100", vm.MyRangeKm);
         Assert.True(vm.IncludePosition);
         Assert.True(vm.IncludeWeather);
@@ -25,7 +26,7 @@ public class AprsIsFilterBuilderViewModelTests
     {
         var vm = new AprsIsFilterBuilderViewModel { MyRangeKm = "50" };
 
-        Assert.Equal("t/poimqstunw m/50", vm.Filter);
+        Assert.Equal("m/50", vm.Filter);
     }
 
     [Fact]
@@ -39,7 +40,7 @@ public class AprsIsFilterBuilderViewModelTests
             IncludeMessage = true
         };
 
-        Assert.Equal("p/CT/CU t/poimqstunw m/50", vm.Filter);
+        Assert.Equal("p/CT/CU m/50", vm.Filter);
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public class AprsIsFilterBuilderViewModelTests
             Prefixes = "CT CU"
         };
 
-        Assert.Equal("p/CT/CU t/poimqstunw m/100", vm.Filter);
+        Assert.Equal("p/CT/CU m/100", vm.Filter);
     }
 
     [Fact]

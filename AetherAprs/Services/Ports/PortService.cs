@@ -12,6 +12,7 @@ using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Transports.Kiss;
@@ -40,6 +41,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
     private readonly IAudioPlaybackService _audioPlaybackService;
     private readonly IPttService _pttService;
     private readonly ISecretProtector _secretProtector;
+    private readonly ILocationTrackingService? _locationTrackingService;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
     private readonly Lock _stateLock = new();
@@ -65,7 +67,8 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         IAudioStreamService audioStreamService,
         IAudioPlaybackService audioPlaybackService,
         IPttService pttService,
-        ISecretProtector? secretProtector = null)
+        ISecretProtector? secretProtector = null,
+        ILocationTrackingService? locationTrackingService = null)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
@@ -79,6 +82,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         _audioPlaybackService = audioPlaybackService;
         _pttService = pttService;
         _secretProtector = secretProtector ?? new PlaintextSecretProtector();
+        _locationTrackingService = locationTrackingService;
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
         // also guarantees packets are persisted and published in receive order.
@@ -503,12 +507,21 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
                             callsign,
                             ssid > 0 ? ssid : null);
 
+                        // Resolve runtime-dependent filter directives (drop a
+                        // no-op all-types t/, and turn m/ into a fixed r/ range
+                        // around the current position) just before connecting.
+                        var location = _locationTrackingService?.CurrentLocation;
+                        var filter = AprsIsFilter.NormalizeForConnection(
+                            aprsIsSettings.Filter,
+                            location?.Location.Latitude,
+                            location?.Location.Longitude);
+
                         var modem = new AprsIsModem(
                             aprsIsSettings.Server,
                             aprsIsSettings.ServerPort,
                             fullCallsign,
                             aprsIsSettings.Passcode,
-                            aprsIsSettings.Filter,
+                            filter,
                             _loggerFactory.CreateLogger<AprsIsModem>());
 
                         EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);

@@ -84,7 +84,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Classes="Body2"
                      Text="{loc:Loc DownloadZoomRangeDescription}"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="4">
             <TextBlock Classes="Body2" Text="{loc:Loc MinZoom}" />
@@ -112,7 +112,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
           <TextBlock Text="{Binding StatusMessage}"
                      Classes="Body2"
                      TextWrapping="Wrap"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}"
                      IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
 

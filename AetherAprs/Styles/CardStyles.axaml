@@ -47,7 +47,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
   <!-- Primary badge (for important info like port type) -->
   <Style Selector="Border.PrimaryBadge">
-    <Setter Property="Background" Value="{DynamicResource MaterialPrimaryBrush}" />
+    <Setter Property="Background" Value="{DynamicResource MaterialPrimaryMidBrush}" />
     <Setter Property="CornerRadius" Value="2" />
     <Setter Property="Padding" Value="8,4" />
     <Setter Property="VerticalAlignment" Value="Center" />

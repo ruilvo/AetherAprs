@@ -52,7 +52,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="8" IsVisible="{Binding !KillObject}">
           <TextBlock Classes="Subtitle2"
                      Text="{loc:Loc Position}"
-                     Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
+                     Foreground="{DynamicResource MaterialBodyBrush}" />
           <TextBox Text="{Binding LatitudeText}"
                    PlaceholderText="{loc:Loc LatitudePlaceholder}"
                    wpf:TextFieldAssist.Label="{loc:Loc ObjectLatitude}"
@@ -74,7 +74,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="8" IsVisible="{Binding !KillObject}">
           <TextBlock Classes="Subtitle2"
                      Text="{loc:Loc AprsSymbol}"
-                     Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
+                     Foreground="{DynamicResource MaterialBodyBrush}" />
           <ContentControl Content="{Binding SymbolPicker}" />
         </StackPanel>
 

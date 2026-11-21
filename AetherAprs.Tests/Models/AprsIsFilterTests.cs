@@ -168,4 +168,52 @@ public class AprsIsFilterTests
         Assert.Equal(AprsIsPacketType.None, filter.PacketTypes);
         Assert.Equal(new[] { "t/pzx" }, filter.OtherDirectives);
     }
+
+    [Fact]
+    public void NormalizeForConnection_AllTypesAndMyRange_ResolvesToFixedRange()
+    {
+        // Legacy filter: t/ selecting every type is a no-op that would flood,
+        // and m/ cannot match on a read-only connection.
+        var result = AprsIsFilter.NormalizeForConnection("t/poimqstunw m/100", 38.7223, -9.1393);
+
+        Assert.Equal("r/38.7223/-9.1393/100", result);
+    }
+
+    [Fact]
+    public void NormalizeForConnection_AllTypesWithoutLocation_StripsTypesOnly()
+    {
+        var result = AprsIsFilter.NormalizeForConnection("t/poimqstunw m/100", null, null);
+
+        Assert.Equal("m/100", result);
+    }
+
+    [Fact]
+    public void NormalizeForConnection_SubsetTypesWithLocation_KeepsTypesAndResolvesMyRange()
+    {
+        var result = AprsIsFilter.NormalizeForConnection("t/pmw m/50", 38.7223, -9.1393);
+
+        Assert.Equal("r/38.7223/-9.1393/50 t/pmw", result);
+    }
+
+    [Fact]
+    public void NormalizeForConnection_FixedRangeAlreadyPresent_KeepsItAndDropsMyRange()
+    {
+        var result = AprsIsFilter.NormalizeForConnection("r/1/2/30 m/50", 38.7223, -9.1393);
+
+        Assert.Equal("r/1/2/30", result);
+    }
+
+    [Fact]
+    public void NormalizeForConnection_EmptyFilter_ReturnsEmptyString()
+    {
+        Assert.Equal(string.Empty, AprsIsFilter.NormalizeForConnection(string.Empty, 38.7223, -9.1393));
+    }
+
+    [Fact]
+    public void NormalizeForConnection_FixedRangeOnly_IsUnchanged()
+    {
+        var result = AprsIsFilter.NormalizeForConnection("r/38.7/-9.1/50", 10, 20);
+
+        Assert.Equal("r/38.7/-9.1/50", result);
+    }
 }

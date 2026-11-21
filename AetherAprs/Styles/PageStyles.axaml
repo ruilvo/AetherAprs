@@ -29,7 +29,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <Style Selector="TextBlock.PageSubtitle">
     <Setter Property="FontSize" Value="14" />
     <Setter Property="TextWrapping" Value="Wrap" />
-    <Setter Property="Foreground" Value="{DynamicResource MaterialSecondaryBodyBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MaterialBodyLightBrush}" />
   </Style>
 
   <!-- Content area with bottom padding for FAB -->
@@ -58,7 +58,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="TextAlignment" Value="Center" />
     <Setter Property="Margin" Value="32" />
-    <Setter Property="Foreground" Value="{DynamicResource MaterialSecondaryBodyBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MaterialBodyLightBrush}" />
   </Style>
 
 </Styles>

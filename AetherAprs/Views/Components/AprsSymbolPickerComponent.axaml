@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 This file is part of AetherAprs
 SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 SPDX-License-Identifier: GPL-3.0-or-later
@@ -15,7 +15,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Classes="Headline6"
                        Text="{loc:Loc AprsSymbol}"
-                       Foreground="{DynamicResource MaterialPrimaryBrush}" />
+                       Foreground="{DynamicResource MaterialPrimaryMidBrush}" />
         </StackPanel>
 
         <!-- Symbol Selection Buttons -->
@@ -39,7 +39,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <TextBlock Text="{loc:Loc BaseSymbol}"
                                Classes="Caption"
                                HorizontalAlignment="Center"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                               Foreground="{DynamicResource MaterialBodyLightBrush}" />
                 </StackPanel>
             </Button>
 
@@ -63,7 +63,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <TextBlock Text="{loc:Loc Overlay}"
                                Classes="Caption"
                                HorizontalAlignment="Center"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                               Foreground="{DynamicResource MaterialBodyLightBrush}" />
                 </StackPanel>
             </Button>
         </Grid>
@@ -72,7 +72,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="4">
             <TextBlock Text="{loc:Loc Result}"
                        Classes="Caption"
-                       Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
             <Border Width="64"
                     Height="64"
                     Padding="4"
@@ -89,6 +89,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <TextBlock Text="{loc:Loc SymbolPickerDescription}"
                    Classes="Caption"
                    TextWrapping="Wrap"
-                   Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                   Foreground="{DynamicResource MaterialBodyLightBrush}" />
     </StackPanel>
 </UserControl>

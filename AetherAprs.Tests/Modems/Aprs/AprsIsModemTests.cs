@@ -256,6 +256,115 @@ public class AprsIsModemTests
     }
 
     // ---------------------------------------------------------------
+    // Login result handling (logresp)
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task SendAsync_AfterUnverifiedLogin_UsesQaoConstructor()
+    {
+        // "unverified" is a successful READ-ONLY login (invalid/missing
+        // passcode): the modem must accept it and keep transmitting.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("# logresp N0CALL unverified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(38.5, -9.10),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2
+        };
+
+        await modem.SendAsync(packet, TestContext.Current.CancellationToken);
+
+        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
+    }
+
+    [Fact]
+    public async Task Receive_AfterUnverifiedLogin_DeliversPackets()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        var received = new TaskCompletionSource<AprsPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        modem.PacketReceived += (_, packet) => received.TrySetResult(packet);
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("# logresp N0CALL unverified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("N0CALL>APZ001:>Online via APRS");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        var packet = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        var status = Assert.IsType<StatusPacket>(packet);
+        Assert.Equal("Online via APRS", status.Text);
+    }
+
+    [Fact]
+    public async Task SendAsync_AfterFailedLogin_Throws()
+    {
+        // "failed" is the only true rejection: the modem must not proceed.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("# logresp N0CALL failed, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(38.5, -9.10),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2
+        };
+
+        var ex = await Assert.ThrowsAnyAsync<Exception>(() =>
+            modem.SendAsync(packet, TestContext.Current.CancellationToken));
+        Assert.Contains("rejected", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ---------------------------------------------------------------
     // APRS-IS line parsing
     // ---------------------------------------------------------------
 

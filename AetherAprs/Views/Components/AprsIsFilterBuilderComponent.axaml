@@ -22,7 +22,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <StackPanel Spacing="12">
     <TextBlock Classes="Subtitle2"
                Text="{loc:Loc FilterOptional}"
-               Foreground="{DynamicResource MaterialPrimaryBrush}" />
+               Foreground="{DynamicResource MaterialPrimaryMidBrush}" />
 
     <!-- Distance filter (m/dist) -->
     <StackPanel Spacing="4">
@@ -61,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <StackPanel Spacing="4">
       <TextBlock Classes="Caption"
                  Text="{loc:Loc FilterPreview}"
-                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                 Foreground="{DynamicResource MaterialBodyLightBrush}" />
       <TextBox Text="{Binding Filter}"
                IsReadOnly="True"
                Classes="Outline" />

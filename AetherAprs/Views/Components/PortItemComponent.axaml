@@ -32,7 +32,7 @@ xmlns:loc="clr-namespace:AetherAprs.Localization;assembly=AetherAprs"
           <!-- Status text -->
           <TextBlock Text="{Binding StatusText}"
                      Classes="Caption"
-                     Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}"
                      Margin="0,4,0,0" />
         </StackPanel>
       </Button>
@@ -65,12 +65,12 @@ xmlns:loc="clr-namespace:AetherAprs.Localization;assembly=AetherAprs"
                                    Width="24"
                                    Height="24"
                                    IsVisible="{Binding ShowOnMap}"
-                                   Foreground="{DynamicResource MaterialPrimaryBrush}" />
+                                   Foreground="{DynamicResource MaterialPrimaryMidBrush}" />
             <avalonia:MaterialIcon Kind="MapOutline"
                                    Width="24"
                                    Height="24"
                                    IsVisible="{Binding !ShowOnMap}"
-                                   Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                                   Foreground="{DynamicResource MaterialBodyLightBrush}" />
           </Panel>
         </Button>
 
@@ -82,7 +82,7 @@ xmlns:loc="clr-namespace:AetherAprs.Localization;assembly=AetherAprs"
                 AutomationProperties.Name="{loc:Loc DeletePortTooltip}"
                 VerticalAlignment="Center"
                 Padding="8">
-          <avalonia:MaterialIcon Kind="Delete" Width="24" Height="24" Foreground="{DynamicResource MaterialErrorBrush}" />
+          <avalonia:MaterialIcon Kind="Delete" Width="24" Height="24" Foreground="{DynamicResource MaterialValidationErrorBrush}" />
         </Button>
       </StackPanel>
     </Grid>

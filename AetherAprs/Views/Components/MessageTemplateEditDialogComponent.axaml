@@ -14,12 +14,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <TextBlock Classes="Headline6"
                Text="{loc:Loc AddTemplate}"
-               Foreground="{DynamicResource MaterialPrimaryBrush}"
+               Foreground="{DynamicResource MaterialPrimaryMidBrush}"
                IsVisible="{Binding IsAddMode}" />
 
     <TextBlock Classes="Headline6"
                Text="{loc:Loc EditTemplate}"
-               Foreground="{DynamicResource MaterialPrimaryBrush}"
+               Foreground="{DynamicResource MaterialPrimaryMidBrush}"
                IsVisible="{Binding !IsAddMode}" />
 
     <StackPanel Spacing="4">
@@ -57,7 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                  IsVisible="{Binding BodyError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                  TextWrapping="Wrap" />
       <TextBlock Classes="Caption"
-                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                 Foreground="{DynamicResource MaterialBodyLightBrush}"
                  Text="{loc:Loc TemplatePlaceholdersHint}"
                  TextWrapping="Wrap" />
     </StackPanel>

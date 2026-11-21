@@ -45,7 +45,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <TextBlock Text="{loc:Loc ConfigureAprsPortSettings}"
                  Classes="Body2"
                  TextWrapping="Wrap"
-                 Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                 Foreground="{DynamicResource MaterialBodyLightBrush}" />
     </StackPanel>
 
     <!-- Scrollable content -->
@@ -64,7 +64,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <StackPanel Spacing="12">
           <TextBlock Classes="Subtitle2"
                      Text="{loc:Loc PortDirection}"
-                     Foreground="{DynamicResource MaterialOnSurfaceBrush}" />
+                     Foreground="{DynamicResource MaterialBodyBrush}" />
           <StackPanel Spacing="8" Margin="0,4,0,0">
             <CheckBox Content="{loc:Loc ReceiveRx}"
                       IsChecked="{Binding IsRx}"
@@ -103,7 +103,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=AprsIsSettings}">
           <TextBlock Classes="Subtitle2"
                      Text="{loc:Loc AprsIsSettings}"
-                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+                     Foreground="{DynamicResource MaterialPrimaryMidBrush}" />
 
           <StackPanel Spacing="12">
             <TextBox Text="{Binding Server}"
@@ -130,7 +130,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=KissSettings}">
           <TextBlock Classes="Subtitle2"
                      Text="{loc:Loc KissSettings}"
-                     Foreground="{DynamicResource MaterialPrimaryBrush}" />
+                     Foreground="{DynamicResource MaterialPrimaryMidBrush}" />
 
           <ComboBox ItemsSource="{Binding AvailableKissTransportTypes}"
                     SelectedItem="{Binding SelectedKissTransportType}"
@@ -193,8 +193,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <DataTemplate x:DataType="bt:BluetoothLeAdvertisement">
                     <StackPanel Spacing="4" Margin="0,4">
                       <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="Medium" />
-                      <TextBlock Text="{Binding Address}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" Classes="Caption" />
-                      <TextBlock Text="{Binding Rssi, Converter={StaticResource RssiFormatConverter}}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" Classes="Caption" />
+                      <TextBlock Text="{Binding Address}" Foreground="{DynamicResource MaterialBodyLightBrush}" Classes="Caption" />
+                      <TextBlock Text="{Binding Rssi, Converter={StaticResource RssiFormatConverter}}" Foreground="{DynamicResource MaterialBodyLightBrush}" Classes="Caption" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -228,7 +228,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <DataTemplate x:DataType="bt:BluetoothClassicDevice">
                     <StackPanel Spacing="4" Margin="0,4">
                       <TextBlock Text="{Binding Name, TargetNullValue={loc:Loc UnnamedDevice}}" FontWeight="Medium" />
-                      <TextBlock Text="{Binding Address}" Foreground="{DynamicResource MaterialSecondaryBodyBrush}" Classes="Caption" />
+                      <TextBlock Text="{Binding Address}" Foreground="{DynamicResource MaterialBodyLightBrush}" Classes="Caption" />
                     </StackPanel>
                   </DataTemplate>
                 </ListBox.ItemTemplate>

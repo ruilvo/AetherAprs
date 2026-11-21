@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 This file is part of AetherAprs
 SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 SPDX-License-Identifier: GPL-3.0-or-later
@@ -53,7 +53,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                                Classes="Body2"
                                TextWrapping="NoWrap"
                                TextTrimming="CharacterEllipsis"
-                               Foreground="{DynamicResource MaterialSecondaryBodyBrush}" />
+                               Foreground="{DynamicResource MaterialBodyLightBrush}" />
                   </StackPanel>
                 </Button>
               </controls:Card>

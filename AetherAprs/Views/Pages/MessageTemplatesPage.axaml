@@ -61,13 +61,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
                   <TextBlock Grid.Row="1" Grid.Column="0"
                              Text="{Binding Destination}"
                              Classes="Caption"
-                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                             Foreground="{DynamicResource MaterialBodyLightBrush}"
                              IsVisible="{Binding Destination, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                   <TextBlock Grid.Row="2" Grid.Column="0"
                              Text="{Binding Body}"
                              Classes="Caption"
-                             Foreground="{DynamicResource MaterialSecondaryBodyBrush}"
+                             Foreground="{DynamicResource MaterialBodyLightBrush}"
                              TextTrimming="CharacterEllipsis" />
 
                   <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"

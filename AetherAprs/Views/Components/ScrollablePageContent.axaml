@@ -11,19 +11,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:behaviors="using:AetherAprs.Behaviors"
              mc:Ignorable="d"
              x:Class="AetherAprs.Views.Components.ScrollablePageContent">
-  <Grid RowDefinitions="*">
-    <ScrollViewer Grid.Row="0"
-                  Classes="PageContent"
-                  VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  VerticalAlignment="Stretch"
-                  HorizontalAlignment="Stretch">
-      <i:Interaction.Behaviors>
-        <behaviors:ScrollToFocusedControlBehavior />
-      </i:Interaction.Behaviors>
-      <ContentPresenter Content="{Binding $parent[UserControl].Content, RelativeSource={RelativeSource Self}}"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Top" />
-    </ScrollViewer>
-  </Grid>
+  <UserControl.Template>
+    <ControlTemplate>
+      <Grid RowDefinitions="*">
+        <ScrollViewer Grid.Row="0"
+                      Classes="PageContent"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalAlignment="Stretch"
+                      HorizontalAlignment="Stretch">
+          <i:Interaction.Behaviors>
+            <behaviors:ScrollToFocusedControlBehavior />
+          </i:Interaction.Behaviors>
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Top" />
+        </ScrollViewer>
+      </Grid>
+    </ControlTemplate>
+  </UserControl.Template>
 </UserControl>

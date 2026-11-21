@@ -107,6 +107,55 @@ public sealed class AprsIsFilter
     }
 
     /// <summary>
+    /// Normalizes a stored filter string for use when connecting to an APRS-IS
+    /// server. Two directives need runtime context:
+    /// <list type="bullet">
+    /// <item>A <c>t/</c> directive that selects every packet type is a no-op
+    /// that would otherwise subscribe to the full global feed, so it is
+    /// dropped.</item>
+    /// <item><c>m/dist</c> (my-range) only matches once the server has seen a
+    /// position sent from this callsign — which a read-only (unverified)
+    /// connection never provides. It is therefore resolved into a fixed
+    /// <c>r/lat/lon/dist</c> range around the supplied current position. When
+    /// no position is available the <c>m/</c> directive is left as-is.</item>
+    /// </list>
+    /// </summary>
+    public static string NormalizeForConnection(string filter, double? latitude, double? longitude)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return string.Empty;
+        }
+
+        var parsed = Parse(filter);
+
+        if (parsed.PacketTypes == AprsIsPacketType.All)
+        {
+            parsed.PacketTypes = AprsIsPacketType.None;
+        }
+
+        if (parsed.MyRangeKm.HasValue && latitude.HasValue && longitude.HasValue)
+        {
+            // Prefer an explicitly configured fixed range (r/) over deriving one
+            // from the current position. m/ is meaningless on a read-only
+            // connection, so when a fixed range is already present it is simply
+            // dropped instead of overwriting the user's range.
+            if (!parsed.RangeLatitude.HasValue &&
+                !parsed.RangeLongitude.HasValue &&
+                !parsed.RangeDistanceKm.HasValue)
+            {
+                parsed.RangeLatitude = latitude.Value;
+                parsed.RangeLongitude = longitude.Value;
+                parsed.RangeDistanceKm = parsed.MyRangeKm.Value;
+            }
+
+            parsed.MyRangeKm = null;
+        }
+
+        return parsed.ToFilterString();
+    }
+
+    /// <summary>
     /// Parses a space-separated APRS-IS filter string into a structured model.
     /// Unrecognized or exclusion directives are preserved verbatim in
     /// <see cref="OtherDirectives"/>.
