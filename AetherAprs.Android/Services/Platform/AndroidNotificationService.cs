@@ -86,6 +86,7 @@ public sealed class AndroidNotificationService : INotificationService
         // POST_NOTIFICATIONS is requested at startup (MainActivity); if the user
         // denied it, this call is a harmless no-op on Android 13+.
         notificationManager.Notify(StableNotificationId(conversationId), notification);
+        AndroidLifecycleTelemetry.State.NotificationPosted();
         return Task.CompletedTask;
     }
 

@@ -128,7 +128,7 @@ public class KissModemEdgeCaseTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task ReadLoop_StreamClosedByRemote_ReadLoopExitsWithoutError()
+    public async Task ReadLoop_StreamClosedByRemote_RaisesReceiveError()
     {
         using var stream = new CloseAfterDataStream([0xC0, 0x00, 0x01, 0xC0]);
         await using var modem = new KissModem(stream);
@@ -144,9 +144,13 @@ public class KissModemEdgeCaseTests
         var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.Equal([0x01], received.Data);
 
-        // Loop exits silently on remote close; the pending reads never fire.
+        var error = await errorTcs.Task.WaitAsync(
+            TimeSpan.FromSeconds(3),
+            TestContext.Current.CancellationToken);
+
         await modem.StopAsync();
-        Assert.False(errorTcs.Task.IsCompleted, "Remote close should not raise a receive error.");
+        Assert.IsType<IOException>(error);
+        Assert.Contains("closed", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

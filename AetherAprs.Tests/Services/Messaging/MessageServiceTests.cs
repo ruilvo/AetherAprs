@@ -10,7 +10,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Data;
 using AetherAprs.Factories.Packets;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -79,6 +81,66 @@ public sealed class MessageServiceTests
             port.Id,
             isOutbound: true,
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PendingMessage_RestoresAfterProcessRestart_AndRetriesFromDurableOutbox()
+    {
+        using var database = TempAppDatabase.CreateEmpty();
+        using (var setupContext = database.CreateContext())
+        {
+            setupContext.Database.EnsureCreated();
+        }
+        var port = CreateTxPort();
+        var configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
+        var resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        var storage = new PacketStorageService(
+            database.Factory,
+            configuration,
+            NullLogger<PacketStorageService>.Instance);
+
+        var failedPortService = new FakePortService(port) { FailSends = true };
+        var firstProcess = new MessageService(
+            failedPortService,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            database.Factory);
+
+        await firstProcess.SendAsync(
+            new Callsign("K0OTH"),
+            "Survive restart",
+            TestContext.Current.CancellationToken);
+        firstProcess.Dispose();
+
+        using (var context = database.CreateContext())
+        {
+            var queued = Assert.Single(context.Packets);
+            Assert.True(queued.IsOutbound);
+            Assert.Equal(MessageDeliveryStatus.Pending, queued.Message!.DeliveryStatus);
+        }
+
+        var recoveredPortService = new FakePortService(port);
+        var recoveredProcess = new MessageService(
+            recoveredPortService,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            database.Factory);
+        await recoveredProcess.InitializeAsync(TestContext.Current.CancellationToken);
+
+        var recoveredMessage = Assert.Single(Assert.Single(recoveredProcess.Conversations).Messages);
+        recoveredMessage.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
+        recoveredProcess.ProcessRetries(null);
+        await recoveredPortService.PacketSent.Task.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Single(recoveredPortService.SentPackets);
+        recoveredProcess.Dispose();
     }
 
     [Fact]
@@ -770,6 +832,8 @@ public sealed class MessageServiceTests
         public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
         public List<AprsPacket> SentPackets { get; } = [];
 
+        public bool FailSends { get; set; }
+
         /// <summary>Signalled whenever a packet is sent — lets tests await deterministic sends.</summary>
         public TaskCompletionSource<AprsPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -778,6 +842,11 @@ public sealed class MessageServiceTests
 
         public Task SendPacketAsync(Guid id, AprsPacket packet)
         {
+            if (FailSends)
+            {
+                throw new InvalidOperationException("simulated transport loss");
+            }
+
             SentPackets.Add(packet);
             PacketSent.TrySetResult(packet);
             return Task.CompletedTask;

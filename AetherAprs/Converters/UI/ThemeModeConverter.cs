@@ -24,16 +24,16 @@ public class ThemeModeConverter : IValueConverter
 
         return mode switch
         {
-            ThemeMode.System => Strings.Get("ThemeModeSystem"),
-            ThemeMode.Light => Strings.Get("ThemeModeLight"),
-            ThemeMode.Dark => Strings.Get("ThemeModeDark"),
+            ThemeMode.System => Strings.Get("ThemeModeSystem", culture),
+            ThemeMode.Light => Strings.Get("ThemeModeLight", culture),
+            ThemeMode.Dark => Strings.Get("ThemeModeDark", culture),
             _ => value.ToString()
         };
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Not needed for display-only conversion
-        throw new NotImplementedException();
+        // This converter is display-only; do not write the localized text back to the source.
+        return Avalonia.Data.BindingOperations.DoNothing;
     }
 }

@@ -156,13 +156,11 @@ public sealed class MessageService : IMessageService, IDisposable
         }
         catch
         {
-            // The initial send failed entirely: mark the message as failed so the
-            // retry loop does not keep re-sending something the caller saw fail (H4).
-            lock (_gate)
-            {
-                _pendingMessages.Remove(messageNumber);
-                stored.DeliveryStatus = MessageDeliveryStatus.Failed;
-            }
+            // Keep the durable outbox item pending. The caller receives the
+            // transport error, while the retry timer and a later process restart
+            // can recover the queued message.
+            stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(
+                settings.MessageRetryTimeoutSeconds);
             PersistMessageStatusInBackground(stored);
             throw;
         }
@@ -206,10 +204,11 @@ public sealed class MessageService : IMessageService, IDisposable
                 // Note: Cannot set Timestamp after construction (init-only property)
                 // Factory creates packet with default timestamp, but we'll log the message timestamp
 
-                await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
-
-                // Store sent packet in database
+                // Persist before the transport call. If the process dies after
+                // this commit and before SendPacketAsync completes, startup can
+                // restore the pending message from the packet record.
                 await _packetStorageService.StorePacketAsync(packet, port.Id, isOutbound: true, cancellationToken).ConfigureAwait(false);
+                await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
 
                 sent++;
                 _logger.LogInformation(

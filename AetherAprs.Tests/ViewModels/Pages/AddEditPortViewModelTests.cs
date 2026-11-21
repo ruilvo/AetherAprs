@@ -21,6 +21,62 @@ namespace AetherAprs.Tests.ViewModels.Pages;
 public sealed class AddEditPortViewModelTests : TestFixtureBase
 {
     [Fact]
+    public async Task BleScanDoesNotReplaceRepeatedAdvertisementItems()
+    {
+        var scanner = Substitute.For<IBluetoothLeScanner>();
+        scanner.EnsurePermissionAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        scanner.ScanAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => RepeatAdvertisementAsync(_.Arg<CancellationToken>()));
+
+        var viewModel = CreateViewModel(scanner);
+        var scanTask = viewModel.StartBleScanCommand.ExecuteAsync(null);
+
+        while (viewModel.BleDevices.Count < 1)
+        {
+            await Task.Yield();
+        }
+
+        var selected = viewModel.BleDevices[0];
+        viewModel.SelectedBleDevice = selected;
+
+        while (viewModel.IsBleScanning is false)
+        {
+            await Task.Yield();
+        }
+
+        Assert.Single(viewModel.BleDevices);
+        Assert.Same(selected, viewModel.BleDevices[0]);
+        Assert.Same(selected, viewModel.SelectedBleDevice);
+
+        viewModel.StopBleScanCommand.Execute(null);
+        await scanTask;
+    }
+
+    [Fact]
+    public void BuildConfigUsesLoRaAprsTrackerBleProfile()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.SelectedPortSettingsType = typeof(KissSettings);
+        viewModel.SelectedKissTransportType = typeof(BluetoothLeKissTransportSettings);
+
+        var device = new BluetoothLeAdvertisement(
+            "AA:BB:CC:DD:EE:FF",
+            "LilyGO T-Echo Plus",
+            -45,
+            [BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid]);
+        viewModel.BleDevices.Add(device);
+        viewModel.SelectedBleDevice = device;
+
+        var settings = Assert.IsType<KissSettings>(viewModel.BuildConfig().TypeSettings);
+        var ble = Assert.IsType<BluetoothLeKissTransportSettings>(settings.Transport);
+
+        Assert.Equal(BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid, ble.ServiceUuid);
+        Assert.Equal(BluetoothLeKissTransportSettings.LoRaAprsTrackerRxCharacteristicUuid, ble.RxCharacteristicUuid);
+        Assert.Equal(BluetoothLeKissTransportSettings.LoRaAprsTrackerTxCharacteristicUuid, ble.TxCharacteristicUuid);
+    }
+
+    [Fact]
     public void DefaultsEnableTransmit()
     {
         var viewModel = CreateViewModel();
@@ -56,7 +112,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         Assert.Equal("example.com", viewModel.Server);
         Assert.Equal(14580, viewModel.ServerPort);
         Assert.Equal("12345", viewModel.Passcode);
-        Assert.Equal("r/50/0/100", viewModel.FilterBuilder.Filter);
+        Assert.Equal(string.Empty, viewModel.FilterBuilder.Filter);
         Assert.True(viewModel.IsRx);
         Assert.False(viewModel.IsTx);
         Assert.True(viewModel.ShowOnMap);
@@ -117,12 +173,27 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         Assert.Equal("Edit Existing Port", viewModel.Title);
     }
 
-    private static AddEditPortViewModel CreateViewModel(bool initialize = true)
+    private static async IAsyncEnumerable<BluetoothLeAdvertisement> RepeatAdvertisementAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var advertisement = new BluetoothLeAdvertisement(
+            "AA:BB:CC:DD:EE:FF",
+            "Test BLE",
+            -40,
+            Array.Empty<Guid>());
+        yield return advertisement;
+        yield return advertisement with { Rssi = -60 };
+        await Task.Delay(Timeout.Infinite, cancellationToken);
+    }
+
+    private static AddEditPortViewModel CreateViewModel(
+        IBluetoothLeScanner? bleScanner = null,
+        bool initialize = true)
     {
         var nav = Substitute.For<INavigationService>();
         var portService = Substitute.For<IPortService>();
         var kissFactory = new KissStreamFactory(new List<IKissStreamConnector>());
-        var bleScanner = Substitute.For<IBluetoothLeScanner>();
+        bleScanner ??= Substitute.For<IBluetoothLeScanner>();
         var btClassic = Substitute.For<IBluetoothClassicDeviceProvider>();
         
         var vm = new AddEditPortViewModel(nav, portService, kissFactory, bleScanner, btClassic, new AprsIsFilterBuilderViewModel());

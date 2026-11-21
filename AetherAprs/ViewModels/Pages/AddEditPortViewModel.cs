@@ -258,12 +258,11 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                     string.Equals(device.Address, advertisement.Address, StringComparison.OrdinalIgnoreCase));
                 if (existing is not null)
                 {
-                    var index = BleDevices.IndexOf(existing);
-                    BleDevices[index] = advertisement;
-                    if (ReferenceEquals(SelectedBleDevice, existing))
-                    {
-                        SelectedBleDevice = advertisement;
-                    }
+                    // Keep the existing item instance. Android reports the same
+                    // peripheral repeatedly with changing RSSI; replacing the
+                    // collection item for every advertisement resets the open
+                    // ListBox's selection and scroll position.
+                    continue;
                 }
                 else
                 {
@@ -414,7 +413,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                         ble.DeviceAddress,
                         ble.DeviceName,
                         0,
-                        []);
+                        [ble.ServiceUuid]);
                     BleDevices.Clear();
                     if (!string.IsNullOrWhiteSpace(ble.DeviceAddress))
                     {
@@ -481,10 +480,25 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
         if (SelectedKissTransportType == typeof(BluetoothLeKissTransportSettings))
         {
+            var serviceUuid = BluetoothLeKissTransportSettings.DefaultServiceUuid;
+            var rxCharacteristicUuid = BluetoothLeKissTransportSettings.DefaultRxCharacteristicUuid;
+            var txCharacteristicUuid = BluetoothLeKissTransportSettings.DefaultTxCharacteristicUuid;
+
+            if (SelectedBleDevice?.ServiceUuids.Contains(
+                    BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid) == true)
+            {
+                serviceUuid = BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid;
+                rxCharacteristicUuid = BluetoothLeKissTransportSettings.LoRaAprsTrackerRxCharacteristicUuid;
+                txCharacteristicUuid = BluetoothLeKissTransportSettings.LoRaAprsTrackerTxCharacteristicUuid;
+            }
+
             return new BluetoothLeKissTransportSettings
             {
                 DeviceAddress = SelectedBleDevice?.Address ?? string.Empty,
-                DeviceName = SelectedBleDevice?.Name
+                DeviceName = SelectedBleDevice?.Name,
+                ServiceUuid = serviceUuid,
+                RxCharacteristicUuid = rxCharacteristicUuid,
+                TxCharacteristicUuid = txCharacteristicUuid
             };
         }
 

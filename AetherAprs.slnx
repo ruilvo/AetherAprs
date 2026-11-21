@@ -8,5 +8,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <Deploy />
   </Project>
   <Project Path="AetherAprs.Tests/AetherAprs.Tests.csproj" />
+  <Project Path="AetherAprs.Android.Tests/AetherAprs.Android.Tests.csproj">
+    <Deploy />
+  </Project>
   <Project Path="AetherAprs/AetherAprs.csproj" />
 </Solution>

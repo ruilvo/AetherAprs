@@ -432,6 +432,48 @@ public sealed class PacketStorageServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CleanupOldPacketsAsync_EnforcesRowBound_AndPreservesPendingMessages()
+    {
+        _configurationService.Settings.Aprs.PacketRetentionMaxRows = 2;
+        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        {
+            db.Packets.AddRange(
+                CreatePacketRecord("BOUND1", DateTime.UtcNow.AddMinutes(-4)),
+                CreatePacketRecord("BOUND2", DateTime.UtcNow.AddMinutes(-3)),
+                CreatePacketRecord("BOUND3", DateTime.UtcNow.AddMinutes(-2)),
+                new PacketRecord
+                {
+                    SourceBase = "PENDING",
+                    DestinationBase = "APRS",
+                    PacketType = PacketTypes.Message,
+                    Timestamp = DateTime.UtcNow.AddMinutes(-1),
+                    IsOutbound = true,
+                    RawInfo = "PENDING>APRS::N0CALL :queued",
+                    Message = new MessageDataRecord
+                    {
+                        AddresseeBase = "N0CALL",
+                        Text = "queued",
+                        Number = 1,
+                        DeliveryStatus = MessageDeliveryStatus.Pending
+                    }
+                });
+            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await _service.CleanupOldPacketsAsync(TestContext.Current.CancellationToken);
+
+        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        {
+            var remaining = await db.Packets
+                .Include(packet => packet.Message)
+                .ToListAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(2, remaining.Count);
+            var pending = Assert.Single(remaining, packet => packet.SourceBase == "PENDING");
+            Assert.Equal(MessageDeliveryStatus.Pending, pending.Message!.DeliveryStatus);
+        }
+    }
+
+    [Fact]
     public async Task CleanupOldPacketsAsync_OnDatabaseError_DoesNotThrow()
     {
         // Arrange - use invalid path to force error
@@ -446,4 +488,16 @@ public sealed class PacketStorageServiceTests : IDisposable
         // Assert - no exception thrown, method returns normally
         Assert.True(true); // If we get here without exception, test passes
     }
+
+    private static PacketRecord CreatePacketRecord(string source, DateTime timestamp) =>
+        new()
+        {
+            SourceBase = source,
+            SourceSsid = AprsSsid.PrimaryStation,
+            DestinationBase = "APRS",
+            DestinationSsid = AprsSsid.PrimaryStation,
+            PacketType = PacketTypes.Unknown,
+            Timestamp = timestamp,
+            RawInfo = $"{source}>APRS:test"
+        };
 }

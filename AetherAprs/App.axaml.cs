@@ -20,6 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -209,11 +210,30 @@ public partial class App : Application, IDisposable
     {
         try
         {
-            await ServiceProvider.GetRequiredService<IPortService>().StartAllEnabledPortsAsync();
+            var portService = ServiceProvider.GetRequiredService<IPortService>();
+            await portService.InitializeAsync(_shutdownCts.Token);
+
+            var coordinator = ServiceProvider.GetRequiredService<SessionCoordinator>();
+            _ = ServiceProvider.GetRequiredService<SessionCoordinatorTelemetryBridge>();
+            await coordinator.InitializeAsync(_shutdownCts.Token);
+
+            var enabledPortIds = portService.Ports
+                .Where(port => port.IsEnabled)
+                .Select(port => port.Id)
+                .ToArray();
+
+            if (enabledPortIds.Length > 0)
+            {
+                await coordinator.StartAsync(enabledPortIds, _shutdownCts.Token);
+            }
+        }
+        catch (OperationCanceledException) when (_shutdownCts.IsCancellationRequested)
+        {
+            _logger?.LogInformation("Port session startup cancelled during application shutdown");
         }
         catch (Exception exception)
         {
-            _logger?.LogError(exception, "Failed to start enabled ports");
+            _logger?.LogError(exception, "Failed to initialize or start the port session");
         }
     }
 

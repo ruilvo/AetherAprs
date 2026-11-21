@@ -5,6 +5,7 @@
 using AetherAprs.Data;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,14 @@ public interface IPacketStorageService
     /// Raised when a packet is successfully stored in the database.
     /// </summary>
     event EventHandler? PacketStored;
+
+}
+
+public sealed class StoragePressureEventArgs(string operation, Exception exception) : EventArgs
+{
+    public string Operation { get; } = operation;
+
+    public Exception Exception { get; } = exception;
 }
 
 public sealed class PacketStorageService(
@@ -45,7 +54,11 @@ public sealed class PacketStorageService(
     IConfigurationService configurationService,
     ILogger<PacketStorageService> logger) : IPacketStorageService
 {
+    private const int CleanupBatchSize = 250;
+
     public event EventHandler? PacketStored;
+
+    public event EventHandler<StoragePressureEventArgs>? StoragePressureDetected;
 
     public async Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default)
     {
@@ -69,6 +82,14 @@ public sealed class PacketStorageService(
         }
         catch (Exception ex)
         {
+            if (ex is Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 5 or 13 or 14 })
+            {
+                StoragePressureDetected?.Invoke(
+                    this,
+                    new StoragePressureEventArgs("store", ex));
+                await CleanupOldPacketsAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
             throw; // Re-throw to make errors more visible
         }
@@ -83,15 +104,39 @@ public sealed class PacketStorageService(
 
             await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-            // Set-based atomic delete avoids materializing entities and the
-            // count/delete race (M3).
-            var count = await context.Packets
-                .Where(p => p.Timestamp < cutoffDate)
-                .ExecuteDeleteAsync(cancellationToken);
+            var removedByAge = await DeleteEligibleBatchesAsync(
+                context,
+                packet => packet.Timestamp < cutoffDate,
+                cancellationToken).ConfigureAwait(false);
 
-            if (count > 0)
+            var maximumRows = Math.Max(1, configurationService.Settings.Aprs.PacketRetentionMaxRows);
+            var removedByBound = 0;
+            var currentRows = await context.Packets.CountAsync(cancellationToken).ConfigureAwait(false);
+            while (currentRows > maximumRows)
             {
-                logger.LogInformation("Cleaned up {Count} packets older than {Days} days", count, retentionDays);
+                var removed = await DeleteOldestEligibleBatchAsync(
+                    context,
+                    Math.Min(CleanupBatchSize, currentRows - maximumRows),
+                    cancellationToken).ConfigureAwait(false);
+                if (removed == 0)
+                {
+                    logger.LogWarning(
+                        "Packet storage remains above {MaximumRows} rows because pending outbound messages are protected.",
+                        maximumRows);
+                    break;
+                }
+
+                removedByBound += removed;
+                currentRows -= removed;
+            }
+
+            if (removedByAge + removedByBound > 0)
+            {
+                logger.LogInformation(
+                    "Cleaned up {Count} packet records ({AgeCount} expired, {BoundCount} over storage bound).",
+                    removedByAge + removedByBound,
+                    removedByAge,
+                    removedByBound);
             }
         }
         catch (Exception ex)
@@ -99,4 +144,55 @@ public sealed class PacketStorageService(
             logger.LogError(ex, "Failed to cleanup old packets");
         }
     }
+
+    private static async Task<int> DeleteEligibleBatchesAsync(
+        AppDbContext context,
+        System.Linq.Expressions.Expression<Func<Data.Entities.PacketRecord, bool>> predicate,
+        CancellationToken cancellationToken)
+    {
+        var total = 0;
+        while (true)
+        {
+            var ids = await context.Packets
+                .Where(predicate)
+                .Where(IsSafeToDelete)
+                .OrderBy(packet => packet.Timestamp)
+                .ThenBy(packet => packet.Id)
+                .Select(packet => packet.Id)
+                .Take(CleanupBatchSize)
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            if (ids.Count == 0)
+            {
+                return total;
+            }
+
+            total += await context.Packets
+                .Where(packet => ids.Contains(packet.Id))
+                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<int> DeleteOldestEligibleBatchAsync(
+        AppDbContext context,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var ids = await context.Packets
+            .Where(IsSafeToDelete)
+            .OrderBy(packet => packet.Timestamp)
+            .ThenBy(packet => packet.Id)
+            .Select(packet => packet.Id)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return ids.Count == 0
+            ? 0
+            : await context.Packets
+                .Where(packet => ids.Contains(packet.Id))
+                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static readonly System.Linq.Expressions.Expression<Func<Data.Entities.PacketRecord, bool>> IsSafeToDelete =
+        packet => !packet.IsOutbound ||
+            packet.Message == null ||
+            packet.Message.DeliveryStatus != MessageDeliveryStatus.Pending;
 }

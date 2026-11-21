@@ -10,6 +10,12 @@ on:
 
 permissions:
   contents: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-release:
@@ -45,33 +51,16 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/release.keystore
 
       - name: Verify keystore
+        shell: bash
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
+          set -euo pipefail
           echo "Verifying keystore..."
-          ls -lh ${{ github.workspace }}/release.keystore
-          
-          echo "Listing keystore contents..."
-          keytool -list -v -keystore ${{ github.workspace }}/release.keystore \
-            -storepass "$KEYSTORE_PASSWORD" 2>&1 | head -30
-          
-          echo ""
-          echo "Checking for alias '$KEY_ALIAS'..."
-          if keytool -list -keystore ${{ github.workspace }}/release.keystore \
-            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null 2>&1; then
-            echo "✓ Alias '$KEY_ALIAS' found in keystore"
-          else
-            echo "✗ ERROR: Alias '$KEY_ALIAS' NOT found in keystore"
-            echo ""
-            echo "Available aliases in keystore:"
-            keytool -list -keystore ${{ github.workspace }}/release.keystore \
-              -storepass "$KEYSTORE_PASSWORD" | grep "Alias name:" || echo "Could not list aliases"
-            echo ""
-            echo "Please update the ANDROID_KEY_ALIAS secret to match an alias in your keystore."
-            echo "Common value: aetheraprs"
-            exit 1
-          fi
+          test -s "${{ github.workspace }}/release.keystore"
+          keytool -list -keystore "${{ github.workspace }}/release.keystore" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
 
       - name: Build APK
         run: |
@@ -96,7 +85,9 @@ jobs:
 
       - name: Find and Verify APK
         id: find_apk
+        shell: bash
         run: |
+          set -euo pipefail
           APK_PATH=$(find AetherAprs.Android/bin/Release/net10.0-android -name "*.apk" | grep -E "(Signed|publish)" | sort -V | tail -n 1)
           
           if [ -z "$APK_PATH" ]; then
@@ -109,80 +100,36 @@ jobs:
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
           echo "Found APK at: $APK_PATH"
           
-          # Verify APK
-          echo ""
-          echo "=== APK Information ==="
-          ls -lh "$APK_PATH"
-          
-          echo ""
-          echo "=== APK Details (aapt) ==="
-          BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -maxdepth 1 -type d | sort -V | tail -n 1)
-          "$BUILD_TOOLS/aapt" dump badging "$APK_PATH" | head -25
-          
-          echo ""
-          echo "=== APK Signature Check (jarsigner) ==="
-          jarsigner -verify -verbose -certs "$APK_PATH" 2>&1 | tee verify.log
-          
-          # Check if APK is actually signed (look for "jar verified" or check for "jar is unsigned")
-          if grep -q "jar verified" verify.log; then
-            echo "✓ APK is properly signed"
-          elif grep -q "jar is unsigned" verify.log || grep -q "no manifest" verify.log; then
-            echo "✗ APK is unsigned - performing manual signing"
-            cat verify.log
-            
-            echo ""
-            echo "=== Attempting manual signing ==="
-            # Backup original
-            cp "$APK_PATH" "${APK_PATH}.unsigned"
-            
-            # Find build tools
-            BUILD_TOOLS=$(find $ANDROID_HOME/build-tools -maxdepth 1 -type d | sort -V | tail -n 1)
-            echo "Using build tools: $BUILD_TOOLS"
-            
-            # Align
-            echo "Aligning APK..."
-            "$BUILD_TOOLS/zipalign" -v -p 4 "${APK_PATH}.unsigned" "${APK_PATH}.aligned"
-            
-            # Sign with apksigner
-            echo "Signing APK with apksigner..."
-            "$BUILD_TOOLS/apksigner" sign \
-              --ks ${{ github.workspace }}/release.keystore \
-              --ks-key-alias ${{ secrets.ANDROID_KEY_ALIAS }} \
-              --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
-              --key-pass pass:"${{ secrets.ANDROID_KEY_PASSWORD }}" \
-              --out "$APK_PATH" \
-              "${APK_PATH}.aligned"
-            
-            # Verify again
-            echo "Verifying signed APK..."
-            if jarsigner -verify -verbose "$APK_PATH" 2>&1 | grep -q "jar verified"; then
-              echo "✓ APK manually signed and verified successfully"
-            else
-              echo "✗ Manual signing failed - APK still not properly signed"
-              jarsigner -verify -verbose "$APK_PATH"
-              exit 1
-            fi
-          else
-            echo "⚠ APK signature status unclear"
-            cat verify.log
-            exit 1
-          fi
-          
-          # Rename APK to include version
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -n 1)
+          "$BUILD_TOOLS/zipalign" -c -P 4 "$APK_PATH"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK_PATH"
+          "$BUILD_TOOLS/aapt" dump badging "$APK_PATH" | grep -E "package:|sdkVersion:"
+          # Keep the release asset name deterministic.
           APK_NAME="AetherAprs-v${{ steps.version.outputs.version_name }}.apk"
           cp "$APK_PATH" "$APK_NAME"
-          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+          sha256sum "$APK_NAME" > "${APK_NAME}.sha256"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "checksum_name=${APK_NAME}.sha256" >> "$GITHUB_OUTPUT"
+
+          echo "Found and verified: $APK_PATH"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.find_apk.outputs.apk_name }}
+          files: |
+            ${{ steps.find_apk.outputs.apk_name }}
+            ${{ steps.find_apk.outputs.checksum_name }}
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version_name, '-') }}
           generate_release_notes: true
           name: Release ${{ steps.version.outputs.version_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attest release APK
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.find_apk.outputs.apk_name }}
 
       - name: Clean up keystore
         if: always()

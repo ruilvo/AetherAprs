@@ -25,6 +25,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AetherAprs.Services.Diagnostics;
 using System;
 using System.IO;
 
@@ -51,6 +52,7 @@ public static class ServiceProviderFactory
         // registrations below are added after these, so they override the
         // defaults (last registration wins).
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddSingleton<ISecretProtector, PlaintextSecretProtector>();
         services.AddSingleton<ILocationService, NoOpLocationService>();
         services.AddSingleton<IPermissionService, NoOpPermissionService>();
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
@@ -104,6 +106,15 @@ public static class ServiceProviderFactory
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();
+        services.AddSingleton<ISessionStateStore>(_ =>
+            new FileSessionStateStore(Path.Combine(privateAppDataDirectory, "session-state.json")));
+        services.AddSingleton<IDiagnosticEventSink, BoundedDiagnosticEventStore>();
+        services.AddSingleton<RedactedSupportReportService>();
+        services.AddSingleton<PortService>();
+        services.AddSingleton<IPortService>(services => services.GetRequiredService<PortService>());
+        services.AddSingleton<ISessionPortController, PortServiceSessionController>();
+        services.AddSingleton<SessionCoordinator>();
+        services.AddSingleton<SessionCoordinatorTelemetryBridge>();
 
         // Register navigation service
         services.AddSingleton<INavigationService, NavigationService>();
@@ -123,7 +134,6 @@ public static class ServiceProviderFactory
         services.AddSingleton<IKissStreamFactory, KissStreamFactory>();
 
         // Register port service
-        services.AddSingleton<IPortService, PortService>();
 
         // Register digipeater service
         services.AddSingleton<IDigipeaterService, DigipeaterService>();
@@ -153,6 +163,8 @@ public static class ServiceProviderFactory
         // Register location and transmission services
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
         services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
+        services.AddSingleton<IBeaconTransmitQueue>(_ =>
+            new FileBeaconTransmitQueue(Path.Combine(privateAppDataDirectory, "beacon-outbox.json")));
 
         // Register factories
         services.AddSingleton<IPacketFactory, PacketFactory>();

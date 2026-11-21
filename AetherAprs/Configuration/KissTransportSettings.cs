@@ -78,6 +78,13 @@ public sealed class BluetoothClassicKissTransportSettings : IKissTransportSettin
 /// </summary>
 public sealed class BluetoothLeKissTransportSettings : IKissTransportSettings
 {
+    public static readonly Guid LoRaAprsTrackerServiceUuid =
+        Guid.Parse("00000001-BA2A-46C9-AE49-01B0961F68BB");
+    public static readonly Guid LoRaAprsTrackerRxCharacteristicUuid =
+        Guid.Parse("00000002-BA2A-46C9-AE49-01B0961F68BB");
+    public static readonly Guid LoRaAprsTrackerTxCharacteristicUuid =
+        Guid.Parse("00000003-BA2A-46C9-AE49-01B0961F68BB");
+
     public static readonly Guid DefaultServiceUuid =
         Guid.Parse("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
     public static readonly Guid DefaultRxCharacteristicUuid =

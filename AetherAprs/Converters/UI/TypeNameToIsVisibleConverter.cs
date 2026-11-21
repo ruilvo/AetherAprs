@@ -17,7 +17,7 @@ public class TypeNameToIsVisibleConverter : IValueConverter
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Not needed for display-only conversion
-        throw new NotImplementedException();
+        // Visibility is derived from the selected type; it is not a source value.
+        return Avalonia.Data.BindingOperations.DoNothing;
     }
 }

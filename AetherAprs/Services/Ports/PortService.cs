@@ -26,7 +26,7 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Ports;
 
-public class PortService : IPortService, IAsyncDisposable
+public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
 {
     private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly IConfigurationService _configurationService;
@@ -39,6 +39,7 @@ public class PortService : IPortService, IAsyncDisposable
     private readonly IAudioStreamService _audioStreamService;
     private readonly IAudioPlaybackService _audioPlaybackService;
     private readonly IPttService _pttService;
+    private readonly ISecretProtector _secretProtector;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
     private readonly Lock _stateLock = new();
@@ -63,7 +64,8 @@ public class PortService : IPortService, IAsyncDisposable
         IDigipeaterService digipeaterService,
         IAudioStreamService audioStreamService,
         IAudioPlaybackService audioPlaybackService,
-        IPttService pttService)
+        IPttService pttService,
+        ISecretProtector? secretProtector = null)
     {
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
@@ -76,6 +78,7 @@ public class PortService : IPortService, IAsyncDisposable
         _audioStreamService = audioStreamService;
         _audioPlaybackService = audioPlaybackService;
         _pttService = pttService;
+        _secretProtector = secretProtector ?? new PlaintextSecretProtector();
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
         // also guarantees packets are persisted and published in receive order.
@@ -114,6 +117,10 @@ public class PortService : IPortService, IAsyncDisposable
     public event EventHandler? PortsChanged;
 
     public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
+
+    public event EventHandler<PortPacketTransmittedEventArgs>? PacketTransmitted;
+
+    public event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
 
     public async Task AddPortAsync(PortConfig port)
     {
@@ -294,6 +301,7 @@ public class PortService : IPortService, IAsyncDisposable
         var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         await session.Modem.SendAsync(packet).ConfigureAwait(false);
+        PacketTransmitted?.Invoke(this, new PortPacketTransmittedEventArgs(id, packet));
 
         // Update foreground service state after auto-starting a stopped port.
         bool sessionExists;
@@ -378,8 +386,37 @@ public class PortService : IPortService, IAsyncDisposable
     private async Task<List<PortConfig>> LoadPortsAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var records = await db.Ports.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
-        return [.. records.Select(PortRecordMapper.ToConfig)];
+        var records = await db.Ports.ToListAsync(cancellationToken).ConfigureAwait(false);
+        var ports = new List<PortConfig>(records.Count);
+        var migrated = false;
+
+        foreach (var record in records)
+        {
+            if (record.AprsIs is { } aprsIs)
+            {
+                var storedPasscode = aprsIs.Passcode;
+                var passcode = _secretProtector.Unprotect(storedPasscode);
+                aprsIs.Passcode = passcode;
+                ports.Add(PortRecordMapper.ToConfig(record));
+
+                if (!_secretProtector.IsProtected(storedPasscode))
+                {
+                    aprsIs.Passcode = _secretProtector.Protect(passcode);
+                    migrated = true;
+                }
+            }
+            else
+            {
+                ports.Add(PortRecordMapper.ToConfig(record));
+            }
+        }
+
+        if (migrated)
+        {
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return ports;
     }
 
     private async Task PersistPortAsync(PortConfig port, CancellationToken cancellationToken = default)
@@ -388,11 +425,11 @@ public class PortService : IPortService, IAsyncDisposable
         var existing = await db.Ports.FindAsync([port.Id], cancellationToken).ConfigureAwait(false);
         if (existing is null)
         {
-            db.Ports.Add(PortRecordMapper.ToRecord(port));
+            db.Ports.Add(PortRecordMapper.ToRecord(port, ProtectPasscode(port)));
         }
         else
         {
-            PortRecordMapper.CopyTo(existing, port);
+            PortRecordMapper.CopyTo(existing, port, ProtectPasscode(port));
         }
 
         try
@@ -407,10 +444,17 @@ public class PortService : IPortService, IAsyncDisposable
             var retry = await db.Ports.FindAsync([port.Id], cancellationToken).ConfigureAwait(false);
             if (retry is not null)
             {
-                PortRecordMapper.CopyTo(retry, port);
+                PortRecordMapper.CopyTo(retry, port, ProtectPasscode(port));
                 await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    private string? ProtectPasscode(PortConfig port)
+    {
+        return port.TypeSettings is AprsIsSettings aprsIs
+            ? _secretProtector.Protect(aprsIs.Passcode)
+            : null;
     }
 
     private async Task DeletePortAsync(Guid id, CancellationToken cancellationToken = default)
@@ -770,7 +814,26 @@ public class PortService : IPortService, IAsyncDisposable
 
     private void OnModemReceiveError(object? sender, Exception exception)
     {
-        _logger.LogWarning(exception, "Receive error on modem.");
+        Guid? portId = null;
+        lock (_stateLock)
+        {
+            if (sender is not null)
+            {
+                portId = _activeSessions.Values
+                    .FirstOrDefault(session => ReferenceEquals(session.Modem, sender))
+                    ?.PortId;
+            }
+        }
+
+        if (portId is Guid identifiedPortId)
+        {
+            _logger.LogWarning(exception, "Receive error on port {PortId}.", identifiedPortId);
+            TransportFaulted?.Invoke(this, new PortTransportFaultEventArgs(identifiedPortId, exception));
+        }
+        else
+        {
+            _logger.LogWarning(exception, "Receive error on an unknown modem.");
+        }
     }
 
     public async ValueTask DisposeAsync()

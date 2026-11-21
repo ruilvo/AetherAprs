@@ -189,6 +189,8 @@ public class MainActivity : AvaloniaMainActivity
     {
         AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
         base.OnCreate(savedInstanceState);
+        AndroidLifecycleTelemetry.State.ProcessStarted();
+        AndroidLifecycleTelemetry.State.ActivityCreated();
         ConfigureSystemBars();
 
         Localization.UiCulture.Apply(new AetherAprs.Android.Services.Platform.AndroidUiCultureProvider().GetUiCulture());
@@ -208,6 +210,7 @@ public class MainActivity : AvaloniaMainActivity
     protected override void OnResume()
     {
         base.OnResume();
+        AndroidLifecycleTelemetry.State.ActivityResumed();
         if (Avalonia.Application.Current is { } themeApplication)
         {
             themeApplication.ActualThemeVariantChanged += OnActualThemeVariantChanged;
@@ -501,6 +504,7 @@ public class MainActivity : AvaloniaMainActivity
 
     protected override void OnPause()
     {
+        AndroidLifecycleTelemetry.State.ActivityPaused();
         if (Avalonia.Application.Current is { } app)
         {
             app.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
@@ -544,6 +548,7 @@ public class MainActivity : AvaloniaMainActivity
 
     protected override void OnDestroy()
     {
+        AndroidLifecycleTelemetry.State.ActivityDestroyed();
         navigationService?.RequestAppExit -= OnRequestAppExit;
 
         // Unregister broadcast receiver
@@ -570,6 +575,9 @@ public class MainActivity : AvaloniaMainActivity
         if (requestCode == NotificationPermissionRequestCode && _notificationPermissionTcs != null)
         {
             var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
+            AndroidLifecycleTelemetry.State.PermissionResult(
+                AetherAprs.Services.Platform.AndroidPermission.Notifications,
+                granted);
             _notificationPermissionTcs.TrySetResult(granted);
             _notificationPermissionTcs = null;
         }
@@ -578,6 +586,9 @@ public class MainActivity : AvaloniaMainActivity
         if (requestCode == BluetoothPermissionRequestCode && _bluetoothPermissionTcs != null)
         {
             var granted = grantResults.Length > 0 && grantResults.All(r => r == Permission.Granted);
+            AndroidLifecycleTelemetry.State.PermissionResult(
+                AetherAprs.Services.Platform.AndroidPermission.Bluetooth,
+                granted);
             _bluetoothPermissionTcs.TrySetResult(granted);
             _bluetoothPermissionTcs = null;
         }
@@ -586,12 +597,28 @@ public class MainActivity : AvaloniaMainActivity
         if (requestCode == AudioPermissionRequestCode && _audioPermissionTcs != null)
         {
             var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
+            AndroidLifecycleTelemetry.State.PermissionResult(
+                AetherAprs.Services.Platform.AndroidPermission.Audio,
+                granted);
             _audioPermissionTcs.TrySetResult(granted);
             _audioPermissionTcs = null;
         }
 
         // Notify any listeners about permission results
         OnPermissionResult?.Invoke(requestCode, permissions, grantResults);
+
+        if (requestCode == 1001)
+        {
+            AndroidLifecycleTelemetry.State.PermissionResult(
+                AetherAprs.Services.Platform.AndroidPermission.Location,
+                grantResults.Any(result => result == Permission.Granted));
+        }
+        else if (requestCode == 1002)
+        {
+            AndroidLifecycleTelemetry.State.PermissionResult(
+                AetherAprs.Services.Platform.AndroidPermission.BackgroundLocation,
+                grantResults.Length > 0 && grantResults[0] == Permission.Granted);
+        }
     }
 
     private sealed class BackInvokedCallback(Action onBackInvoked) : Java.Lang.Object, IOnBackInvokedCallback

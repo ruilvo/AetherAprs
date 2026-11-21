@@ -24,15 +24,15 @@ public class TileSourceTypeConverter : IValueConverter
 
         return tileSource switch
         {
-            TileSourceType.OsmOnline => Strings.Get("TileSourceOsmOnline"),
-            TileSourceType.MbTilesOffline => Strings.Get("TileSourceMbTilesOffline"),
+            TileSourceType.OsmOnline => Strings.Get("TileSourceOsmOnline", culture),
+            TileSourceType.MbTilesOffline => Strings.Get("TileSourceMbTilesOffline", culture),
             _ => value.ToString()
         };
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Not needed for display-only conversion
-        throw new NotImplementedException();
+        // This converter is display-only; do not write the localized text back to the source.
+        return Avalonia.Data.BindingOperations.DoNothing;
     }
 }

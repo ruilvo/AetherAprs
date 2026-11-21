@@ -12,148 +12,81 @@ using System.Linq;
 namespace AetherAprs.ViewModels.Components;
 
 /// <summary>
-/// ViewModel for the APRS-IS filter builder component. Exposes editable fields
-/// for each supported filter directive and computes the resulting filter string
-/// via <see cref="Filter"/>. Existing filter strings can be round-tripped into
-/// the UI with <see cref="Load"/>.
+/// ViewModel for the supported APRS-IS automatic filter fields: distance,
+/// prefixes, and packet types.
 /// </summary>
 public partial class AprsIsFilterBuilderViewModel : ViewModelBase
 {
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string RangeLatitude { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string RangeLongitude { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string RangeDistanceKm { get; set; } = string.Empty;
-
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
     public partial string Prefixes { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string Buddies { get; set; } = string.Empty;
+    public partial bool IncludePosition { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludePosition { get; set; }
+    public partial bool IncludeObject { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeObject { get; set; }
+    public partial bool IncludeItem { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeItem { get; set; }
+    public partial bool IncludeMessage { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeMessage { get; set; }
+    public partial bool IncludeQuery { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeQuery { get; set; }
+    public partial bool IncludeStatus { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeStatus { get; set; }
+    public partial bool IncludeTelemetry { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeTelemetry { get; set; }
+    public partial bool IncludeUserDefined { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeUserDefined { get; set; }
+    public partial bool IncludeNws { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeNws { get; set; }
+    public partial bool IncludeWeather { get; set; } = true;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial bool IncludeWeather { get; set; }
+    public partial string MyRangeKm { get; set; } = "100";
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string AreaNorth { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string AreaWest { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string AreaSouth { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string AreaEast { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Filter))]
-    public partial string MyRangeKm { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Preserved directives that cannot be represented by the builder fields
-    /// (unrecognized or exclusion directives). Kept so that loading an existing
-    /// filter and re-saving it does not lose information.
-    /// </summary>
-    private readonly List<string> _otherDirectives = [];
-
-    /// <summary>
-    /// Gets the current filter string built from the editable fields, in
-    /// canonical order. Unknown/preserved directives are appended last.
-    /// </summary>
+    /// <summary>Gets the current supported automatic filter string.</summary>
     public string Filter
     {
         get
         {
             var filter = new AprsIsFilter();
 
-            if (TryParse(RangeLatitude, out var lat) &&
-                TryParse(RangeLongitude, out var lon) &&
-                TryParse(RangeDistanceKm, out var dist))
-            {
-                filter.RangeLatitude = lat;
-                filter.RangeLongitude = lon;
-                filter.RangeDistanceKm = dist;
-            }
-
             AddList(filter.Prefixes, Prefixes);
-            AddList(filter.Buddies, Buddies);
             filter.PacketTypes = BuildPacketTypes();
-
-            if (TryParse(AreaNorth, out var north) &&
-                TryParse(AreaWest, out var west) &&
-                TryParse(AreaSouth, out var south) &&
-                TryParse(AreaEast, out var east))
-            {
-                filter.AreaNorthLatitude = north;
-                filter.AreaWestLongitude = west;
-                filter.AreaSouthLatitude = south;
-                filter.AreaEastLongitude = east;
-            }
 
             if (TryParse(MyRangeKm, out var myRange))
             {
                 filter.MyRangeKm = myRange;
             }
 
-            filter.OtherDirectives.AddRange(_otherDirectives);
-
             return filter.ToFilterString();
         }
     }
 
     /// <summary>
-    /// Populates the editable fields from an existing filter string, preserving
-    /// any directives that cannot be represented by the builder.
+    /// Populates the supported fields from an existing filter string. Other
+    /// directives are intentionally ignored.
     /// </summary>
     public void Load(string? filter)
     {
@@ -166,29 +99,14 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
 
         var parsed = AprsIsFilter.Parse(filter);
 
-        RangeLatitude = Format(parsed.RangeLatitude);
-        RangeLongitude = Format(parsed.RangeLongitude);
-        RangeDistanceKm = Format(parsed.RangeDistanceKm);
         Prefixes = string.Join(" ", parsed.Prefixes);
-        Buddies = string.Join(" ", parsed.Buddies);
         SetPacketTypes(parsed.PacketTypes);
-        AreaNorth = Format(parsed.AreaNorthLatitude);
-        AreaWest = Format(parsed.AreaWestLongitude);
-        AreaSouth = Format(parsed.AreaSouthLatitude);
-        AreaEast = Format(parsed.AreaEastLongitude);
         MyRangeKm = Format(parsed.MyRangeKm);
-
-        _otherDirectives.Clear();
-        _otherDirectives.AddRange(parsed.OtherDirectives);
     }
 
     private void Reset()
     {
-        RangeLatitude = string.Empty;
-        RangeLongitude = string.Empty;
-        RangeDistanceKm = string.Empty;
         Prefixes = string.Empty;
-        Buddies = string.Empty;
         IncludePosition = false;
         IncludeObject = false;
         IncludeItem = false;
@@ -199,12 +117,7 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
         IncludeUserDefined = false;
         IncludeNws = false;
         IncludeWeather = false;
-        AreaNorth = string.Empty;
-        AreaWest = string.Empty;
-        AreaSouth = string.Empty;
-        AreaEast = string.Empty;
         MyRangeKm = string.Empty;
-        _otherDirectives.Clear();
     }
 
     private AprsIsPacketType BuildPacketTypes()

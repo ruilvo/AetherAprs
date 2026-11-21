@@ -24,19 +24,19 @@ public class PacketDisplayTimeRangeConverter : IValueConverter
 
         return timeRange switch
         {
-            PacketDisplayTimeRange.LastHour => Strings.Get("TimeRangeLastHour"),
-            PacketDisplayTimeRange.LastDay => Strings.Get("TimeRangeLastDay"),
-            PacketDisplayTimeRange.LastWeek => Strings.Get("TimeRangeLastWeek"),
-            PacketDisplayTimeRange.LastMonth => Strings.Get("TimeRangeLastMonth"),
-            PacketDisplayTimeRange.All => Strings.Get("TimeRangeAll"),
-            PacketDisplayTimeRange.Custom => Strings.Get("TimeRangeCustom"),
+            PacketDisplayTimeRange.LastHour => Strings.Get("TimeRangeLastHour", culture),
+            PacketDisplayTimeRange.LastDay => Strings.Get("TimeRangeLastDay", culture),
+            PacketDisplayTimeRange.LastWeek => Strings.Get("TimeRangeLastWeek", culture),
+            PacketDisplayTimeRange.LastMonth => Strings.Get("TimeRangeLastMonth", culture),
+            PacketDisplayTimeRange.All => Strings.Get("TimeRangeAll", culture),
+            PacketDisplayTimeRange.Custom => Strings.Get("TimeRangeCustom", culture),
             _ => value.ToString()
         };
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Not needed for display-only conversion
-        throw new NotImplementedException();
+        // This converter is display-only; do not write the localized text back to the source.
+        return Avalonia.Data.BindingOperations.DoNothing;
     }
 }

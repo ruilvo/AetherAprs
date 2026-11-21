@@ -152,6 +152,12 @@ public class AprsSettings
     public int PacketRetentionDays { get; set; } = 30;
 
     /// <summary>
+    /// Gets or sets the maximum number of packet records retained after cleanup.
+    /// Pending outbound messages are preserved beyond this bound until terminal.
+    /// </summary>
+    public int PacketRetentionMaxRows { get; set; } = 100_000;
+
+    /// <summary>
     /// Gets or sets the time range for displaying packets in the list and on
     /// the map.
     /// Default is LastDay (24 hours).

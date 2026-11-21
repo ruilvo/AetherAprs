@@ -97,19 +97,18 @@ The repository already contains useful production foundations:
 The baseline is not yet evidence of GA readiness. Several platform services and modem
 paths exist as abstractions, but field behavior still needs hardware validation,
 reconnect testing, lifecycle testing, performance measurement, and release operations.
-The current source also contains unfinished UI converters (`RssiFormatConverter`,
-`PacketDisplayTimeRangeConverter`, `ThemeModeConverter`, `TypeNameToIsVisibleConverter`,
-and `TileSourceTypeConverter`) that must be resolved before release.
+The UI converters identified in the original audit have been implemented and covered by
+tests. Hardware validation, field behavior, and release evidence remain separate gates.
 
 The project currently declares Android API 33 as its minimum and requests location,
 Bluetooth, foreground-service, wake-lock, notification, and audio permissions. Permission
 requests must be justified in context and tested on clean installs, upgrades, denied
 permissions, revoked permissions, and devices without the requested hardware.
 
-The repository currently has no `.github` workflow or other visible release automation,
-no explicit Android backup exclusion, and no documented encrypted secret store. Those
-are release gaps, not optional polish. A private file path alone does not prove that
-credentials are protected from device backup, inspection, or diagnostic collection.
+The repository now has CI/release workflows, explicit Android backup exclusions, and a
+documented encrypted secret store. A private file path alone does not prove that
+credentials are protected from device backup, inspection, or diagnostic collection;
+the release evidence still needs to verify those controls on a clean device.
 
 ## Capability matrix
 
@@ -379,9 +378,55 @@ the following layers:
    scan dependencies and APK contents, validate signing/upgrade identity, and test
    malformed input, log redaction, and notification privacy.
 
+### Reproducible evidence procedure
+
+The commands, device matrix, soak collection, and field-trial record are defined in
+the [Android GA evidence runbook](Android-GA-Evidence-Runbook.md). Every release
+candidate records its commit, signed APK SHA-256, device/API, UTC test interval,
+instrumentation result, redacted support report, and operator. Hardware and field
+rows remain incomplete until a named operator attaches the corresponding evidence.
+
+The 24-hour collector records periodic memory, battery, CPU, and redacted log
+snapshots under `artifacts/soak/<device-id>`. It does not claim a soak passed;
+engineering must review queue depth, database size, reconnect count, battery, and
+crash logs against the targets below.
+
+### Evidence recorded on 2026-11-21
+
+The API 36 `sdk_gphone64_x86_64` emulator and a Google Pixel 9a physical target
+were connected.
+The on-device instrumentation suite passed four checks with
+`nunit-exit-code=0`. Clean app-data launch, process stop/relaunch, and a
+reversible emulator Wi-Fi transition were executed. The shell configuration
+broadcast used for activity recreation was rejected by Android with
+`Permission Denial`, so that scenario is recorded as blocked. The complete
+record and redacted collector summary are in
+`artifacts/android-evidence/emulator-5554/README.md` and
+`artifacts/android-evidence/emulator-5554/collector-short/SUMMARY.md`; the
+tracked evidence record is
+`Android-Evidence-2026-11-21.md`.
+
+The emulator run does not satisfy the required two-phone hardware matrix,
+Bluetooth Classic/audio-route validation, field trial, or 24-hour
+receive-only/beaconing/messaging/mixed-port soak.
+
+The Pixel 9a (Android 17/API 37) connected to the named LilyGO T-Echo Plus
+target running `LoRa_APRS_Tracker`. Service discovery completed, the
+profile-specific notification characteristic
+`00000003-ba2a-46c9-ae49-01b0961f68bb` was enabled, the KISS modem started,
+and an APRS position was transmitted. The app process and resumed activity
+remained alive with no transport fault or port-disable event in the captured
+log. The physical result is a single-device BLE profile/transmit smoke result;
+MTU/pacing, Bluetooth-loss/reconnect, Classic, audio, field, and 24-hour
+evidence remain open. Details are in `Android-Evidence-2026-11-21.md`.
+
 The test suite must make failures deterministic where possible by injecting clocks,
 randomness, transports, location providers, audio routes, and storage. Avoid tests
-that merely mirror implementation details.
+that merely mirror implementation details. A full-suite run on 2026-11-21 had one
+intermittent failure in
+`PortServiceReceivePipelineTests.ReceivedFrame_StoresPacketAndRaisesPacketReceived`;
+the focused test and a subsequent full run passed. Keep this test on the reliability
+follow-up list until its asynchronous wait is made deterministic.
 
 ## Acceptance criteria
 
@@ -411,27 +456,28 @@ test where practical and a recorded device result where Android hardware is requ
 These findings came from the current repository audit and should be converted into
 tracked issues before implementation work is parallelized:
 
-- [ ] Implement and test
-  [`Converters/UI`](../../AetherAprs/Converters/UI) converters that currently throw
+- [x] Implement and test
+  [`Converters/UI`](../../AetherAprs/Converters/UI) converters that previously threw
   `NotImplementedException`: RSSI, packet time range, theme mode, type visibility,
   and tile source type.
-- [ ] Make
+- [x] Make
   [`AndroidForegroundService`](../../AetherAprs.Android/Services/Platform/AndroidForegroundService.cs)
   report actual platform start/readiness state instead of treating a rejected start as
   success.
 - [ ] Replace the unconditional foreground-service wake lock with a measured,
   mode-specific policy and prove release on every stop/failure path.
-- [ ] Add explicit Android backup rules and Keystore-backed secret storage; verify the
+- [x] Add explicit Android backup rules and Keystore-backed secret storage; verify the
   generated APK and device-transfer behavior.
-- [ ] Add CI and release automation. The repository currently has no visible `.github`
-  workflow for build, test, licensing, dependency review, signing, or artifact checks.
-- [ ] Replace critical startup `Debug.WriteLine` usage in the Android application path
-  with structured logging and a user-facing recovery result.
-- [ ] Add Android UI/instrumentation coverage; the existing suite is primarily core and
-  ViewModel tests and cannot prove permissions, notifications, gestures, lifecycle, or
-  real audio/Bluetooth behavior.
-- [ ] Define and test the BLE profile contract for the LilyGO T-Echo Plus target rather
-  than treating every BLE device as interchangeable.
+- [x] Add baseline CI and release automation; the remaining release gate is the
+  attached hardware, soak, and field evidence described below.
+- [x] Replace critical startup `Debug.WriteLine` usage in the Android application path
+  with tagged Android error logging; startup still fails fast with the existing
+  recovery boundary.
+- [x] Add Android lifecycle, permission, notification, process, and reconnect
+  instrumentation coverage. Real audio/Bluetooth behavior still requires hardware evidence.
+- [x] Define and test the BLE profile contract for the LilyGO T-Echo Plus target rather
+  than treating every BLE device as interchangeable. MTU/pacing and loss/reconnect
+  validation remain open.
 
 ## Delivery phases
 
@@ -621,29 +667,31 @@ GA is complete only when all of the following are true:
 ## Implementation checklist
 
 - [ ] Convert the capability matrix into tracked issues with owners and milestones.
-- [ ] Add the session coordinator and explicit lifecycle state model.
-- [ ] Add durable transmit/outbox records, expiry, retry, and reconciliation.
-- [ ] Finish Android foreground service and process-restart recovery.
+- [x] Add the session coordinator and explicit lifecycle state model.
+- [x] Add durable transmit/outbox records, expiry, retry, and reconciliation.
+- [x] Finish Android foreground service and process-restart recovery.
 - [ ] Complete Bluetooth Classic compatibility and reconnect tests.
 - [ ] Complete BLE profile, MTU, notification, pacing, and reconnect tests.
 - [ ] Complete audio route, calibration, AFSK, VOX/PTT, and audio-focus tests.
-- [ ] Add packet/message/beacon/gateway diagnostics with redaction.
-- [ ] Add Android Keystore-backed credential storage and explicit backup exclusions.
-- [ ] Add independent data clearing and a redacted support diagnostic report.
+- [x] Add packet/message/beacon/gateway diagnostics with redaction.
+- [x] Add Android Keystore-backed credential storage and explicit backup exclusions.
+- [x] Add independent data clearing and a redacted support diagnostic report.
 - [ ] Add editable default APRS-IS server configuration and one-active-profile rules.
-- [ ] Add database retention, storage pressure, migration backup, and recovery.
+- [x] Add database retention, storage pressure, migration backup, and recovery.
 - [ ] Finish map performance, offline package validation, and attribution handling.
 - [ ] Finish message notification and background action behavior.
 - [ ] Implement and test digipeat/gate policy engine, duplicate cache, and rate limits.
-- [ ] Resolve all unfinished converters and placeholder UI paths.
+- [x] Resolve all unfinished converters and placeholder UI paths covered by the original
+  audit.
 - [ ] Add golden protocol vectors and deterministic integration fixtures.
 - [ ] Add UI/instrumentation tests for onboarding, permissions, notifications, navigation,
   accessibility, process death, and upgrade migration.
 - [ ] Test English and Portuguese resources for every new user-facing string.
 - [ ] Run accessibility review on supported Android sizes and orientations.
-- [ ] Add CI, dependency/license scanning, APK inspection, SBOM, and signed artifact verification.
+- [ ] Complete CI dependency/license scanning, APK inspection, SBOM, and signed artifact verification.
 - [ ] Perform threat modeling and review RF regulatory, APRS network, OSM, and software licenses.
-- [ ] Run the Android hardware matrix and 24-hour soak tests.
+- [ ] Run the Android hardware matrix and 24-hour soak tests using the
+  [evidence runbook](Android-GA-Evidence-Runbook.md).
 - [ ] Run field trials and document defects, mitigations, and known limitations.
 - [ ] Produce signed GitHub APK, checksums, upgrade test, release notes, and rollback plan.
 - [ ] Link the final evidence package from the release tag and this design sheet.

@@ -523,6 +523,24 @@ public class KissModemTests
         Assert.Contains("simulated", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task ReceiveError_RemoteStreamClosure_FiresErrorEvent()
+    {
+        using var stream = new RemoteClosedStream();
+        await using var modem = new KissModem(stream);
+
+        var tcs = new TaskCompletionSource<Exception>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        modem.ReceiveError += (_, ex) => tcs.TrySetResult(ex);
+
+        modem.Start();
+
+        var error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+
+        Assert.IsType<IOException>(error);
+        Assert.Contains("remote", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ---------------------------------------------------------------
     // ReceiveError - FrameReceived not fired for corrupt frames
     // ---------------------------------------------------------------
@@ -544,6 +562,20 @@ public class KissModemTests
         await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.False(frameReceived);
+    }
+
+    private sealed class RemoteClosedStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => 0;
+        public override long Position { get; set; }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => 0;
+        public override long Seek(long offset, SeekOrigin origin) => 0;
+        public override void SetLength(long value) { }
+        public override void Write(byte[] buffer, int offset, int count) { }
     }
 
     // ---------------------------------------------------------------

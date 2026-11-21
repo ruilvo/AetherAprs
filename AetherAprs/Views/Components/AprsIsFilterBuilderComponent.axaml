@@ -24,16 +24,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
                Text="{loc:Loc FilterOptional}"
                Foreground="{DynamicResource MaterialPrimaryBrush}" />
 
-    <!-- Range filter (r/lat/lon/dist) -->
+    <!-- Distance filter (m/dist) -->
     <StackPanel Spacing="4">
-      <TextBlock Classes="Body2" Text="{loc:Loc FilterRangeSection}" />
-      <TextBox Text="{Binding RangeLatitude}"
-               wpf:TextFieldAssist.Label="{loc:Loc FilterLatitude}"
-               UseFloatingPlaceholder="True" />
-      <TextBox Text="{Binding RangeLongitude}"
-               wpf:TextFieldAssist.Label="{loc:Loc FilterLongitude}"
-               UseFloatingPlaceholder="True" />
-      <TextBox Text="{Binding RangeDistanceKm}"
+      <TextBlock Classes="Body2" Text="{loc:Loc FilterMyRangeSection}" />
+      <TextBox Text="{Binding MyRangeKm}"
                wpf:TextFieldAssist.Label="{loc:Loc FilterDistanceKm}"
                UseFloatingPlaceholder="True" />
     </StackPanel>
@@ -43,14 +37,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <TextBlock Classes="Body2" Text="{loc:Loc FilterPrefixSection}" />
       <TextBox Text="{Binding Prefixes}"
                wpf:TextFieldAssist.Label="{loc:Loc FilterPrefixes}"
-               UseFloatingPlaceholder="True" />
-    </StackPanel>
-
-    <!-- Buddy filter (b/call) -->
-    <StackPanel Spacing="4">
-      <TextBlock Classes="Body2" Text="{loc:Loc FilterBuddySection}" />
-      <TextBox Text="{Binding Buddies}"
-               wpf:TextFieldAssist.Label="{loc:Loc FilterBuddies}"
                UseFloatingPlaceholder="True" />
     </StackPanel>
 
@@ -69,35 +55,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <CheckBox Content="{loc:Loc PacketTypeNws}" IsChecked="{Binding IncludeNws}" />
         <CheckBox Content="{loc:Loc PacketTypeWeather}" IsChecked="{Binding IncludeWeather}" />
       </WrapPanel>
-    </StackPanel>
-
-    <!-- Area filter (a/latN/lonW/latS/lonE) -->
-    <StackPanel Spacing="4">
-      <TextBlock Classes="Body2" Text="{loc:Loc FilterAreaSection}" />
-      <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-        <TextBox Grid.Column="0" Text="{Binding AreaNorth}"
-                 wpf:TextFieldAssist.Label="{loc:Loc FilterNorthLatitude}"
-                 UseFloatingPlaceholder="True" />
-        <TextBox Grid.Column="1" Text="{Binding AreaWest}"
-                 wpf:TextFieldAssist.Label="{loc:Loc FilterWestLongitude}"
-                 UseFloatingPlaceholder="True" />
-      </Grid>
-      <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-        <TextBox Grid.Column="0" Text="{Binding AreaSouth}"
-                 wpf:TextFieldAssist.Label="{loc:Loc FilterSouthLatitude}"
-                 UseFloatingPlaceholder="True" />
-        <TextBox Grid.Column="1" Text="{Binding AreaEast}"
-                 wpf:TextFieldAssist.Label="{loc:Loc FilterEastLongitude}"
-                 UseFloatingPlaceholder="True" />
-      </Grid>
-    </StackPanel>
-
-    <!-- My-range filter (m/dist) -->
-    <StackPanel Spacing="4">
-      <TextBlock Classes="Body2" Text="{loc:Loc FilterMyRangeSection}" />
-      <TextBox Text="{Binding MyRangeKm}"
-               wpf:TextFieldAssist.Label="{loc:Loc FilterDistanceKm}"
-               UseFloatingPlaceholder="True" />
     </StackPanel>
 
     <!-- Live preview of the generated filter string -->

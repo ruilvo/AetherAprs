@@ -15,6 +15,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <!-- Material.Avalonia.DataGrid 3.20.0 references an absent TreeDataGrid
+         assembly from a DynamicDependency attribute; trimming fails before
+         packaging. Keep all managed assemblies until the package is fixed. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <RunAOTCompilation>false</RunAOTCompilation>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,6 +46,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
     <PackageReference Include="Xamarin.GooglePlayServices.Location" />
+    <!-- Microsoft.Data.Sqlite resolves the provider transitively, but the Android
+         native library must be a direct package asset to be included in the APK. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" />
     <!--
       AvaloniaUI.DiagnosticsSupport flows in transitively from the core project (Debug only).
       Its Developer Tools auto-connect defaults to ON for Android and crashes the app with

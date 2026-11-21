@@ -11,6 +11,11 @@ internal static class PortRecordMapper
 {
     public static PortRecord ToRecord(PortConfig port)
     {
+        return ToRecord(port, (port.TypeSettings as AprsIsSettings)?.Passcode);
+    }
+
+    public static PortRecord ToRecord(PortConfig port, string? protectedPasscode)
+    {
         var record = new PortRecord
         {
             Id = port.Id,
@@ -21,7 +26,7 @@ internal static class PortRecordMapper
             ShowOnMap = port.ShowOnMap,
             AllowDigipeat = port.AllowDigipeat
         };
-        ApplyTypeSettings(record, port.TypeSettings);
+        ApplyTypeSettings(record, port.TypeSettings, protectedPasscode);
         return record;
     }
 
@@ -42,16 +47,24 @@ internal static class PortRecordMapper
 
     public static void CopyTo(PortRecord target, PortConfig port)
     {
+        CopyTo(target, port, (port.TypeSettings as AprsIsSettings)?.Passcode);
+    }
+
+    public static void CopyTo(PortRecord target, PortConfig port, string? protectedPasscode)
+    {
         target.Name = port.Name;
         target.IsEnabled = port.IsEnabled;
         target.IsRx = port.IsRx;
         target.IsTx = port.IsTx;
         target.ShowOnMap = port.ShowOnMap;
         target.AllowDigipeat = port.AllowDigipeat;
-        ApplyTypeSettings(target, port.TypeSettings);
+        ApplyTypeSettings(target, port.TypeSettings, protectedPasscode);
     }
 
-    private static void ApplyTypeSettings(PortRecord record, IPortTypeSettings? typeSettings)
+    private static void ApplyTypeSettings(
+        PortRecord record,
+        IPortTypeSettings? typeSettings,
+        string? protectedPasscode)
     {
         switch (typeSettings)
         {
@@ -61,7 +74,7 @@ internal static class PortRecordMapper
                 {
                     Server = aprsIs.Server,
                     ServerPort = aprsIs.ServerPort,
-                    Passcode = aprsIs.Passcode,
+                    Passcode = protectedPasscode ?? aprsIs.Passcode,
                     Filter = aprsIs.Filter
                 };
                 record.Kiss = null;

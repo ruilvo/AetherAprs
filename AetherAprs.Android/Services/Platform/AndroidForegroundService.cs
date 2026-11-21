@@ -25,6 +25,11 @@ public class AetherAprsForegroundService : Service
     private const string ChannelId = "aetheraprs_foreground";
     private const string ActionStart = "START_FOREGROUND";
     private const string ActionStop = "STOP_FOREGROUND";
+    internal const string StateAction = "com.aetheraprs.FOREGROUND_SERVICE_STATE";
+    internal const string StateExtra = "state";
+    internal const string StateStarted = "started";
+    internal const string StateStopped = "stopped";
+    internal const string StateFailed = "failed";
     private const string WakeLockTag = "AetherAprs:ForegroundService";
 
     private PowerManager.WakeLock? _wakeLock;
@@ -37,6 +42,7 @@ public class AetherAprsForegroundService : Service
     public override void OnCreate()
     {
         base.OnCreate();
+        AndroidLifecycleTelemetry.State.ForegroundStartRequested();
 
         // Hold a partial wake lock so the CPU stays awake while the foreground
         // service is running (e.g. GPS polling, packet processing). Released in
@@ -54,6 +60,8 @@ public class AetherAprsForegroundService : Service
         }
 
         _wakeLock = null;
+        AndroidLifecycleTelemetry.State.ForegroundStopped();
+        PublishState(StateStopped);
         base.OnDestroy();
     }
 
@@ -68,6 +76,7 @@ public class AetherAprsForegroundService : Service
             // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 24/N)
             StopForeground(StopForegroundFlags.Remove);
             StopSelf();
+            PublishState(StateStopped);
             return StartCommandResult.NotSticky;
         }
 
@@ -106,18 +115,33 @@ public class AetherAprsForegroundService : Service
             catch (Java.Lang.SecurityException ex)
             {
                 global::Android.Util.Log.Warn("AetherAprs", $"Foreground service unavailable: {ex.Message}");
+                AndroidLifecycleTelemetry.State.ForegroundRejected();
+                PublishState(StateFailed);
                 StopSelf();
                 return StartCommandResult.NotSticky;
             }
             catch (ForegroundServiceStartNotAllowedException ex)
             {
                 global::Android.Util.Log.Warn("AetherAprs", $"Foreground service unavailable: {ex.Message}");
+                AndroidLifecycleTelemetry.State.ForegroundRejected();
+                PublishState(StateFailed);
                 StopSelf();
                 return StartCommandResult.NotSticky;
             }
+
+            AndroidLifecycleTelemetry.State.ForegroundStarted();
+            PublishState(StateStarted);
         }
 
         return StartCommandResult.Sticky;
+    }
+
+    private void PublishState(string state)
+    {
+        var intent = new Intent(StateAction);
+        intent.SetPackage(PackageName);
+        intent.PutExtra(StateExtra, state);
+        SendBroadcast(intent);
     }
 
     private void CreateNotificationChannel()
@@ -139,33 +163,40 @@ public class AetherAprsForegroundService : Service
 /// <summary>
 /// Android implementation of IForegroundService.
 /// </summary>
-public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IForegroundService
+public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IForegroundService, IDisposable
 {
     private const string ActionStop = "STOP_FOREGROUND";
 
     private readonly Context _context;
     private readonly ILogger<AndroidForegroundService>? _logger;
+    private readonly ForegroundServiceStateReceiver _stateReceiver;
     private volatile bool _isRunning;
+    private volatile bool _startRequested;
 
     public AndroidForegroundService(ILogger<AndroidForegroundService>? logger = null)
     {
         _context = Application.Context;
         _logger = logger;
+        _stateReceiver = new ForegroundServiceStateReceiver(this);
+        var filter = new IntentFilter(AetherAprsForegroundService.StateAction);
+        _context.RegisterReceiver(_stateReceiver, filter, ReceiverFlags.NotExported);
     }
 
     public bool IsRunning => _isRunning;
 
     public Task StartAsync()
     {
-        if (_isRunning)
+        if (_isRunning || _startRequested)
         {
             return Task.CompletedTask;
         }
 
         var intent = new Intent(_context, typeof(AetherAprsForegroundService));
+        _startRequested = true;
 
         try
         {
+            AndroidLifecycleTelemetry.State.ForegroundStartRequested();
             if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
             {
                 _context.StartForegroundService(intent);
@@ -180,16 +211,17 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
             // API 31+ throws ForegroundServiceStartNotAllowedException when the app
             // is in the background (e.g. BLE reconnect path); do not abort the caller.
             _logger?.LogWarning(ex, "Failed to start foreground service");
+            AndroidLifecycleTelemetry.State.ForegroundRejected();
+            _startRequested = false;
             return Task.CompletedTask;
         }
 
-        _isRunning = true;
         return Task.CompletedTask;
     }
 
     public Task StopAsync()
     {
-        if (!_isRunning)
+        if (!_isRunning && !_startRequested)
         {
             return Task.CompletedTask;
         }
@@ -209,6 +241,53 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         }
 
         _isRunning = false;
+        _startRequested = false;
+        AndroidLifecycleTelemetry.State.ForegroundStopped();
         return Task.CompletedTask;
+    }
+
+    private void UpdateState(string? state)
+    {
+        _isRunning = state == AetherAprsForegroundService.StateStarted;
+        _startRequested = state is not AetherAprsForegroundService.StateStarted
+            and not AetherAprsForegroundService.StateFailed;
+
+        if (state == AetherAprsForegroundService.StateFailed)
+        {
+            AndroidLifecycleTelemetry.State.ForegroundRejected();
+            _logger?.LogWarning("Foreground service failed before notification publication");
+        }
+        else if (state == AetherAprsForegroundService.StateStarted)
+        {
+            AndroidLifecycleTelemetry.State.ForegroundStarted();
+        }
+        else if (state == AetherAprsForegroundService.StateStopped)
+        {
+            AndroidLifecycleTelemetry.State.ForegroundStopped();
+        }
+    }
+
+    private sealed class ForegroundServiceStateReceiver : BroadcastReceiver
+    {
+        private readonly AndroidForegroundService _owner;
+
+        public ForegroundServiceStateReceiver(AndroidForegroundService owner)
+        {
+            _owner = owner;
+        }
+
+        public override void OnReceive(Context? context, Intent? intent)
+        {
+            if (intent?.Action == AetherAprsForegroundService.StateAction)
+            {
+                _owner.UpdateState(intent.GetStringExtra(AetherAprsForegroundService.StateExtra));
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        _context.UnregisterReceiver(_stateReceiver);
+        _stateReceiver.Dispose();
     }
 }

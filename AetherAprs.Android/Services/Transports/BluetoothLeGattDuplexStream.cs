@@ -154,6 +154,10 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                     break;
                 }
             }
+            catch (ChannelClosedException ex) when (ex.InnerException is not null)
+            {
+                throw ex.InnerException;
+            }
             catch (ChannelClosedException)
             {
                 break;
@@ -301,10 +305,16 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         }
     }
 
-    internal void OnRemoteClosed()
-    {
-        _rxChannel.Writer.TryComplete();
-    }
+        internal void OnRemoteClosed()
+        {
+            var exception = new IOException("BLE GATT connection closed by the remote device.");
+            _rxChannel.Writer.TryComplete(exception);
+
+            lock (_sync)
+            {
+                _writeCompletion?.TrySetException(exception);
+            }
+        }
 
     protected override void Dispose(bool disposing)
     {

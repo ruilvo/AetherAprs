@@ -215,6 +215,7 @@ public sealed class KissModem : IAsyncDisposable
                 if (bytesRead == 0)
                 {
                     // Stream closed by remote end.
+                    OnReceiveError(new IOException("KISS transport stream closed by the remote device."));
                     break;
                 }
 

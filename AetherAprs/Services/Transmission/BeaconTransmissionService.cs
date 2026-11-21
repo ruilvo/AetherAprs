@@ -64,6 +64,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly IPacketFactory _packetFactory;
     private readonly ILogger<BeaconTransmissionService> _logger;
+    private readonly IBeaconTransmitQueue? _queue;
     private string _beaconStatus = Strings.Get("BeaconSystemReady");
     private bool _disposed;
 
@@ -90,7 +91,8 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         IConfigurationService configurationService,
         IAprsPortSettingsResolver portSettingsResolver,
         IPacketFactory packetFactory,
-        ILogger<BeaconTransmissionService> logger)
+        ILogger<BeaconTransmissionService> logger,
+        IBeaconTransmitQueue? queue = null)
     {
         _beaconService = beaconService;
         _portService = portService;
@@ -98,6 +100,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         _portSettingsResolver = portSettingsResolver;
         _packetFactory = packetFactory;
         _logger = logger;
+        _queue = queue;
 
         _beaconService.BeaconRequested += OnBeaconRequested;
     }
@@ -134,6 +137,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
         if (txPorts.Count == 0)
         {
+            QueueWithoutRoute(location);
             BeaconStatus = Strings.Get("NoTxPortsEnabled");
             _logger.LogWarning("Cannot transmit beacon: no TX ports enabled");
             return;
@@ -147,14 +151,22 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
+        await DrainPendingAsync(callsign).ConfigureAwait(false);
         var packet = CreateBeaconPacket(location, callsign);
 
         var sentPortCount = 0;
         foreach (var port in txPorts)
         {
+            BeaconQueueItem? queued = null;
             try
             {
+                queued = _queue?.Enqueue(port.Id, location, DateTimeOffset.UtcNow);
+                _queue?.MarkSending(queued?.Id ?? Guid.Empty);
                 await _portService.SendPacketAsync(port.Id, packet);
+                if (queued is not null)
+                {
+                    _queue!.MarkSent(queued.Id);
+                }
                 sentPortCount++;
                 _logger.LogInformation(
                     "Beacon transmitted on port {PortName}: {Lat}, {Lon} (Speed: {Speed:F1}km/h, Course: {Course:F0}°)",
@@ -166,6 +178,10 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             }
             catch (Exception ex)
             {
+                if (queued is not null)
+                {
+                    _queue!.MarkAttemptFailed(queued.Id, ex.Message, DateTimeOffset.UtcNow);
+                }
                 _logger.LogError(ex, "Error transmitting beacon on port {PortName}", port.Name);
             }
         }
@@ -201,23 +217,36 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
             if (txPorts.Count == 0)
             {
+                QueueWithoutRoute(userLocation);
                 BeaconStatus = Strings.Get("NoTxPortsEnabled");
                 return;
             }
 
             var packet = CreateBeaconPacket(userLocation, callsign);
 
+            await DrainPendingAsync(callsign).ConfigureAwait(false);
             var sentPortCount = 0;
             foreach (var port in txPorts)
             {
+                BeaconQueueItem? queued = null;
                 try
                 {
+                    queued = _queue?.Enqueue(port.Id, userLocation, DateTimeOffset.UtcNow);
+                    _queue?.MarkSending(queued?.Id ?? Guid.Empty);
                     await _portService.SendPacketAsync(port.Id, packet);
+                    if (queued is not null)
+                    {
+                        _queue!.MarkSent(queued.Id);
+                    }
                     sentPortCount++;
                     _logger.LogInformation("Manual beacon sent on port {PortName}", port.Name);
                 }
                 catch (Exception ex)
                 {
+                    if (queued is not null)
+                    {
+                        _queue!.MarkAttemptFailed(queued.Id, ex.Message, DateTimeOffset.UtcNow);
+                    }
                     _logger.LogError(ex, "Error sending manual beacon on port {PortName}", port.Name);
                 }
             }
@@ -281,6 +310,68 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             symbolCode,
             course,
             comment);
+    }
+
+    private async Task DrainPendingAsync(string callsign)
+    {
+        if (_queue is null)
+        {
+            return;
+        }
+
+        var activePorts = _portService.Ports
+            .Where(port => port.IsEnabled && port.IsTx)
+            .Select(port => port.Id)
+            .ToHashSet();
+
+        foreach (var item in _queue.Reconcile(DateTimeOffset.UtcNow))
+        {
+            var portId = item.PortId == Guid.Empty
+                ? activePorts.FirstOrDefault()
+                : item.PortId;
+            if (portId == Guid.Empty)
+            {
+                continue;
+            }
+
+            var location = new LocationData
+            {
+                Location = new Geo.Coordinate(item.Latitude, item.Longitude),
+                Altitude = item.Altitude,
+                Timestamp = item.CreatedUtc
+            };
+            var packet = CreateBeaconPacket(location, callsign);
+            _queue.MarkSending(item.Id);
+            try
+            {
+                await _portService.SendPacketAsync(portId, packet).ConfigureAwait(false);
+                _queue.MarkSent(item.Id);
+                _logger.LogInformation("Recovered queued beacon {BeaconId} on port {PortId}.", item.Id, portId);
+            }
+            catch (Exception exception)
+            {
+                _queue.MarkAttemptFailed(item.Id, exception.Message, DateTimeOffset.UtcNow);
+                _logger.LogWarning(exception, "Queued beacon {BeaconId} remains pending.", item.Id);
+            }
+        }
+    }
+
+    private void QueueWithoutRoute(LocationData location)
+    {
+        if (_queue is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _queue.Enqueue(Guid.Empty, location, DateTimeOffset.UtcNow);
+            BeaconStatus = Strings.Get("NoTxPortsEnabled");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Beacon transmit queue rejected an offline beacon.");
+        }
     }
 
     public void Dispose()

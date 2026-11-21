@@ -21,12 +21,12 @@ public class RssiFormatConverter : IValueConverter
             return value?.ToString();
         }
 
-        return Strings.Format("RssiFormat", rssi);
+        return string.Format(culture, Strings.Get("RssiFormat", culture), rssi);
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        // Not needed for display-only conversion
-        throw new NotImplementedException();
+        // This converter is display-only; do not write the localized text back to the source.
+        return Avalonia.Data.BindingOperations.DoNothing;
     }
 }

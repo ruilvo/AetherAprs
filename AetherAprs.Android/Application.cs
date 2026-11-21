@@ -18,8 +18,11 @@ namespace AetherAprs.Android
     {
         protected override void RegisterPlatformServices(IServiceCollection services)
         {
+            services.AddSingleton(AndroidLifecycleTelemetry.State);
+
             // Register Android-specific implementation of IAppDataDirProviderService
             services.AddSingleton<AetherAprs.Services.Platform.IAppDataDirProviderService, AppDataDirProviderService>();
+            services.AddSingleton<AetherAprs.Services.Platform.ISecretProtector, AndroidKeystoreSecretProtector>();
             
             services.AddSingleton<AetherAprs.Services.UI.IUiCultureProvider, AndroidUiCultureProvider>();
 
@@ -91,8 +94,11 @@ namespace AetherAprs.Android
             }
             catch (System.Exception ex)
             {
-                // Log critical failure - without config files, app cannot start
-                System.Diagnostics.Debug.WriteLine($"CRITICAL: Failed to ensure configuration files: {ex}");
+                // Log before rethrowing; without configuration files, app cannot start.
+                global::Android.Util.Log.Error(
+                    "AetherAprs",
+                    $"Configuration initialization failed; startup cannot continue. " +
+                    $"ExceptionType={ex.GetType().FullName}; Message={ex.Message}");
                 throw;
             }
         }
