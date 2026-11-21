@@ -71,6 +71,15 @@ public interface IPacketQueryService
     Task<IReadOnlyList<PacketRecord>> GetMostRecentItemsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves historical packets for a specific object or item name, ordered by
+    /// most recent first. Matches both object and item reports by name.
+    /// </summary>
+    /// <param name="name">The object or item name to query.</param>
+    /// <param name="limit">Maximum number of packets to retrieve.</param>
+    /// <returns>A list of packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNameAsync(string name, int limit = 500, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the most recent bulletin packets, ordered newest first.
     /// </summary>
     /// <param name="limit">Maximum number of bulletins to return.</param>

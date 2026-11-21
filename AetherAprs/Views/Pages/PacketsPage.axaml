@@ -11,19 +11,28 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:loc="using:AetherAprs.Localization"
+             xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.PacketsPage"
              x:DataType="vm:PacketsViewModel"
              d:DataContext="{x:Static local:DesignData.PacketsViewModel}">
 
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,Auto,*">
     <!-- Header -->
     <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
       <TextBlock Text="{Binding Title}" Classes="PageTitle" />
     </StackPanel>
 
+    <!-- Search box -->
+    <TextBox Grid.Row="1"
+             Margin="16,8,16,0"
+             Text="{Binding SearchQuery, Mode=TwoWay}"
+             wpf:TextFieldAssist.Label="{loc:Loc SearchPlaceholder}"
+             UseFloatingPlaceholder="True"
+             MinHeight="48" />
+
     <!-- Content -->
-    <ScrollViewer Grid.Row="1" Classes="PageContent">
+    <ScrollViewer Grid.Row="2" Classes="PageContent" x:Name="PacketsScroll">
       <StackPanel Classes="PageContainer">
         <!-- Loading indicator -->
         <ProgressBar IsIndeterminate="True"
@@ -43,7 +52,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 <Button Command="{Binding $parent[UserControl].((vm:PacketsViewModel)DataContext).OpenPacketDetailsCommand}"
                         CommandParameter="{Binding}">
                   <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-                    <!-- Callsign -->
+                    <!-- Callsign / object name -->
                     <TextBlock Grid.Row="0" Grid.Column="0"
                                Text="{Binding Source}"
                                Classes="Subtitle1"
@@ -75,10 +84,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <!-- Empty state -->
+        <!-- Empty states -->
         <TextBlock Text="{loc:Loc NoPacketsReceivedYet}"
                    Classes="EmptyState"
-                   IsVisible="{Binding !Packets.Count}" />
+                   IsVisible="{Binding !HasAnyPackets}" />
+        <TextBlock Text="{loc:Loc NoPacketsFound}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding HasNoVisiblePackets}" />
       </StackPanel>
     </ScrollViewer>
   </Grid>

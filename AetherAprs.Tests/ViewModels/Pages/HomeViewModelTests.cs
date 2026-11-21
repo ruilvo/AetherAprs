@@ -257,6 +257,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         var mapViewModel = new MapViewModel(userLocationLayer);
         
         var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        var objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
         var navigationService = Substitute.For<INavigationService>();
         
         return new HomeViewModel(
@@ -268,6 +269,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
             portService,
             mapViewModel,
             packetDetailsFactory,
+            objectDetailsFactory,
             navigationService,
             SynchronousUiDispatcher.Instance,
             NullLogger<HomeViewModel>.Instance);

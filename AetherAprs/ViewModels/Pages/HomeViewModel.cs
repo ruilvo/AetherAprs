@@ -33,6 +33,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly IMapTileSourceService _mapTileSourceService;
     private readonly IPortService _portService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
     private readonly INavigationService _navigationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<HomeViewModel> _logger;
@@ -68,6 +69,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         IPortService portService,
         MapViewModel mapViewModel,
         IPacketDetailsViewModelFactory packetDetailsFactory,
+        IObjectDetailsViewModelFactory objectDetailsFactory,
         INavigationService navigationService,
         IUiDispatcher uiDispatcher,
         ILogger<HomeViewModel> logger)
@@ -79,6 +81,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _mapTileSourceService = mapTileSourceService;
         _portService = portService;
         _packetDetailsFactory = packetDetailsFactory;
+        _objectDetailsFactory = objectDetailsFactory;
         _navigationService = navigationService;
         _uiDispatcher = uiDispatcher;
         _logger = logger;
@@ -227,6 +230,21 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
 
         var vm = _packetDetailsFactory.Create(callsign);
+        _navigationService.NavigateTo(vm);
+    }
+
+    /// <summary>
+    /// Handles object/item click events from the map view.
+    /// </summary>
+    /// <param name="name">The name of the clicked object or item.</param>
+    public void OnObjectClicked(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+
+        var vm = _objectDetailsFactory.Create(name);
         _navigationService.NavigateTo(vm);
     }
 

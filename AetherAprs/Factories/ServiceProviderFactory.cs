@@ -170,6 +170,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<IPacketFactory, PacketFactory>();
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
+        services.AddSingleton<IObjectDetailsViewModelFactory, ObjectDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
         services.AddSingleton<IMessageTemplateEditViewModelFactory, MessageTemplateEditViewModelFactory>();
@@ -193,6 +194,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<MessageTemplatesViewModel>(); // Overlay page state
         services.AddTransient<MessageTemplateEditViewModel>(); // Dialog content, fresh each time a template is added/edited
         services.AddTransient<PacketDetailsViewModel>(); // Overlay sub-page, fresh each time
+        services.AddTransient<ObjectDetailsViewModel>(); // Overlay sub-page, fresh each time
         services.AddSingleton<ObjectsViewModel>(); // Overlay page state
         services.AddTransient<ObjectEditorViewModel>(); // Overlay sub-page, fresh each time (via factory)
         services.AddSingleton<BulletinsViewModel>(); // Overlay page state

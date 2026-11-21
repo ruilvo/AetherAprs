@@ -259,6 +259,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     obj.Location.Longitude,
                     obj.SymbolTable,
                     obj.SymbolCode,
+                    obj.Name,
                     obj.Name));
             }
 
@@ -275,6 +276,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     item.Location.Longitude,
                     item.SymbolTable,
                     item.SymbolCode,
+                    item.Name,
                     item.Name));
             }
 
@@ -413,7 +415,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             record.Position.SymbolTable,
             record.Position.SymbolCode,
             callsign,
-            callsign);
+            callsign,
+            null);
     }
 
     private static BeaconMarker CreateMarker(
@@ -421,10 +424,11 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         double longitude,
         SymbolTable symbolTable,
         SymbolCode symbolCode,
-        string label)
+        string label,
+        string? objectName = null)
     {
         var (x, y) = SphericalMercator.FromLonLat(longitude, latitude);
-        return new BeaconMarker(new MPoint(x, y), symbolTable, symbolCode, label, null);
+        return new BeaconMarker(new MPoint(x, y), symbolTable, symbolCode, label, null, objectName);
     }
 
     /// <summary>
@@ -453,7 +457,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     marker.SymbolTable,
                     marker.SymbolCode,
                     marker.Label,
-                    marker.Callsign));
+                    marker.Callsign,
+                    marker.ObjectName));
             }
 
             _beaconsLayer.DataHasChanged();
@@ -474,7 +479,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     marker.SymbolTable,
                     marker.SymbolCode,
                     marker.Label,
-                    marker.Callsign));
+                    marker.Callsign,
+                    marker.ObjectName));
             }
             else
             {
@@ -552,15 +558,17 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     /// <summary>
     /// Builds a labeled point feature for a station, object, or item.
-    /// <paramref name="callsign"/> is the click-to-navigate key; pass <c>null</c> for
-    /// object/item features (their name is not a callsign and has no details page yet).
+    /// <paramref name="callsign"/> and <paramref name="objectName"/> are the
+    /// click-to-navigate keys; stations carry a callsign while objects/items carry
+    /// their name.
     /// </summary>
     private PointFeature CreateLabeledFeature(
         MPoint mapPoint,
         SymbolTable symbolTable,
         SymbolCode symbolCode,
         string label,
-        string? callsign = null)
+        string? callsign = null,
+        string? objectName = null)
     {
         var symbol = new Symbol(symbolTable, symbolCode);
 
@@ -591,6 +599,11 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         if (callsign is not null)
         {
             feature["Callsign"] = callsign;
+        }
+
+        if (objectName is not null)
+        {
+            feature["ObjectName"] = objectName;
         }
 
         return feature;
@@ -633,7 +646,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         SymbolTable SymbolTable,
         SymbolCode SymbolCode,
         string Label,
-        string? Callsign);
+        string? Callsign,
+        string? ObjectName);
 
     public void Dispose()
     {

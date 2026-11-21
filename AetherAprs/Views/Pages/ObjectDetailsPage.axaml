@@ -1,0 +1,115 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:data="using:AetherAprs.Data.Entities"
+             xmlns:local="using:AetherAprs"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:converters="using:AetherAprs.Converters.UI"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
+             x:Class="AetherAprs.Views.Pages.ObjectDetailsPage"
+             x:DataType="vm:ObjectDetailsViewModel"
+             d:DataContext="{x:Static local:DesignData.ObjectDetailsViewModel}">
+
+  <UserControl.Resources>
+    <converters:DateTimeToLocalConverter x:Key="DateTimeToLocal" />
+  </UserControl.Resources>
+
+  <Grid RowDefinitions="Auto,*">
+    <!-- Header -->
+    <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
+      <TextBlock Text="{Binding Title}" Classes="PageTitle" />
+    </StackPanel>
+
+    <!-- Content -->
+    <ScrollViewer Grid.Row="1" Classes="PageContent">
+      <StackPanel Classes="PageContainer">
+        <!-- Loading indicator -->
+        <ProgressBar IsIndeterminate="True"
+                     IsVisible="{Binding IsLoading}"
+                     Margin="0,8" />
+
+        <!-- Current state -->
+        <controls:Card Classes="StandardCard">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding Name}"
+                         Classes="Subtitle1"
+                         FontWeight="Bold" />
+              <Border Classes="TypeBadge">
+                <TextBlock Text="{Binding KindText}" />
+              </Border>
+              <Border Classes="TypeBadge" IsVisible="{Binding !IsLive}">
+                <TextBlock Text="{loc:Loc KilledObjectBadge}" />
+              </Border>
+            </StackPanel>
+
+            <!-- Symbol -->
+            <StackPanel Spacing="2" IsVisible="{Binding SymbolText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+              <TextBlock Classes="Caption" Text="{loc:Loc ObjectSymbol}" Opacity="0.7" />
+              <TextBlock Text="{Binding SymbolText}" Classes="Body2" FontWeight="SemiBold" />
+            </StackPanel>
+
+            <!-- Location -->
+            <StackPanel Spacing="2" IsVisible="{Binding HasLocation}">
+              <TextBlock Classes="Caption" Text="{loc:Loc Location}" Opacity="0.7" />
+              <TextBlock Text="{Binding LocationText}" Classes="Body2" />
+            </StackPanel>
+
+            <!-- Comment -->
+            <StackPanel Spacing="2" IsVisible="{Binding HasComment}">
+              <TextBlock Classes="Caption" Text="{loc:Loc Comment}" Opacity="0.7" />
+              <TextBlock Text="{Binding Comment}" Classes="Body2" TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+        </controls:Card>
+
+        <!-- Report history -->
+        <TextBlock Text="{loc:Loc ObjectReportHistory}" Classes="Subtitle2" FontWeight="Bold" Margin="0,8,0,0" />
+
+        <ItemsControl ItemsSource="{Binding Reports}" Classes="CardList">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="8" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="data:PacketRecord">
+              <controls:Card Classes="StandardCard">
+                <StackPanel Spacing="4">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding Timestamp, Converter={StaticResource DateTimeToLocal}, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                               Classes="Subtitle2"
+                               FontWeight="Bold" />
+                    <Border Grid.Column="1" Classes="TypeBadge">
+                      <TextBlock Text="{Binding PacketType}" />
+                    </Border>
+                  </Grid>
+                  <TextBlock Text="{Binding RawInfo}"
+                             Classes="Body2"
+                             TextWrapping="Wrap"
+                             Opacity="0.7" />
+                </StackPanel>
+              </controls:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Empty state -->
+        <TextBlock Text="{loc:Loc NoPacketsFound}"
+                   Classes="EmptyState"
+                   IsVisible="{Binding !Reports.Count}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+
+</UserControl>

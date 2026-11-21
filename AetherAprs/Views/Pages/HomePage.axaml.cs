@@ -9,10 +9,10 @@ using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Mapsui;
 using Mapsui.Animations;
 using Mapsui.Layers;
+using Mapsui.Manipulations;
 using Mapsui.UI;
 using Mapsui.UI.Avalonia;
 
@@ -28,7 +28,7 @@ public partial class HomePage : UserControl
         InitializeComponent();
         InitializeMap();
         DataContextChanged += OnDataContextChanged;
-        MapControl.PointerPressed += OnMapPointerPressed;
+        MapControl.MapTapped += OnMapTapped;
         Loaded += (_, _) => TryApplyPendingCenter();
         SizeChanged += (_, _) => TryApplyPendingCenter();
     }
@@ -178,31 +178,36 @@ public partial class HomePage : UserControl
         MapControl.Map?.Navigator.ZoomOut(300, Easing.CubicOut);
     }
 
-    private void OnMapPointerPressed(object? sender, PointerPressedEventArgs e)
+    private void OnMapTapped(object? sender, MapEventArgs e)
     {
+        // MapTapped only fires for a genuine tap (single/double/long-press), never
+        // for a pinch or drag, so a station between two pinching fingers no longer
+        // triggers navigation. We only act on single taps to avoid double-tap zoom
+        // and long-press gestures opening details.
+        if (e.GestureType != GestureType.SingleTap)
+        {
+            return;
+        }
+
         if (_currentViewModel == null || MapControl.Map == null)
         {
             return;
         }
 
-        var screenPosition = e.GetPosition(MapControl);
         var viewport = MapControl.Map.Navigator.Viewport;
-        
-        // Convert screen to world coordinates manually
-        var worldX = viewport.CenterX + (screenPosition.X - viewport.Width / 2.0) * viewport.Resolution;
-        var worldY = viewport.CenterY - (screenPosition.Y - viewport.Height / 2.0) * viewport.Resolution;
-        
-        // Query features at clicked position (with tolerance)
+
+        // Query features at the tapped position (with tolerance). e.WorldPosition is
+        // already converted from screen to world coordinates by the MapControl.
         var tolerance = viewport.Resolution * 20; // 20 pixel tolerance
         var clickedFeatures = MapControl.Map.Layers
             .SelectMany(layer => layer.GetFeatures(new MRect(
-                worldX - tolerance,
-                worldY - tolerance,
-                worldX + tolerance,
-                worldY + tolerance), viewport.Resolution))
+                e.WorldPosition.X - tolerance,
+                e.WorldPosition.Y - tolerance,
+                e.WorldPosition.X + tolerance,
+                e.WorldPosition.Y + tolerance), viewport.Resolution))
             .ToList();
 
-        // Find the first cluster or beacon feature at the click point.
+        // Find the first cluster, object, or beacon feature at the tap point.
         foreach (var feature in clickedFeatures)
         {
             if (feature.Fields == null)
@@ -220,6 +225,18 @@ public partial class HomePage : UserControl
                     Easing.CubicOut);
                 e.Handled = true;
                 return;
+            }
+
+            // Object/item click: open the object details page.
+            if (feature.Fields.Contains("ObjectName"))
+            {
+                var objectName = feature["ObjectName"] as string;
+                if (!string.IsNullOrEmpty(objectName))
+                {
+                    _currentViewModel.OnObjectClicked(objectName);
+                    e.Handled = true;
+                    return;
+                }
             }
 
             // Beacon click: open station details.

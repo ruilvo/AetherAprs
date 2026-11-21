@@ -21,6 +21,7 @@ using NSubstitute;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -32,6 +33,7 @@ public class PacketsViewModelTests : TestFixtureBase
     private readonly IPacketStorageService _packetStorageService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
     private readonly IConfigurationService _configurationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<PacketsViewModel> _logger;
@@ -43,6 +45,7 @@ public class PacketsViewModelTests : TestFixtureBase
         _packetStorageService = Substitute.For<IPacketStorageService>();
         _navigationService = Substitute.For<INavigationService>();
         _packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        _objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
         _configurationService = Substitute.For<IConfigurationService>();
         _uiDispatcher = new SynchronousUiDispatcher();
         _logger = Substitute.For<ILogger<PacketsViewModel>>();
@@ -65,6 +68,12 @@ public class PacketsViewModelTests : TestFixtureBase
                 var dict = _storedPackets.ToDictionary(p => $"{p.SourceBase}-{(int)p.SourceSsid}", p => p);
                 return Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(dict);
             });
+
+        // Object/item queries return empty by default; individual tests seed these.
+        _packetQueryService.GetMostRecentObjectsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
+        _packetQueryService.GetMostRecentItemsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
     }
 
     [Fact]
@@ -291,6 +300,194 @@ public class PacketsViewModelTests : TestFixtureBase
     }
 
     [Fact]
+    public async Task LoadPacketsAsync_IncludesObjectsAndItems()
+    {
+        // Arrange - a station packet plus an object and an item report.
+        _storedPackets.Add(new PacketRecord
+        {
+            Id = 1,
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
+            PacketType = "Position",
+            RawInfo = "Station",
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5, -122.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
+        });
+
+        _packetQueryService.GetMostRecentObjectsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
+            [
+                new PacketRecord
+                {
+                    Id = 2,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Object",
+                    RawInfo = "Object",
+                    Timestamp = DateTime.UtcNow,
+                    PortId = Guid.NewGuid(),
+                    Object = new ObjectDataRecord
+                    {
+                        Name = "CMA1",
+                        IsLive = true,
+                        Location = new Coordinate(46.5, -123.5),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.LatinCapitalLetterA,
+                        Comment = "Shelter"
+                    }
+                }
+            ]));
+
+        _packetQueryService.GetMostRecentItemsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
+            [
+                new PacketRecord
+                {
+                    Id = 3,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Item",
+                    RawInfo = "Item",
+                    Timestamp = DateTime.UtcNow,
+                    PortId = Guid.NewGuid(),
+                    Item = new ItemDataRecord
+                    {
+                        Name = "ITEM1",
+                        IsLive = true,
+                        Location = new Coordinate(47.5, -124.5),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.LatinCapitalLetterA
+                    }
+                }
+            ]));
+
+        // Act
+        var viewModel = await CreateViewModelAsync();
+
+        // Assert - station, object, and item all appear, newest first.
+        Assert.Equal(3, viewModel.Packets.Count);
+        Assert.Contains(viewModel.Packets, p => p.Source == "N0CALL-1" && !p.IsObject);
+        Assert.Contains(viewModel.Packets, p => p.Source == "CMA1" && p.IsObject);
+        Assert.Contains(viewModel.Packets, p => p.Source == "ITEM1" && p.IsObject);
+
+        viewModel.Dispose();
+    }
+
+    [Fact]
+    public async Task SearchQuery_FiltersByCallsignObjectNameAndDescription()
+    {
+        // Arrange
+        _storedPackets.Add(new PacketRecord
+        {
+            Id = 1,
+            SourceBase = "N0CALL",
+            SourceSsid = AprsSsid.AdditionalStation1,
+            PacketType = "Position",
+            RawInfo = "Station",
+            Timestamp = DateTime.UtcNow,
+            PortId = Guid.NewGuid(),
+            Position = new PositionDataRecord
+            {
+                Location = new Coordinate(45.5, -122.5),
+                SymbolTable = SymbolTable.Primary,
+                SymbolCode = SymbolCode.LatinCapitalLetterA
+            }
+        });
+
+        _packetQueryService.GetMostRecentObjectsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
+            [
+                new PacketRecord
+                {
+                    Id = 2,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Object",
+                    RawInfo = "Object",
+                    Timestamp = DateTime.UtcNow,
+                    PortId = Guid.NewGuid(),
+                    Object = new ObjectDataRecord
+                    {
+                        Name = "CMA1",
+                        IsLive = true,
+                        Location = new Coordinate(46.5, -123.5),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.LatinCapitalLetterA,
+                        Comment = "Hospital shelter"
+                    }
+                }
+            ]));
+
+        var viewModel = await CreateViewModelAsync();
+        Assert.Equal(2, viewModel.Packets.Count);
+
+        // Filter by callsign.
+        viewModel.SearchQuery = "N0CALL";
+        Assert.Single(viewModel.Packets);
+        Assert.Equal("N0CALL-1", viewModel.Packets[0].Source);
+
+        // Filter by object name.
+        viewModel.SearchQuery = "CMA1";
+        Assert.Single(viewModel.Packets);
+        Assert.Equal("CMA1", viewModel.Packets[0].Source);
+
+        // Filter by description text (object comment).
+        viewModel.SearchQuery = "shelter";
+        Assert.Single(viewModel.Packets);
+        Assert.Equal("CMA1", viewModel.Packets[0].Source);
+
+        // No match shows the no-results empty state.
+        viewModel.SearchQuery = "ZZZZ";
+        Assert.Empty(viewModel.Packets);
+        Assert.True(viewModel.HasNoVisiblePackets);
+
+        // Clearing the query restores everything.
+        viewModel.SearchQuery = string.Empty;
+        Assert.Equal(2, viewModel.Packets.Count);
+        Assert.False(viewModel.HasNoVisiblePackets);
+
+        viewModel.Dispose();
+    }
+
+    [Fact]
+    public async Task OpenPacketDetailsCommand_ObjectNavigatesToObjectDetails()
+    {
+        // Arrange
+        var viewModel = await CreateViewModelAsync();
+
+        var summary = new PacketSummary
+        {
+            Source = "CMA1",
+            PacketType = "Object",
+            ReceivedAt = DateTimeOffset.UtcNow,
+            Preview = "Test",
+            IsObject = true
+        };
+
+        var objectDetailsVm = Substitute.For<ObjectDetailsViewModel>(
+            _packetQueryService,
+            Substitute.For<ILogger<ObjectDetailsViewModel>>());
+
+        _objectDetailsFactory.Create("CMA1").Returns(objectDetailsVm);
+
+        // Act
+        viewModel.OpenPacketDetailsCommand.Execute(summary);
+
+        // Assert
+        _objectDetailsFactory.Received(1).Create("CMA1");
+        _navigationService.Received(1).NavigateTo(objectDetailsVm);
+        _packetDetailsFactory.DidNotReceiveWithAnyArgs().Create(default!);
+
+        viewModel.Dispose();
+    }
+
+    [Fact]
     public async Task LoadPacketsAsync_SortsPacketsByMostRecentFirst()
     {
         // Arrange
@@ -342,7 +539,7 @@ public class PacketsViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public async Task LoadPacketsAsync_LimitsTo100Packets()
+    public async Task LoadPacketsAsync_LimitsInitialPageToPageSize()
     {
         // Arrange - Add 150 packets
         for (int i = 0; i < 150; i++)
@@ -369,9 +566,54 @@ public class PacketsViewModelTests : TestFixtureBase
         // Act
         var viewModel = await CreateViewModelAsync();
 
-        // Assert - Only 100 packets displayed
+        // Assert - Only the first page is displayed until the user scrolls.
+        Assert.Equal(50, viewModel.Packets.Count);
+        Assert.True(viewModel.HasMore);
+
+        viewModel.Dispose();
+    }
+
+    [Fact]
+    public async Task LoadMoreCommand_AppendsNextPage()
+    {
+        // Arrange - Add 120 packets (three pages of 50, then 20)
+        for (int i = 0; i < 120; i++)
+        {
+            var callsign = $"CAL{i:D3}";
+            _storedPackets.Add(new PacketRecord
+            {
+                Id = i + 1,
+                SourceBase = callsign,
+                SourceSsid = AprsSsid.AdditionalStation1,
+                PacketType = "Position",
+                RawInfo = $"Info {i}",
+                Timestamp = DateTime.UtcNow.AddMinutes(-i),
+                PortId = Guid.NewGuid(),
+                Position = new PositionDataRecord
+                {
+                    Location = new Coordinate(45.5, -122.5),
+                    SymbolTable = SymbolTable.Primary,
+                    SymbolCode = SymbolCode.LatinCapitalLetterA
+                }
+            });
+        }
+
+        // Act
+        var viewModel = await CreateViewModelAsync();
+        Assert.Equal(50, viewModel.Packets.Count);
+
+        viewModel.LoadMoreCommand.Execute(null);
         Assert.Equal(100, viewModel.Packets.Count);
-        
+        Assert.True(viewModel.HasMore);
+
+        viewModel.LoadMoreCommand.Execute(null);
+        Assert.Equal(120, viewModel.Packets.Count);
+        Assert.False(viewModel.HasMore);
+
+        // Additional load-more calls are no-ops.
+        viewModel.LoadMoreCommand.Execute(null);
+        Assert.Equal(120, viewModel.Packets.Count);
+
         viewModel.Dispose();
     }
 
@@ -470,6 +712,7 @@ public class PacketsViewModelTests : TestFixtureBase
             _packetStorageService,
             _navigationService,
             _packetDetailsFactory,
+            _objectDetailsFactory,
             _configurationService,
             _uiDispatcher,
             _logger);

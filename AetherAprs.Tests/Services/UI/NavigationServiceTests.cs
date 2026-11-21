@@ -127,6 +127,9 @@ public sealed class NavigationServiceTests
         // Register IPacketDetailsViewModelFactory - required by HomeViewModel
         services.AddSingleton(Substitute.For<IPacketDetailsViewModelFactory>());
         
+        // Register IObjectDetailsViewModelFactory - required by HomeViewModel and PacketsViewModel
+        services.AddSingleton(Substitute.For<IObjectDetailsViewModelFactory>());
+        
         // Register IConversationViewModelFactory - required by MessagesViewModel
         services.AddSingleton(Substitute.For<IConversationViewModelFactory>());
 

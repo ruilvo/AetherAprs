@@ -429,4 +429,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SearchObjectReportedBy" xml:space="preserve"><value>Reportado por {0}</value></data>
   <data name="SearchSectionEntry" xml:space="preserve"><value>Pesquisar</value></data>
   <data name="SearchSectionEntryDescription" xml:space="preserve"><value>Encontrar estações e objetos por indicativo ou nome.</value></data>
+  <data name="ObjectDetailsTitle" xml:space="preserve"><value>Detalhes do Objeto</value></data>
+  <data name="ObjectReportsFrom" xml:space="preserve"><value>Relatórios de {0}</value></data>
+  <data name="ObjectReportHistory" xml:space="preserve"><value>Histórico de Relatórios</value></data>
+  <data name="ObjectSymbol" xml:space="preserve"><value>Símbolo</value></data>
+  <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Pesquisar pacotes</value></data>
 </root>

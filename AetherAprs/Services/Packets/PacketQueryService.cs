@@ -342,6 +342,46 @@ public sealed class PacketQueryService(
         }
     }
 
+    public async Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNameAsync(
+        string name,
+        int limit = 500,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        var trimmed = name?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return [];
+        }
+
+        try
+        {
+            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+            // Match both object reports and item reports by their name.
+            var packets = await context.Packets
+                .AsNoTracking()
+                .Where(p => (p.Object != null && p.Object.Name == trimmed) ||
+                            (p.Item != null && p.Item.Name == trimmed))
+                .OrderByDescending(p => p.Id)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            logger.LogDebug("Retrieved {Count} packets for object/item {Name}", packets.Count, trimmed);
+            return packets;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve packets for object/item {Name}", trimmed);
+            throw;
+        }
+    }
+
     public async Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(
         int limit = 500,
         CancellationToken cancellationToken = default)

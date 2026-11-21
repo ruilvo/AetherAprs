@@ -101,6 +101,7 @@ public static class DesignData
         services.AddSingleton<IPacketFactory, PacketFactory>();
         services.AddSingleton<IAddEditPortViewModelFactory, AddEditPortViewModelFactory>();
         services.AddSingleton<IPacketDetailsViewModelFactory, PacketDetailsViewModelFactory>();
+        services.AddSingleton<IObjectDetailsViewModelFactory, ObjectDetailsViewModelFactory>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         services.AddSingleton<IMessageTemplateDialogViewModelFactory, MessageTemplateDialogViewModelFactory>();
         services.AddSingleton<IMessageTemplateEditViewModelFactory, MessageTemplateEditViewModelFactory>();
@@ -131,6 +132,7 @@ public static class DesignData
         services.AddSingleton<MessageTemplatesViewModel>();
         services.AddTransient<MessageTemplateEditViewModel>();
         services.AddTransient<PacketDetailsViewModel>();
+        services.AddTransient<ObjectDetailsViewModel>();
         services.AddSingleton<ObjectsViewModel>();
         services.AddTransient<ObjectEditorViewModel>();
         services.AddSingleton<BulletinsViewModel>();
@@ -279,6 +281,9 @@ public static class DesignData
 
     public static PacketDetailsViewModel PacketDetailsViewModel =>
         _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
+
+    public static ObjectDetailsViewModel ObjectDetailsViewModel =>
+        _serviceProvider.GetRequiredService<ObjectDetailsViewModel>();
 
     public static MessageTemplateDialogViewModel MessageTemplateDialogViewModel
     {

@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using AetherAprs.Localization;
@@ -24,31 +25,53 @@ using System.Threading.Tasks;
 namespace AetherAprs.ViewModels.Pages;
 
 /// <summary>
-/// ViewModel for the Packets page showing the most recent packet per callsign.
-/// Queries packet data from the database with periodic refresh.
+/// ViewModel for the Packets page showing the most recent packet per callsign,
+/// object, and item. Supports instant client-side search and lazy-load pagination.
 /// </summary>
 public partial class PacketsViewModel : ViewModelBase, IDisposable
 {
+    private const int PageSize = 50;
+
     private readonly IPacketQueryService _packetQueryService;
     private readonly IPacketStorageService _packetStorageService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
     private readonly IConfigurationService _configurationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly CancellationTokenSource _throttleCts = new();
+    private readonly List<PacketSummary> _allSummaries = [];
+    private readonly List<PacketSummary> _filteredSummaries = [];
     private Task? _throttleTask;
     private bool _disposed;
     private Task? _initializationTask;
+    private int _visibleCount;
 
     [ObservableProperty]
     public partial string Title { get; set; } = Strings.Get("Packets");
+
+    [ObservableProperty]
+    public partial string SearchQuery { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial ObservableCollection<PacketSummary> Packets { get; set; } = [];
 
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasAnyPackets { get; set; }
+
+    /// <summary>
+    /// True when packets exist in the database but none match the current search
+    /// query (drives the "no packets found" empty state).
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasNoVisiblePackets { get; set; }
+
+    [ObservableProperty]
+    public partial bool HasMore { get; set; }
 
     /// <summary>
     /// Task that completes when initial load finishes. Useful for testing.
@@ -60,6 +83,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         IPacketStorageService packetStorageService,
         INavigationService navigationService,
         IPacketDetailsViewModelFactory packetDetailsFactory,
+        IObjectDetailsViewModelFactory objectDetailsFactory,
         IConfigurationService configurationService,
         IUiDispatcher uiDispatcher,
         ILogger<PacketsViewModel> logger)
@@ -68,6 +92,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _packetStorageService = packetStorageService;
         _navigationService = navigationService;
         _packetDetailsFactory = packetDetailsFactory;
+        _objectDetailsFactory = objectDetailsFactory;
         _configurationService = configurationService;
         _uiDispatcher = uiDispatcher;
         _logger = logger;
@@ -111,44 +136,43 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             
             DateTimeOffset? cutoffTime = GetCutoffTime(timeRange, customHours);
 
-            // Load most recent packets from database
-            var allPackets = await _packetQueryService.GetMostRecentPacketsAsync();
-            
+            // Load most recent station packets, objects, and items. Object/item
+            // reports are excluded from the per-callsign list (they belong to the
+            // named report, not the reporting station) and loaded separately so they
+            // appear under their own name.
+            var stationPackets = (await _packetQueryService.GetMostRecentPacketsAsync())
+                .Values
+                .Where(r => r.Object == null && r.Item == null);
+            var objectPackets = await _packetQueryService.GetMostRecentObjectsAsync();
+            var itemPackets = await _packetQueryService.GetMostRecentItemsAsync();
+
+            var all = new List<PacketRecord>(stationPackets);
+            all.AddRange(objectPackets);
+            all.AddRange(itemPackets);
+
             // Apply time filter if not "All"
-            var filteredPackets = allPackets.Values.AsEnumerable();
+            IEnumerable<PacketRecord> filtered = all;
             if (cutoffTime.HasValue)
             {
-                filteredPackets = filteredPackets.Where(r => new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
+                filtered = filtered.Where(r => new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value);
             }
 
-            // Sort by most recent first and take top 100
-            var packets = filteredPackets
+            // Sort by most recent first
+            var packets = filtered
                 .OrderByDescending(r => r.Id)
-                .Take(100)
                 .ToList();
 
             _logger.LogInformation("Loaded {Count} packets from database with time filter {TimeRange}", packets.Count, timeRange);
 
             // Build the list of summaries
-            var summaries = packets
-                .Select(record => new PacketSummary
-                {
-                    Source = FormatCallsign(record.SourceBase, record.SourceSsid),
-                    PacketType = record.PacketType,
-                    // Convert UTC timestamp to local time for display
-                    ReceivedAt = new DateTimeOffset(record.Timestamp, TimeSpan.Zero).ToLocalTime(),
-                    Preview = GetPacketPreview(record)
-                })
-                .ToList();
-
-            // Update observable collection
-            Packets.Clear();
-            foreach (var summary in summaries)
+            _allSummaries.Clear();
+            foreach (var record in packets)
             {
-                Packets.Add(summary);
+                _allSummaries.Add(CreateSummary(record));
             }
 
-            _logger.LogInformation("Displayed {Count} packets in UI", Packets.Count);
+            // Re-apply the current search filter and reset pagination.
+            ApplyFilterAndReset();
         }
         catch (Exception ex)
         {
@@ -158,6 +182,24 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         {
             IsLoading = false;
         }
+    }
+
+    private static PacketSummary CreateSummary(PacketRecord record)
+    {
+        var isObject = record.Object != null || record.Item != null;
+        var source = isObject
+            ? (record.Object?.Name ?? record.Item?.Name ?? string.Empty)
+            : FormatCallsign(record.SourceBase, record.SourceSsid);
+
+        return new PacketSummary
+        {
+            Source = source,
+            PacketType = record.PacketType,
+            // Convert UTC timestamp to local time for display
+            ReceivedAt = new DateTimeOffset(record.Timestamp, TimeSpan.Zero).ToLocalTime(),
+            Preview = GetPacketPreview(record),
+            IsObject = isObject
+        };
     }
 
     private static DateTimeOffset? GetCutoffTime(PacketDisplayTimeRange timeRange, int customHours)
@@ -182,6 +224,24 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return Strings.Format("PreviewLatLon",
                 record.Position.Location.Latitude.ToString("F4", CultureInfo.InvariantCulture),
                 record.Position.Location.Longitude.ToString("F4", CultureInfo.InvariantCulture));
+        }
+
+        if (record.Object != null)
+        {
+            return string.IsNullOrEmpty(record.Object.Comment)
+                ? Strings.Format("PreviewLatLon",
+                    record.Object.Location.Latitude.ToString("F4", CultureInfo.InvariantCulture),
+                    record.Object.Location.Longitude.ToString("F4", CultureInfo.InvariantCulture))
+                : record.Object.Comment;
+        }
+
+        if (record.Item != null)
+        {
+            return string.IsNullOrEmpty(record.Item.Comment)
+                ? Strings.Format("PreviewLatLon",
+                    record.Item.Location.Latitude.ToString("F4", CultureInfo.InvariantCulture),
+                    record.Item.Location.Longitude.ToString("F4", CultureInfo.InvariantCulture))
+                : record.Item.Comment;
         }
 
         if (record.Message != null)
@@ -211,11 +271,92 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             : baseCallsign;
     }
 
+    partial void OnSearchQueryChanged(string value)
+    {
+        ApplyFilterAndReset();
+    }
+
+    /// <summary>
+    /// Recomputes the filtered list from the current search query and resets the
+    /// pagination to the first page.
+    /// </summary>
+    private void ApplyFilterAndReset()
+    {
+        RebuildFiltered();
+        _visibleCount = Math.Min(PageSize, _filteredSummaries.Count);
+        HasAnyPackets = _allSummaries.Count > 0;
+        HasNoVisiblePackets = _allSummaries.Count > 0 && _filteredSummaries.Count == 0;
+        HasMore = _visibleCount < _filteredSummaries.Count;
+
+        Packets.Clear();
+        for (var index = 0; index < _visibleCount; index++)
+        {
+            Packets.Add(_filteredSummaries[index]);
+        }
+    }
+
+    private void RebuildFiltered()
+    {
+        var query = SearchQuery?.Trim() ?? string.Empty;
+        _filteredSummaries.Clear();
+
+        if (query.Length == 0)
+        {
+            _filteredSummaries.AddRange(_allSummaries);
+            return;
+        }
+
+        foreach (var summary in _allSummaries)
+        {
+            if (MatchesSearch(summary, query))
+            {
+                _filteredSummaries.Add(summary);
+            }
+        }
+    }
+
+    private static bool MatchesSearch(PacketSummary summary, string query)
+    {
+        return (summary.Source?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (summary.Preview?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    /// <summary>
+    /// Appends the next page of summaries to the visible collection. Invoked by the
+    /// page when the scroll position reaches the bottom.
+    /// </summary>
+    [RelayCommand]
+    private void LoadMore()
+    {
+        if (!HasMore)
+        {
+            return;
+        }
+
+        var next = Math.Min(_visibleCount + PageSize, _filteredSummaries.Count);
+        for (var index = _visibleCount; index < next; index++)
+        {
+            Packets.Add(_filteredSummaries[index]);
+        }
+
+        _visibleCount = next;
+        HasMore = _visibleCount < _filteredSummaries.Count;
+    }
+
     [RelayCommand]
     private void OpenPacketDetails(PacketSummary? summary)
     {
         if (summary is null)
         {
+            return;
+        }
+
+        // Objects and items open the object details page; stations open packet
+        // details. Both are keyed by the summary's Source (object name or callsign).
+        if (summary.IsObject)
+        {
+            var objectVm = _objectDetailsFactory.Create(summary.Source);
+            _navigationService.NavigateTo(objectVm);
             return;
         }
 
@@ -254,4 +395,11 @@ public partial class PacketSummary : ObservableObject
 
     [ObservableProperty]
     public partial string Preview { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True when this summary represents an object/item report (keyed by its name)
+    /// rather than a station (keyed by its callsign).
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsObject { get; set; }
 }

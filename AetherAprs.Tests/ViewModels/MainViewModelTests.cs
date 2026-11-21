@@ -138,6 +138,7 @@ public sealed class MainViewModelTests
         var mapViewModel = new MapViewModel(userLocationLayer);
 
         var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        var objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
         var navigationService = Substitute.For<INavigationService>();
 
         var mapTileSource = Substitute.For<IMapTileSourceService>();
@@ -152,6 +153,7 @@ public sealed class MainViewModelTests
             portService,
             mapViewModel,
             packetDetailsFactory,
+            objectDetailsFactory,
             navigationService,
             SynchronousUiDispatcher.Instance,
             NullLogger<HomeViewModel>.Instance);
@@ -162,6 +164,7 @@ public sealed class MainViewModelTests
             packetStorage,
             navigation,
             packetDetailsFactory,
+            objectDetailsFactory,
             configuration,
             SynchronousUiDispatcher.Instance,
             NullLogger<PacketsViewModel>.Instance);
