@@ -63,7 +63,7 @@ public partial class ConversationViewModel(
         Messages.Clear();
     }
 
-    public void Initialize(Callsign peer)
+    public void Initialize(AprsAddress peer)
     {
         _isNewConversation = false;
         Title = peer.ToString();
@@ -80,7 +80,7 @@ public partial class ConversationViewModel(
     {
         ErrorMessage = null;
 
-        if (!Callsign.TryParse(DestinationCallsign, out var addressee))
+        if (!AprsAddress.TryParse(DestinationCallsign, out var addressee))
         {
             ErrorMessage = Strings.Get("InvalidDestinationCallsign");
             return;
@@ -133,17 +133,18 @@ public partial class ConversationViewModel(
 
     /// <summary>
     /// Creates a template picker dialog for the current conversation state.
-    /// When the destination parses to a callsign the templates are scoped to
+    /// When the destination parses to an address the templates are scoped to
     /// that peer; otherwise all templates are offered. For existing
-    /// conversations the dialog is locked to the peer callsign; for new ones
+    /// conversations the dialog is locked to the peer address; for new ones
     /// the selected template may prefill the destination.
     /// </summary>
     public MessageTemplateDialogViewModel CreateTemplateDialog()
     {
         IReadOnlyList<MessageTemplate> templates;
-        if (Callsign.TryParse(DestinationCallsign, out var parsedPeer))
+        if (AprsAddress.TryParse(DestinationCallsign, out var parsedPeer) 
+            && parsedPeer.TryToCallsign(out var peerCallsign))
         {
-            templates = templateService.GetTemplatesForPeer(parsedPeer);
+            templates = templateService.GetTemplatesForPeer(peerCallsign);
         }
         else
         {

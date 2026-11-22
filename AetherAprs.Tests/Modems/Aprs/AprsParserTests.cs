@@ -410,7 +410,7 @@ public class AprsParserTests
             new Callsign("MYCALL"), new Callsign("APZ001"));
 
         var msg = Assert.IsType<MessagePacket>(result);
-        Assert.Equal(new Callsign("N0CALL"), msg.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), msg.Addressee);
         Assert.Equal("Hello there", msg.Text);
         Assert.Null(msg.MessageNumber);
     }
@@ -434,7 +434,7 @@ public class AprsParserTests
 
         var msg = Assert.IsType<MessagePacket>(result);
         // The addressee is trimmed from "N0CALL   " (9 chars)
-        Assert.Equal(new Callsign("N0CALL"), msg.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), msg.Addressee);
         Assert.Equal("Hi", msg.Text);
     }
 
@@ -444,7 +444,7 @@ public class AprsParserTests
         var result = AprsInfoFieldParser.ParseInfoField(":N0CALL-1:Hello", new Callsign("MYCALL"), new Callsign("APZ001"));
 
         var message = Assert.IsType<MessagePacket>(result);
-        Assert.Equal(new Callsign("N0CALL", 1), message.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL", 1)), message.Addressee);
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class AprsParserTests
 
         var ack = Assert.IsType<MessageAckPacket>(result);
         Assert.Equal(new Callsign("K0PEER"), ack.Source);
-        Assert.Equal(new Callsign("N0CALL"), ack.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), ack.Addressee);
         Assert.Equal(5, ack.MessageNumber);
     }
 
@@ -488,7 +488,7 @@ public class AprsParserTests
 
         var rej = Assert.IsType<MessageRejPacket>(result);
         Assert.Equal(new Callsign("K0PEER"), rej.Source);
-        Assert.Equal(new Callsign("N0CALL"), rej.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), rej.Addressee);
         Assert.Equal(7, rej.MessageNumber);
     }
 
@@ -509,7 +509,7 @@ public class AprsParserTests
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
         var ack = Assert.IsType<MessageAckPacket>(result);
-        Assert.Equal(new Callsign("APRS"), ack.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("APRS")), ack.Addressee);
         Assert.Equal(5, ack.MessageNumber);
     }
 
@@ -762,7 +762,7 @@ public class AprsParserTests
 
         var msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal(new Callsign("N0CALL"), msg.Source);
-        Assert.Equal(new Callsign("OTHER"), msg.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("OTHER")), msg.Addressee);
         Assert.Equal("Hello!", msg.Text);
     }
 

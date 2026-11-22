@@ -21,10 +21,10 @@ public class ConversationViewModelFactory : IConversationViewModelFactory
         _serviceProvider = serviceProvider;
     }
 
-    public ConversationViewModel Create(Callsign callsign)
+    public ConversationViewModel Create(AprsAddress address)
     {
         var viewModel = _serviceProvider.GetRequiredService<ConversationViewModel>();
-        viewModel.Initialize(callsign);
+        viewModel.Initialize(address);
         return viewModel;
     }
 

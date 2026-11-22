@@ -12,11 +12,11 @@ using System.Runtime.CompilerServices;
 namespace AetherAprs.Models.Messaging;
 
 /// <summary>
-/// A conversation thread with a peer callsign.
+/// A conversation thread with a peer address (callsign or tactical address).
 /// </summary>
 public sealed class ConversationThread : INotifyPropertyChanged
 {
-    public ConversationThread(Callsign peer)
+    public ConversationThread(AprsAddress peer)
     {
         Peer = peer;
         Messages.CollectionChanged += (_, _) =>
@@ -26,7 +26,7 @@ public sealed class ConversationThread : INotifyPropertyChanged
         };
     }
 
-    public Callsign Peer { get; }
+    public AprsAddress Peer { get; }
 
     public string PeerDisplay => Peer.ToString();
 

@@ -25,7 +25,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void Initialize_ReflectsExistingMessages()
     {
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         var messageService = new FakeMessageService();
         var thread = messageService.GetOrCreateConversation(peer);
         thread.Messages.Add(new StoredMessage
@@ -48,7 +48,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void Initialize_SubscribesToInboundMessagesWhileOpen()
     {
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         var messageService = new FakeMessageService();
         var vm = CreateViewModel(messageService);
         vm.Initialize(peer);
@@ -82,10 +82,11 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_ExistingConversation_PassesPeerTemplatesAndDestination()
     {
-        var peer = new Callsign("SOTA", 1);
+        var peerCallsign = new Callsign("SOTA", 1);
+        var peer = AprsAddress.FromCallsign(peerCallsign);
         var templateService = Substitute.For<IMessageTemplateService>();
         var expectedTemplates = new List<MessageTemplate> { new() { Name = "SOTA spot" } };
-        templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
+        templateService.GetTemplatesForPeer(peerCallsign).Returns(expectedTemplates);
 
         var dialog = new MessageTemplateDialogViewModel();
         var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
@@ -127,10 +128,11 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_NewConversationWithTypedDestination_PassesPeerTemplatesAndNullDestination()
     {
-        var peer = new Callsign("K0PEER");
+        var peerCallsign = new Callsign("K0PEER");
+        var peer = AprsAddress.FromCallsign(peerCallsign);
         var templateService = Substitute.For<IMessageTemplateService>();
         var expectedTemplates = new List<MessageTemplate> { new() { Name = "Peer spot" } };
-        templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
+        templateService.GetTemplatesForPeer(peerCallsign).Returns(expectedTemplates);
 
         var dialog = new MessageTemplateDialogViewModel();
         var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
@@ -163,7 +165,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void ApplyTemplateResult_LockedDestination_SetsOnlyMessageText()
     {
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         var vm = CreateViewModel(new FakeMessageService());
         vm.Initialize(peer);
 
@@ -191,7 +193,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
 
         public ObservableCollection<ConversationThread> Conversations => _conversations;
 
-        public ConversationThread GetOrCreateConversation(Callsign peer)
+        public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
             foreach (var existing in _conversations)
             {
@@ -204,7 +206,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
             return thread;
         }
 
-        public Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default)
+        public Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default)
         {
             var thread = GetOrCreateConversation(addressee);
             thread.Messages.Add(new StoredMessage
@@ -219,11 +221,11 @@ public sealed class ConversationViewModelTests : TestFixtureBase
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public void SetActiveConversation(Callsign? peer)
+        public void SetActiveConversation(AprsAddress? peer)
         {
         }
 
-        public void ClearActiveConversation(Callsign peer)
+        public void ClearActiveConversation(AprsAddress peer)
         {
         }
     }

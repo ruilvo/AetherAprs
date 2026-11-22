@@ -72,7 +72,7 @@ public sealed class PacketFactory : IPacketFactory
 
     public MessagePacket CreateMessagePacket(
         string sourceCallsign,
-        Callsign addressee,
+        AprsAddress addressee,
         string messageText,
         int? messageNumber = null)
     {
@@ -102,7 +102,7 @@ public sealed class PacketFactory : IPacketFactory
 
     public MessageAckPacket CreateAckPacket(
         string sourceCallsign,
-        Callsign addressee,
+        AprsAddress addressee,
         int messageNumber)
     {
         if (!Callsign.TryParse(sourceCallsign, out var source))
@@ -130,7 +130,7 @@ public sealed class PacketFactory : IPacketFactory
 
     public MessageRejPacket CreateRejPacket(
         string sourceCallsign,
-        Callsign addressee,
+        AprsAddress addressee,
         int messageNumber)
     {
         if (!Callsign.TryParse(sourceCallsign, out var source))

@@ -161,10 +161,10 @@ public sealed partial class MessageTemplateEditViewModel : ViewModelBase
 
     private void ValidateDestination()
     {
-        // The destination is optional; when present it must be a valid callsign.
+        // The destination is optional; when present it must be a valid APRS address (callsign or tactical).
         var trimmed = Destination?.Trim();
         string? error = null;
-        if (!string.IsNullOrEmpty(trimmed) && !Callsign.TryParse(trimmed, out _))
+        if (!string.IsNullOrEmpty(trimmed) && !AprsAddress.TryParse(trimmed, out _))
         {
             error = Strings.Get("InvalidDestinationCallsign");
         }

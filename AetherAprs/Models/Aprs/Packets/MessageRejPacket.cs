@@ -10,9 +10,9 @@ namespace AetherAprs.Models.Aprs.Packets;
 public sealed record MessageRejPacket : AprsPacket
 {
     /// <summary>
-    /// Gets the addressee callsign (the station being rejected).
+    /// Gets the addressee (the station being rejected).
     /// </summary>
-    public Callsign Addressee { get; init; }
+    public AprsAddress Addressee { get; init; }
 
     /// <summary>
     /// Gets the message number being rejected.

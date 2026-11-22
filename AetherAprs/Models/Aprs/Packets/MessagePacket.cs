@@ -10,9 +10,9 @@ namespace AetherAprs.Models.Aprs.Packets;
 public sealed record MessagePacket : AprsPacket
 {
     /// <summary>
-    /// Gets the addressee callsign.
+    /// Gets the addressee (can be a callsign or tactical address up to 9 characters).
     /// </summary>
-    public Callsign Addressee { get; init; }
+    public AprsAddress Addressee { get; init; }
 
     /// <summary>
     /// Gets the message text.

@@ -56,7 +56,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
     private readonly Dictionary<string, DateTimeOffset> _dedupTable = new();
     private readonly Timer _retryTimer;
-    private Callsign? _activeConversationPeer;
+    private AprsAddress? _activeConversationPeer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
@@ -89,7 +89,7 @@ public sealed class MessageService : IMessageService, IDisposable
         await LoadMessagesAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public ConversationThread GetOrCreateConversation(Callsign peer)
+    public ConversationThread GetOrCreateConversation(AprsAddress peer)
     {
         lock (_gate)
         {
@@ -97,7 +97,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    public void SetActiveConversation(Callsign? peer)
+    public void SetActiveConversation(AprsAddress? peer)
     {
         lock (_gate)
         {
@@ -105,7 +105,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    public void ClearActiveConversation(Callsign peer)
+    public void ClearActiveConversation(AprsAddress peer)
     {
         lock (_gate)
         {
@@ -120,7 +120,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    public async Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default)
+    public async Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         text = text.Trim();
@@ -231,7 +231,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private async Task SendAckAsync(Callsign addressee, int messageNumber, Guid? portId)
+    private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
     {
         var baseCallsign = _configurationService.Settings.Aprs.Callsign;
         var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
@@ -309,7 +309,8 @@ public sealed class MessageService : IMessageService, IDisposable
             return;
         }
 
-        var peer = message.Source;
+        // For incoming messages, the peer is the source station (converted to AprsAddress)
+        var peer = AprsAddress.FromCallsign(message.Source);
         var stored = new StoredMessage
         {
             Peer = peer,
@@ -371,7 +372,9 @@ public sealed class MessageService : IMessageService, IDisposable
 
             // Only the message's addressee may acknowledge it; small integer
             // message numbers collide easily between stations (H5).
-            if (!ack.Source.Equals(message.Peer))
+            // Convert ack.Source (Callsign) to AprsAddress for comparison
+            var ackSource = AprsAddress.FromCallsign(ack.Source);
+            if (!ackSource.Equals(message.Peer))
             {
                 _logger.LogWarning(
                     "Ignoring ACK from {Source} for message #{MessageNumber} addressed to {Peer}",
@@ -401,7 +404,9 @@ public sealed class MessageService : IMessageService, IDisposable
                 return;
             }
 
-            if (!rej.Source.Equals(message.Peer))
+            // Convert rej.Source (Callsign) to AprsAddress for comparison
+            var rejSource = AprsAddress.FromCallsign(rej.Source);
+            if (!rejSource.Equals(message.Peer))
             {
                 _logger.LogWarning(
                     "Ignoring REJ from {Source} for message #{MessageNumber} addressed to {Peer}",
@@ -550,7 +555,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private ConversationThread GetOrCreateConversationUnlocked(Callsign peer)
+    private ConversationThread GetOrCreateConversationUnlocked(AprsAddress peer)
     {
         var existing = Conversations.FirstOrDefault(c => c.Peer.Equals(peer));
         if (existing != null)
@@ -583,7 +588,7 @@ public sealed class MessageService : IMessageService, IDisposable
         Dispatcher.UIThread.Post(action);
     }
 
-    private async Task ShowMessageNotificationAsync(Callsign peer, string text)
+    private async Task ShowMessageNotificationAsync(AprsAddress peer, string text)
     {
         try
         {
@@ -664,8 +669,8 @@ public sealed class MessageService : IMessageService, IDisposable
                 continue;
             }
 
-            var source = new Callsign(record.SourceBase, (int)record.SourceSsid);
-            var addressee = new Callsign(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
+            var source = AprsAddress.FromCallsign(new Callsign(record.SourceBase, (int)record.SourceSsid));
+            var addressee = new AprsAddress(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
 
             // Determine peer (who we're talking to)
             var ownBase = _configurationService.Settings.Aprs.Callsign.Trim().ToUpperInvariant();

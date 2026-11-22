@@ -12,7 +12,7 @@ namespace AetherAprs.Models.Messaging;
 /// </summary>
 public sealed class StoredMessage
 {
-    public required Callsign Peer { get; init; }
+    public required AprsAddress Peer { get; init; }
 
     public required string Text { get; init; }
 

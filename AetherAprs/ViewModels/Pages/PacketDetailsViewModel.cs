@@ -214,7 +214,8 @@ public partial class PacketDetailsViewModel(
         {
             // Use base callsign without SSID for messaging
             var baseCallsign = new Callsign(callsign.Base);
-            var conversationVm = conversationFactory.Create(baseCallsign);
+            var address = AprsAddress.FromCallsign(baseCallsign);
+            var conversationVm = conversationFactory.Create(address);
             navigationService.NavigateTo(conversationVm);
         }
         else

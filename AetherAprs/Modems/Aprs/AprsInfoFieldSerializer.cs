@@ -367,11 +367,11 @@ public static class AprsInfoFieldSerializer
     /// <summary>
     /// Formats a message acknowledgment or rejection into its APRS info field string.
     /// </summary>
-    /// <param name="addressee">The addressee callsign being acknowledged/rejected.</param>
+    /// <param name="addressee">The addressee being acknowledged/rejected.</param>
     /// <param name="keyword">Either "ack" or "rej".</param>
     /// <param name="messageNumber">The message number being acknowledged/rejected.</param>
     /// <returns>The formatted APRS info field string.</returns>
-    private static string FormatMessageAckRej(Callsign addressee, string keyword, int messageNumber)
+    private static string FormatMessageAckRej(AprsAddress addressee, string keyword, int messageNumber)
     {
         // Format: :ADDRESSEE :ack{N} / :ADDRESSEE :rej{N}
         var info = new StringBuilder();

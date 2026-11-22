@@ -230,7 +230,7 @@ public sealed class PacketFactoryTests
     public void CreateMessagePacket_ValidInput_BuildsPacket()
     {
         var factory = CreateFactory(digipeaterPath: "WIDE1-1");
-        var addressee = new Callsign("K0OTH", 7);
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
 
         var packet = factory.CreateMessagePacket("N0CALL-1", addressee, "Hello", messageNumber: 42);
 
@@ -249,14 +249,14 @@ public sealed class PacketFactoryTests
         var factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
-            factory.CreateMessagePacket("BAD!", new Callsign("K0OTH"), "Hello"));
+            factory.CreateMessagePacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello"));
     }
 
     [Fact]
     public void CreateAckPacket_ValidInput_BuildsPacket()
     {
         var factory = CreateFactory(digipeaterPath: "WIDE1-1");
-        var addressee = new Callsign("K0OTH");
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
 
         var packet = factory.CreateAckPacket("N0CALL-1", addressee, 5);
 
@@ -274,14 +274,14 @@ public sealed class PacketFactoryTests
         var factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
-            factory.CreateAckPacket("BAD!", new Callsign("K0OTH"), 1));
+            factory.CreateAckPacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), 1));
     }
 
     [Fact]
     public void CreateRejPacket_ValidInput_BuildsPacket()
     {
         var factory = CreateFactory(digipeaterPath: "WIDE1-1");
-        var addressee = new Callsign("K0OTH");
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
 
         var packet = factory.CreateRejPacket("N0CALL-1", addressee, 6);
 
@@ -299,6 +299,6 @@ public sealed class PacketFactoryTests
         var factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
-            factory.CreateRejPacket("BAD!", new Callsign("K0OTH"), 1));
+            factory.CreateRejPacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), 1));
     }
 }

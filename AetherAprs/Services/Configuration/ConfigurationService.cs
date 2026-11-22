@@ -332,7 +332,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
     /// <summary>
     /// Drops message templates that are unusable: a null/whitespace name, a
-    /// destination that is not a valid callsign, or a name that duplicates an
+    /// destination that is not a valid APRS address, or a name that duplicates an
     /// earlier template (case-insensitive). First occurrences are kept in
     /// their original order.
     /// </summary>
@@ -350,7 +350,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 continue;
             }
 
-            if (!Callsign.TryParse(template.Destination, out _))
+            if (!AprsAddress.TryParse(template.Destination, out _))
             {
                 _logger.LogWarning(
                     "Dropping message template {TemplateName} with invalid destination {Destination}.",

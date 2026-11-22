@@ -94,7 +94,7 @@ public sealed class SavedDataPersistenceTests
         {
             Source = new Callsign("K0PEER", 1),
             Destination = new Callsign("APRS"),
-            Addressee = new Callsign("N0CALL"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
             Text = "Ping",
             MessageNumber = 9
         };
@@ -119,7 +119,7 @@ public sealed class SavedDataPersistenceTests
             await service.InitializeAsync(TestContext.Current.CancellationToken);
             // Verify the service loaded the message from database
             var thread = Assert.Single(service.Conversations);
-            Assert.Equal(new Callsign("K0PEER", 1), thread.Peer);
+            Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), thread.Peer);
             var stored = Assert.Single(thread.Messages);
             Assert.Equal("Ping", stored.Text);
             Assert.Equal(9, stored.MessageNumber);
@@ -136,7 +136,7 @@ public sealed class SavedDataPersistenceTests
             db.Factory);
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         var threadReloaded = Assert.Single(reloaded.Conversations);
-        Assert.Equal(new Callsign("K0PEER", 1), threadReloaded.Peer);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), threadReloaded.Peer);
         var storedReloaded = Assert.Single(threadReloaded.Messages);
         Assert.Equal("Ping", storedReloaded.Text);
         Assert.Equal(9, storedReloaded.MessageNumber);
@@ -196,7 +196,7 @@ public sealed class SavedDataPersistenceTests
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             string messageText,
             int? messageNumber = null)
         {
@@ -217,7 +217,7 @@ public sealed class SavedDataPersistenceTests
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             var parts = sourceCallsign.Split('-');
@@ -236,7 +236,7 @@ public sealed class SavedDataPersistenceTests
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             var parts = sourceCallsign.Split('-');

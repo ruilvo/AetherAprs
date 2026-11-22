@@ -321,7 +321,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Addressee = new Callsign("OTHER"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("OTHER")),
             Text = "Hello there"
         };
 
@@ -338,7 +338,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Addressee = new Callsign("OTHER"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("OTHER")),
             Text = "Hello",
             MessageNumber = 42
         };
@@ -355,7 +355,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Addressee = new Callsign("N0CALL", 1),
+            Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
             Text = "Hello"
         };
 
@@ -371,7 +371,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Addressee = new Callsign("OTHER"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("OTHER")),
             Text = "Hello there"
         };
 
@@ -379,7 +379,7 @@ public class AprsSerializerTests
         var parsed = Ax25Parser.ParseFrame(bytes);
 
         var msg = Assert.IsType<MessagePacket>(parsed);
-        Assert.Equal(new Callsign("OTHER"), msg.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("OTHER")), msg.Addressee);
         Assert.Equal("Hello there", msg.Text);
         Assert.Null(msg.MessageNumber);
     }
@@ -391,7 +391,7 @@ public class AprsSerializerTests
         {
             Source = Source,
             Destination = Dest,
-            Addressee = new Callsign("OTHER"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("OTHER")),
             Text = "Hello",
             MessageNumber = 42
         };

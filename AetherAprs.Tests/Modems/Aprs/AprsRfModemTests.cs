@@ -121,7 +121,7 @@ public class AprsRfModemTests
         {
             Source = Source,
             Destination = Dest,
-            Addressee = new Callsign("OTHER"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("OTHER")),
             Text = "Hello"
         };
 

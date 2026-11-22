@@ -392,7 +392,7 @@ public class AprsIsModemTests
         Assert.NotNull(result);
         var msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal(new Callsign("N0CALL"), msg.Source);
-        Assert.Equal(new Callsign("OTHER"), msg.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("OTHER")), msg.Addressee);
         Assert.Equal("Hello there", msg.Text);
     }
 

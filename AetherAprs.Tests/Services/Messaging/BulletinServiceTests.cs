@@ -230,7 +230,7 @@ public sealed class BulletinServiceTests
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             string messageText,
             int? messageNumber = null)
         {
@@ -246,7 +246,7 @@ public sealed class BulletinServiceTests
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             return new MessageAckPacket
@@ -260,7 +260,7 @@ public sealed class BulletinServiceTests
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             return new MessageRejPacket

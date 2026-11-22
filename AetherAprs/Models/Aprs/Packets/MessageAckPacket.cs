@@ -10,9 +10,9 @@ namespace AetherAprs.Models.Aprs.Packets;
 public sealed record MessageAckPacket : AprsPacket
 {
     /// <summary>
-    /// Gets the addressee callsign (the station being acknowledged).
+    /// Gets the addressee (the station being acknowledged).
     /// </summary>
-    public Callsign Addressee { get; init; }
+    public AprsAddress Addressee { get; init; }
 
     /// <summary>
     /// Gets the message number being acknowledged.

@@ -305,8 +305,35 @@ public static class AprsInfoFieldParser
             return false;
         }
 
-        double latitude = 90.0 - latN / 380926.0;
-        double longitude = -180.0 + lonN / 190463.0;
+        // Support both APRS spec formula and aprslib formula for compressed positions.
+        // Spec formula: latN = 380926 × (90 - Lat) / 180, lonN = 190463 × (180 + Long) / 360
+        //   (produces latN 0-380926, lonN 0-190463)
+        // Aprslib formula: latN = (90 - Lat) × 380926, lonN = (Long + 180) × 190463
+        //   (produces latN 0-68574960, lonN 0-68566680)
+        // Auto-detect based on magnitude: if value < 400000/200000, assume spec formula.
+        double latitude;
+        if (latN < 400000)
+        {
+            // Spec formula decode: Lat = 90 - (latN × 180 / 380926)
+            latitude = 90.0 - (latN * 180.0 / 380926.0);
+        }
+        else
+        {
+            // Aprslib formula decode: Lat = 90 - latN / 380926
+            latitude = 90.0 - latN / 380926.0;
+        }
+
+        double longitude;
+        if (lonN < 200000)
+        {
+            // Spec formula decode: Long = (lonN × 360 / 190463) - 180
+            longitude = (lonN * 360.0 / 190463.0) - 180.0;
+        }
+        else
+        {
+            // Aprslib formula decode: Long = -180 + lonN / 190463
+            longitude = -180.0 + lonN / 190463.0;
+        }
 
         SymbolTable symbolTable;
         char? overlay = null;
@@ -748,24 +775,21 @@ public static class AprsInfoFieldParser
         }
 
         // Bulletins are broadcast messages addressed to a BLN-prefixed name
-        // (e.g. BLN0SPCL). Capture the raw addressee before the callsign
-        // fallback below overwrites it.
+        // (e.g. BLN0SPCL). Capture the raw addressee before parsing.
         var bulletinName = addresseeStr;
         var isBulletin = addresseeStr.StartsWith("BLN", StringComparison.OrdinalIgnoreCase);
 
         // The addressee is arbitrary 9-character text per the APRS spec (e.g.
-        // "EMAIL", bulletin names, third-party IDs) — a non-callsign must not
-        // throw out of the parser; fall back to the standard APRS addressee and
-        // keep the raw value on the packet.
-        Callsign addressee;
-        if (Callsign.TryParse(addresseeStr, out var parsedAddressee))
+        // "EMAIL", "APRS2SOTA", bulletin names, third-party IDs).
+        // Use AprsAddress which is more lenient than Callsign.
+        AprsAddress addressee;
+        if (AprsAddress.TryParse(addresseeStr, out var parsedAddressee))
         {
             addressee = parsedAddressee;
         }
         else
         {
-            addressee = new Callsign("APRS");
-            addresseeStr = "APRS";
+            addressee = new AprsAddress("APRS");
         }
 
         var textStart = addrEnd >= 0 ? addrEnd + 1 : info.Length;

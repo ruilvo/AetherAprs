@@ -333,7 +333,7 @@ public class MainActivity : AvaloniaMainActivity
         }
 
         var factory = app.ServiceProvider.GetService<IConversationViewModelFactory>();
-        var conversation = factory?.Create(peer);
+        var conversation = factory?.Create(AprsAddress.FromCallsign(peer));
         if (conversation != null)
         {
             navigationService?.NavigateTo(conversation);

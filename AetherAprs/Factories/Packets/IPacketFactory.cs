@@ -36,13 +36,13 @@ public interface IPacketFactory
     /// Creates a message packet for transmission.
     /// </summary>
     /// <param name="sourceCallsign">The source callsign.</param>
-    /// <param name="addressee">The destination callsign (recipient of the message).</param>
+    /// <param name="addressee">The destination address (recipient of the message).</param>
     /// <param name="messageText">The message text content.</param>
     /// <param name="messageNumber">Optional message number for acknowledgment tracking.</param>
     /// <returns>A MessagePacket ready for transmission.</returns>
     MessagePacket CreateMessagePacket(
         string sourceCallsign,
-        Callsign addressee,
+        AprsAddress addressee,
         string messageText,
         int? messageNumber = null);
 
@@ -50,24 +50,24 @@ public interface IPacketFactory
     /// Creates an acknowledgment packet for a received message.
     /// </summary>
     /// <param name="sourceCallsign">The source callsign (sender of the ack).</param>
-    /// <param name="addressee">The destination callsign (recipient of the ack).</param>
+    /// <param name="addressee">The destination address (recipient of the ack).</param>
     /// <param name="messageNumber">The message number being acknowledged.</param>
     /// <returns>A MessageAckPacket configured as an acknowledgment.</returns>
     MessageAckPacket CreateAckPacket(
         string sourceCallsign,
-        Callsign addressee,
+        AprsAddress addressee,
         int messageNumber);
 
     /// <summary>
     /// Creates a rejection packet for a received message.
     /// </summary>
     /// <param name="sourceCallsign">The source callsign (sender of the reject).</param>
-    /// <param name="addressee">The destination callsign (recipient of the reject).</param>
+    /// <param name="addressee">The destination address (recipient of the reject).</param>
     /// <param name="messageNumber">The message number being rejected.</param>
     /// <returns>A MessageRejPacket configured as a rejection.</returns>
     MessageRejPacket CreateRejPacket(
         string sourceCallsign,
-        Callsign addressee,
+        AprsAddress addressee,
         int messageNumber);
 
     /// <summary>

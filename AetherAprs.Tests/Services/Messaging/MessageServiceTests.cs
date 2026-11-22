@@ -60,7 +60,7 @@ public sealed class MessageServiceTests
             packetFactory,
             NullLogger<MessageService>.Instance);
 
-        var addressee = new Callsign("K0OTH", 7);
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(addressee, "Hello", TestContext.Current.CancellationToken);
 
         var message = Assert.IsType<MessagePacket>(Assert.Single(portService.SentPackets));
@@ -111,7 +111,7 @@ public sealed class MessageServiceTests
             database.Factory);
 
         await firstProcess.SendAsync(
-            new Callsign("K0OTH"),
+            AprsAddress.FromCallsign(new Callsign("K0OTH")),
             "Survive restart",
             TestContext.Current.CancellationToken);
         firstProcess.Dispose();
@@ -164,13 +164,13 @@ public sealed class MessageServiceTests
             {
                 Source = new Callsign("K0PEER", 1),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                 Text = "Ping"
             }
         });
 
         var thread = Assert.Single(service.Conversations);
-        Assert.Equal(new Callsign("K0PEER", 1), thread.Peer);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), thread.Peer);
         var stored = Assert.Single(thread.Messages);
         Assert.False(stored.IsOutbound);
         Assert.Equal("Ping", stored.Text);
@@ -190,15 +190,15 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             notificationService: notificationService);
 
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
             PortId = Guid.NewGuid(),
             Packet = new MessagePacket
             {
-                Source = peer,
+                Source = new Callsign("K0PEER", 1),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                 Text = "Ping"
             }
         });
@@ -227,7 +227,7 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             notificationService: notificationService);
 
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         service.SetActiveConversation(peer);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
@@ -235,9 +235,9 @@ public sealed class MessageServiceTests
             PortId = Guid.NewGuid(),
             Packet = new MessagePacket
             {
-                Source = peer,
+                Source = new Callsign("K0PEER", 1),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                 Text = "Ping"
             }
         });
@@ -265,7 +265,7 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             notificationService: notificationService);
 
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         service.SetActiveConversation(peer);
         service.ClearActiveConversation(peer);
 
@@ -274,9 +274,9 @@ public sealed class MessageServiceTests
             PortId = Guid.NewGuid(),
             Packet = new MessagePacket
             {
-                Source = peer,
+                Source = new Callsign("K0PEER", 1),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                 Text = "Ping"
             }
         });
@@ -303,8 +303,10 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             notificationService: notificationService);
 
-        var viewed = new Callsign("K0PEER", 1);
-        var other = new Callsign("K0OTH", 2);
+        var viewedCallsign = new Callsign("K0PEER", 1);
+        var viewed = AprsAddress.FromCallsign(viewedCallsign);
+        var otherCallsign = new Callsign("K0OTH", 2);
+        var other = AprsAddress.FromCallsign(otherCallsign);
         service.SetActiveConversation(viewed);
 
         // Clearing a different peer (e.g. retiring a stale overlay) must NOT
@@ -316,9 +318,9 @@ public sealed class MessageServiceTests
             PortId = Guid.NewGuid(),
             Packet = new MessagePacket
             {
-                Source = viewed,
+                Source = viewedCallsign,
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                 Text = "Ping"
             }
         });
@@ -354,7 +356,7 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SendAsync(new Callsign("K0OTH"), "Hello", TestContext.Current.CancellationToken));
+            () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -371,7 +373,7 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SendAsync(new Callsign("K0OTH"), "Hello", TestContext.Current.CancellationToken));
+            () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -396,7 +398,7 @@ public sealed class MessageServiceTests
 
         var longText = new string('A', 68);
         await Assert.ThrowsAsync<ArgumentException>(
-            () => service.SendAsync(new Callsign("K0OTH"), longText, TestContext.Current.CancellationToken));
+            () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), longText, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -419,7 +421,7 @@ public sealed class MessageServiceTests
             {
                 Source = new Callsign("K0PEER"),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("OTHER"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("OTHER")),
                 Text = "Nope"
             }
         });
@@ -453,7 +455,7 @@ public sealed class MessageServiceTests
             packetFactory,
             NullLogger<MessageService>.Instance);
 
-        var addressee = new Callsign("K0OTH", 7);
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
 
         // Act - send 10 messages concurrently
         var tasks = Enumerable.Range(1, 10)
@@ -499,7 +501,7 @@ public sealed class MessageServiceTests
                     {
                         Source = new Callsign(callsign, (i % 15) + 1), // Valid SSID range 1-15
                         Destination = new Callsign("APRS"),
-                        Addressee = new Callsign("N0CALL"),
+                        Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                         Text = $"Message {i}"
                     }
                 });
@@ -532,7 +534,7 @@ public sealed class MessageServiceTests
             packetFactory,
             NullLogger<MessageService>.Instance);
 
-        var callsign = new Callsign("K0OTH", 7);
+        var callsign = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         var conversations = new ConcurrentBag<ConversationThread>();
 
         // Act - call GetOrCreateConversation 100 times concurrently
@@ -561,7 +563,8 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var service = CreateMessageService(portService);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peerCallsign = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(peerCallsign);
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         var thread = Assert.Single(service.Conversations);
@@ -573,9 +576,9 @@ public sealed class MessageServiceTests
             PortId = port.Id,
             Packet = new MessageAckPacket
             {
-                Source = peer,
+                Source = peerCallsign,
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL", 1),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
                 MessageNumber = stored.MessageNumber.Value
             }
         });
@@ -590,7 +593,7 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var service = CreateMessageService(portService);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         var thread = Assert.Single(service.Conversations);
@@ -604,7 +607,7 @@ public sealed class MessageServiceTests
             {
                 Source = new Callsign("K0IMP", 1),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL", 1),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
                 MessageNumber = stored.MessageNumber.Value
             }
         });
@@ -619,7 +622,7 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var service = CreateMessageService(portService);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
@@ -627,9 +630,9 @@ public sealed class MessageServiceTests
             PortId = port.Id,
             Packet = new MessageAckPacket
             {
-                Source = peer,
+                Source = new Callsign("K0PEER", 1),
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL", 1),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
                 MessageNumber = 999
             }
         });
@@ -646,7 +649,8 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var service = CreateMessageService(portService);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peerCallsign = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(peerCallsign);
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         var thread = Assert.Single(service.Conversations);
@@ -658,9 +662,9 @@ public sealed class MessageServiceTests
             PortId = port.Id,
             Packet = new MessageRejPacket
             {
-                Source = peer,
+                Source = peerCallsign,
                 Destination = new Callsign("APRS"),
-                Addressee = new Callsign("N0CALL", 1),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
                 MessageNumber = stored.MessageNumber.Value
             }
         });
@@ -692,15 +696,16 @@ public sealed class MessageServiceTests
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peerCallsign = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(peerCallsign);
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
             PortId = port.Id,
             Packet = new MessagePacket
             {
-                Source = peer,
+                Source = peerCallsign,
                 Destination = new Callsign("N0CALL", 1),
-                Addressee = new Callsign("N0CALL"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
                 Text = "Ping",
                 MessageNumber = 5
             }
@@ -720,7 +725,7 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var service = CreateMessageService(portService);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         var thread = Assert.Single(service.Conversations);
@@ -747,7 +752,7 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         var service = CreateMessageService(portService);
 
-        var peer = new Callsign("K0OTH", 7);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         var thread = Assert.Single(service.Conversations);
@@ -892,7 +897,7 @@ public sealed class MessageServiceTests
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             string messageText,
             int? messageNumber = null)
         {
@@ -913,7 +918,7 @@ public sealed class MessageServiceTests
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             var parts = sourceCallsign.Split('-');
@@ -932,7 +937,7 @@ public sealed class MessageServiceTests
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             var parts = sourceCallsign.Split('-');

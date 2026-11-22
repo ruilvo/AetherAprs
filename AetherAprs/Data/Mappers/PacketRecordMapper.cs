@@ -246,7 +246,7 @@ internal static class PacketRecordMapper
                     {
                         Source = source,
                         Destination = destination,
-                        Addressee = new Callsign(
+                        Addressee = new AprsAddress(
                             record.Message.AddresseeBase,
                             (int)record.Message.AddresseeSsid
                         ),

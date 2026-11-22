@@ -60,12 +60,12 @@ public class PacketTests
             Source = Source,
             Destination = Dest,
             Raw = ":N0CALL   :Hello there",
-            Addressee = new Callsign("N0CALL"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
             Text = "Hello there"
         };
 
         Assert.IsType<MessagePacket>(pkt);
-        Assert.Equal(new Callsign("N0CALL"), pkt.Addressee);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), pkt.Addressee);
         Assert.Equal("Hello there", pkt.Text);
         Assert.Null(pkt.MessageNumber);
     }
@@ -78,7 +78,7 @@ public class PacketTests
             Source = Source,
             Destination = Dest,
             Raw = ":N0CALL   :Hello{5}",
-            Addressee = new Callsign("N0CALL"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
             Text = "Hello",
             MessageNumber = 5
         };

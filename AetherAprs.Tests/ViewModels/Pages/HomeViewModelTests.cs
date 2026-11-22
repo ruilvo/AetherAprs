@@ -480,7 +480,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             string messageText,
             int? messageNumber = null)
         {
@@ -501,7 +501,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             var parts = sourceCallsign.Split('-');
@@ -520,7 +520,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             var parts = sourceCallsign.Split('-');

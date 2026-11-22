@@ -13,11 +13,11 @@ namespace AetherAprs.Factories.ViewModels;
 public interface IConversationViewModelFactory
 {
     /// <summary>
-    /// Creates a ConversationViewModel initialized with the specified callsign.
+    /// Creates a ConversationViewModel initialized with the specified address.
     /// </summary>
-    /// <param name="callsign">The callsign to start a conversation with.</param>
+    /// <param name="address">The APRS address to start a conversation with.</param>
     /// <returns>An initialized ConversationViewModel.</returns>
-    ConversationViewModel Create(Callsign callsign);
+    ConversationViewModel Create(AprsAddress address);
 
     /// <summary>
     /// Creates a new ConversationViewModel for starting a new conversation.

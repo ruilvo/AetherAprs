@@ -281,7 +281,7 @@ public sealed class ObjectServiceTests
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             string messageText,
             int? messageNumber = null)
         {
@@ -297,7 +297,7 @@ public sealed class ObjectServiceTests
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             return new MessageAckPacket
@@ -311,7 +311,7 @@ public sealed class ObjectServiceTests
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
-            Callsign addressee,
+            AprsAddress addressee,
             int messageNumber)
         {
             return new MessageRejPacket

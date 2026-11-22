@@ -112,7 +112,7 @@ public sealed class PacketStorageServiceTests : IDisposable
         {
             Source = new Callsign("CT7ALW", 0),
             Destination = new Callsign("APRS", 0),
-            Addressee = new Callsign("K0OTH", 1),
+            Addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 1)),
             Text = "Hello world",
             MessageNumber = 1,
             Raw = "CT7ALW>APRS::K0OTH-1  :Hello world{001"
@@ -150,7 +150,7 @@ public sealed class PacketStorageServiceTests : IDisposable
         {
             Source = new Callsign("K0OTH", 1),
             Destination = new Callsign("APRS", 0),
-            Addressee = new Callsign("CT7ALW", 0),
+            Addressee = AprsAddress.FromCallsign(new Callsign("CT7ALW", 0)),
             Text = "Reply message",
             MessageNumber = 42,
             Raw = "K0OTH-1>APRS::CT7ALW   :Reply message{042"

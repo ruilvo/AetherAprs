@@ -81,7 +81,7 @@ public sealed class PacketRecordMapperTests
         var packet = PacketRecordMapper.MapToPacket(record);
 
         var msg = Assert.IsType<MessagePacket>(packet);
-        Assert.Equal(new Callsign("K0OTH", 7), msg.Addressee);        Assert.Equal("Hello", msg.Text);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0OTH", 7)), msg.Addressee);        Assert.Equal("Hello", msg.Text);
         Assert.Equal(5, msg.MessageNumber);
     }
 
