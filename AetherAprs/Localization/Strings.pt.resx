@@ -350,6 +350,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>O nome é obrigatório</value></data>
   <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>Já existe um modelo com este nome</value></data>
   <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>A mensagem não pode exceder {0} caracteres</value></data>
+  <data name="TemplateField_summit" xml:space="preserve"><value>Cume</value></data>
+  <data name="TemplateField_freq" xml:space="preserve"><value>Frequência</value></data>
+  <data name="TemplateField_mode" xml:space="preserve"><value>Modo</value></data>
+  <data name="TemplateField_comment" xml:space="preserve"><value>Comentário</value></data>
+  <data name="TemplateField_call" xml:space="preserve"><value>Indicativo</value></data>
+  <data name="TemplateField_name" xml:space="preserve"><value>Nome</value></data>
+  <data name="TemplateField_qth" xml:space="preserve"><value>Localização</value></data>
+  <data name="TemplateField_power" xml:space="preserve"><value>Potência</value></data>
+  <data name="TemplateField_antenna" xml:space="preserve"><value>Antena</value></data>
   <data name="ObjectsPageTitle" xml:space="preserve"><value>Objetos</value></data>
   <data name="ObjectsEmptyState" xml:space="preserve"><value>Ainda não existem objetos. Toque em + para adicionar um.</value></data>
   <data name="KilledObjectBadge" xml:space="preserve"><value>Eliminado</value></data>

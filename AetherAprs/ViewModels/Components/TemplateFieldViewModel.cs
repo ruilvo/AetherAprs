@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AetherAprs.ViewModels.Components;
@@ -21,6 +22,21 @@ public sealed partial class TemplateFieldViewModel : ViewModelBase
     /// Gets the placeholder name, without braces.
     /// </summary>
     public string Name { get; }
+
+    /// <summary>
+    /// Gets the localized display name for the placeholder.
+    /// Returns a localized name for known placeholders, or the original name
+    /// for unknown placeholders.
+    /// </summary>
+    public string DisplayName
+    {
+        get
+        {
+            var key = $"TemplateField_{Name}";
+            var localized = Strings.Get(key);
+            return localized != key ? localized : Name;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the user-supplied value for the placeholder.

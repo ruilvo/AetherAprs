@@ -52,7 +52,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:TemplateFieldViewModel">
           <TextBox Text="{Binding Value, Mode=TwoWay}"
-                   wpf:TextFieldAssist.Label="{Binding Name}"
+                   wpf:TextFieldAssist.Label="{Binding DisplayName}"
                    UseFloatingPlaceholder="True" />
         </DataTemplate>
       </ItemsControl.ItemTemplate>

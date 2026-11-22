@@ -350,6 +350,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>Name is required</value></data>
   <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>A template with this name already exists</value></data>
   <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>Message cannot exceed {0} characters</value></data>
+  <data name="TemplateField_summit" xml:space="preserve"><value>Summit</value></data>
+  <data name="TemplateField_freq" xml:space="preserve"><value>Frequency</value></data>
+  <data name="TemplateField_mode" xml:space="preserve"><value>Mode</value></data>
+  <data name="TemplateField_comment" xml:space="preserve"><value>Comment</value></data>
+  <data name="TemplateField_call" xml:space="preserve"><value>Callsign</value></data>
+  <data name="TemplateField_name" xml:space="preserve"><value>Name</value></data>
+  <data name="TemplateField_qth" xml:space="preserve"><value>Location</value></data>
+  <data name="TemplateField_power" xml:space="preserve"><value>Power</value></data>
+  <data name="TemplateField_antenna" xml:space="preserve"><value>Antenna</value></data>
   <data name="ObjectsPageTitle" xml:space="preserve"><value>Objects</value></data>
   <data name="ObjectsEmptyState" xml:space="preserve"><value>No objects yet. Tap + to add one.</value></data>
   <data name="KilledObjectBadge" xml:space="preserve"><value>Killed</value></data>
