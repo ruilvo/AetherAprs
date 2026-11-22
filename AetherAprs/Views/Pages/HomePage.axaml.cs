@@ -29,6 +29,7 @@ public partial class HomePage : UserControl
         InitializeMap();
         DataContextChanged += OnDataContextChanged;
         MapControl.MapTapped += OnMapTapped;
+        MapControl.PointerPressed += OnMapPointerPressed;
         Loaded += (_, _) => TryApplyPendingCenter();
         SizeChanged += (_, _) => TryApplyPendingCenter();
     }
@@ -45,12 +46,19 @@ public partial class HomePage : UserControl
         _currentViewModel?.UpdateMapResolution(e.Viewport.Resolution);
     }
 
+    private void OnMapPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        // User is interacting with the map - disable follow mode
+        _currentViewModel?.Map?.OnUserInteraction();
+    }
+
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         // Unsubscribe from old ViewModel to prevent memory leak
         if (_currentViewModel?.Map != null)
         {
             _currentViewModel.Map.CenterOnPointRequested -= OnCenterOnPointRequested;
+            _currentViewModel.Map.RotateToNorthRequested -= OnRotateToNorthRequested;
             _currentViewModel.Map.ZoomInRequested -= OnZoomInRequested;
             _currentViewModel.Map.ZoomOutRequested -= OnZoomOutRequested;
         }
@@ -87,10 +95,11 @@ public partial class HomePage : UserControl
             }
         }
 
-        // Subscribe to map centering/zoom requests
+        // Subscribe to map centering/zoom/rotation requests
         if (viewModel.Map != null)
         {
             viewModel.Map.CenterOnPointRequested += OnCenterOnPointRequested;
+            viewModel.Map.RotateToNorthRequested += OnRotateToNorthRequested;
             viewModel.Map.ZoomInRequested += OnZoomInRequested;
             viewModel.Map.ZoomOutRequested += OnZoomOutRequested;
 
@@ -129,6 +138,18 @@ public partial class HomePage : UserControl
         }
 
         ApplyCenterPoint(navigator, mapPoint);
+    }
+
+    private void OnRotateToNorthRequested(object? sender, EventArgs e)
+    {
+        var navigator = MapControl.Map?.Navigator;
+        if (navigator is null || !HasMapViewport(navigator))
+        {
+            return;
+        }
+
+        // Reset map rotation to 0 (North up)
+        navigator.RotateTo(0, 350, Easing.CubicOut);
     }
 
     private void TryApplyPendingCenter()

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.UI;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Mapsui;
 using System;
@@ -20,6 +21,11 @@ public partial class MapViewModel : ViewModelBase
     public event EventHandler<MPoint>? CenterOnPointRequested;
 
     /// <summary>
+    /// Raised when the user asks to reset map rotation to North (0 degrees).
+    /// </summary>
+    public event EventHandler? RotateToNorthRequested;
+
+    /// <summary>
     /// Raised when the user asks to zoom the map in one level.
     /// </summary>
     public event EventHandler? ZoomInRequested;
@@ -28,6 +34,20 @@ public partial class MapViewModel : ViewModelBase
     /// Raised when the user asks to zoom the map out one level.
     /// </summary>
     public event EventHandler? ZoomOutRequested;
+
+    /// <summary>
+    /// Gets or sets whether the map should follow the user's location and bearing.
+    /// When enabled, the map automatically centers on the user and rotates based on their direction.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsFollowModeEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the user has manually interacted with the map.
+    /// Used to control FAB visibility/opacity.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasUserMovedMap { get; set; }
 
     public MapViewModel(IUserLocationLayerService userLocationLayerService)
     {
@@ -40,8 +60,21 @@ public partial class MapViewModel : ViewModelBase
         var mapPoint = _userLocationLayerService.CurrentMapPoint;
         if (mapPoint != null)
         {
+            // Enable follow mode and center on user
+            IsFollowModeEnabled = true;
             CenterOnPointRequested?.Invoke(this, mapPoint);
+            RotateToNorthRequested?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    /// <summary>
+    /// Called when the user manually pans, zooms, or rotates the map.
+    /// Disables follow mode and marks that the user has moved the map.
+    /// </summary>
+    public void OnUserInteraction()
+    {
+        IsFollowModeEnabled = false;
+        HasUserMovedMap = true;
     }
 
     [RelayCommand]

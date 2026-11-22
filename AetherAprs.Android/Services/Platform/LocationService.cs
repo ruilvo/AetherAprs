@@ -334,7 +334,8 @@ public class LocationService : ILocationService
             Location = new Geo.Coordinate(location.Latitude, location.Longitude),
             Altitude = location.HasAltitude ? location.Altitude : null,
             Accuracy = location.Accuracy,
-            Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(location.Time)
+            Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(location.Time),
+            Bearing = location.HasBearing ? location.Bearing : null
         };
     }
 

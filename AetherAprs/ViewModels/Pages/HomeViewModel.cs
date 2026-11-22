@@ -120,6 +120,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
                     Map.CenterOnUser();
                     _hasReceivedFirstLocation = true;
                 }
+                // If follow mode is enabled, continuously center and rotate map
+                else if (Map.IsFollowModeEnabled)
+                {
+                    Map.CenterOnUser();
+                }
 
                 // Evaluate beacon transmission if enabled
                 if (IsDynamicBeaconingEnabled)

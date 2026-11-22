@@ -5,9 +5,11 @@
 using AetherAprs.Models;
 using Mapsui;
 using Mapsui.Layers;
+using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
 using Microsoft.Extensions.Logging;
+using NetTopologySuite.Geometries;
 using System;
 
 namespace AetherAprs.Services.UI;
@@ -69,6 +71,9 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
         var mapPoint = new MPoint(x, y);
         _currentMapPoint = mapPoint;
 
+        _layer.Clear();
+
+        // Draw base circle for location
         var locationStyle = new SymbolStyle
         {
             SymbolScale = 0.5,
@@ -76,15 +81,66 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
             Outline = new Pen(Color.White, 2)
         };
 
-        _layer.Clear();
-        var feature = new PointFeature(mapPoint)
+        var locationFeature = new PointFeature(mapPoint)
         {
             Styles = [locationStyle]
         };
-        _layer.Add(feature);
+        _layer.Add(locationFeature);
+
+        // Draw directional indicator if bearing is available
+        if (location.Bearing.HasValue)
+        {
+            var directionArrow = CreateDirectionArrow(mapPoint, location.Bearing.Value);
+            _layer.Add(directionArrow);
+        }
+
         _layer.DataHasChanged();
 
-        _logger.LogDebug("User location updated on map: {Lat}, {Lon}", location.Location.Latitude, location.Location.Longitude);
+        _logger.LogDebug("User location updated on map: {Lat}, {Lon}, Bearing: {Bearing}", 
+            location.Location.Latitude, location.Location.Longitude, location.Bearing);
+    }
+
+    private static GeometryFeature CreateDirectionArrow(MPoint center, double bearingDegrees)
+    {
+        // Create a triangle pointing north (0 degrees), then rotate it
+        // Triangle size is in map units (meters in Web Mercator)
+        const double arrowSize = 15; // meters
+        const double arrowWidth = 8; // meters
+
+        // Triangle vertices (pointing up/north before rotation)
+        var vertices = new[]
+        {
+            new Coordinate(center.X, center.Y + arrowSize), // tip (north)
+            new Coordinate(center.X - arrowWidth, center.Y - arrowSize / 2), // left base
+            new Coordinate(center.X + arrowWidth, center.Y - arrowSize / 2), // right base
+            new Coordinate(center.X, center.Y + arrowSize) // close the ring
+        };
+
+        // Create polygon
+        var geometryFactory = new GeometryFactory();
+        var shell = geometryFactory.CreateLinearRing(vertices);
+        var polygon = geometryFactory.CreatePolygon(shell);
+
+        // Rotate the polygon based on bearing
+        // Mapsui uses counter-clockwise rotation, bearing is clockwise from north
+        var rotationRadians = bearingDegrees * Math.PI / 180.0;
+        var transform = new NetTopologySuite.Geometries.Utilities.AffineTransformation();
+        transform.Rotate(rotationRadians, center.X, center.Y);
+        var rotatedPolygon = (Polygon)transform.Transform(polygon);
+
+        var arrowStyle = new VectorStyle
+        {
+            Fill = new Brush(Color.FromArgb(200, 255, 255, 255)),
+            Outline = new Pen(Color.FromArgb(255, 0, 122, 255), 2)
+        };
+
+        var arrowFeature = new GeometryFeature
+        {
+            Geometry = rotatedPolygon,
+            Styles = [arrowStyle]
+        };
+
+        return arrowFeature;
     }
 
     public void Dispose()

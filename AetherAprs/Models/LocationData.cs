@@ -31,4 +31,10 @@ public record LocationData
     /// Gets the timestamp when the location was obtained.
     /// </summary>
     public DateTimeOffset Timestamp { get; init; }
+
+    /// <summary>
+    /// Gets the bearing (direction of travel) in degrees, where 0 is North
+    /// and values increase clockwise. Null if bearing is not available.
+    /// </summary>
+    public double? Bearing { get; init; }
 }
