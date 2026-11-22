@@ -20,6 +20,7 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
     private readonly IMessageService _messageService;
     private readonly INavigationService _navigationService;
     private readonly IConversationViewModelFactory _conversationFactory;
+    private readonly BulletinsViewModel _bulletinsViewModel;
 
     [ObservableProperty]
     public partial string Title { get; set; } = Localization.Strings.Get("Messages");
@@ -30,11 +31,13 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
     public MessagesViewModel(
         IMessageService messageService,
         INavigationService navigationService,
-        IConversationViewModelFactory conversationFactory)
+        IConversationViewModelFactory conversationFactory,
+        BulletinsViewModel bulletinsViewModel)
     {
         _messageService = messageService;
         _navigationService = navigationService;
         _conversationFactory = conversationFactory;
+        _bulletinsViewModel = bulletinsViewModel;
         Conversations.CollectionChanged += OnConversationsChanged;
     }
 
@@ -66,5 +69,11 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
 
         var vm = _conversationFactory.Create(thread.Peer);
         _navigationService.NavigateTo(vm);
+    }
+
+    [RelayCommand]
+    private void OpenBulletins()
+    {
+        _navigationService.NavigateTo(_bulletinsViewModel);
     }
 }

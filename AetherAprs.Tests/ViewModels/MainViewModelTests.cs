@@ -157,7 +157,10 @@ public sealed class MainViewModelTests
             navigationService,
             SynchronousUiDispatcher.Instance,
             NullLogger<HomeViewModel>.Instance);
-        var messages = new MessagesViewModel(messageService, navigation, conversationFactory);
+        var messages = new MessagesViewModel(messageService, navigation, conversationFactory,
+            new BulletinsViewModel(
+                Substitute.For<IBulletinService>(),
+                navigation));
         
         var packets = new PacketsViewModel(
             packetQuery,
@@ -167,7 +170,16 @@ public sealed class MainViewModelTests
             objectDetailsFactory,
             configuration,
             SynchronousUiDispatcher.Instance,
-            NullLogger<PacketsViewModel>.Instance);
+            NullLogger<PacketsViewModel>.Instance,
+            new ObjectsViewModel(
+                Substitute.For<IObjectService>(),
+                navigation,
+                Substitute.For<IObjectEditorViewModelFactory>(),
+                Substitute.For<IConfirmationDialogService>()),
+            new SearchViewModel(
+                packetQuery,
+                navigation,
+                packetDetailsFactory));
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
         var ports = new PortsViewModel(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);
@@ -176,19 +188,7 @@ public sealed class MainViewModelTests
                 Substitute.For<IMessageTemplateService>(),
                 Substitute.For<IConfirmationDialogService>(),
                 navigation,
-                Substitute.For<IMessageTemplateEditViewModelFactory>()),
-            new ObjectsViewModel(
-                Substitute.For<IObjectService>(),
-                navigation,
-                Substitute.For<IObjectEditorViewModelFactory>(),
-                Substitute.For<IConfirmationDialogService>()),
-            new BulletinsViewModel(
-                Substitute.For<IBulletinService>(),
-                navigation),
-            new SearchViewModel(
-                packetQuery,
-                navigation,
-                packetDetailsFactory));
+                Substitute.For<IMessageTemplateEditViewModelFactory>()));
 
         return new MainViewModel(navigation, Substitute.For<IKeyboardInsetsService>(), home, messages, packets, ports, settings);
     }
@@ -265,23 +265,23 @@ public sealed class MainViewModelTests
     {
         public ObservableCollection<ConversationThread> Conversations { get; } = new();
 
-        public ConversationThread GetOrCreateConversation(Callsign peer)
+        public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
             var thread = new ConversationThread(peer);
             Conversations.Add(thread);
             return thread;
         }
 
-        public Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default) =>
+        public Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public void SetActiveConversation(Callsign? peer)
+        public void SetActiveConversation(AprsAddress? peer)
         {
         }
 
-        public void ClearActiveConversation(Callsign peer)
+        public void ClearActiveConversation(AprsAddress peer)
         {
         }
     }

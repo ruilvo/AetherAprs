@@ -50,9 +50,7 @@ public sealed class SettingsViewModelPersistenceTests
 
             // Create SettingsViewModel - this should load settings from config
             var viewModel = new SettingsViewModel(
-                configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService),
-                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService),
-                CreateSearchViewModel(navService));
+                configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
 
             // Verify all settings were loaded correctly
             Assert.Equal("CT7ALW", viewModel.Callsign);
@@ -91,9 +89,7 @@ public sealed class SettingsViewModelPersistenceTests
             var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
 
             var viewModel = new SettingsViewModel(
-                configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService),
-                CreateObjectsViewModel(navService), CreateBulletinsViewModel(navService),
-                CreateSearchViewModel(navService));
+                configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
 
             // Verify SSID = 0 is loaded correctly
             Assert.Equal(AprsSsid.PrimaryStation, viewModel.Ssid);
@@ -158,30 +154,6 @@ public sealed class SettingsViewModelPersistenceTests
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
-    }
-
-    private static ObjectsViewModel CreateObjectsViewModel(INavigationService navigation)
-    {
-        return new ObjectsViewModel(
-            Substitute.For<IObjectService>(),
-            navigation,
-            Substitute.For<IObjectEditorViewModelFactory>(),
-            Substitute.For<IConfirmationDialogService>());
-    }
-
-    private static BulletinsViewModel CreateBulletinsViewModel(INavigationService navigation)
-    {
-        return new BulletinsViewModel(
-            Substitute.For<IBulletinService>(),
-            navigation);
-    }
-
-    private static SearchViewModel CreateSearchViewModel(INavigationService navigation)
-    {
-        return new SearchViewModel(
-            Substitute.For<IPacketQueryService>(),
-            navigation,
-            Substitute.For<IPacketDetailsViewModelFactory>());
     }
 }
 

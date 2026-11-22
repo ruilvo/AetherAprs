@@ -40,6 +40,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly IConfigurationService _configurationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<PacketsViewModel> _logger;
+    private readonly ObjectsViewModel _objectsViewModel;
+    private readonly SearchViewModel _searchViewModel;
     private readonly CancellationTokenSource _throttleCts = new();
     private readonly List<PacketSummary> _allSummaries = [];
     private readonly List<PacketSummary> _filteredSummaries = [];
@@ -86,7 +88,9 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         IObjectDetailsViewModelFactory objectDetailsFactory,
         IConfigurationService configurationService,
         IUiDispatcher uiDispatcher,
-        ILogger<PacketsViewModel> logger)
+        ILogger<PacketsViewModel> logger,
+        ObjectsViewModel objectsViewModel,
+        SearchViewModel searchViewModel)
     {
         _packetQueryService = packetQueryService;
         _packetStorageService = packetStorageService;
@@ -96,6 +100,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _configurationService = configurationService;
         _uiDispatcher = uiDispatcher;
         _logger = logger;
+        _objectsViewModel = objectsViewModel;
+        _searchViewModel = searchViewModel;
 
         _packetStorageService.PacketStored += OnPacketStored;
         
@@ -362,6 +368,18 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
         var vm = _packetDetailsFactory.Create(summary.Source);
         _navigationService.NavigateTo(vm);
+    }
+
+    [RelayCommand]
+    private void OpenObjects()
+    {
+        _navigationService.NavigateTo(_objectsViewModel);
+    }
+
+    [RelayCommand]
+    private void OpenSearch()
+    {
+        _navigationService.NavigateTo(_searchViewModel);
     }
 
     public void Dispose()

@@ -33,9 +33,7 @@ public sealed class SettingsViewModelTests
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
-            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
-            CreateSearchViewModel(navigation));
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         
@@ -53,9 +51,7 @@ public sealed class SettingsViewModelTests
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
-            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
-            CreateSearchViewModel(navigation));
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
         await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
@@ -87,9 +83,7 @@ public sealed class SettingsViewModelTests
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
-            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
-            CreateSearchViewModel(navigation));
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.TileSource = TileSourceType.MbTilesOffline;
         await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
@@ -108,9 +102,7 @@ public sealed class SettingsViewModelTests
         var navigation = new TestNavigationService();
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var viewModel = new SettingsViewModel(
-            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
-            CreateSearchViewModel(navigation));
+            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
 
@@ -124,43 +116,11 @@ public sealed class SettingsViewModelTests
         var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
         var messageTemplates = CreateMessageTemplatesViewModel(navigation);
         var viewModel = new SettingsViewModel(
-            new TestConfigurationService(), navigation, symbolPicker, messageTemplates,
-            CreateObjectsViewModel(navigation), CreateBulletinsViewModel(navigation),
-            CreateSearchViewModel(navigation));
+            new TestConfigurationService(), navigation, symbolPicker, messageTemplates);
 
         viewModel.OpenMessageTemplatesCommand.Execute(null);
 
         Assert.Equal(typeof(MessageTemplatesViewModel), navigation.LastNavigatedType);
-    }
-
-    [Fact]
-    public void OpenObjectsNavigatesToObjectsViewModel()
-    {
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var objects = CreateObjectsViewModel(navigation);
-        var viewModel = new SettingsViewModel(
-            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            objects, CreateBulletinsViewModel(navigation), CreateSearchViewModel(navigation));
-
-        viewModel.OpenObjectsCommand.Execute(null);
-
-        Assert.Same(objects, navigation.LastNavigatedViewModel);
-    }
-
-    [Fact]
-    public void OpenBulletinsNavigatesToBulletinsViewModel()
-    {
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var bulletins = CreateBulletinsViewModel(navigation);
-        var viewModel = new SettingsViewModel(
-            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation),
-            CreateObjectsViewModel(navigation), bulletins, CreateSearchViewModel(navigation));
-
-        viewModel.OpenBulletinsCommand.Execute(null);
-
-        Assert.Same(bulletins, navigation.LastNavigatedViewModel);
     }
 
     private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation)
@@ -170,30 +130,6 @@ public sealed class SettingsViewModelTests
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
-    }
-
-    private static ObjectsViewModel CreateObjectsViewModel(INavigationService navigation)
-    {
-        return new ObjectsViewModel(
-            Substitute.For<IObjectService>(),
-            navigation,
-            Substitute.For<IObjectEditorViewModelFactory>(),
-            Substitute.For<IConfirmationDialogService>());
-    }
-
-    private static BulletinsViewModel CreateBulletinsViewModel(INavigationService navigation)
-    {
-        return new BulletinsViewModel(
-            Substitute.For<IBulletinService>(),
-            navigation);
-    }
-
-    private static SearchViewModel CreateSearchViewModel(INavigationService navigation)
-    {
-        return new SearchViewModel(
-            Substitute.For<IPacketQueryService>(),
-            navigation,
-            Substitute.For<IPacketDetailsViewModelFactory>());
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider

@@ -9,6 +9,8 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
+using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
@@ -707,6 +709,17 @@ public class PacketsViewModelTests : TestFixtureBase
 
     private async Task<PacketsViewModel> CreateViewModelAsync()
     {
+        var objectsViewModel = new ObjectsViewModel(
+            Substitute.For<IObjectService>(),
+            _navigationService,
+            Substitute.For<IObjectEditorViewModelFactory>(),
+            Substitute.For<IConfirmationDialogService>());
+        
+        var searchViewModel = new SearchViewModel(
+            _packetQueryService,
+            _navigationService,
+            _packetDetailsFactory);
+        
         var viewModel = new PacketsViewModel(
             _packetQueryService,
             _packetStorageService,
@@ -715,7 +728,9 @@ public class PacketsViewModelTests : TestFixtureBase
             _objectDetailsFactory,
             _configurationService,
             _uiDispatcher,
-            _logger);
+            _logger,
+            objectsViewModel,
+            searchViewModel);
         
         // Wait for initialization to complete
         await viewModel.InitializationTask;

@@ -10,6 +10,7 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Objects;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
@@ -25,7 +26,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     public void Conversations_ExposesMessageServiceCollection()
     {
         var messageService = new FakeMessageService();
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         messageService.GetOrCreateConversation(peer);
 
         var vm = CreateViewModel(messageService, Substitute.For<INavigationService>());
@@ -48,7 +49,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         };
 
         Assert.False(vm.HasConversations);
-        service.GetOrCreateConversation(new Callsign("K0PEER", 1));
+        service.GetOrCreateConversation(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)));
         Assert.True(vm.HasConversations);
         service.Conversations.Clear();
         Assert.False(vm.HasConversations);
@@ -85,7 +86,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     [Fact]
     public void OpenConversation_NavigatesWithPeerInitialized()
     {
-        var peer = new Callsign("K0PEER", 1);
+        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         var thread = new ConversationThread(peer);
         var navigation = Substitute.For<INavigationService>();
         ViewModelBase? navigated = null;
@@ -115,7 +116,10 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
         var provider = services.BuildServiceProvider();
         var factory = provider.GetRequiredService<IConversationViewModelFactory>();
-        return new MessagesViewModel(messageService, navigation, factory);
+        var bulletinsViewModel = new BulletinsViewModel(
+            Substitute.For<IBulletinService>(),
+            navigation);
+        return new MessagesViewModel(messageService, navigation, factory, bulletinsViewModel);
     }
 
     private sealed class FakeMessageService : IMessageService
@@ -124,7 +128,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
 
         public ObservableCollection<ConversationThread> Conversations => _conversations;
 
-        public ConversationThread GetOrCreateConversation(Callsign peer)
+        public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
             foreach (var existing in _conversations)
             {
@@ -137,16 +141,16 @@ public sealed class MessagesViewModelTests : TestFixtureBase
             return thread;
         }
 
-        public Task SendAsync(Callsign addressee, string text, CancellationToken cancellationToken = default) =>
+        public Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public void SetActiveConversation(Callsign? peer)
+        public void SetActiveConversation(AprsAddress? peer)
         {
         }
 
-        public void ClearActiveConversation(Callsign peer)
+        public void ClearActiveConversation(AprsAddress peer)
         {
         }
     }
