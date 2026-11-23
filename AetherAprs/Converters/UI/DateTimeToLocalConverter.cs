@@ -17,9 +17,16 @@ public class DateTimeToLocalConverter : IValueConverter
     {
         return value switch
         {
-            DateTime dt => dt.Kind == DateTimeKind.Utc
-                ? dt.ToLocalTime()
-                : dt, // If not UTC, return as-is
+            // SQLite round-trips DateTime as DateTimeKind.Unspecified, so packet
+            // timestamps from the data layer arrive here without a Kind. The data
+            // layer stores UTC exclusively (AGENTS.md), so an Unspecified value is
+            // UTC and must be localised rather than shown verbatim.
+            DateTime dt => dt.Kind switch
+            {
+                DateTimeKind.Utc => dt.ToLocalTime(),
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToLocalTime(),
+                _ => dt
+            },
             DateTimeOffset dto => dto.ToLocalTime(),
             _ => value
         };

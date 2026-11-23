@@ -12,13 +12,16 @@ using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Transports.Kiss;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -27,7 +30,7 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Ports;
 
-public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
+public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRuntime, IAsyncDisposable
 {
     private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly IConfigurationService _configurationService;
@@ -48,10 +51,27 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
     private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
     private readonly List<PortConfig> _ports;
 
+    // One gate per port so a start and a stop for the same port cannot interleave,
+    // and two concurrent starts cannot both pass the "already running" check and
+    // leak a modem (audit C-01).
+    private readonly Dictionary<Guid, SemaphoreSlim> _sessionGates = [];
+
     private readonly CancellationTokenSource _disposalCts = new();
     private readonly Channel<QueuedPacket> _packetChannel;
     private readonly Task _packetProcessorTask;
+    private readonly IDiagnosticEventSink? _diagnosticSink;
+
+    // Inbound drops are counted per ingress port so a saturated or failing ingest
+    // path is visible instead of silently losing packets (audit C-05/C-07).
+    private readonly ConcurrentDictionary<Guid, long> _droppedPacketCounts = new();
+    private long _totalDroppedPackets;
     private bool _portsKeepAliveActive;
+
+    /// <summary>Default number of queued inbound packets before drops are counted.</summary>
+    private const int DefaultPacketQueueCapacity = 1024;
+
+    /// <summary>Total storage attempts for one inbound packet, including the first.</summary>
+    private const int StoreAttemptLimit = 3;
 
     private sealed record QueuedPacket(Guid PortId, AprsPacket Packet);
 
@@ -67,9 +87,13 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         IAudioStreamService audioStreamService,
         IAudioPlaybackService audioPlaybackService,
         IPttService pttService,
-        ISecretProtector? secretProtector = null,
-        ILocationTrackingService? locationTrackingService = null)
+        ISecretProtector secretProtector,
+        ILocationTrackingService? locationTrackingService = null,
+        IDiagnosticEventSink? diagnosticSink = null,
+        int packetQueueCapacity = DefaultPacketQueueCapacity)
     {
+        ArgumentNullException.ThrowIfNull(secretProtector);
+
         _dbContextFactory = dbContextFactory;
         _configurationService = configurationService;
         _loggerFactory = loggerFactory;
@@ -81,12 +105,15 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         _audioStreamService = audioStreamService;
         _audioPlaybackService = audioPlaybackService;
         _pttService = pttService;
-        _secretProtector = secretProtector ?? new PlaintextSecretProtector();
+        _secretProtector = secretProtector;
         _locationTrackingService = locationTrackingService;
+        _diagnosticSink = diagnosticSink;
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
         // also guarantees packets are persisted and published in receive order.
-        _packetChannel = Channel.CreateBounded<QueuedPacket>(new BoundedChannelOptions(1024)
+        // Policy: the modem read loop must never block, so a saturated queue drops
+        // the newest packet and counts it (see RaisePacketReceived).
+        _packetChannel = Channel.CreateBounded<QueuedPacket>(new BoundedChannelOptions(packetQueueCapacity)
         {
             SingleReader = true,
             FullMode = BoundedChannelFullMode.Wait
@@ -125,6 +152,29 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
     public event EventHandler<PortPacketTransmittedEventArgs>? PacketTransmitted;
 
     public event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
+
+    /// <inheritdoc />
+    public long GetDroppedPacketCount(Guid portId) =>
+        _droppedPacketCounts.TryGetValue(portId, out var count) ? count : 0;
+
+    /// <summary>Total inbound packets dropped across all ports.</summary>
+    public long TotalDroppedPackets => Interlocked.Read(ref _totalDroppedPackets);
+
+    /// <inheritdoc />
+    public async Task<bool> StartSessionAsync(Guid portId, CancellationToken cancellationToken)
+    {
+        var port = FindPortById(portId);
+        if (port is null)
+        {
+            return false;
+        }
+
+        return await StartModemAsync(port).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public Task StopSessionAsync(Guid portId, CancellationToken cancellationToken) =>
+        StopModemAsync(portId);
 
     public async Task AddPortAsync(PortConfig port)
     {
@@ -174,7 +224,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
                 "Restarting running port {PortName} ({PortId}) after settings update.",
                 port.Name,
                 port.Id);
-            await StopSessionAsync(sessionToRestart).ConfigureAwait(false);
+            await StopDetachedSessionAsync(sessionToRestart).ConfigureAwait(false);
         }
 
         if (startAfterUpdate && port.IsEnabled)
@@ -483,17 +533,45 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         target.TypeSettings = source.TypeSettings;
     }
 
-    private async Task<bool> StartModemAsync(PortConfig port)
+    private SemaphoreSlim GetSessionGate(Guid portId)
     {
         lock (_stateLock)
         {
-            if (_activeSessions.ContainsKey(port.Id))
+            if (!_sessionGates.TryGetValue(portId, out var gate))
             {
-                _logger.LogDebug("Port {PortId} ({PortName}) is already running.", port.Id, port.Name);
-                return true;
+                gate = new SemaphoreSlim(1, 1);
+                _sessionGates[portId] = gate;
             }
-        }
 
+            return gate;
+        }
+    }
+
+    private async Task<bool> StartModemAsync(PortConfig port)
+    {
+        var gate = GetSessionGate(port.Id);
+        await gate.WaitAsync(_disposalCts.Token).ConfigureAwait(false);
+        try
+        {
+            lock (_stateLock)
+            {
+                if (_activeSessions.ContainsKey(port.Id))
+                {
+                    _logger.LogDebug("Port {PortId} ({PortName}) is already running.", port.Id, port.Name);
+                    return true;
+                }
+            }
+
+            return await StartModemCoreAsync(port).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    private async Task<bool> StartModemCoreAsync(PortConfig port)
+    {
         try
         {
             switch (port.TypeSettings)
@@ -613,16 +691,43 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
 
     private async Task StopModemAsync(Guid id)
     {
-        ActivePortSession? session;
-        lock (_stateLock)
+        var gate = GetSessionGate(id);
+        await gate.WaitAsync(_disposalCts.Token).ConfigureAwait(false);
+        try
         {
-            if (!_activeSessions.Remove(id, out session))
+            ActivePortSession? session;
+            lock (_stateLock)
             {
-                return;
+                if (!_activeSessions.Remove(id, out session))
+                {
+                    return;
+                }
             }
-        }
 
-        await StopSessionAsync(session).ConfigureAwait(false);
+            await StopSessionAsync(session).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Stops a session that <see cref="UpdatePortAsync"/> already removed from the
+    /// active map, under the port's session gate so a concurrent start waits.
+    /// </summary>
+    private async Task StopDetachedSessionAsync(ActivePortSession session)
+    {
+        var gate = GetSessionGate(session.PortId);
+        await gate.WaitAsync(_disposalCts.Token).ConfigureAwait(false);
+        try
+        {
+            await StopSessionAsync(session).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
     }
 
     private async Task StopSessionAsync(ActivePortSession session)
@@ -690,12 +795,12 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         // Queue for ordered sequential processing: storage → event → digipeat.
         // A bounded channel preserves receive order (Id-ordering assumptions in the
         // query service) and prevents unbounded Task.Run fan-out under bursts.
+        // TryWrite is intentional: this runs on the modem read loop, which must not
+        // block on the database. A full queue therefore drops the newest packet and
+        // records it below rather than waiting (audit C-07).
         if (!_packetChannel.Writer.TryWrite(new QueuedPacket(portId, packet)))
         {
-            _logger.LogWarning(
-                "Packet queue full; dropping packet from {Source} on port {PortId}.",
-                packet.Source,
-                portId);
+            RecordDroppedPacket(portId, packet, "Inbound queue full; newest packet dropped.");
         }
     }
 
@@ -720,18 +825,14 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
 
     private async Task ProcessPacketAsync(Guid portId, AprsPacket packet)
     {
-        try
+        var stored = await TryStorePacketAsync(portId, packet).ConfigureAwait(false);
+        if (!stored)
         {
-            await _packetStorageService.StorePacketAsync(packet, portId, isOutbound: false, _disposalCts.Token)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected during disposal
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
+            // Consumers read the database to render, so publishing an unstored
+            // packet would make the UI and the store diverge permanently
+            // (audit C-05). Drop it loudly instead.
+            RecordDroppedPacket(portId, packet, "Packet could not be persisted.");
+            return;
         }
 
         // Raise event after storage so consumers see persisted packets in order.
@@ -757,6 +858,93 @@ public class PortService : IPortService, IPortServiceTelemetry, IAsyncDisposable
         {
             _logger.LogError(ex, "Failed to digipeat packet from {Source}", packet.Source);
         }
+    }
+
+    /// <summary>
+    /// Persists an inbound packet, retrying transient SQLite contention a bounded
+    /// number of times. Returns <see langword="false"/> when the packet must not be
+    /// published because it could not be stored.
+    /// </summary>
+    private async Task<bool> TryStorePacketAsync(Guid portId, AprsPacket packet)
+    {
+        for (var attempt = 1; attempt <= StoreAttemptLimit; attempt++)
+        {
+            try
+            {
+                await _packetStorageService
+                    .StorePacketAsync(packet, portId, isOutbound: false, _disposalCts.Token)
+                    .ConfigureAwait(false);
+                return true;
+            }
+            catch (OperationCanceledException) when (_disposalCts.IsCancellationRequested)
+            {
+                // Expected during disposal; nothing to publish.
+                return false;
+            }
+            catch (SqliteException ex) when (attempt < StoreAttemptLimit && IsTransientSqliteFailure(ex))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Transient SQLite failure storing packet from {Source} on port {PortId} (attempt {Attempt}/{Limit}); retrying.",
+                    packet.Source,
+                    portId,
+                    attempt,
+                    StoreAttemptLimit);
+
+                if (!await DelayBeforeRetryAsync(attempt).ConfigureAwait(false))
+                {
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to store packet from {Source} on port {PortId}; the packet was not published.",
+                    packet.Source,
+                    portId);
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsTransientSqliteFailure(SqliteException exception) =>
+        // SQLITE_BUSY (5) and SQLITE_LOCKED (6) are the two contention codes that
+        // clear on their own; anything else is a programming or storage fault.
+        exception.SqliteErrorCode is 5 or 6;
+
+    private async Task<bool> DelayBeforeRetryAsync(int attempt)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50 * attempt), _disposalCts.Token).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
+
+    private void RecordDroppedPacket(Guid portId, AprsPacket packet, string reason)
+    {
+        _droppedPacketCounts.AddOrUpdate(portId, 1, static (_, current) => current + 1);
+        Interlocked.Increment(ref _totalDroppedPackets);
+
+        _diagnosticSink?.Record(
+            "ingest",
+            DiagnosticSeverity.Error,
+            "Dropped",
+            reason,
+            portId.ToString("N"));
+
+        _logger.LogWarning(
+            "Dropped inbound packet from {Source} on port {PortId}: {Reason}",
+            packet.Source,
+            portId,
+            reason);
     }
 
     private async Task HandleDigipeatAsync(Guid sourcePortId, AprsPacket packet)

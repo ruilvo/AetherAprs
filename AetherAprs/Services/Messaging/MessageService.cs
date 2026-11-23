@@ -187,6 +187,7 @@ public sealed class MessageService : IMessageService, IDisposable
         var baseCallsign = _configurationService.Settings.Aprs.Callsign;
         Exception? lastError = null;
         var sent = 0;
+        var recordChecked = false;
 
         foreach (var port in txPorts)
         {
@@ -204,10 +205,22 @@ public sealed class MessageService : IMessageService, IDisposable
                 // Note: Cannot set Timestamp after construction (init-only property)
                 // Factory creates packet with default timestamp, but we'll log the message timestamp
 
-                // Persist before the transport call. If the process dies after
-                // this commit and before SendPacketAsync completes, startup can
-                // restore the pending message from the packet record.
-                await _packetStorageService.StorePacketAsync(packet, port.Id, isOutbound: true, cancellationToken).ConfigureAwait(false);
+                // One row per logical message: persist on the first attempt, then
+                // only update it from the retry/status path. Storing per attempt
+                // produced up to MaximumRetries x TX-port immortal Pending rows
+                // (audit C-04). The record is still written before the transport
+                // call so a crash mid-send can be recovered at startup.
+                if (!recordChecked)
+                {
+                    recordChecked = true;
+                    if (!await HasOutboundMessageRecordAsync(message, cancellationToken).ConfigureAwait(false))
+                    {
+                        await _packetStorageService
+                            .StorePacketAsync(packet, port.Id, isOutbound: true, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                }
+
                 await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
 
                 sent++;
@@ -229,6 +242,40 @@ public sealed class MessageService : IMessageService, IDisposable
         {
             _logger.LogError(lastError, "Failed to send APRS message to {Addressee}", message.Peer);
         }
+    }
+
+    /// <summary>
+    /// True when an outbound packet row already exists for this logical message,
+    /// in which case retries must update it rather than insert another row.
+    /// </summary>
+    private async Task<bool> HasOutboundMessageRecordAsync(
+        StoredMessage message,
+        CancellationToken cancellationToken)
+    {
+        if (_dbContextFactory is null)
+        {
+            return false;
+        }
+
+        await using var db = await _dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var addresseeSsid = message.Peer.Ssid.HasValue
+            ? (AprsSsid)message.Peer.Ssid.Value
+            : AprsSsid.PrimaryStation;
+
+        return await db.Packets
+            .AnyAsync(
+                p =>
+                    p.PacketType == MessagePacketType &&
+                    p.Message != null &&
+                    p.Message.Number == message.MessageNumber &&
+                    p.Message.AddresseeBase == message.Peer.Base &&
+                    p.Message.AddresseeSsid == addresseeSsid &&
+                    p.IsOutbound,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
@@ -531,10 +578,10 @@ public sealed class MessageService : IMessageService, IDisposable
             ? (AprsSsid)message.Peer.Ssid.Value
             : AprsSsid.PrimaryStation;
 
-        // Find the message packet record. Match on the stable message identity
-        // (number + addressee + direction) rather than exact timestamp equality,
-        // which is fragile across SQLite TEXT datetime round-trips (M8).
-        var record = await db.Packets
+        // Update every row that represents this logical message. Rows created by
+        // older builds as duplicates would otherwise stay Pending forever, and
+        // Pending outbound rows are protected from cleanup (audit C-04).
+        var records = await db.Packets
             .Include(p => p.Message)
             .Where(p =>
                 p.PacketType == MessagePacketType &&
@@ -543,16 +590,26 @@ public sealed class MessageService : IMessageService, IDisposable
                 p.Message.AddresseeBase == message.Peer.Base &&
                 p.Message.AddresseeSsid == addresseeSsid &&
                 p.IsOutbound == message.IsOutbound)
-            .OrderByDescending(p => p.Id)
-            .FirstOrDefaultAsync().ConfigureAwait(false);
+            .ToListAsync().ConfigureAwait(false);
 
-        if (record?.Message != null)
+        if (records.Count == 0)
         {
+            return;
+        }
+
+        foreach (var record in records)
+        {
+            if (record.Message is null)
+            {
+                continue;
+            }
+
             record.Message.DeliveryStatus = message.DeliveryStatus;
             record.Message.RetryCount = message.RetryCount;
             record.Message.NextRetryTime = message.NextRetryTime?.UtcDateTime;
-            await db.SaveChangesAsync().ConfigureAwait(false);
         }
+
+        await db.SaveChangesAsync().ConfigureAwait(false);
     }
 
     private ConversationThread GetOrCreateConversationUnlocked(AprsAddress peer)

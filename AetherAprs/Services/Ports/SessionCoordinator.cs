@@ -381,6 +381,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
         Func<PortSessionStatus, PortSessionStatus> update,
         CancellationToken cancellationToken)
     {
+        var changed = false;
         lock (_gate)
         {
             if (!_ports.TryGetValue(portId, out var current))
@@ -388,8 +389,22 @@ public sealed class SessionCoordinator : IAsyncDisposable
                 current = new PortSessionStatus(portId, PortSessionState.Stopped);
             }
 
-            _ports[portId] = update(current);
+            var updated = update(current);
+            var portStateChanged = updated.State != current.State;
+            _ports[portId] = updated;
+
+            var previousAggregateState = _state;
             UpdateAggregateStateLocked();
+            changed = portStateChanged || _state != previousAggregateState;
+        }
+
+        // LastReceiveUtc/LastTransmitUtc are diagnostics, not state. Rewriting the
+        // whole session file, raising StateChanged and recording a diagnostic for
+        // every received packet saturates the disk on a busy APRS-IS feed, so only
+        // real transitions are persisted (audit C-03).
+        if (!changed)
+        {
+            return;
         }
 
         await PersistAsync(cancellationToken).ConfigureAwait(false);

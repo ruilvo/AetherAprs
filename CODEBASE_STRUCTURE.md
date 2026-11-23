@@ -6,35 +6,43 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Codebase structure
 
-The repository has three projects:
+The repository has four projects:
 
 ```text
 AetherAprs/                 Core application, services, models, and views
 AetherAprs.Android/         Android entry point and platform adapters
-AetherAprs.Tests/            xUnit v3 tests
+AetherAprs.Tests/           xUnit v3 tests
+AetherAprs.Android.Tests/   Android instrumentation tests (build-only in CI)
 ```
 
 ## Core folders
 
 | Folder | Responsibility |
 |---|---|
+| `Behaviors/` | Avalonia attached behaviors |
 | `Configuration/` | Settings, port configuration, UI enums |
+| `Converters/Aprs/` | APRS-specific converters |
+| `Converters/UI/` | General UI converters |
 | `Data/` | EF Core context, entities, mappers, converters, migrations |
+| `Extensions/` | General-purpose extension methods |
 | `Factories/` | Service and ViewModel factories |
+| `Helpers/` | Small shared helpers |
+| `Imaging/` | Bitmap and image processing |
+| `Localization/` | English and Portuguese resources |
 | `Models/` | Domain and APRS packet models |
-| `Modems/` | APRS, AX.25, KISS, and AFSK protocol logic |
+| `Modems/Afsk/` | AFSK modem implementation |
+| `Modems/Aprs/` | APRS modem implementations |
+| `Modems/Kiss/` | KISS modem and framing |
 | `Services/` | Domain services grouped by responsibility |
-| `Transports/` | Network and KISS stream connectors |
+| `Styles/` | Avalonia style resources |
+| `Transports/Kiss/` | Network and KISS stream connectors |
 | `ViewModels/Pages/` | Page-level ViewModels |
 | `ViewModels/Components/` | Reusable component ViewModels |
 | `Views/Pages/` | Page views |
 | `Views/Components/` | Reusable component views |
-| `Converters/Aprs/` | APRS-specific converters |
-| `Converters/UI/` | General UI converters |
-| `Localization/` | English and Portuguese resources |
 
-Service folders are `Beaconing`, `Bluetooth`, `Configuration`, `Contracts`, `Location`,
-`Messaging`, `Packets`, `Platform`, `Ports`, `Transmission`, and `UI`.
+Service folders are `Beaconing`, `Bluetooth`, `Configuration`, `Contracts`, `Diagnostics`,
+`Location`, `Messaging`, `Objects`, `Packets`, `Platform`, `Ports`, `Transmission`, and `UI`.
 
 ## Placement rules
 

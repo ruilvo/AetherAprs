@@ -14,7 +14,8 @@ namespace AetherAprs.Services.Diagnostics;
 
 public sealed class RedactedSupportReportService(
     IDiagnosticEventSink diagnostics,
-    SessionCoordinator coordinator)
+    SessionCoordinator coordinator,
+    IPortServiceTelemetry? portTelemetry = null)
 {
     private const int ReportSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -47,7 +48,19 @@ public sealed class RedactedSupportReportService(
                     port.NextRetryUtc
                 })
             },
-            diagnostics = diagnostics.Events
+            diagnostics = diagnostics.Events,
+            packetIngest = portTelemetry is null
+                ? null
+                : new
+                {
+                    droppedPerPort = coordinator.Ports
+                        .Select(port => new
+                        {
+                            port.PortId,
+                            dropped = portTelemetry.GetDroppedPacketCount(port.PortId)
+                        })
+                        .ToArray()
+                }
         };
 
         return JsonSerializer.Serialize(snapshot, JsonOptions);

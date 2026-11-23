@@ -38,6 +38,7 @@ requires the .NET Android workload and Android SDK.
 AetherAprs/                 Core application and platform-neutral services
 AetherAprs.Android/         Android entry point and Android service adapters
 AetherAprs.Tests/            xUnit v3 tests
+AetherAprs.Android.Tests/    Android instrumentation tests (build-only in CI)
 DOCS/wiki/                  User and developer guides
 ```
 

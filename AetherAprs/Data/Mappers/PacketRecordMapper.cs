@@ -63,11 +63,17 @@ internal static class PacketRecordMapper
     /// <param name="portId">The port that received or will send the packet.</param>
     /// <param name="timestamp">The timestamp when the packet was received or sent.</param>
     /// <param name="isOutbound">True if this is a sent packet, false if received.</param>
+    /// <param name="deliveryStatus">
+    /// Delivery status for an outbound message packet. Defaults to
+    /// <see cref="MessageDeliveryStatus.Pending"/> when omitted so retry
+    /// bookkeeping can supply the real status instead of the mapper guessing it.
+    /// </param>
     public static PacketRecord ToRecord(
         AprsPacket packet,
         Guid? portId,
         DateTimeOffset timestamp,
-        bool isOutbound)
+        bool isOutbound,
+        MessageDeliveryStatus? deliveryStatus = null)
     {
         var record = new PacketRecord
         {
@@ -114,8 +120,10 @@ internal static class PacketRecordMapper
                         : AprsSsid.PrimaryStation,
                     Text = msg.Text,
                     Number = msg.MessageNumber,
-                    // Delivery tracking fields are null for received messages
-                    DeliveryStatus = isOutbound ? MessageDeliveryStatus.Pending : null,
+                    // Delivery tracking fields are null for received messages.
+                    DeliveryStatus = isOutbound
+                        ? deliveryStatus ?? MessageDeliveryStatus.Pending
+                        : null,
                     RetryCount = 0,
                     NextRetryTime = null
                 };

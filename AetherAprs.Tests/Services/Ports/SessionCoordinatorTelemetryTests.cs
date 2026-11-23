@@ -57,8 +57,12 @@ public sealed class SessionCoordinatorTelemetryTests
         await EventuallyAsync(
             () =>
             {
-                var status = Assert.Single(coordinator.Ports);
-                return status.LastReceiveUtc is not null && status.LastTransmitUtc is not null;
+                // Poll with plain booleans: an assertion inside this predicate would
+                // throw on the first attempt instead of retrying (audit T-09).
+                var ports = coordinator.Ports;
+                return ports.Count == 1
+                    && ports[0].LastReceiveUtc is not null
+                    && ports[0].LastTransmitUtc is not null;
             });
 
         portService.RaiseTransportFault(portId, new InvalidOperationException("transport lost"));
@@ -76,6 +80,47 @@ public sealed class SessionCoordinatorTelemetryTests
         Assert.All(delays, delay =>
             Assert.InRange(delay, TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(3)));
         Assert.Equal(SessionLifecycleState.Running, store.LastSnapshot!.State);
+    }
+
+    [Fact]
+    public async Task RepeatedPacketsWithoutStateChange_DoNotRewriteSessionState()
+    {
+        var portId = Guid.NewGuid();
+        var controller = new RecordingPortController();
+        var store = new RecordingStateStore();
+        var portService = new FakePortService();
+
+        await using var coordinator = new SessionCoordinator(controller, store);
+        using var bridge = new SessionCoordinatorTelemetryBridge(
+            portService,
+            coordinator,
+            NullLogger<SessionCoordinatorTelemetryBridge>.Instance);
+
+        await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
+        await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = portId,
+            Packet = null!
+        });
+        await EventuallyAsync(() => store.SaveCalls > 0);
+        var savesAfterTransition = store.SaveCalls;
+
+        // A busy feed produces thousands of packets; none of them may trigger a
+        // full session-state rewrite, a UI event or a diagnostic (audit C-03).
+        for (var i = 0; i < 200; i++)
+        {
+            portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+            {
+                PortId = portId,
+                Packet = null!
+            });
+        }
+
+        await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
+
+        Assert.Equal(savesAfterTransition, store.SaveCalls);
     }
 
     private static async Task EventuallyAsync(Func<bool> condition)
@@ -111,11 +156,14 @@ public sealed class SessionCoordinatorTelemetryTests
     {
         public SessionSnapshot? LastSnapshot { get; private set; }
 
+        public int SaveCalls { get; private set; }
+
         public Task<SessionSnapshot?> LoadAsync(CancellationToken cancellationToken) =>
             Task.FromResult<SessionSnapshot?>(null);
 
         public Task SaveAsync(SessionSnapshot snapshot, CancellationToken cancellationToken)
         {
+            SaveCalls++;
             LastSnapshot = snapshot;
             return Task.CompletedTask;
         }
@@ -154,6 +202,8 @@ public sealed class SessionCoordinatorTelemetryTests
         public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
 
         public Task StopAllPortsAsync() => Task.CompletedTask;
+
+        public long GetDroppedPacketCount(Guid portId) => 0;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

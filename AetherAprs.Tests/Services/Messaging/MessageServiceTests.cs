@@ -24,6 +24,7 @@ using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using Geo;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -769,6 +770,118 @@ public sealed class MessageServiceTests
         Assert.Single(portService.SentPackets);
     }
 
+    [Fact]
+    public async Task RetryingMessage_StoresOneOutboundRecordPerLogicalMessage()
+    {
+        var port = CreateTxPort();
+        var portService = new FakePortService(port);
+        using var db = TempAppDatabase.Create();
+        var storageConfiguration = Substitute.For<IConfigurationService>();
+        storageConfiguration.Settings.Returns(new AppSettings
+        {
+            Aprs = new AprsSettings { Callsign = "N0CALL", Ssid = (AprsSsid)1 }
+        });
+        var storage = new PacketStorageService(
+            db.Factory,
+            storageConfiguration,
+            NullLogger<PacketStorageService>.Instance);
+        var service = CreateMessageService(portService, db.Factory, storage);
+
+        var peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
+        await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
+
+        var thread = Assert.Single(service.Conversations);
+        var stored = Assert.Single(thread.Messages);
+
+        // MessageMaxRetries defaults to 5; one extra pass marks the message timed
+        // out, which is the terminal state that cleanup is allowed to delete.
+        const int retryPasses = 6;
+        for (var attempt = 1; attempt <= retryPasses; attempt++)
+        {
+            stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
+            service.ProcessRetries(null);
+            await WaitUntilAsync(
+                () => stored.DeliveryStatus == MessageDeliveryStatus.Timeout || stored.RetryCount >= attempt,
+                $"retry attempt {attempt}");
+        }
+
+        Assert.Equal(MessageDeliveryStatus.Timeout, stored.DeliveryStatus);
+        Assert.Equal(5, stored.RetryCount);
+
+        // Sends and stores are fire-and-forget from ProcessRetries, so wait for
+        // them to land before asserting on the durable row.
+        await WaitUntilAsync(
+            () => portService.SentPackets.Count >= retryPasses,
+            "all retry sends to complete");
+
+        Assert.Equal(retryPasses, portService.SentPackets.Count);
+
+        // Status persistence runs on the thread pool, so the durable row can still
+        // read Pending right after the in-memory status flips to Timeout.
+        await WaitUntilAsync(async () =>
+        {
+            await using var context = db.CreateContext();
+            var row = await context.Packets
+                .AsNoTracking()
+                .Include(p => p.Message)
+                .FirstOrDefaultAsync(
+                    p => p.IsOutbound && p.Message != null && p.Message.Number == stored.MessageNumber,
+                    TestContext.Current.CancellationToken);
+            return row?.Message?.DeliveryStatus == MessageDeliveryStatus.Timeout;
+        }, "the outbound row to reach its terminal status");
+
+        var outboundRows = await CountOutboundMessageRowsAsync(db, stored.MessageNumber, peer);
+        Assert.Equal(1, outboundRows);
+
+        await using var verification = db.CreateContext();
+        var record = await verification.Packets
+            .Include(p => p.Message)
+            .SingleAsync(
+                p => p.IsOutbound && p.Message != null && p.Message.Number == stored.MessageNumber,
+                TestContext.Current.CancellationToken);
+        Assert.Equal(MessageDeliveryStatus.Timeout, record.Message!.DeliveryStatus);
+        Assert.Equal(5, record.Message.RetryCount);
+    }
+
+    private static async Task<int> CountOutboundMessageRowsAsync(
+        TempAppDatabase db,
+        int? messageNumber,
+        AprsAddress peer)
+    {
+        await using var context = db.CreateContext();
+        return await context.Packets
+            .Where(p => p.IsOutbound && p.Message != null && p.Message.Number == messageNumber)
+            .CountAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, string description)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (!condition())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                Assert.Fail($"Timed out waiting for {description}.");
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<Task<bool>> condition, string description)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (!await condition())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                Assert.Fail($"Timed out waiting for {description}.");
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
+
     private static PortConfig CreateTxPort()
     {
         return new PortConfig
@@ -782,7 +895,10 @@ public sealed class MessageServiceTests
         };
     }
 
-    private static MessageService CreateMessageService(FakePortService portService)
+    private static MessageService CreateMessageService(
+        FakePortService portService,
+        IDbContextFactory<AppDbContext>? dbContextFactory = null,
+        IPacketStorageService? packetStorageService = null)
     {
         var configuration = Substitute.For<IConfigurationService>();
         configuration.Settings.Returns(new AppSettings
@@ -798,11 +914,12 @@ public sealed class MessageServiceTests
 
         return new MessageService(
             portService,
-            Substitute.For<IPacketStorageService>(),
+            packetStorageService ?? Substitute.For<IPacketStorageService>(),
             configuration,
             resolver,
             new TestPacketFactory(),
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            dbContextFactory);
     }
 
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)

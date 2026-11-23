@@ -26,4 +26,10 @@ public interface IPortServiceTelemetry
     event EventHandler<PortPacketTransmittedEventArgs>? PacketTransmitted;
 
     event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
+
+    /// <summary>
+    /// Number of inbound packets dropped before publication for a port, because the
+    /// ingest queue was full or the packet could not be persisted.
+    /// </summary>
+    long GetDroppedPacketCount(Guid portId);
 }

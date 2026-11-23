@@ -132,7 +132,8 @@ public sealed class PortServiceAfskStartTests
             mockDigipeater,
             audioStream,
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>());
+            Substitute.For<IPttService>(),
+            new NullSecretProtector());
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

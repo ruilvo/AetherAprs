@@ -269,7 +269,8 @@ public sealed class PortServiceTests
             mockDigipeaterService,
             Substitute.For<IAudioStreamService>(),
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>());
+            Substitute.For<IPttService>(),
+            new PlaintextSecretProtector(NullLogger<PlaintextSecretProtector>.Instance));
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

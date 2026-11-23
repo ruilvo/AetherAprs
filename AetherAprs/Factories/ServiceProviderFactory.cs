@@ -112,6 +112,8 @@ public static class ServiceProviderFactory
         services.AddSingleton<RedactedSupportReportService>();
         services.AddSingleton<PortService>();
         services.AddSingleton<IPortService>(services => services.GetRequiredService<PortService>());
+        services.AddSingleton<IPortServiceTelemetry>(services => services.GetRequiredService<PortService>());
+        services.AddSingleton<IPortSessionRuntime>(services => services.GetRequiredService<PortService>());
         services.AddSingleton<ISessionPortController, PortServiceSessionController>();
         services.AddSingleton<SessionCoordinator>();
         services.AddSingleton<SessionCoordinatorTelemetryBridge>();

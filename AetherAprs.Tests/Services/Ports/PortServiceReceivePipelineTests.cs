@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Kiss;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
@@ -82,6 +84,10 @@ public sealed class PortServiceReceivePipelineTests
         Assert.Same(args.Packet, stored.Packet);
         Assert.Null(storage.LastException);
 
+        await digipeater.FirstCall.Task.WaitAsync(
+            TimeSpan.FromSeconds(3),
+            TestContext.Current.CancellationToken);
+
         var digipeatCall = Assert.Single(digipeater.Calls);
         Assert.Equal(portId, digipeatCall.SourcePortId);
         Assert.Same(args.Packet, digipeatCall.Packet);
@@ -91,7 +97,7 @@ public sealed class PortServiceReceivePipelineTests
     }
 
     [Fact]
-    public async Task ReceivedFrame_StorageThrows_StillRaisesPacketReceived()
+    public async Task ReceivedFrame_StorageThrows_DoesNotPublishAndCountsDrop()
     {
         var portId = Guid.NewGuid();
         var kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
@@ -101,11 +107,18 @@ public sealed class PortServiceReceivePipelineTests
             ThrownException = new InvalidOperationException("storage down")
         };
         var digipeater = new RecordingDigipeaterService();
+        var diagnostics = new RecordingDiagnosticSink();
         var kissSettings = new KissSettings
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
-        await using var service = CreateService(db, storage, digipeater, kissBuffer, scriptedPortSettings: kissSettings);
+        await using var service = CreateService(
+            db,
+            storage,
+            digipeater,
+            kissBuffer,
+            scriptedPortSettings: kissSettings,
+            diagnosticSink: diagnostics);
 
         var port = new PortConfig
         {
@@ -118,21 +131,94 @@ public sealed class PortServiceReceivePipelineTests
         };
         await service.AddPortAsync(port);
 
-        var receivedTcs = new TaskCompletionSource<PortPacketReceivedEventArgs>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        service.PacketReceived += (_, args) => receivedTcs.TrySetResult(args);
+        var published = 0;
+        service.PacketReceived += (_, _) => Interlocked.Increment(ref published);
 
         await service.SetPortEnabledAsync(portId, true);
 
-        var args = await receivedTcs.Task.WaitAsync(
+        // The drop diagnostic is recorded after storage fails, so waiting for it
+        // proves the packet finished processing without being published.
+        await diagnostics.Recorded.Task.WaitAsync(
             TimeSpan.FromSeconds(3),
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(portId, args.PortId);
+        Assert.Equal(0, published);
         Assert.Equal(1, storage.StoreAttempts);
         Assert.NotNull(storage.LastException);
+        Assert.Equal(1, service.GetDroppedPacketCount(portId));
+        Assert.Equal(1, service.TotalDroppedPackets);
+
+        var dropEvent = Assert.Single(diagnostics.Events);
+        Assert.Equal("ingest", dropEvent.Category);
+        Assert.Equal("Dropped", dropEvent.State);
+        Assert.Equal(DiagnosticSeverity.Error, dropEvent.Severity);
 
         await service.StopAllPortsAsync();
+    }
+
+    [Fact]
+    public async Task ReceivedFrames_QueueFull_CountsDropsInsteadOfBlocking()
+    {
+        var portId = Guid.NewGuid();
+        var frame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        var kissBuffer = frame.Concat(frame).Concat(frame).ToArray();
+        using var db = TempAppDatabase.Create();
+        var storage = new RecordingPacketStorageService();
+        var storeEntered = storage.BlockFirstStore();
+        var digipeater = new RecordingDigipeaterService();
+        var kissSettings = new KissSettings
+        {
+            Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
+        };
+        await using var service = CreateService(
+            db,
+            storage,
+            digipeater,
+            kissBuffer,
+            scriptedPortSettings: kissSettings,
+            packetQueueCapacity: 1);
+
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "RF",
+            IsEnabled = false,
+            IsRx = true,
+            IsTx = false,
+            TypeSettings = kissSettings
+        };
+        await service.AddPortAsync(port);
+
+        await service.SetPortEnabledAsync(portId, true);
+
+        // Hold the single consumer inside storage so the queue stays full while
+        // the remaining frames arrive.
+        await storeEntered.Task.WaitAsync(
+            TimeSpan.FromSeconds(3),
+            TestContext.Current.CancellationToken);
+        await WaitForDropsAsync(service, portId);
+
+        Assert.True(
+            service.GetDroppedPacketCount(portId) >= 1,
+            "A full inbound queue must count the dropped packets.");
+        Assert.Equal(service.TotalDroppedPackets, service.GetDroppedPacketCount(portId));
+
+        storage.ReleaseBlockedStore();
+        await service.StopAllPortsAsync();
+    }
+
+    private static async Task WaitForDropsAsync(PortService service, Guid portId)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (service.GetDroppedPacketCount(portId) == 0)
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                return;
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
     }
 
     [Fact]
@@ -218,7 +304,9 @@ public sealed class PortServiceReceivePipelineTests
         RecordingDigipeaterService digipeater,
         byte[]? injectedKissBuffer = null,
         TaskCompletionSource<byte[]>? targetWriteTcs = null,
-        KissSettings? scriptedPortSettings = null)
+        KissSettings? scriptedPortSettings = null,
+        IDiagnosticEventSink? diagnosticSink = null,
+        int packetQueueCapacity = 1024)
     {
         var services = new ServiceCollection()
             .AddLogging()
@@ -235,7 +323,10 @@ public sealed class PortServiceReceivePipelineTests
             digipeater,
             Substitute.For<IAudioStreamService>(),
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>());
+            Substitute.For<IPttService>(),
+            new NullSecretProtector(),
+            diagnosticSink: diagnosticSink,
+            packetQueueCapacity: packetQueueCapacity);
     }
 
     private static byte[] BuildAx25Frame(string destination, string source, string infoField)
@@ -283,6 +374,9 @@ public sealed class PortServiceReceivePipelineTests
         public event EventHandler? PacketStored;
 #pragma warning restore CS0067
 
+        private TaskCompletionSource<bool>? _storeGate;
+        private TaskCompletionSource<bool>? _storeEntered;
+
         public List<StoredPacketCall> StoredPackets { get; } = [];
 
         public int StoreAttempts { get; private set; }
@@ -291,13 +385,31 @@ public sealed class PortServiceReceivePipelineTests
 
         public Exception? ThrownException { get; set; }
 
-        public Task StorePacketAsync(
+        /// <summary>Blocks the first store until <see cref="ReleaseBlockedStore"/> is called.</summary>
+        public TaskCompletionSource<bool> BlockFirstStore()
+        {
+            _storeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _storeGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            return _storeEntered;
+        }
+
+        public void ReleaseBlockedStore() => _storeGate?.TrySetResult(true);
+
+        public async Task StorePacketAsync(
             AprsPacket packet,
             Guid? portId,
             bool isOutbound = false,
             CancellationToken cancellationToken = default)
         {
             StoreAttempts++;
+
+            if (_storeGate is not null)
+            {
+                _storeEntered?.TrySetResult(true);
+                await _storeGate.Task.WaitAsync(cancellationToken);
+                _storeGate = null;
+            }
+
             if (ThrownException is not null)
             {
                 LastException = ThrownException;
@@ -305,7 +417,6 @@ public sealed class PortServiceReceivePipelineTests
             }
 
             StoredPackets.Add(new StoredPacketCall(packet, portId, isOutbound));
-            return Task.CompletedTask;
         }
 
         public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
@@ -314,9 +425,39 @@ public sealed class PortServiceReceivePipelineTests
         }
     }
 
+    private sealed class RecordingDiagnosticSink : IDiagnosticEventSink
+    {
+        private readonly BoundedDiagnosticEventStore _inner = new();
+
+        public TaskCompletionSource<bool> Recorded { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IReadOnlyList<DiagnosticEvent> Events => _inner.Events;
+
+        public void Record(
+            string category,
+            DiagnosticSeverity severity,
+            string state,
+            string reason,
+            string? safeIdentifier = null)
+        {
+            _inner.Record(category, severity, state, reason, safeIdentifier);
+            Recorded.TrySetResult(true);
+        }
+
+        public void Clear() => _inner.Clear();
+    }
+
     private sealed class RecordingDigipeaterService : IDigipeaterService
     {
         public List<DigipeatCall> Calls { get; } = [];
+
+        /// <summary>
+        /// Signalled after the first target query so tests can observe the
+        /// digipeat decision without racing the packet-processing consumer.
+        /// </summary>
+        public TaskCompletionSource<bool> FirstCall { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Func<AprsPacket, Guid, bool, IReadOnlyList<PortInfo>, IReadOnlyList<DigipeatTarget>>?
             OnGetDigipeatTargets { get; set; }
@@ -328,6 +469,7 @@ public sealed class PortServiceReceivePipelineTests
             IReadOnlyList<PortInfo> availablePorts)
         {
             Calls.Add(new DigipeatCall(packet, sourcePortId, sourcePortIsAprsIs, availablePorts));
+            FirstCall.TrySetResult(true);
             return OnGetDigipeatTargets?.Invoke(packet, sourcePortId, sourcePortIsAprsIs, availablePorts)
                 ?? [];
         }
