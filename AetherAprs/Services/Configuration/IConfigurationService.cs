@@ -12,6 +12,12 @@ namespace AetherAprs.Services.Configuration;
 public interface IConfigurationService
 {
     /// <summary>
+    /// Raised after settings have been saved, so observers (map layers, packet
+    /// lists) can refresh the filters they derive from settings.
+    /// </summary>
+    event EventHandler? SettingsChanged;
+
+    /// <summary>
     /// Gets the strongly-typed application settings.
     /// </summary>
     AppSettings Settings { get; }

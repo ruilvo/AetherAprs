@@ -162,6 +162,9 @@ public sealed class MainViewModelTests
                 Substitute.For<IBulletinService>(),
                 navigation));
         
+        var filterService = Substitute.For<IPacketViewFilterService>();
+        filterService.GetCutoffTime().Returns((DateTimeOffset?)null);
+        
         var packets = new PacketsViewModel(
             packetQuery,
             packetStorage,
@@ -169,6 +172,7 @@ public sealed class MainViewModelTests
             packetDetailsFactory,
             objectDetailsFactory,
             configuration,
+            filterService,
             SynchronousUiDispatcher.Instance,
             NullLogger<PacketsViewModel>.Instance,
             new ObjectsViewModel(
@@ -249,6 +253,10 @@ public sealed class MainViewModelTests
 
     private sealed class TestConfigurationService : IConfigurationService
     {
+#pragma warning disable CS0067 // Event is never used in this test double
+        public event EventHandler? SettingsChanged;
+#pragma warning restore CS0067
+
         public AppSettings Settings { get; } = new();
         public Task SaveSettingsAsync() => Task.CompletedTask;
 

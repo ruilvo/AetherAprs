@@ -172,6 +172,14 @@ public class AprsSettings
     public int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     /// <summary>
+    /// Gets or sets whether to load historical packets when the app starts.
+    /// When true, packets within the configured DisplayTimeRange are shown.
+    /// When false, the app starts with an empty map and packet list.
+    /// Default is true (show history on startup).
+    /// </summary>
+    public bool LoadHistoryOnStartup { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the maximum number of retry attempts for unacknowledged
     /// messages.
     /// Default is 5.

@@ -220,6 +220,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PacketsFromCallsign" xml:space="preserve"><value>Pacotes de {0}</value></data>
   <data name="PacketDisplayTimeRangeLabel" xml:space="preserve"><value>Intervalo de Tempo de Exibio de Pacotes</value></data>
   <data name="CustomTimeRangeHoursLabel" xml:space="preserve"><value>Intervalo Personalizado (horas)</value></data>
+  <data name="LoadHistoryOnStartup" xml:space="preserve"><value>Carregar histórico ao iniciar</value></data>
+  <data name="LoadHistoryOnStartupDescription" xml:space="preserve"><value>Quando desativado, o mapa e a lista de pacotes começam vazios em cada sessão e apenas mostram dados recebidos com a aplicação aberta.</value></data>
   <data name="CustomTimeRangeHoursDescription" xml:space="preserve"><value>Usado quando Personalizado est selecionado</value></data>
   <data name="RssiFormat" xml:space="preserve"><value>RSSI: {0} dBm</value></data>
   <data name="DeletePortTooltip" xml:space="preserve"><value>Eliminar porta</value></data>

@@ -56,6 +56,9 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     public AppSettings Settings { get; }
 
+    /// <inheritdoc />
+    public event EventHandler? SettingsChanged;
+
     public ConfigurationService(
         IAppDataDirProviderService appDataDirProvider,
         ILogger<ConfigurationService> logger)
@@ -265,6 +268,8 @@ public class ConfigurationService : IConfigurationService, IDisposable
         {
             _settingsLock.Release();
         }
+
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -286,6 +291,8 @@ public class ConfigurationService : IConfigurationService, IDisposable
         {
             _settingsLock.Release();
         }
+
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

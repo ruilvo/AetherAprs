@@ -87,6 +87,9 @@ public class AprsPortSettingsResolverTests
 
     private sealed class TestConfigurationService : IConfigurationService
     {
+#pragma warning disable CS0067 // Event is never used in this test double
+        public event EventHandler? SettingsChanged;
+#pragma warning restore CS0067
         public AppSettings Settings { get; } = new();
 
         public System.Threading.Tasks.Task SaveSettingsAsync() => System.Threading.Tasks.Task.CompletedTask;

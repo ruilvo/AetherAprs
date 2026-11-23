@@ -220,6 +220,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PacketsFromCallsign" xml:space="preserve"><value>Packets from {0}</value></data>
   <data name="PacketDisplayTimeRangeLabel" xml:space="preserve"><value>Packet Display Time Range</value></data>
   <data name="CustomTimeRangeHoursLabel" xml:space="preserve"><value>Custom Time Range (hours)</value></data>
+  <data name="LoadHistoryOnStartup" xml:space="preserve"><value>Load history on startup</value></data>
+  <data name="LoadHistoryOnStartupDescription" xml:space="preserve"><value>When disabled, the map and packet list start empty each session and only show data received while the app is open.</value></data>
   <data name="CustomTimeRangeHoursDescription" xml:space="preserve"><value>Used when Custom is selected</value></data>
   <data name="RssiFormat" xml:space="preserve"><value>RSSI: {0} dBm</value></data>
   <data name="DeletePortTooltip" xml:space="preserve"><value>Delete port</value></data>

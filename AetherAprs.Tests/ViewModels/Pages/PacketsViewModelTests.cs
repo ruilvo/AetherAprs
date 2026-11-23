@@ -720,6 +720,9 @@ public class PacketsViewModelTests : TestFixtureBase
             _navigationService,
             _packetDetailsFactory);
         
+        var filterService = Substitute.For<IPacketViewFilterService>();
+        filterService.GetCutoffTime().Returns((DateTimeOffset?)null);
+        
         var viewModel = new PacketsViewModel(
             _packetQueryService,
             _packetStorageService,
@@ -727,6 +730,7 @@ public class PacketsViewModelTests : TestFixtureBase
             _packetDetailsFactory,
             _objectDetailsFactory,
             _configurationService,
+            filterService,
             _uiDispatcher,
             _logger,
             objectsViewModel,

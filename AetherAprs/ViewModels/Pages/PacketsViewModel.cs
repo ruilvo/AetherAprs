@@ -38,6 +38,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
     private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
     private readonly IConfigurationService _configurationService;
+    private readonly IPacketViewFilterService _filterService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<PacketsViewModel> _logger;
     private readonly ObjectsViewModel _objectsViewModel;
@@ -53,8 +54,24 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string Title { get; set; } = Strings.Get("Packets");
 
-    [ObservableProperty]
-    public partial string SearchQuery { get; set; } = string.Empty;
+    /// <summary>
+    /// Gets or sets the current search query text.
+    /// When set, triggers client-side filtering of already-loaded packets.
+    /// </summary>
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            if (_searchQuery != value)
+            {
+                _searchQuery = value ?? string.Empty;
+                OnPropertyChanged(nameof(SearchQuery));
+                ApplyFilterAndReset();
+            }
+        }
+    }
+    private string _searchQuery = string.Empty;
 
     [ObservableProperty]
     public partial ObservableCollection<PacketSummary> Packets { get; set; } = [];
@@ -87,6 +104,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         IPacketDetailsViewModelFactory packetDetailsFactory,
         IObjectDetailsViewModelFactory objectDetailsFactory,
         IConfigurationService configurationService,
+        IPacketViewFilterService filterService,
         IUiDispatcher uiDispatcher,
         ILogger<PacketsViewModel> logger,
         ObjectsViewModel objectsViewModel,
@@ -98,15 +116,24 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _packetDetailsFactory = packetDetailsFactory;
         _objectDetailsFactory = objectDetailsFactory;
         _configurationService = configurationService;
+        _filterService = filterService;
         _uiDispatcher = uiDispatcher;
         _logger = logger;
         _objectsViewModel = objectsViewModel;
         _searchViewModel = searchViewModel;
 
+        // Subscribe to filter changes (from filter service) and packet storage events
+        _filterService.FiltersChanged += OnFiltersChanged;
         _packetStorageService.PacketStored += OnPacketStored;
         
         // Load initial data from database
         _initializationTask = LoadPacketsAsync();
+    }
+
+    private void OnFiltersChanged(object? sender, EventArgs e)
+    {
+        // Trigger a reload when filters change
+        _uiDispatcher.Post(() => _ = LoadPacketsAsync());
     }
 
     private void OnPacketStored(object? sender, EventArgs e)
@@ -136,11 +163,9 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         {
             IsLoading = true;
 
-            // Get the time range filter from configuration
-            var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
-            var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
-            
-            DateTimeOffset? cutoffTime = GetCutoffTime(timeRange, customHours);
+            // Get the time cutoff from the shared filter service
+            // (respects LoadHistoryOnStartup, time range, and session start)
+            DateTimeOffset? cutoffTime = _filterService.GetCutoffTime();
 
             // Load most recent station packets, objects, and items. Object/item
             // reports are excluded from the per-callsign list (they belong to the
@@ -168,7 +193,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
                 .OrderByDescending(r => r.Id)
                 .ToList();
 
-            _logger.LogInformation("Loaded {Count} packets from database with time filter {TimeRange}", packets.Count, timeRange);
+            _logger.LogInformation("Loaded {Count} packets from database with time filter", packets.Count);
 
             // Build the list of summaries
             _allSummaries.Clear();
@@ -205,21 +230,6 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             ReceivedAt = new DateTimeOffset(record.Timestamp, TimeSpan.Zero).ToLocalTime(),
             Preview = GetPacketPreview(record),
             IsObject = isObject
-        };
-    }
-
-    private static DateTimeOffset? GetCutoffTime(PacketDisplayTimeRange timeRange, int customHours)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return timeRange switch
-        {
-            PacketDisplayTimeRange.LastHour => now.AddHours(-1),
-            PacketDisplayTimeRange.LastDay => now.AddDays(-1),
-            PacketDisplayTimeRange.LastWeek => now.AddDays(-7),
-            PacketDisplayTimeRange.LastMonth => now.AddDays(-30),
-            PacketDisplayTimeRange.Custom => now.AddHours(-customHours),
-            PacketDisplayTimeRange.All => null,
-            _ => now.AddDays(-1) // Default to last day
         };
     }
 
@@ -275,11 +285,6 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         return ssid.HasValue && ssid.Value != AprsSsid.PrimaryStation
             ? $"{baseCallsign}-{(byte)ssid.Value}"
             : baseCallsign;
-    }
-
-    partial void OnSearchQueryChanged(string value)
-    {
-        ApplyFilterAndReset();
     }
 
     /// <summary>
@@ -392,6 +397,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
         _throttleCts.Cancel();
         _throttleCts.Dispose();
+        _filterService.FiltersChanged -= OnFiltersChanged;
         _packetStorageService.PacketStored -= OnPacketStored;
         _disposed = true;
     }

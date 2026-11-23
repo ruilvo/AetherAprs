@@ -62,9 +62,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private readonly IPacketQueryService _packetQueryService;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IConfigurationService _configurationService;
+    private readonly IPacketViewFilterService _filterService;
     private readonly AprsSymbolMapConverter _symbolConverter;
     private readonly ILogger<ReceivedBeaconsMapLayerService> _logger;
-    private readonly DateTimeOffset _sessionStartedUtc = DateTimeOffset.UtcNow;
     private readonly WritableLayer _beaconsLayer;
     private readonly WritableLayer _trailsLayer;
     private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
@@ -85,6 +85,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         IPacketQueryService packetQueryService,
         IPacketStorageService packetStorageService,
         IConfigurationService configurationService,
+        IPacketViewFilterService filterService,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
         ILogger<ReceivedBeaconsMapLayerService> logger)
     {
@@ -92,6 +93,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
         _packetStorageService = packetStorageService ?? throw new ArgumentNullException(nameof(packetStorageService));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+        _filterService = filterService ?? throw new ArgumentNullException(nameof(filterService));
         _symbolConverter = new AprsSymbolMapConverter(
             symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -108,8 +110,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             Style = null
         };
 
+        // Subscribe to events that should trigger map updates
         _packetStorageService.PacketStored += OnPacketStored;
-        _portService.PortsChanged += OnPortsChanged;
+        _filterService.FiltersChanged += OnFiltersChanged;
     }
 
     private void OnPacketStored(object? sender, EventArgs e)
@@ -122,7 +125,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         ScheduleRebuild();
     }
 
-    private void OnPortsChanged(object? sender, EventArgs e)
+    private void OnFiltersChanged(object? sender, EventArgs e)
     {
         if (_disposed)
         {
@@ -209,18 +212,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     {
         try
         {
-            var visiblePortIds = _portService.Ports
-                .Where(p => p.ShowOnMap)
-                .Select(p => p.Id)
-                .ToHashSet();
-
-            var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
-            var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
-            var cutoffTime = GetCutoffTime(timeRange, customHours);
-            if (!cutoffTime.HasValue || _sessionStartedUtc > cutoffTime.Value)
-            {
-                cutoffTime = _sessionStartedUtc;
-            }
+            // Use shared filter service for port visibility and time filtering
+            var visiblePortIds = _filterService.GetVisiblePortIds();
+            var cutoffTime = _filterService.GetCutoffTime();
 
             var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
 
@@ -314,21 +308,6 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         {
             _logger.LogError(ex, "Failed to rebuild map layers");
         }
-    }
-
-    private static DateTimeOffset? GetCutoffTime(PacketDisplayTimeRange timeRange, int customHours)
-    {
-        var now = DateTimeOffset.UtcNow;
-        return timeRange switch
-        {
-            PacketDisplayTimeRange.LastHour => now.AddHours(-1),
-            PacketDisplayTimeRange.LastDay => now.AddDays(-1),
-            PacketDisplayTimeRange.LastWeek => now.AddDays(-7),
-            PacketDisplayTimeRange.LastMonth => now.AddDays(-30),
-            PacketDisplayTimeRange.Custom => now.AddHours(-customHours),
-            PacketDisplayTimeRange.All => null,
-            _ => now.AddDays(-1)
-        };
     }
 
     private static GeometryFeature? CreateTrailFeature(List<PacketRecord> trail)
@@ -661,7 +640,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             // Unsubscribe BEFORE flagging disposed so no event handler can throw
             // into a publisher during the teardown window (M5).
             _packetStorageService.PacketStored -= OnPacketStored;
-            _portService.PortsChanged -= OnPortsChanged;
+            _filterService.FiltersChanged -= OnFiltersChanged;
             _disposed = true;
         }
 

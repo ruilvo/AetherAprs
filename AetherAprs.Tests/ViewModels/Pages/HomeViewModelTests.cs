@@ -300,6 +300,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
     private sealed class TestConfigurationService : IConfigurationService
     {
+#pragma warning disable CS0067 // Event is never used in this test double
+        public event EventHandler? SettingsChanged;
+#pragma warning restore CS0067
         public AppSettings Settings { get; } = new();
 
         public Task SaveSettingsAsync() => Task.CompletedTask;

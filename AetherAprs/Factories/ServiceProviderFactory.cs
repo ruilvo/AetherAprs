@@ -154,6 +154,9 @@ public static class ServiceProviderFactory
         services.AddSingleton<IAprsSymbolBitmapProvider, AprsSymbolBitmapProvider>();
         services.AddSingleton<AprsSymbolMapConverter>();
 
+        // Register UI services
+        services.AddSingleton<IPacketViewFilterService, PacketViewFilterService>();
+
         // Register map layer services
         services.AddSingleton<IReceivedBeaconsMapLayerService, ReceivedBeaconsMapLayerService>();
         services.AddSingleton<IUserLocationLayerService, UserLocationLayerService>();

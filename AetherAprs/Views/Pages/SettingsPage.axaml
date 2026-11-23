@@ -105,6 +105,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      UseFloatingPlaceholder="True"
                      IsVisible="{Binding DisplayTimeRange, Converter={x:Static converters:EnumToBoolConverter.Instance}, ConverterParameter={x:Static config:PacketDisplayTimeRange.Custom}}" />
 
+            <!-- Load history on startup -->
+            <CheckBox Content="{loc:Loc LoadHistoryOnStartup}"
+                      IsChecked="{Binding LoadHistoryOnStartup}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center" />
+
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc LoadHistoryOnStartupDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}"
+                       Margin="0,-8,0,0" />
+
             <!-- Theme -->
             <ComboBox ItemsSource="{Binding AvailableThemes}"
                       SelectedItem="{Binding Theme}"

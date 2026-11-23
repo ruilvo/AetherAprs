@@ -61,6 +61,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     [ObservableProperty]
+    public partial bool LoadHistoryOnStartup { get; set; } = true;
+
+    [ObservableProperty]
     public partial Configuration.ThemeMode Theme { get; set; } = Configuration.ThemeMode.System;
 
     [ObservableProperty]
@@ -144,6 +147,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SymbolOverlayCharacter = aprs.SymbolOverlay?.ToChar().ToString();
         DisplayTimeRange = aprs.DisplayTimeRange;
         CustomDisplayTimeRangeHours = aprs.CustomDisplayTimeRangeHours;
+        LoadHistoryOnStartup = aprs.LoadHistoryOnStartup;
         EnableDigipeater = aprs.EnableDigipeater;
         DigipeaterInsertCallsign = aprs.DigipeaterInsertCallsign;
         EnableAprsIsToRfGate = aprs.EnableAprsIsToRfGate;
@@ -242,6 +246,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     partial void OnCustomDisplayTimeRangeHoursChanged(int value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnLoadHistoryOnStartupChanged(bool value)
     {
         SaveSettings();
     }
@@ -356,6 +365,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 SymbolOverlayCharacter?[0].ToSymbolCode();
             _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
             _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
+            _configurationService.Settings.Aprs.LoadHistoryOnStartup = LoadHistoryOnStartup;
             _configurationService.Settings.Aprs.EnableDigipeater = EnableDigipeater;
             _configurationService.Settings.Aprs.DigipeaterInsertCallsign = DigipeaterInsertCallsign;
             _configurationService.Settings.Aprs.EnableAprsIsToRfGate = EnableAprsIsToRfGate;

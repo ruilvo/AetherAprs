@@ -141,6 +141,9 @@ public sealed class SettingsViewModelTests
 
     private sealed class TestConfigurationService : IConfigurationService
     {
+#pragma warning disable CS0067 // Event is never used in this test double
+        public event EventHandler? SettingsChanged;
+#pragma warning restore CS0067
         private int _saveCount;
         public AppSettings Settings { get; } = new();
         public int SaveCount => _saveCount;
