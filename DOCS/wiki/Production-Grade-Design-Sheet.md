@@ -468,16 +468,17 @@ tracked issues before implementation work is parallelized:
   mode-specific policy and prove release on every stop/failure path.
 - [x] Add explicit Android backup rules and Keystore-backed secret storage; verify the
   generated APK and device-transfer behavior.
-- [x] Add baseline CI and release automation; the remaining release gate is the
-  attached hardware, soak, and field evidence described below.
+- [x] Add baseline CI and release automation with dependency scanning, SBOM generation,
+  and security checks; the remaining release gate is the attached hardware, soak, and
+  field evidence described below.
 - [x] Replace critical startup `Debug.WriteLine` usage in the Android application path
   with tagged Android error logging; startup still fails fast with the existing
   recovery boundary.
 - [x] Add Android lifecycle, permission, notification, process, and reconnect
   instrumentation coverage. Real audio/Bluetooth behavior still requires hardware evidence.
-- [x] Define and test the BLE profile contract for the LilyGO T-Echo Plus target rather
-  than treating every BLE device as interchangeable. MTU/pacing and loss/reconnect
-  validation remain open.
+- [x] Define and document the BLE profile contract for the LilyGO T-Echo Plus target with
+  service/characteristic UUIDs specified. Initial transmit confirmed on Pixel 9a; MTU
+  negotiation, write pacing, and loss/reconnect validation remain open for hardware testing.
 
 ## Delivery phases
 
@@ -676,19 +677,19 @@ GA is complete only when all of the following are true:
 - [x] Add packet/message/beacon/gateway diagnostics with redaction.
 - [x] Add Android Keystore-backed credential storage and explicit backup exclusions.
 - [x] Add independent data clearing and a redacted support diagnostic report.
-- [ ] Add editable default APRS-IS server configuration and one-active-profile rules.
+- [x] Add editable default APRS-IS server configuration and one-active-profile rules.
 - [x] Add database retention, storage pressure, migration backup, and recovery.
 - [ ] Finish map performance, offline package validation, and attribution handling.
 - [ ] Finish message notification and background action behavior.
-- [ ] Implement and test digipeat/gate policy engine, duplicate cache, and rate limits.
+- [x] Implement and test digipeat/gate policy engine, duplicate cache, and rate limits.
 - [x] Resolve all unfinished converters and placeholder UI paths covered by the original
   audit.
-- [ ] Add golden protocol vectors and deterministic integration fixtures.
+- [x] Add golden protocol vectors and deterministic integration fixtures.
 - [ ] Add UI/instrumentation tests for onboarding, permissions, notifications, navigation,
   accessibility, process death, and upgrade migration.
 - [ ] Test English and Portuguese resources for every new user-facing string.
 - [ ] Run accessibility review on supported Android sizes and orientations.
-- [ ] Complete CI dependency/license scanning, APK inspection, SBOM, and signed artifact verification.
+- [x] Complete CI dependency/license scanning, APK inspection, SBOM, and signed artifact verification.
 - [ ] Perform threat modeling and review RF regulatory, APRS network, OSM, and software licenses.
 - [ ] Run the Android hardware matrix and 24-hour soak tests using the
   [evidence runbook](Android-GA-Evidence-Runbook.md).
