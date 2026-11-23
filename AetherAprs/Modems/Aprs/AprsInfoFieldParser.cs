@@ -305,35 +305,13 @@ public static class AprsInfoFieldParser
             return false;
         }
 
-        // Support both APRS spec formula and aprslib formula for compressed positions.
-        // Spec formula: latN = 380926 × (90 - Lat) / 180, lonN = 190463 × (180 + Long) / 360
-        //   (produces latN 0-380926, lonN 0-190463)
-        // Aprslib formula: latN = (90 - Lat) × 380926, lonN = (Long + 180) × 190463
-        //   (produces latN 0-68574960, lonN 0-68566680)
-        // Auto-detect based on magnitude: if value < 400000/200000, assume spec formula.
-        double latitude;
-        if (latN < 400000)
-        {
-            // Spec formula decode: Lat = 90 - (latN × 180 / 380926)
-            latitude = 90.0 - (latN * 180.0 / 380926.0);
-        }
-        else
-        {
-            // Aprslib formula decode: Lat = 90 - latN / 380926
-            latitude = 90.0 - latN / 380926.0;
-        }
-
-        double longitude;
-        if (lonN < 200000)
-        {
-            // Spec formula decode: Long = (lonN × 360 / 190463) - 180
-            longitude = (lonN * 360.0 / 190463.0) - 180.0;
-        }
-        else
-        {
-            // Aprslib formula decode: Long = -180 + lonN / 190463
-            longitude = -180.0 + lonN / 190463.0;
-        }
+        // APRS compressed position (base-91, 4 characters each, 0..810000).
+        // Decode per APRS spec:
+        //   latitude  = 90  - latN / 380926
+        //   longitude = -180 + lonN / 190463
+        // There is only one encoding: no magnitude-based alternatives exist.
+        double latitude = 90.0 - latN / 380926.0;
+        double longitude = -180.0 + lonN / 190463.0;
 
         SymbolTable symbolTable;
         char? overlay = null;
