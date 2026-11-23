@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Configuration.Settings.Migrations;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Platform;
 using Microsoft.Extensions.Configuration;
@@ -86,11 +87,18 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
             _configuration = builder.Build();
         }
-        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        catch (Exception ex) when (ex is JsonException
+            or InvalidOperationException
+            or FormatException
+            or IOException
+            or System.IO.InvalidDataException)
         {
             // A malformed or semantically invalid appsettings.json must not make
             // the app unstartable: quarantine the corrupt file and fall back to
-            // built-in defaults (H3 fix).
+            // built-in defaults (H3 fix). Microsoft.Extensions.Configuration's
+            // JSON provider surfaces syntax errors as FormatException wrapped in
+            // InvalidDataException (a SystemException, not an IOException), so
+            // those types must be handled explicitly.
             _logger.LogError(
                 ex,
                 "Failed to load {FileName}; quarantining it and using default settings.",
@@ -108,78 +116,47 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
         foreach (var pair in _configuration.AsEnumerable())
         {
-            var value = pair.Value;
-            string? normalizedPairValue;
-            if (value != null
-                && (pair.Key.Equals(
-                    "Aprs:SymbolTableCharacter",
-                    StringComparison.OrdinalIgnoreCase)
-                    || pair.Key.Equals(
-                        "Aprs:SymbolCodeCharacter",
-                        StringComparison.OrdinalIgnoreCase)
-                    || pair.Key.Equals(
-                        "Aprs:SymbolOverlayCharacter",
-                        StringComparison.OrdinalIgnoreCase)
-                    // Legacy keys for migration
-                    || pair.Key.Equals(
-                        "Aprs:DefaultSymbolTableCharacter",
-                        StringComparison.OrdinalIgnoreCase)
-                    || pair.Key.Equals(
-                        "Aprs:DefaultSymbolCodeCharacter",
-                        StringComparison.OrdinalIgnoreCase)
-                    || pair.Key.Equals(
-                        "Aprs:DefaultSymbolOverlayCharacter",
-                        StringComparison.OrdinalIgnoreCase)))
+            // Skip the version marker here: it is read separately below so the
+            // document's own declared version, not the default, drives migration.
+            if (pair.Key.Equals(
+                SettingsSchema.VersionPropertyName,
+                StringComparison.OrdinalIgnoreCase))
             {
-                var normalizedKey = pair.Key switch
-                {
-                    _ when pair.Key.Equals(
-                        "Aprs:SymbolTableCharacter",
-                        StringComparison.OrdinalIgnoreCase)
-                        || pair.Key.Equals(
-                            "Aprs:DefaultSymbolTableCharacter",
-                            StringComparison.OrdinalIgnoreCase)
-                        => "Aprs:SymbolTable",
-                    _ when pair.Key.Equals(
-                        "Aprs:SymbolCodeCharacter",
-                        StringComparison.OrdinalIgnoreCase)
-                        || pair.Key.Equals(
-                            "Aprs:DefaultSymbolCodeCharacter",
-                            StringComparison.OrdinalIgnoreCase)
-                        => "Aprs:SymbolCode",
-                    _ => "Aprs:SymbolOverlay"
-                };
-
-                try
-                {
-                    normalizedPairValue = pair.Key.Contains("SymbolTable", StringComparison.OrdinalIgnoreCase)
-                        ? value switch
-                        {
-                            "/" => SymbolTable.Primary.ToString(),
-                            "\\" => SymbolTable.Alternate.ToString(),
-                            _ => throw new InvalidOperationException(
-                                $"Invalid APRS symbol table value '{value}'.")
-                        }
-                        : value.Length == 1
-                            ? value[0].ToSymbolCode().ToString()
-                            : throw new InvalidOperationException(
-                                $"Invalid APRS symbol value '{value}'.");
-                }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentOutOfRangeException)
-                {
-                    _logger.LogWarning(
-                        ex,
-                        "Invalid APRS symbol value '{Value}' for key {Key}; using default.",
-                        value,
-                        pair.Key);
-                    continue;
-                }
-
-                normalizedValues[normalizedKey] = normalizedPairValue;
                 continue;
             }
 
-            normalizedValues[pair.Key] = value;
+            normalizedValues[pair.Key] = pair.Value;
+        }
+
+        var documentVersion = ReadDocumentVersion();
+        LegacySymbolKeyNormalizer.Normalize(normalizedValues, _logger);
+        var migratedVersion = SettingsMigrationPipeline.Migrate(
+            normalizedValues,
+            documentVersion,
+            SettingsSchema.CurrentVersion,
+            _logger);
+
+        if (documentVersion > SettingsSchema.CurrentVersion)
+        {
+            _logger.LogWarning(
+                "Settings file declares schema version {DocumentVersion}, which is newer than this build ({CurrentVersion}). It will be loaded as-is and backed up before the next save.",
+                documentVersion,
+                SettingsSchema.CurrentVersion);
+        }
+
+        if (migratedVersion < SettingsSchema.CurrentVersion)
+        {
+            _logger.LogWarning(
+                "Settings could not be fully migrated (now at version {Version}, expected {TargetVersion}).",
+                migratedVersion,
+                SettingsSchema.CurrentVersion);
+        }
+
+        // Preserve a copy of the file as it was before any migration so a bad
+        // upgrade can be diagnosed or rolled back.
+        if (documentVersion != SettingsSchema.CurrentVersion)
+        {
+            BackupSettingsFile(configDirectory, documentVersion);
         }
 
         try
@@ -198,7 +175,73 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 "Failed to bind appsettings values; some settings may use defaults.");
         }
 
+        Settings.SchemaVersion = SettingsSchema.CurrentVersion;
+
         SanitizeMessageTemplates();
+    }
+
+    /// <summary>
+    /// Reads the schema version declared by the settings document, or
+    /// <see cref="SettingsSchema.LegacyUnversionedVersion"/> when the file
+    /// predates schema versioning or declares an unusable value.
+    /// </summary>
+    private int ReadDocumentVersion()
+    {
+        var raw = _configuration[SettingsSchema.VersionPropertyName];
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return SettingsSchema.LegacyUnversionedVersion;
+        }
+
+        if (int.TryParse(raw, out var version) && version >= SettingsSchema.LegacyUnversionedVersion)
+        {
+            return version;
+        }
+
+        _logger.LogWarning(
+            "Ignoring invalid settings schema version '{RawVersion}'.",
+            raw);
+        return SettingsSchema.LegacyUnversionedVersion;
+    }
+
+    /// <summary>
+    /// Copies the settings file aside before an upgrade rewrites it, so a
+    /// migration problem cannot strand the user without their original values.
+    /// At most one backup is kept per source version.
+    /// </summary>
+    private void BackupSettingsFile(string configDirectory, int fromVersion)
+    {
+        try
+        {
+            var sourcePath = Path.Combine(configDirectory, _appSettingsFileName);
+            if (!File.Exists(sourcePath))
+            {
+                return;
+            }
+
+            // The unversioned source file can be loaded repeatedly (saves may go
+            // to an overlay file), so only preserve its contents once.
+            var existingBackups = Directory.GetFiles(
+                configDirectory,
+                $"{_appSettingsFileName}.v{fromVersion}.*.bak");
+            if (existingBackups.Length > 0)
+            {
+                return;
+            }
+
+            var backupPath = Path.Combine(
+                configDirectory,
+                $"{_appSettingsFileName}.v{fromVersion}.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.bak");
+            File.Copy(sourcePath, backupPath, overwrite: false);
+            _logger.LogInformation(
+                "Backed up settings schema version {FromVersion} to {BackupPath}.",
+                fromVersion,
+                backupPath);
+        }
+        catch (IOException ioEx)
+        {
+            _logger.LogError(ioEx, "Failed to back up the settings file before migration.");
+        }
     }
 
     /// <summary>

@@ -1,0 +1,366 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using System;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Platform;
+using Microsoft.Extensions.Logging.Abstractions;
+using Xunit;
+
+namespace AetherAprs.Tests.Services.Configuration;
+
+/// <summary>
+/// End-to-end tests for the on-disk schema versioning of appsettings.json:
+/// how unversioned files are upgraded, how the version is persisted, and how
+/// the app copes with settings written by a newer or corrupted build.
+/// </summary>
+public sealed class SettingsVersioningTests
+{
+    [Fact]
+    public void UnversionedFile_LoadsAsLegacyVersion()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal(SettingsSchema.LegacyUnversionedVersion, fixture.ReadDocumentVersion());
+        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+    }
+
+    [Fact]
+    public void UnversionedFile_IsUpgradedToCurrentVersionInMemory()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+    }
+
+    [Fact]
+    public async Task Save_WritesCurrentSchemaVersion()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+        var service = fixture.CreateService();
+
+        await service.SaveSettingsAsync();
+
+        Assert.Equal(SettingsSchema.CurrentVersion, fixture.ReadDocumentVersion());
+        Assert.Contains(
+            $"\"{SettingsSchema.VersionPropertyName}\"",
+            fixture.ReadSavedText());
+    }
+
+    [Fact]
+    public async Task SaveThenReload_PreservesAllSettings()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
+        var service = fixture.CreateService();
+
+        service.Settings.Aprs.Callsign = "CT7ALW";
+        service.Settings.Aprs.Ssid = AprsSsid.HumanPortable;
+        service.Settings.Aprs.SymbolTable = SymbolTable.Alternate;
+        service.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
+        service.Settings.Aprs.DisplayTimeRange = PacketDisplayTimeRange.LastWeek;
+        service.Settings.Aprs.LoadHistoryOnStartup = false;
+        service.Settings.Aprs.PositionFormat = PositionFormat.MicE;
+        service.Settings.Theme = ThemeMode.Dark;
+        service.Settings.Map.TileSource = TileSourceType.MbTilesOffline;
+        await service.SaveSettingsAsync();
+
+        var reloaded = fixture.CreateService();
+
+        Assert.Equal(SettingsSchema.CurrentVersion, reloaded.Settings.SchemaVersion);
+        Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
+        Assert.Equal(AprsSsid.HumanPortable, reloaded.Settings.Aprs.Ssid);
+        Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
+        Assert.Equal(PacketDisplayTimeRange.LastWeek, reloaded.Settings.Aprs.DisplayTimeRange);
+        Assert.False(reloaded.Settings.Aprs.LoadHistoryOnStartup);
+        Assert.Equal(PositionFormat.MicE, reloaded.Settings.Aprs.PositionFormat);
+        Assert.Equal(ThemeMode.Dark, reloaded.Settings.Theme);
+        Assert.Equal(TileSourceType.MbTilesOffline, reloaded.Settings.Map.TileSource);
+    }
+
+    [Fact]
+    public void MigratingUnversionedFile_CreatesBackupOfOriginal()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        const string legacyJson = "{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}";
+        fixture.Write(legacyJson);
+
+        fixture.CreateService();
+
+        var backups = fixture.GetBackupFiles();
+        var backup = Assert.Single(backups);
+        Assert.Contains(".v0.", backup);
+        Assert.Equal(legacyJson, File.ReadAllText(backup));
+    }
+
+    [Fact]
+    public async Task ReloadingCurrentVersionFile_DoesNotAccumulateBackups()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+        var first = fixture.CreateService();
+        await first.SaveSettingsAsync();
+
+        // The unversioned base file produces exactly one pre-migration backup;
+        // later loads must not add more.
+        for (var i = 0; i < 3; i++)
+        {
+            fixture.CreateService();
+        }
+
+        Assert.Single(fixture.GetBackupFiles());
+    }
+
+    [Fact]
+    public void LegacySymbolKeys_AreMigratedOnLoad()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write(
+            "{\"Aprs\":{\"Callsign\":\"CT7ALW\","
+            + "\"SymbolTableCharacter\":\"\\\\\","
+            + "\"SymbolCodeCharacter\":\">\"}}");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal(SymbolTable.Alternate, service.Settings.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, service.Settings.Aprs.SymbolCode);
+    }
+
+    [Fact]
+    public async Task LegacySymbolKeys_SurviveRoundTripAfterMigration()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write(
+            "{\"Aprs\":{\"Callsign\":\"CT7ALW\","
+            + "\"SymbolTableCharacter\":\"\\\\\","
+            + "\"SymbolCodeCharacter\":\">\"}}");
+        var service = fixture.CreateService();
+
+        await service.SaveSettingsAsync();
+        var reloaded = fixture.CreateService();
+
+        Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
+    }
+
+    [Fact]
+    public void InvalidSymbolValue_DoesNotPreventStartup()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write(
+            "{\"Aprs\":{\"Callsign\":\"CT7ALW\",\"SymbolTableCharacter\":\"?\"}}");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal(SymbolTable.Primary, service.Settings.Aprs.SymbolTable);
+    }
+
+    [Fact]
+    public void NewerVersionedFile_IsLoadedWithoutDowngrade()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        var futureVersion = SettingsSchema.CurrentVersion + 5;
+        fixture.Write(
+            "{\"SchemaVersion\":" + futureVersion + ",\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+
+        var service = fixture.CreateService();
+
+        // Values still load; the in-memory version reflects what this build writes.
+        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal(futureVersion, fixture.ReadDocumentVersion());
+    }
+
+    [Fact]
+    public void NewerVersionedFile_IsBackedUpBeforeBeingOverwritten()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        var futureVersion = SettingsSchema.CurrentVersion + 3;
+        fixture.Write("{\"SchemaVersion\":" + futureVersion + "}");
+        var service = fixture.CreateService();
+
+        var backup = Assert.Single(fixture.GetBackupFiles());
+        Assert.Contains($".v{futureVersion}.", backup);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+    }
+
+    [Fact]
+    public void InvalidVersionValue_FallsBackToLegacy()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"SchemaVersion\":\"not-a-number\",\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+    }
+
+    [Fact]
+    public void NegativeVersionValue_FallsBackToLegacy()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"SchemaVersion\":-4,\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+    }
+
+    [Fact]
+    public void CorruptFile_IsQuarantinedAndDefaultsUsed()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{ this is not json ");
+
+        var service = fixture.CreateService();
+
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+        Assert.Equal("N0CALL", service.Settings.Aprs.Callsign);
+        Assert.NotEmpty(fixture.GetQuarantinedFiles());
+    }
+
+    [Fact]
+    public async Task GetSettingsSnapshot_CarriesVersionAndNewProperties()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+        var service = fixture.CreateService();
+        service.Settings.Aprs.LoadHistoryOnStartup = false;
+        service.Settings.Aprs.PacketRetentionMaxRows = 4242;
+        await service.SaveSettingsAsync();
+
+        var snapshot = service.GetSettingsSnapshot();
+
+        Assert.Equal(SettingsSchema.CurrentVersion, snapshot.SchemaVersion);
+        Assert.False(snapshot.Aprs.LoadHistoryOnStartup);
+        Assert.Equal(4242, snapshot.Aprs.PacketRetentionMaxRows);
+    }
+
+    [Fact]
+    public void Constants_HaveSensibleRelationship()
+    {
+        Assert.True(SettingsSchema.CurrentVersion > SettingsSchema.LegacyUnversionedVersion);
+        Assert.Equal(0, SettingsSchema.LegacyUnversionedVersion);
+        Assert.Equal("SchemaVersion", SettingsSchema.VersionPropertyName);
+    }
+
+    [Fact]
+    public async Task RepeatedLoadsAndSaves_KeepVersionStable()
+    {
+        using var fixture = new SettingsDirectoryFixture();
+        fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
+
+        for (var i = 0; i < 3; i++)
+        {
+            var service = fixture.CreateService();
+            Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+            await service.SaveSettingsAsync();
+            Assert.Equal(SettingsSchema.CurrentVersion, fixture.ReadDocumentVersion());
+        }
+
+        // Only the very first (unversioned) load should have produced a backup.
+        Assert.Single(fixture.GetBackupFiles());
+    }
+
+    /// <summary>
+    /// Creates an isolated app-data directory and the services that write into it.
+    /// </summary>
+    private sealed class SettingsDirectoryFixture : IDisposable
+    {
+        private readonly string _directory;
+
+        public SettingsDirectoryFixture()
+        {
+            _directory = Path.Combine(
+                Path.GetTempPath(),
+                $"AetherAprsSettings-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(_directory);
+        }
+
+        public void Write(string json)
+        {
+            File.WriteAllText(Path.Combine(_directory, "appsettings.json"), json);
+        }
+
+        public ConfigurationService CreateService()
+        {
+            return new ConfigurationService(
+                new TestAppDataDirProvider(_directory),
+                NullLogger<ConfigurationService>.Instance);
+        }
+
+        public string SavedPath
+        {
+            get
+            {
+#if DEBUG
+                return Path.Combine(_directory, "appsettings.Development.json");
+#else
+                return Path.Combine(_directory, "appsettings.json");
+#endif
+            }
+        }
+
+        public string ReadSavedText() => File.ReadAllText(SavedPath);
+
+        public int ReadDocumentVersion()
+        {
+            var path = SavedPath;
+            if (!File.Exists(path))
+            {
+                // No save has happened yet, so inspect the input file instead.
+                path = Path.Combine(_directory, "appsettings.json");
+            }
+
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.TryGetProperty(
+                SettingsSchema.VersionPropertyName,
+                out var version)
+                ? version.GetInt32()
+                : SettingsSchema.LegacyUnversionedVersion;
+        }
+
+        public string[] GetBackupFiles() =>
+            Directory.GetFiles(_directory, "appsettings.json.v*.bak");
+
+        public string[] GetQuarantinedFiles() =>
+            Directory.GetFiles(_directory, "appsettings.json.corrupt-*");
+
+        public void Dispose()
+        {
+            try
+            {
+                Directory.Delete(_directory, recursive: true);
+            }
+            catch (IOException)
+            {
+                // Best-effort cleanup.
+            }
+        }
+    }
+
+    private sealed class TestAppDataDirProvider(string directory) : IAppDataDirProviderService
+    {
+        public string GetAppDataDirectory() => directory;
+
+        public string GetPrivateAppDataDirectory() => directory;
+    }
+}
