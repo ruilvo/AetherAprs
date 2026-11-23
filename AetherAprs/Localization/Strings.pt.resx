@@ -294,6 +294,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="RespondToTrace" xml:space="preserve"><value>Responder a TRACEn-N (Trace Digi)</value></data>
   <data name="BeaconSettings" xml:space="preserve"><value>Definições de Beacon</value></data>
   <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configurar comentário e caminho predefinidos para beacons de posição.</value></data>
+  <data name="PositionFormatLabel" xml:space="preserve"><value>Codificação de Posição</value></data>
+  <data name="PositionFormatDescription" xml:space="preserve"><value>Formato usado ao transmitir relatórios de posição. Comprimido é a escolha habitual; Mic-E coloca a latitude no endereço de destino e é o mais compacto.</value></data>
+  <data name="PositionFormatUncompressed" xml:space="preserve"><value>Não comprimido</value></data>
+  <data name="PositionFormatCompressed" xml:space="preserve"><value>Comprimido</value></data>
+  <data name="PositionFormatMicE" xml:space="preserve"><value>Mic-E</value></data>
   <data name="ValidationCallsignRequired" xml:space="preserve"><value>Indicativo é obrigatório</value></data>
   <data name="ValidationCallsignFormat" xml:space="preserve"><value>Indicativo deve ter 1-6 caracteres alfanuméricos</value></data>
   <data name="ValidationSsidRange" xml:space="preserve"><value>SSID deve estar entre 0 e 15</value></data>

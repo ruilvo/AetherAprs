@@ -114,8 +114,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool DigipeaterRespondToTrace { get; set; } = false;
 
+    [ObservableProperty]
+    public partial PositionFormat PositionFormat { get; set; } = PositionFormat.Compressed;
+
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
         Enum.GetValues<Configuration.PacketDisplayTimeRange>();
+
+    public PositionFormat[] AvailablePositionFormats { get; } =
+        Enum.GetValues<PositionFormat>();
 
     public AprsSsid[] AvailableSsids { get; } = 
         Enum.GetValues<AprsSsid>();
@@ -156,6 +162,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
         AutoAcknowledgeMessages = aprs.AutoAcknowledgeMessages;
         BeaconComment = aprs.BeaconComment;
+        PositionFormat = aprs.PositionFormat;
         DigipeaterPath = aprs.DigipeaterPath;
         DigipeaterRespondToWide1 = aprs.DigipeaterRespondToWide1;
         DigipeaterRespondToWide2 = aprs.DigipeaterRespondToWide2;
@@ -251,6 +258,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     partial void OnLoadHistoryOnStartupChanged(bool value)
+    {
+        SaveSettings();
+    }
+
+    partial void OnPositionFormatChanged(PositionFormat value)
     {
         SaveSettings();
     }
@@ -374,6 +386,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
             _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
             _configurationService.Settings.Aprs.BeaconComment = BeaconComment;
+            _configurationService.Settings.Aprs.PositionFormat = PositionFormat;
             _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
             _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;

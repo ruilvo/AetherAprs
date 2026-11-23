@@ -26,6 +26,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <converters:PacketDisplayTimeRangeConverter x:Key="TimeRangeConverter" />
     <converters:TileSourceTypeConverter x:Key="TileSourceConverter" />
     <converters:ThemeModeConverter x:Key="ThemeModeConverter" />
+    <converters:PositionFormatConverter x:Key="PositionFormatConverter" />
     <aprsConverters:AprsSsidConverter x:Key="SsidConverter" />
   </UserControl.Resources>
   <UserControl.Styles>
@@ -198,6 +199,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Foreground="{DynamicResource MaterialBodyLightBrush}" />
 
           <StackPanel Spacing="12">
+            <ComboBox ItemsSource="{Binding AvailablePositionFormats}"
+                      SelectedItem="{Binding PositionFormat}"
+                      MinHeight="48"
+                      wpf:ComboBoxAssist.Label="{loc:Loc PositionFormatLabel}"
+                      HorizontalAlignment="Stretch">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Converter={StaticResource PositionFormatConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc PositionFormatDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}"
+                       Margin="0,-8,0,0" />
+
             <TextBox Text="{Binding BeaconComment}"
                      PlaceholderText="{loc:Loc DefaultBeaconCommentPlaceholder}"
                      wpf:TextFieldAssist.Label="{loc:Loc DefaultBeaconComment}"

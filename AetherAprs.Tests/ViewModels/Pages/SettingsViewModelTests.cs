@@ -97,6 +97,37 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task ChangingPositionFormatAutoSavesSettings()
+    {
+        var configuration = new TestConfigurationService();
+        var navigation = new TestNavigationService();
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        // Defaults to the configured value
+        Assert.Equal(PositionFormat.Compressed, viewModel.PositionFormat);
+
+        viewModel.PositionFormat = PositionFormat.MicE;
+        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(PositionFormat.MicE, configuration.Settings.Aprs.PositionFormat);
+    }
+
+    [Fact]
+    public void AvailablePositionFormatsExposesAllEncodings()
+    {
+        var navigation = new TestNavigationService();
+        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+        var viewModel = new SettingsViewModel(
+            new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        Assert.Equal(
+            new[] { PositionFormat.Uncompressed, PositionFormat.Compressed, PositionFormat.MicE },
+            viewModel.AvailablePositionFormats);
+    }
+
+    [Fact]
     public void OpenBeaconingSettingsNavigatesToDynamicBeaconingViewModel()
     {
         var navigation = new TestNavigationService();
