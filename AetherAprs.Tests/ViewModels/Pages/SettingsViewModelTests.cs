@@ -38,7 +38,7 @@ public sealed class SettingsViewModelTests
         viewModel.Callsign = "CT7ALW";
         
         // Wait for async save to complete deterministically
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
         Assert.True(configuration.SaveCount > 0);
@@ -54,16 +54,16 @@ public sealed class SettingsViewModelTests
             configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.Callsign = "CT7ALW";
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         
         viewModel.Ssid = AprsSsid.HumanPortable;
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         
         viewModel.SymbolTableCharacter = "\\";
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         
         viewModel.SymbolCodeCharacter = ">";
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
         Assert.Equal(
@@ -86,10 +86,10 @@ public sealed class SettingsViewModelTests
             configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.TileSource = TileSourceType.MbTilesOffline;
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         viewModel.MbTilesFilePath = "/data/map.mbtiles";
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Equal(TileSourceType.MbTilesOffline, configuration.Settings.Map.TileSource);
         Assert.Equal("/data/map.mbtiles", configuration.Settings.Map.MbTilesFilePath);
@@ -109,7 +109,7 @@ public sealed class SettingsViewModelTests
         Assert.Equal(PositionFormat.Compressed, viewModel.PositionFormat);
 
         viewModel.PositionFormat = PositionFormat.MicE;
-        await viewModel.CurrentSaveTask.WaitAsync(TestContext.Current.CancellationToken);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Equal(PositionFormat.MicE, configuration.Settings.Aprs.PositionFormat);
     }

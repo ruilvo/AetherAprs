@@ -73,8 +73,8 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         vm.IsEnabled = true;
         vm.ShowOnMap = true;
 
-        await toggledTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
-        await mapToggledTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await toggledTcs.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+        await mapToggledTcs.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Same(vm, toggled);
         Assert.Same(vm, mapToggled);
@@ -171,12 +171,12 @@ public sealed class PortItemViewModelTests : TestFixtureBase
 
         // Now change properties - callbacks SHOULD be invoked
         vm.IsEnabled = true;
-        await toggleTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await toggleTcs.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         Assert.Equal(1, toggleCount);
         Assert.Equal(0, mapToggleCount);
 
         vm.ShowOnMap = true;
-        await mapToggleTcs.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await mapToggleTcs.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         Assert.Equal(1, toggleCount);
         Assert.Equal(1, mapToggleCount);
     }

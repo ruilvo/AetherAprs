@@ -138,7 +138,7 @@ public sealed class MessageServiceTests
         var recoveredMessage = Assert.Single(Assert.Single(recoveredProcess.Conversations).Messages);
         recoveredMessage.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
         recoveredProcess.ProcessRetries(null);
-        await recoveredPortService.PacketSent.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await recoveredPortService.PacketSent.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Single(recoveredPortService.SentPackets);
         recoveredProcess.Dispose();
