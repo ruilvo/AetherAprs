@@ -109,6 +109,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<ISessionStateStore>(_ =>
             new FileSessionStateStore(Path.Combine(privateAppDataDirectory, "session-state.json")));
         services.AddSingleton<IDiagnosticEventSink, BoundedDiagnosticEventStore>();
+        services.AddSingleton<AndroidLifecycleState>();
         services.AddSingleton<RedactedSupportReportService>();
         services.AddSingleton<PortService>();
         services.AddSingleton<IPortService>(services => services.GetRequiredService<PortService>());

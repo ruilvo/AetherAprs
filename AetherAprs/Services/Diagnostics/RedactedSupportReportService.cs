@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using System;
 using System.IO;
@@ -15,7 +16,8 @@ namespace AetherAprs.Services.Diagnostics;
 public sealed class RedactedSupportReportService(
     IDiagnosticEventSink diagnostics,
     SessionCoordinator coordinator,
-    IPortServiceTelemetry? portTelemetry = null)
+    IPortServiceTelemetry? portTelemetry = null,
+    AndroidLifecycleState? lifecycle = null)
 {
     private const int ReportSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -49,6 +51,9 @@ public sealed class RedactedSupportReportService(
                 })
             },
             diagnostics = diagnostics.Events,
+            lifecycle = lifecycle is null
+                ? null
+                : BuildLifecycle(lifecycle.Snapshot),
             packetIngest = portTelemetry is null
                 ? null
                 : new
@@ -65,6 +70,23 @@ public sealed class RedactedSupportReportService(
 
         return JsonSerializer.Serialize(snapshot, JsonOptions);
     }
+
+    private static object BuildLifecycle(AndroidLifecycleSnapshot snapshot) => new
+    {
+        processAlive = snapshot.ProcessAlive,
+        activityState = snapshot.ActivityState.ToString(),
+        foregroundState = snapshot.ForegroundState.ToString(),
+        transportState = snapshot.TransportState.ToString(),
+        notificationPosted = snapshot.NotificationPosted,
+        permissions = snapshot.Permissions
+            .OrderBy(entry => entry.Key)
+            .Select(entry => new
+            {
+                name = entry.Key.ToString(),
+                granted = entry.Value
+            })
+            .ToArray()
+    };
 
     public async Task WriteAsync(string path, CancellationToken cancellationToken = default)
     {

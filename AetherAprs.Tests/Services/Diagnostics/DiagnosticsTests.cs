@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.Diagnostics;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using System;
 using System.Collections.Generic;
@@ -60,6 +61,54 @@ public sealed class DiagnosticsTests
         Assert.DoesNotContain("N0CALL>APRS", report, StringComparison.Ordinal);
         Assert.DoesNotContain("passcode", report, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("password", report, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SupportReport_IncludesAndroidLifecycleSnapshot_WithoutSensitiveValues()
+    {
+        var store = new BoundedDiagnosticEventStore();
+        var lifecycle = new AndroidLifecycleState();
+        lifecycle.ProcessStarted();
+        lifecycle.ActivityCreated();
+        lifecycle.ActivityResumed();
+        lifecycle.ForegroundStarted();
+        lifecycle.TransportConnected();
+        lifecycle.NotificationPosted();
+        lifecycle.PermissionResult(AndroidPermission.Location, granted: true);
+        lifecycle.PermissionResult(AndroidPermission.Notifications, granted: false);
+
+        await using var coordinator = new SessionCoordinator(
+            new FakePortController(),
+            new FakeStateStore());
+        await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
+
+        var report = new RedactedSupportReportService(
+            store,
+            coordinator,
+            portTelemetry: null,
+            lifecycle: lifecycle).GenerateJson();
+
+        Assert.Contains("\"processAlive\": true", report, StringComparison.Ordinal);
+        Assert.Contains("\"activityState\": \"Resumed\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"foregroundState\": \"Running\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"transportState\": \"Connected\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"notificationPosted\": true", report, StringComparison.Ordinal);
+        Assert.Contains("\"name\": \"Location\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"granted\": false", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SupportReport_OmitsLifecycleSection_WhenStateIsNotProvided()
+    {
+        await using var coordinator = new SessionCoordinator(
+            new FakePortController(),
+            new FakeStateStore());
+
+        var report = new RedactedSupportReportService(
+            new BoundedDiagnosticEventStore(),
+            coordinator).GenerateJson();
+
+        Assert.Contains("\"lifecycle\": null", report, StringComparison.Ordinal);
     }
 
     private sealed class FakePortController : ISessionPortController
