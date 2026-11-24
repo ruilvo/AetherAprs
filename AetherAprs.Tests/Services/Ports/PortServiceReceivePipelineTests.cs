@@ -294,6 +294,162 @@ public sealed class PortServiceReceivePipelineTests
         await service.StopAllPortsAsync();
     }
 
+    [Fact]
+    public async Task ReceivedFrames_DigipeatPending_DoesNotBlockIngest()
+    {
+        const int ordinaryPacketCount = 20;
+        var portId = Guid.NewGuid();
+        var firstFrame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        var ordinaryFrame = BuildKissFrame(BuildAx25Frame("APZ002", "N0CALL", "!3830.00N/00906.00E#"));
+        var kissBuffer = firstFrame
+            .Concat(Enumerable.Repeat(ordinaryFrame, ordinaryPacketCount).SelectMany(frame => frame))
+            .ToArray();
+        using var db = TempAppDatabase.Create();
+        var storage = new RecordingPacketStorageService();
+        var digipeater = new BlockingDigipeaterService(expectedCalls: ordinaryPacketCount + 1);
+        var kissSettings = new KissSettings
+        {
+            Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
+        };
+        await using var service = CreateService(
+            db,
+            storage,
+            digipeater,
+            kissBuffer,
+            scriptedPortSettings: kissSettings);
+
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "RF",
+            IsEnabled = false,
+            IsRx = true,
+            IsTx = false,
+            TypeSettings = kissSettings
+        };
+        await service.AddPortAsync(port);
+
+        var published = 0;
+        var allPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        service.PacketReceived += (_, _) =>
+        {
+            if (Interlocked.Increment(ref published) == ordinaryPacketCount + 1)
+            {
+                allPublished.TrySetResult(true);
+            }
+        };
+
+        try
+        {
+            await service.SetPortEnabledAsync(portId, true);
+
+            await digipeater.Entered.Task.WaitAsync(
+                TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken);
+            await allPublished.Task.WaitAsync(
+                TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken);
+
+            // The first candidate is held inside the digipeater, yet every later
+            // packet was stored and published: ingest is decoupled from relay.
+            Assert.False(
+                digipeater.Drained.Task.IsCompleted,
+                "Digipeat should still be pending while ingest drains.");
+            Assert.Equal(ordinaryPacketCount + 1, Volatile.Read(ref published));
+            Assert.Equal(ordinaryPacketCount + 1, storage.StoredPackets.Count);
+            Assert.Equal(0, service.TotalDroppedPackets);
+        }
+        finally
+        {
+            digipeater.Release();
+        }
+
+        await digipeater.Drained.Task.WaitAsync(
+            TimeSpan.FromSeconds(3),
+            TestContext.Current.CancellationToken);
+        Assert.Equal(ordinaryPacketCount + 1, digipeater.Calls.Count);
+    }
+
+    [Fact]
+    public async Task ReceivedFrames_DigipeatQueueFull_CountsDrops()
+    {
+        const int frameCount = 40;
+        var portId = Guid.NewGuid();
+        var frame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        var kissBuffer = Enumerable.Repeat(frame, frameCount).SelectMany(bytes => bytes).ToArray();
+        using var db = TempAppDatabase.Create();
+        var storage = new RecordingPacketStorageService();
+        var digipeater = new BlockingDigipeaterService(expectedCalls: 1);
+        var diagnostics = new RecordingDiagnosticSink();
+        var kissSettings = new KissSettings
+        {
+            Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
+        };
+        await using var service = CreateService(
+            db,
+            storage,
+            digipeater,
+            kissBuffer,
+            scriptedPortSettings: kissSettings,
+            diagnosticSink: diagnostics,
+            digipeatQueueCapacity: 2);
+
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "RF",
+            IsEnabled = false,
+            IsRx = true,
+            IsTx = false,
+            TypeSettings = kissSettings
+        };
+        await service.AddPortAsync(port);
+
+        try
+        {
+            await service.SetPortEnabledAsync(portId, true);
+
+            // Hold the digipeat consumer on the first candidate so the tiny queue
+            // fills while the remaining candidates arrive.
+            await digipeater.Entered.Task.WaitAsync(
+                TimeSpan.FromSeconds(3),
+                TestContext.Current.CancellationToken);
+            await WaitForDropsAsync(service, portId);
+            Assert.True(
+                await WaitForDropReasonAsync(diagnostics, "Digipeat queue full; candidate dropped."),
+                "A full digipeat queue must record the digipeat drop reason.");
+
+            Assert.True(
+                service.GetDroppedPacketCount(portId) >= 1,
+                "A full digipeat queue must count the dropped candidates.");
+            Assert.Equal(service.TotalDroppedPackets, service.GetDroppedPacketCount(portId));
+            Assert.DoesNotContain(
+                diagnostics.Events,
+                diagnosticEvent => diagnosticEvent.Reason == "Inbound queue full; newest packet dropped.");
+        }
+        finally
+        {
+            digipeater.Release();
+        }
+    }
+
+    private static async Task<bool> WaitForDropReasonAsync(RecordingDiagnosticSink diagnostics, string reason)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (!diagnostics.Events.Any(
+                   diagnosticEvent => diagnosticEvent.State == "Dropped" && diagnosticEvent.Reason == reason))
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        return true;
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
@@ -301,12 +457,13 @@ public sealed class PortServiceReceivePipelineTests
     private static PortService CreateService(
         TempAppDatabase db,
         RecordingPacketStorageService storage,
-        RecordingDigipeaterService digipeater,
+        IDigipeaterService digipeater,
         byte[]? injectedKissBuffer = null,
         TaskCompletionSource<byte[]>? targetWriteTcs = null,
         KissSettings? scriptedPortSettings = null,
         IDiagnosticEventSink? diagnosticSink = null,
-        int packetQueueCapacity = 1024)
+        int packetQueueCapacity = 1024,
+        int digipeatQueueCapacity = 256)
     {
         var services = new ServiceCollection()
             .AddLogging()
@@ -326,7 +483,8 @@ public sealed class PortServiceReceivePipelineTests
             Substitute.For<IPttService>(),
             new NullSecretProtector(),
             diagnosticSink: diagnosticSink,
-            packetQueueCapacity: packetQueueCapacity);
+            packetQueueCapacity: packetQueueCapacity,
+            digipeatQueueCapacity: digipeatQueueCapacity);
     }
 
     private static byte[] BuildAx25Frame(string destination, string source, string infoField)
@@ -472,6 +630,59 @@ public sealed class PortServiceReceivePipelineTests
             FirstCall.TrySetResult(true);
             return OnGetDigipeatTargets?.Invoke(packet, sourcePortId, sourcePortIsAprsIs, availablePorts)
                 ?? [];
+        }
+    }
+
+    /// <summary>
+    /// Blocks the digipeat consumer inside the first target query so tests can
+    /// prove ingest continues while a relay is pending.
+    /// </summary>
+    private sealed class BlockingDigipeaterService(int expectedCalls) : IDigipeaterService
+    {
+        private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(10);
+        private readonly object _gate = new();
+        private readonly TaskCompletionSource<bool> _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly List<DigipeatCall> _calls = [];
+
+        public TaskCompletionSource<bool> Entered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource<bool> Drained { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public IReadOnlyList<DigipeatCall> Calls
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return [.. _calls];
+                }
+            }
+        }
+
+        public void Release() => _release.TrySetResult(true);
+
+        public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
+            AprsPacket packet,
+            Guid sourcePortId,
+            bool sourcePortIsAprsIs,
+            IReadOnlyList<PortInfo> availablePorts)
+        {
+            Entered.TrySetResult(true);
+            _release.Task.Wait(WaitTimeout);
+
+            lock (_gate)
+            {
+                _calls.Add(new DigipeatCall(packet, sourcePortId, sourcePortIsAprsIs, availablePorts));
+                if (_calls.Count >= expectedCalls)
+                {
+                    Drained.TrySetResult(true);
+                }
+            }
+
+            return [];
         }
     }
 
