@@ -142,6 +142,89 @@ public sealed class PacketStorageServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task EnsureOutboundMessageAsync_ConcurrentWritersStoreOneLogicalMessage()
+    {
+        var packet = CreateOutboundMessage();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var secondStore = new PacketStorageService(_db.Factory, _configurationService, _logger);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
+        {
+            await start.Task;
+            await _service.EnsureOutboundMessageAsync(packet, Guid.NewGuid(), cancellationToken: cancellationToken);
+        }, cancellationToken)).ToArray();
+        var second = Task.Run(async () =>
+        {
+            await start.Task;
+            await secondStore.StorePacketAsync(packet, Guid.NewGuid(), isOutbound: true, cancellationToken);
+        }, cancellationToken);
+        start.SetResult();
+        await Task.WhenAll(first.Append(second));
+
+        await using var context = _db.CreateContext();
+        var row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));
+        Assert.Equal(packet.MessageNumber, row.Message!.Number);
+        Assert.Equal(MessageDeliveryStatus.Pending, row.Message.DeliveryStatus);
+    }
+
+    [Fact]
+    public async Task EnsureOutboundMessageAsync_FailedInsertCanBeRetriedWithDurableRetryState()
+    {
+        var packet = CreateOutboundMessage();
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var context = _db.CreateContext();
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE TRIGGER RejectPacketInsert BEFORE INSERT ON Packets
+                BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END;
+            """, cancellationToken);
+        var notifications = 0;
+        _service.PacketStored += (_, _) => notifications++;
+
+        await Assert.ThrowsAsync<DbUpdateException>(
+            () => _service.EnsureOutboundMessageAsync(packet, null, cancellationToken: cancellationToken));
+        Assert.Empty(await context.Packets.ToListAsync(cancellationToken));
+        Assert.Equal(0, notifications);
+
+        await context.Database.ExecuteSqlRawAsync("DROP TRIGGER RejectPacketInsert;", cancellationToken);
+        var nextRetry = DateTimeOffset.UtcNow.AddMinutes(1);
+        await _service.EnsureOutboundMessageAsync(packet, null, 1, nextRetry, cancellationToken);
+        await _service.EnsureOutboundMessageAsync(packet, null, cancellationToken: cancellationToken);
+
+        var row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));
+        Assert.Equal(1, row.Message!.RetryCount);
+        Assert.Equal(nextRetry.UtcDateTime, row.Message.NextRetryTime);
+        Assert.Equal(1, notifications);
+    }
+
+    [Fact]
+    public async Task MessageQueries_RecoverOldPendingRowsAndHighestOutboundNumberBeyondHistoryLimit()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var pending = CreateOutboundMessage();
+        var terminal = CreateOutboundMessage(100);
+        await _service.EnsureOutboundMessageAsync(pending, null, cancellationToken: cancellationToken);
+        await _service.EnsureOutboundMessageAsync(terminal, null, cancellationToken: cancellationToken);
+        await _service.UpdateOutboundMessageStatusAsync(terminal.Addressee, 100,
+            MessageDeliveryStatus.Acknowledged, 0, null, cancellationToken);
+        await _service.StorePacketAsync(CreateOutboundMessage(1), null, cancellationToken: cancellationToken);
+        using var query = new PacketQueryService(_db.Factory, Substitute.For<ILogger<PacketQueryService>>());
+
+        var messages = await query.GetMessagePacketsAsync(1, cancellationToken);
+
+        Assert.Equal(new int?[] { 1, 42 }, messages.Select(packet => packet.Message!.Number));
+        Assert.Equal(100, await query.GetHighestOutboundMessageNumberAsync(cancellationToken));
+    }
+
+    private static MessagePacket CreateOutboundMessage(int number = 42) => new()
+    {
+        Source = new Callsign("CT7ALW"),
+        Destination = new Callsign("APRS"),
+        Addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 1)),
+        Text = "Queued message",
+        MessageNumber = number
+    };
+
+    [Fact]
     public async Task StorePacketAsync_MessagePacketInbound_NoDeliveryStatus()
     {
         // Arrange
@@ -314,6 +397,31 @@ public sealed class PacketStorageServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task StorePacketAsync_ThrowingObserver_LeavesCommittedPacketVisibleToLaterObserver()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var packet = new UnknownPacket
+        {
+            Source = new Callsign("TEST", 0),
+            Destination = new Callsign("APRS", 0),
+            Raw = "TEST>APRS:?synthetic"
+        };
+        string? observedRaw = null;
+        _service.PacketStored += (_, _) => throw new InvalidOperationException("Observer failed.");
+        _service.PacketStored += (_, _) =>
+        {
+            using var reader = _db.Factory.CreateDbContext();
+            observedRaw = reader.Packets.Select(record => record.RawInfo).Single();
+        };
+
+        await _service.StorePacketAsync(packet, portId: null, cancellationToken: cancellationToken);
+
+        Assert.Equal(packet.Raw, observedRaw);
+        await using var context = await _db.Factory.CreateDbContextAsync(cancellationToken);
+        Assert.Equal(1, await context.Packets.CountAsync(cancellationToken));
+    }
+
+    [Fact]
     public async Task StorePacketAsync_OnDatabaseError_ThrowsException()
     {
         // Arrange - use invalid path to force error
@@ -321,6 +429,8 @@ public sealed class PacketStorageServiceTests : IDisposable
         var invalidFactory = new TestDbContextFactory(invalidPath);
         
         var service = new PacketStorageService(invalidFactory, _configurationService, _logger);
+        var notified = false;
+        service.PacketStored += (_, _) => notified = true;
         
         var packet = new PositionPacket
         {
@@ -334,6 +444,7 @@ public sealed class PacketStorageServiceTests : IDisposable
         // Act & Assert - directory doesn't exist, can't create database
         await Assert.ThrowsAnyAsync<Exception>(() =>
             service.StorePacketAsync(packet, Guid.NewGuid(), isOutbound: false, TestContext.Current.CancellationToken));
+        Assert.False(notified);
     }
 
     private sealed class TestDbContextFactory(string path) : IDbContextFactory<AppDbContext>

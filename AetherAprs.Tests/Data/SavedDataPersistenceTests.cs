@@ -114,7 +114,7 @@ public sealed class SavedDataPersistenceTests
                    Substitute.For<IAprsPortSettingsResolver>(),
                    new TestPacketFactory(),
                    NullLogger<MessageService>.Instance,
-                   db.Factory))
+                    new PacketQueryService(db.Factory, NullLogger<PacketQueryService>.Instance)))
         {
             await service.InitializeAsync(TestContext.Current.CancellationToken);
             // Verify the service loaded the message from database
@@ -133,7 +133,7 @@ public sealed class SavedDataPersistenceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            db.Factory);
+            new PacketQueryService(db.Factory, NullLogger<PacketQueryService>.Instance));
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         var threadReloaded = Assert.Single(reloaded.Conversations);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), threadReloaded.Peer);

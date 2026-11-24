@@ -87,6 +87,16 @@ public interface IPacketQueryService
     Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(int limit = 500, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets recent message packets and all pending outbound messages, newest first.
+    /// </summary>
+    Task<IReadOnlyList<PacketRecord>> GetMessagePacketsAsync(int limit = 500, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the highest retained outbound message number, including rows outside recent history.
+    /// </summary>
+    Task<int?> GetHighestOutboundMessageNumberAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Searches for stations (by source callsign) and objects (by object name),
     /// matching the query as a prefix or exact match. Returns the most recent
     /// packet for each distinct match, newest first.

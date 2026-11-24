@@ -77,11 +77,38 @@ public sealed class MessageServiceTests
         Assert.Equal("Hello", stored.Text);
 
         // Verify packet was stored to database
-        await packetStorageService.Received(1).StorePacketAsync(
-            Arg.Is<AprsPacket>(p => p is MessagePacket),
+        await packetStorageService.Received(1).EnsureOutboundMessageAsync(
+            Arg.Any<MessagePacket>(),
             port.Id,
-            isOutbound: true,
+            0,
+            Arg.Any<DateTimeOffset?>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SendAsync_FirstPortStorageFails_OnlyTransmitsAfterNextPortPersists()
+    {
+        var firstPort = CreateTxPort();
+        var secondPort = CreateTxPort();
+        var ports = new FakePortService(firstPort, secondPort);
+        var storage = Substitute.For<IPacketStorageService>();
+        storage.EnsureOutboundMessageAsync(Arg.Any<MessagePacket>(), firstPort.Id, 0,
+            Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("simulated write failure")));
+        storage.EnsureOutboundMessageAsync(Arg.Any<MessagePacket>(), secondPort.Id, 0,
+            Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                Assert.Empty(ports.SentPackets);
+                return Task.CompletedTask;
+            });
+        using var service = CreateMessageService(ports, packetStorageService: storage);
+
+        await service.SendAsync(new AprsAddress("K0OTH"), "Hello", TestContext.Current.CancellationToken);
+
+        Assert.Single(ports.SentPackets);
+        await storage.Received(1).EnsureOutboundMessageAsync(Arg.Any<MessagePacket>(), secondPort.Id, 0,
+            Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -109,7 +136,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            database.Factory);
+            new PacketQueryService(database.Factory, NullLogger<PacketQueryService>.Instance));
 
         await firstProcess.SendAsync(
             AprsAddress.FromCallsign(new Callsign("K0OTH")),
@@ -122,6 +149,7 @@ public sealed class MessageServiceTests
             var queued = Assert.Single(context.Packets);
             Assert.True(queued.IsOutbound);
             Assert.Equal(MessageDeliveryStatus.Pending, queued.Message!.DeliveryStatus);
+            Assert.NotNull(queued.Message.NextRetryTime);
         }
 
         var recoveredPortService = new FakePortService(port);
@@ -132,7 +160,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            database.Factory);
+            new PacketQueryService(database.Factory, NullLogger<PacketQueryService>.Instance));
         await recoveredProcess.InitializeAsync(TestContext.Current.CancellationToken);
 
         var recoveredMessage = Assert.Single(Assert.Single(recoveredProcess.Conversations).Messages);
@@ -800,19 +828,16 @@ public sealed class MessageServiceTests
         {
             stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
             service.ProcessRetries(null);
-            await WaitUntilAsync(
-                () => stored.DeliveryStatus == MessageDeliveryStatus.Timeout || stored.RetryCount >= attempt,
-                $"retry attempt {attempt}");
+            if (attempt < retryPasses)
+            {
+                await WaitUntilAsync(
+                    () => portService.SentPackets.Count >= attempt + 1,
+                    $"retry send {attempt}");
+            }
         }
 
         Assert.Equal(MessageDeliveryStatus.Timeout, stored.DeliveryStatus);
         Assert.Equal(5, stored.RetryCount);
-
-        // Sends and stores are fire-and-forget from ProcessRetries, so wait for
-        // them to land before asserting on the durable row.
-        await WaitUntilAsync(
-            () => portService.SentPackets.Count >= retryPasses,
-            "all retry sends to complete");
 
         Assert.Equal(retryPasses, portService.SentPackets.Count);
 
@@ -919,7 +944,9 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            dbContextFactory);
+            dbContextFactory is null
+                ? null
+                : new PacketQueryService(dbContextFactory, NullLogger<PacketQueryService>.Instance));
     }
 
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)

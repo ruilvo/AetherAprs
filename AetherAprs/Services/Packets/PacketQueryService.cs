@@ -4,7 +4,9 @@
 
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
+using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -411,6 +413,34 @@ public sealed class PacketQueryService(
             logger.LogError(ex, "Failed to retrieve bulletins");
             throw;
         }
+    }
+
+    public async Task<IReadOnlyList<PacketRecord>> GetMessagePacketsAsync(
+        int limit = 500,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var messages = context.Packets
+            .AsNoTracking()
+            .Where(packet => packet.PacketType == PacketTypes.Message && packet.Message != null);
+        var recentIds = messages.OrderByDescending(packet => packet.Id).Take(limit).Select(packet => packet.Id);
+        return await messages
+            .Where(packet => recentIds.Contains(packet.Id) ||
+                (packet.IsOutbound && packet.Message!.DeliveryStatus == MessageDeliveryStatus.Pending))
+            .OrderByDescending(packet => packet.Id)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<int?> GetHighestOutboundMessageNumberAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await context.Packets
+            .Where(packet => packet.IsOutbound && packet.PacketType == PacketTypes.Message && packet.Message != null)
+            .MaxAsync(packet => packet.Message!.Number, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<PacketRecord>> SearchStationsAsync(

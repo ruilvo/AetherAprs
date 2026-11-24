@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -14,7 +13,6 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using Avalonia;
 using Avalonia.Threading;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -27,9 +25,6 @@ namespace AetherAprs.Services.Messaging;
 
 public sealed class MessageService : IMessageService, IDisposable
 {
-    /// <summary>Pocket-packet discriminator stored in the database (PacketType column).</summary>
-    private const string MessagePacketType = "Message";
-
     /// <summary>APRS message text limit (67 characters) per the APRS specification.</summary>
     private const int AprsMessageTextMaxLength = 67;
 
@@ -48,7 +43,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly IPacketFactory _packetFactory;
     private readonly ILogger<MessageService> _logger;
-    private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
+    private readonly IPacketQueryService? _packetQueryService;
     private readonly INotificationService? _notificationService;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = new();
@@ -69,7 +64,7 @@ public sealed class MessageService : IMessageService, IDisposable
         IAprsPortSettingsResolver portSettingsResolver,
         IPacketFactory packetFactory,
         ILogger<MessageService> logger,
-        IDbContextFactory<AppDbContext>? dbContextFactory = null,
+        IPacketQueryService? packetQueryService = null,
         INotificationService? notificationService = null)
     {
         _portService = portService;
@@ -78,7 +73,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _portSettingsResolver = portSettingsResolver;
         _packetFactory = packetFactory;
         _logger = logger;
-        _dbContextFactory = dbContextFactory;
+        _packetQueryService = packetQueryService;
         _notificationService = notificationService;
         _portService.PacketReceived += OnPacketReceived;
         _retryTimer = new Timer(ProcessRetries, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
@@ -156,12 +151,10 @@ public sealed class MessageService : IMessageService, IDisposable
         }
         catch
         {
-            // Keep the durable outbox item pending. The caller receives the
-            // transport error, while the retry timer and a later process restart
-            // can recover the queued message.
+            // Keep the item queued in memory. It becomes recoverable across
+            // restarts once the outbox write succeeds.
             stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(
                 settings.MessageRetryTimeoutSeconds);
-            PersistMessageStatusInBackground(stored);
             throw;
         }
 
@@ -187,7 +180,14 @@ public sealed class MessageService : IMessageService, IDisposable
         var baseCallsign = _configurationService.Settings.Aprs.Callsign;
         Exception? lastError = null;
         var sent = 0;
-        var recordChecked = false;
+        var persisted = false;
+        int retryCount;
+        DateTimeOffset? nextRetryTime;
+        lock (_gate)
+        {
+            retryCount = message.RetryCount;
+            nextRetryTime = message.NextRetryTime;
+        }
 
         foreach (var port in txPorts)
         {
@@ -210,15 +210,12 @@ public sealed class MessageService : IMessageService, IDisposable
                 // produced up to MaximumRetries x TX-port immortal Pending rows
                 // (audit C-04). The record is still written before the transport
                 // call so a crash mid-send can be recovered at startup.
-                if (!recordChecked)
+                if (!persisted)
                 {
-                    recordChecked = true;
-                    if (!await HasOutboundMessageRecordAsync(message, cancellationToken).ConfigureAwait(false))
-                    {
-                        await _packetStorageService
-                            .StorePacketAsync(packet, port.Id, isOutbound: true, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
+                    await _packetStorageService
+                        .EnsureOutboundMessageAsync(packet, port.Id, retryCount, nextRetryTime, cancellationToken)
+                        .ConfigureAwait(false);
+                    persisted = true;
                 }
 
                 await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
@@ -231,51 +228,22 @@ public sealed class MessageService : IMessageService, IDisposable
                     message.MessageNumber,
                     message.RetryCount);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 lastError = ex;
                 _logger.LogError(ex, "Failed to send APRS message on port {PortName}", port.Name);
             }
         }
 
+        if (!persisted && lastError is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(lastError);
+        }
+
         if (sent == 0 && lastError != null)
         {
             _logger.LogError(lastError, "Failed to send APRS message to {Addressee}", message.Peer);
         }
-    }
-
-    /// <summary>
-    /// True when an outbound packet row already exists for this logical message,
-    /// in which case retries must update it rather than insert another row.
-    /// </summary>
-    private async Task<bool> HasOutboundMessageRecordAsync(
-        StoredMessage message,
-        CancellationToken cancellationToken)
-    {
-        if (_dbContextFactory is null)
-        {
-            return false;
-        }
-
-        await using var db = await _dbContextFactory
-            .CreateDbContextAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        var addresseeSsid = message.Peer.Ssid.HasValue
-            ? (AprsSsid)message.Peer.Ssid.Value
-            : AprsSsid.PrimaryStation;
-
-        return await db.Packets
-            .AnyAsync(
-                p =>
-                    p.PacketType == MessagePacketType &&
-                    p.Message != null &&
-                    p.Message.Number == message.MessageNumber &&
-                    p.Message.AddresseeBase == message.Peer.Base &&
-                    p.Message.AddresseeSsid == addresseeSsid &&
-                    p.IsOutbound,
-                cancellationToken)
-            .ConfigureAwait(false);
     }
 
     private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
@@ -523,7 +491,6 @@ public sealed class MessageService : IMessageService, IDisposable
 
         foreach (var message in toRetry)
         {
-            PersistMessageStatusInBackground(message);
             _ = Task.Run(async () =>
             {
                 if (_disposed)
@@ -566,50 +533,17 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private async Task UpdateMessageStatusAsync(StoredMessage message)
     {
-        if (_dbContextFactory is null)
+        if (message.MessageNumber is not { } messageNumber || message.DeliveryStatus is not { } deliveryStatus)
         {
             return;
         }
 
-        await using var db = await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
-
-        // Convert SSID for database comparison
-        var addresseeSsid = message.Peer.Ssid.HasValue
-            ? (AprsSsid)message.Peer.Ssid.Value
-            : AprsSsid.PrimaryStation;
-
-        // Update every row that represents this logical message. Rows created by
-        // older builds as duplicates would otherwise stay Pending forever, and
-        // Pending outbound rows are protected from cleanup (audit C-04).
-        var records = await db.Packets
-            .Include(p => p.Message)
-            .Where(p =>
-                p.PacketType == MessagePacketType &&
-                p.Message != null &&
-                p.Message.Number == message.MessageNumber &&
-                p.Message.AddresseeBase == message.Peer.Base &&
-                p.Message.AddresseeSsid == addresseeSsid &&
-                p.IsOutbound == message.IsOutbound)
-            .ToListAsync().ConfigureAwait(false);
-
-        if (records.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var record in records)
-        {
-            if (record.Message is null)
-            {
-                continue;
-            }
-
-            record.Message.DeliveryStatus = message.DeliveryStatus;
-            record.Message.RetryCount = message.RetryCount;
-            record.Message.NextRetryTime = message.NextRetryTime?.UtcDateTime;
-        }
-
-        await db.SaveChangesAsync().ConfigureAwait(false);
+        await _packetStorageService.UpdateOutboundMessageStatusAsync(
+            message.Peer,
+            messageNumber,
+            deliveryStatus,
+            message.RetryCount,
+            message.NextRetryTime).ConfigureAwait(false);
     }
 
     private ConversationThread GetOrCreateConversationUnlocked(AprsAddress peer)
@@ -695,31 +629,20 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private async Task LoadMessagesAsync(CancellationToken cancellationToken = default)
     {
-        if (_dbContextFactory is null)
+        if (_packetQueryService is null)
         {
             return;
         }
 
-        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-
-        // Load message packets from the Packets table, bounded so that a large
-        // packet database cannot stall startup (M11). Newer packets are preferred.
-        var records = await db.Packets
-            .Include(p => p.Message)
-            .Where(p => p.PacketType == MessagePacketType && p.Message != null)
-            .OrderByDescending(p => p.Id)
-            .Take(MaxLoadedMessages)
-            .AsNoTracking()
-            .ToListAsync(cancellationToken)
+        var records = await _packetQueryService
+            .GetMessagePacketsAsync(MaxLoadedMessages, cancellationToken)
             .ConfigureAwait(false);
 
-        // Sort client-side: first by timestamp, then by ID
-        records = [.. records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id)];
-
         var threadsByPeer = new Dictionary<string, ConversationThread>();
-        var maxMessageNumber = 1;
+        var maxMessageNumber = await _packetQueryService
+            .GetHighestOutboundMessageNumberAsync(cancellationToken).ConfigureAwait(false) ?? 1;
 
-        foreach (var record in records)
+        foreach (var record in records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id))
         {
             if (record.Message == null)
             {
@@ -730,7 +653,6 @@ public sealed class MessageService : IMessageService, IDisposable
             var addressee = new AprsAddress(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
 
             // Determine peer (who we're talking to)
-            var ownBase = _configurationService.Settings.Aprs.Callsign.Trim().ToUpperInvariant();
             var peer = record.IsOutbound ? addressee : source;
 
             var stored = new StoredMessage
@@ -761,6 +683,8 @@ public sealed class MessageService : IMessageService, IDisposable
                 stored.MessageNumber.HasValue &&
                 stored.DeliveryStatus == MessageDeliveryStatus.Pending)
             {
+                stored.NextRetryTime ??= stored.Timestamp.AddSeconds(
+                    _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds);
                 _pendingMessages[stored.MessageNumber.Value] = stored;
             }
 
