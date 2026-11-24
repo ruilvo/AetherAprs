@@ -38,8 +38,9 @@ internal sealed class TempAppDatabase : IDisposable
         System.IO.Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
         var factory = new TestAppDbContextFactory(path);
-        using (var db = factory.CreateDbContext())
+        try
         {
+            using var db = factory.CreateDbContext();
             db.Database.EnsureCreated();
             foreach (var port in ports)
             {
@@ -47,9 +48,14 @@ internal sealed class TempAppDatabase : IDisposable
             }
 
             db.SaveChanges();
-        }
 
-        return new TempAppDatabase(directory, factory);
+            return new TempAppDatabase(directory, factory);
+        }
+        catch
+        {
+            DeleteDirectory(directory);
+            throw;
+        }
     }
 
     public static TempAppDatabase CreateEmpty()
@@ -67,20 +73,30 @@ internal sealed class TempAppDatabase : IDisposable
         // Idle pooled connections and in-flight background writes can keep the
         // SQLite file open, which makes the recursive delete fail on Windows.
         // Close idle pools, then retry briefly until the handle is released.
+        DeleteDirectory(Directory);
+    }
+
+    private static void DeleteDirectory(string directory)
+    {
         SqliteConnection.ClearAllPools();
+
+        if (!System.IO.Directory.Exists(directory))
+        {
+            return;
+        }
 
         for (var attempt = 1; attempt <= DeleteAttempts; attempt++)
         {
             try
             {
-                System.IO.Directory.Delete(Directory, recursive: true);
+                System.IO.Directory.Delete(directory, recursive: true);
                 return;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 if (attempt == DeleteAttempts)
                 {
-                    Logger.LogWarning(ex, "Failed to delete temp directory {Directory}", Directory);
+                    Logger.LogWarning(ex, "Failed to delete temp directory {Directory}", directory);
                     return;
                 }
 
