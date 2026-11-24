@@ -97,8 +97,10 @@ The repository already contains useful production foundations:
 The baseline is not yet evidence of GA readiness. Several platform services and modem
 paths exist as abstractions, but field behavior still needs hardware validation,
 reconnect testing, lifecycle testing, performance measurement, and release operations.
-The UI converters identified in the original audit have been implemented and covered by
-tests. Hardware validation, field behavior, and release evidence remain separate gates.
+The converters that previously threw are implemented and covered by tests. The remaining
+converter and view-layer issues from the 2026-11-23 full audit are tracked in that
+document and are not yet all closed. Hardware validation, field behavior, and release
+evidence remain separate gates.
 
 The project currently declares Android API 33 as its minimum and requests location,
 Bluetooth, foreground-service, wake-lock, notification, and audio permissions. Permission
@@ -478,7 +480,9 @@ tracked issues before implementation work is parallelized:
   instrumentation coverage. Real audio/Bluetooth behavior still requires hardware evidence.
 - [x] Define and document the BLE profile contract for the LilyGO T-Echo Plus target with
   service/characteristic UUIDs specified. Initial transmit confirmed on Pixel 9a; MTU
-  negotiation, write pacing, and loss/reconnect validation remain open for hardware testing.
+  negotiation (517-byte request with a bounded fallback), `MTU-3` chunked writes, and 20 ms
+  pacing for write-without-response are implemented in the BLE stream; loss and reconnect
+  validation remain open for hardware testing.
 
 ## Delivery phases
 
@@ -682,8 +686,9 @@ GA is complete only when all of the following are true:
 - [ ] Finish map performance, offline package validation, and attribution handling.
 - [ ] Finish message notification and background action behavior.
 - [x] Implement and test digipeat/gate policy engine, duplicate cache, and rate limits.
-- [x] Resolve all unfinished converters and placeholder UI paths covered by the original
-  audit.
+- [ ] Resolve all unfinished converters and placeholder UI paths covered by the original
+  audit. (The converters that threw are done; the 2026-11-23 audit still tracks the stale
+  empty-state converter, the `ViewLocator` fallback, and two swapped resource keys.)
 - [x] Add golden protocol vectors and deterministic integration fixtures.
 - [ ] Add UI/instrumentation tests for onboarding, permissions, notifications, navigation,
   accessibility, process death, and upgrade migration.
