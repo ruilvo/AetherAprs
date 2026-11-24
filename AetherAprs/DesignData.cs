@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Data.Packets;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
@@ -56,6 +57,7 @@ public static class DesignData
             options.UseSqlite($"Data Source={path}");
         });
         services.AddSingleton<AppSavedDataInitializer>();
+        services.AddSqliteRuntime();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
 

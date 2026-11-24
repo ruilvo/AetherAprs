@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Data.Packets;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
@@ -52,7 +53,10 @@ public static class ServiceProviderFactory
         // registrations below are added after these, so they override the
         // defaults (last registration wins).
         services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
-        services.AddSingleton<ISecretProtector, PlaintextSecretProtector>();
+        // Hosts without a platform secret store must fail closed rather than
+        // silently persisting credentials in plaintext. Android replaces this
+        // registration with its Keystore-backed implementation below.
+        services.AddSingleton<ISecretProtector, NullSecretProtector>();
         services.AddSingleton<ILocationService, NoOpLocationService>();
         services.AddSingleton<IPermissionService, NoOpPermissionService>();
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
@@ -103,6 +107,7 @@ public static class ServiceProviderFactory
             options.UseSqlite($"Data Source={path}");
         });
         services.AddSingleton<AppSavedDataInitializer>();
+        services.AddSqliteRuntime();
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();

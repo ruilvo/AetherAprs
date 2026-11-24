@@ -2,77 +2,31 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Packets;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AetherAprs.Services.Packets;
+namespace AetherAprs.Data.Packets;
 
-/// <summary>
-/// Service for persisting and managing APRS packets in the database.
-/// </summary>
-public interface IPacketStorageService
-{
-    /// <summary>
-    /// Stores an APRS packet in the database.
-    /// </summary>
-    /// <param name="packet">The packet to store.</param>
-    /// <param name="portId">The port that received or sent the packet.</param>
-    /// <param name="isOutbound">True if this is a sent packet, false if received.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Stores an outbound logical message once. Concurrent calls for the same
-    /// message identity are serialized by a SQLite write transaction.
-    /// </summary>
-    Task EnsureOutboundMessageAsync(
-        MessagePacket packet, Guid? portId, int retryCount = 0,
-        DateTimeOffset? nextRetryTime = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates delivery state for an outbound logical message.
-    /// </summary>
-    Task UpdateOutboundMessageStatusAsync(
-        AprsAddress addressee,
-        int messageNumber,
-        MessageDeliveryStatus deliveryStatus,
-        int retryCount,
-        DateTimeOffset? nextRetryTime,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Removes packets older than the configured retention period.
-    /// </summary>
-    Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Raised when a packet is successfully stored in the database.
-    /// </summary>
-    event EventHandler? PacketStored;
-
-}
-
-public sealed class StoragePressureEventArgs(string operation, Exception exception) : EventArgs
+internal sealed class StoragePressureEventArgs(string operation, Exception exception) : EventArgs
 {
     public string Operation { get; } = operation;
 
     public Exception Exception { get; } = exception;
 }
 
-public sealed class PacketStorageService(
-    IDbContextFactory<AppDbContext> dbContextFactory,
+internal sealed class PacketStorageService(
+    SqliteRuntimeWriter writer,
     IConfigurationService configurationService,
     ILogger<PacketStorageService> logger) : IPacketStorageService
 {
@@ -92,30 +46,28 @@ public sealed class PacketStorageService(
 
         try
         {
-            logger.LogDebug("Storing {Direction} packet from {Source}, Type: {Type}",
-                isOutbound ? "outbound" : "inbound", packet.Source, packet.GetType().Name);
-
-            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            logger.LogDebug("Storing {Direction} packet of type {Type}",
+                isOutbound ? "outbound" : "inbound", packet.GetType().Name);
 
             var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound);
-            context.Packets.Add(record);
+            await writer.EnqueueAsync("packet.insert", async (context, token) =>
+            {
+                context.Packets.Add(record);
+                return await context.SaveChangesAsync(token).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
 
-            await context.SaveChangesAsync(cancellationToken);
-
-            logger.LogDebug("Stored {Direction} {PacketType} packet from {Source}",
-                isOutbound ? "outbound" : "inbound", record.PacketType, record.SourceBase);
+            logger.LogDebug("Stored {Direction} {PacketType} packet",
+                isOutbound ? "outbound" : "inbound", record.PacketType);
         }
         catch (Exception ex)
         {
             if (ex is Microsoft.Data.Sqlite.SqliteException { SqliteErrorCode: 5 or 13 or 14 })
             {
-                StoragePressureDetected?.Invoke(
-                    this,
-                    new StoragePressureEventArgs("store", ex));
+                NotifyStoragePressure(ex);
                 await CleanupOldPacketsAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            logger.LogError(ex, "Failed to store packet from {Source}", packet.Source);
+            logger.LogError(ex, "Failed to store {PacketType} packet", packet.GetType().Name);
             throw; // Re-throw to make errors more visible
         }
 
@@ -135,20 +87,17 @@ public sealed class PacketStorageService(
             throw new ArgumentException("A logical outbound message must have a message number.", nameof(packet));
         }
 
-        await using (var context = await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false))
+        var newRecord = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: true);
+        var addressee = packet.Addressee;
+        var inserted = await writer.EnqueueAsync("packet.ensure-outbound-message", async (context, token) =>
         {
-            // Microsoft.Data.Sqlite starts a non-deferred write transaction here.
-            // Reserve the writer before the lookup, including across store instances.
-            await using var transaction = await context.Database
-                .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
-            var records = await FindOutboundMessage(context, packet.Addressee, number)
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
+            var records = await FindOutboundMessage(context, addressee, number)
+                .ToListAsync(token).ConfigureAwait(false);
             if (records.Count == 0)
             {
-                var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: true);
-                record.Message!.RetryCount = retryCount;
-                record.Message.NextRetryTime = nextRetryTime?.UtcDateTime;
-                context.Packets.Add(record);
+                newRecord.Message!.RetryCount = retryCount;
+                newRecord.Message.NextRetryTime = nextRetryTime?.UtcDateTime;
+                context.Packets.Add(newRecord);
             }
             else
             {
@@ -163,16 +112,14 @@ public sealed class PacketStorageService(
                 }
             }
 
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(token).ConfigureAwait(false);
+            return records.Count == 0;
+        }, cancellationToken).ConfigureAwait(false);
 
-            if (records.Count > 0)
-            {
-                return;
-            }
+        if (inserted)
+        {
+            NotifyPacketStored();
         }
-
-        NotifyPacketStored();
     }
 
     private void NotifyPacketStored()
@@ -195,19 +142,37 @@ public sealed class PacketStorageService(
         }
     }
 
-    public async Task UpdateOutboundMessageStatusAsync(
+    private void NotifyStoragePressure(Exception exception)
+    {
+        if (StoragePressureDetected is not { } handlers)
+        {
+            return;
+        }
+
+        foreach (EventHandler<StoragePressureEventArgs> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(this, new StoragePressureEventArgs("store", exception));
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Storage pressure subscriber failed.");
+            }
+        }
+    }
+
+    public Task UpdateOutboundMessageStatusAsync(
         AprsAddress addressee,
         int messageNumber,
         MessageDeliveryStatus deliveryStatus,
         int retryCount,
         DateTimeOffset? nextRetryTime,
         CancellationToken cancellationToken = default)
+        => writer.EnqueueAsync("packet.update-outbound-message", async (context, token) =>
     {
-        await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        await using var transaction = await context.Database
-            .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
         var records = await FindOutboundMessage(context, addressee, messageNumber)
-            .ToListAsync(cancellationToken)
+            .ToListAsync(token)
             .ConfigureAwait(false);
 
         foreach (var record in records)
@@ -226,12 +191,10 @@ public sealed class PacketStorageService(
             }
         }
 
-        if (records.Count > 0)
-        {
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-    }
+        return records.Count > 0
+            ? await context.SaveChangesAsync(token).ConfigureAwait(false)
+            : 0;
+    }, cancellationToken);
 
     public async Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
     {
@@ -240,22 +203,35 @@ public sealed class PacketStorageService(
             var retentionDays = configurationService.Settings.Aprs.PacketRetentionDays;
             var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
-            await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-
-            var removedByAge = await DeleteEligibleBatchesAsync(
-                context,
-                packet => packet.Timestamp < cutoffDate,
-                cancellationToken).ConfigureAwait(false);
-
             var maximumRows = Math.Max(1, configurationService.Settings.Aprs.PacketRetentionMaxRows);
-            var removedByBound = 0;
-            var currentRows = await context.Packets.CountAsync(cancellationToken).ConfigureAwait(false);
-            while (currentRows > maximumRows)
+            var removedByAge = 0;
+            while (true)
             {
-                var removed = await DeleteOldestEligibleBatchAsync(
-                    context,
-                    Math.Min(CleanupBatchSize, currentRows - maximumRows),
-                    cancellationToken).ConfigureAwait(false);
+                var removed = await writer.EnqueueAsync("packet.cleanup-age", (context, token) =>
+                    DeleteOldestEligibleBatchAsync(context, context.Packets.Where(packet => packet.Timestamp < cutoffDate),
+                        CleanupBatchSize, token), cancellationToken).ConfigureAwait(false);
+                removedByAge += removed;
+                if (removed < CleanupBatchSize)
+                {
+                    break;
+                }
+            }
+
+            var removedByBound = 0;
+            while (true)
+            {
+                var (excess, removed) = await writer.EnqueueAsync("packet.cleanup-bound", async (context, token) =>
+                {
+                    var excess = await context.Packets.CountAsync(token).ConfigureAwait(false) - maximumRows;
+                    var deleted = excess <= 0 ? 0 : await DeleteOldestEligibleBatchAsync(context, context.Packets,
+                        Math.Min(CleanupBatchSize, excess), token).ConfigureAwait(false);
+                    return (excess, deleted);
+                }, cancellationToken).ConfigureAwait(false);
+                if (excess <= 0)
+                {
+                    break;
+                }
+
                 if (removed == 0)
                 {
                     logger.LogWarning(
@@ -265,7 +241,10 @@ public sealed class PacketStorageService(
                 }
 
                 removedByBound += removed;
-                currentRows -= removed;
+                if (removed == excess)
+                {
+                    break;
+                }
             }
 
             if (removedByAge + removedByBound > 0)
@@ -283,39 +262,13 @@ public sealed class PacketStorageService(
         }
     }
 
-    private static async Task<int> DeleteEligibleBatchesAsync(
-        AppDbContext context,
-        System.Linq.Expressions.Expression<Func<Data.Entities.PacketRecord, bool>> predicate,
-        CancellationToken cancellationToken)
-    {
-        var total = 0;
-        while (true)
-        {
-            var ids = await context.Packets
-                .Where(predicate)
-                .Where(IsSafeToDelete)
-                .OrderBy(packet => packet.Timestamp)
-                .ThenBy(packet => packet.Id)
-                .Select(packet => packet.Id)
-                .Take(CleanupBatchSize)
-                .ToListAsync(cancellationToken).ConfigureAwait(false);
-            if (ids.Count == 0)
-            {
-                return total;
-            }
-
-            total += await context.Packets
-                .Where(packet => ids.Contains(packet.Id))
-                .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
-        }
-    }
-
     private static async Task<int> DeleteOldestEligibleBatchAsync(
         AppDbContext context,
+        IQueryable<PacketRecord> candidates,
         int batchSize,
         CancellationToken cancellationToken)
     {
-        var ids = await context.Packets
+        var ids = await candidates
             .Where(IsSafeToDelete)
             .OrderBy(packet => packet.Timestamp)
             .ThenBy(packet => packet.Id)

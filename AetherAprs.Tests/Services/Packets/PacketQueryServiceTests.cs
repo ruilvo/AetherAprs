@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
+using AetherAprs.Data.Packets;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Services.Packets;
 using AetherAprs.Tests.Helpers;
 using Geo;
 using Microsoft.Extensions.Logging;
-using NSubstitute;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Packets;
@@ -21,16 +21,17 @@ namespace AetherAprs.Tests.Services.Packets;
 public sealed class PacketQueryServiceTests : IDisposable
 {
     private readonly TempAppDatabase _db;
-    private readonly ILogger<PacketQueryService> _logger;
+    private readonly SqliteRuntimeReader _reader;
+    private readonly ILogger<PacketQueryService> _logger = NullLogger<PacketQueryService>.Instance;
 
     public PacketQueryServiceTests()
     {
         _db = TempAppDatabase.CreateEmpty();
+        _reader = new SqliteRuntimeReader(_db.Factory);
         using (var db = _db.CreateContext())
         {
             db.Database.EnsureCreated();
         }
-        _logger = Substitute.For<ILogger<PacketQueryService>>();
     }
 
     public void Dispose()
@@ -42,7 +43,7 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetMostRecentPacketsAsync_EmptyDatabase_ReturnsEmptyDictionary()
     {
         // Arrange
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
@@ -110,7 +111,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
@@ -168,7 +169,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
@@ -210,7 +211,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentPacketsAsync(limit: 3, cancellationToken: TestContext.Current.CancellationToken);
@@ -268,7 +269,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentPositionPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
@@ -329,7 +330,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPacketsByPortAsync(port1, limit: 500, cancellationToken: TestContext.Current.CancellationToken);
@@ -406,7 +407,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPacketsByPortAsync(portId, limit: 500, cancellationToken: TestContext.Current.CancellationToken);
@@ -466,7 +467,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPacketsByCallsignAsync("K0OTH-1", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
@@ -524,7 +525,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPacketsByCallsignAsync("K0OTH", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
@@ -562,7 +563,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPacketsByCallsignAsync("K0OTH-99", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
@@ -602,7 +603,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPositionTrailPacketsAsync(cutoffTime: null, limit: 50000, cancellationToken: TestContext.Current.CancellationToken);
@@ -661,7 +662,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetPositionTrailPacketsAsync(cutoffTime: cutoff, limit: 50000, cancellationToken: TestContext.Current.CancellationToken);
@@ -722,7 +723,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentObjectsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
@@ -763,7 +764,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetMostRecentItemsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
@@ -805,7 +806,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.GetBulletinsAsync(limit: 500, cancellationToken: TestContext.Current.CancellationToken);
@@ -821,7 +822,7 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
-        var service = new PacketQueryService(_db.Factory, _logger);
+        var service = new PacketQueryService(_reader, _logger);
 
         // Act
         service.Dispose();
@@ -834,7 +835,7 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task MethodsAfterDispose_ThrowObjectDisposedException()
     {
         // Arrange
-        var service = new PacketQueryService(_db.Factory, _logger);
+        var service = new PacketQueryService(_reader, _logger);
         service.Dispose();
 
         // Act & Assert
@@ -846,7 +847,7 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_EmptyQuery_ReturnsEmptyList()
     {
         // Arrange
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.SearchStationsAsync("   ", cancellationToken: TestContext.Current.CancellationToken);
@@ -903,7 +904,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
@@ -980,7 +981,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.SearchStationsAsync("K0", cancellationToken: TestContext.Current.CancellationToken);
@@ -1021,7 +1022,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.SearchStationsAsync("SHEL", cancellationToken: TestContext.Current.CancellationToken);
@@ -1060,7 +1061,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.SearchStationsAsync("k0oth", cancellationToken: TestContext.Current.CancellationToken);
@@ -1113,7 +1114,7 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_db.Factory, _logger);
+        using var service = new PacketQueryService(_reader, _logger);
 
         // Act
         var result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);

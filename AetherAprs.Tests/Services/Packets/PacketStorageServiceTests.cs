@@ -7,6 +7,7 @@ using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
+using AetherAprs.Data.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Models.Messaging;
@@ -16,6 +17,7 @@ using AetherAprs.Tests.Helpers;
 using Geo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System;
 using System.IO;
@@ -26,12 +28,13 @@ using Xunit;
 
 namespace AetherAprs.Tests.Services.Packets;
 
-public sealed class PacketStorageServiceTests : IDisposable
+public sealed class PacketStorageServiceTests : IAsyncDisposable
 {
     private readonly TempAppDatabase _db;
     private readonly IConfigurationService _configurationService;
     private readonly ILogger<PacketStorageService> _logger;
     private readonly PacketStorageService _service;
+    private readonly SqliteRuntimeWriter _writer;
 
     public PacketStorageServiceTests()
     {
@@ -46,12 +49,14 @@ public sealed class PacketStorageServiceTests : IDisposable
         var appSettings = new AppSettings { Aprs = aprsSettings };
         _configurationService.Settings.Returns(appSettings);
 
-        _logger = Substitute.For<ILogger<PacketStorageService>>();
-        _service = new PacketStorageService(_db.Factory, _configurationService, _logger);
+        _logger = NullLogger<PacketStorageService>.Instance;
+        _writer = new SqliteRuntimeWriter(_db.Factory);
+        _service = new PacketStorageService(_writer, _configurationService, _logger);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        await _writer.DisposeAsync();
         _db.Dispose();
     }
 
@@ -146,7 +151,8 @@ public sealed class PacketStorageServiceTests : IDisposable
     {
         var packet = CreateOutboundMessage();
         var cancellationToken = TestContext.Current.CancellationToken;
-        var secondStore = new PacketStorageService(_db.Factory, _configurationService, _logger);
+        await using var secondWriter = new SqliteRuntimeWriter(_db.Factory);
+        var secondStore = new PacketStorageService(secondWriter, _configurationService, _logger);
         var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var first = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
         {
@@ -207,7 +213,7 @@ public sealed class PacketStorageServiceTests : IDisposable
         await _service.UpdateOutboundMessageStatusAsync(terminal.Addressee, 100,
             MessageDeliveryStatus.Acknowledged, 0, null, cancellationToken);
         await _service.StorePacketAsync(CreateOutboundMessage(1), null, cancellationToken: cancellationToken);
-        using var query = new PacketQueryService(_db.Factory, Substitute.For<ILogger<PacketQueryService>>());
+        using var query = new PacketQueryService(new SqliteRuntimeReader(_db.Factory), NullLogger<PacketQueryService>.Instance);
 
         var messages = await query.GetMessagePacketsAsync(1, cancellationToken);
 
@@ -428,7 +434,8 @@ public sealed class PacketStorageServiceTests : IDisposable
         var invalidPath = Path.Combine(Path.GetTempPath(), $"ReadOnlyDir-{Guid.NewGuid():N}", "invalid.db");
         var invalidFactory = new TestDbContextFactory(invalidPath);
         
-        var service = new PacketStorageService(invalidFactory, _configurationService, _logger);
+        await using var writer = new SqliteRuntimeWriter(invalidFactory);
+        var service = new PacketStorageService(writer, _configurationService, _logger);
         var notified = false;
         service.PacketStored += (_, _) => notified = true;
         
@@ -591,7 +598,8 @@ public sealed class PacketStorageServiceTests : IDisposable
         var invalidPath = Path.Combine(Path.GetTempPath(), $"ReadOnlyDir-{Guid.NewGuid():N}", "invalid.db");
         var invalidFactory = new TestDbContextFactory(invalidPath);
         
-        var service = new PacketStorageService(invalidFactory, _configurationService, _logger);
+        await using var writer = new SqliteRuntimeWriter(invalidFactory);
+        var service = new PacketStorageService(writer, _configurationService, _logger);
 
         // Act - should not throw, error is logged
         await service.CleanupOldPacketsAsync(TestContext.Current.CancellationToken);

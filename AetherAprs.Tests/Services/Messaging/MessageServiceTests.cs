@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
+using AetherAprs.Data.Packets;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.Models;
@@ -123,8 +124,9 @@ public sealed class MessageServiceTests
         var configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
         var resolver = Substitute.For<IAprsPortSettingsResolver>();
         resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        await using var writer = new SqliteRuntimeWriter(database.Factory);
         var storage = new PacketStorageService(
-            database.Factory,
+            writer,
             configuration,
             NullLogger<PacketStorageService>.Instance);
 
@@ -136,7 +138,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            new PacketQueryService(database.Factory, NullLogger<PacketQueryService>.Instance));
+            new PacketQueryService(new SqliteRuntimeReader(database.Factory), NullLogger<PacketQueryService>.Instance));
 
         await firstProcess.SendAsync(
             AprsAddress.FromCallsign(new Callsign("K0OTH")),
@@ -160,7 +162,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            new PacketQueryService(database.Factory, NullLogger<PacketQueryService>.Instance));
+            new PacketQueryService(new SqliteRuntimeReader(database.Factory), NullLogger<PacketQueryService>.Instance));
         await recoveredProcess.InitializeAsync(TestContext.Current.CancellationToken);
 
         var recoveredMessage = Assert.Single(Assert.Single(recoveredProcess.Conversations).Messages);
@@ -809,8 +811,9 @@ public sealed class MessageServiceTests
         {
             Aprs = new AprsSettings { Callsign = "N0CALL", Ssid = (AprsSsid)1 }
         });
+        await using var writer = new SqliteRuntimeWriter(db.Factory);
         var storage = new PacketStorageService(
-            db.Factory,
+            writer,
             storageConfiguration,
             NullLogger<PacketStorageService>.Instance);
         var service = CreateMessageService(portService, db.Factory, storage);
@@ -946,7 +949,7 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             dbContextFactory is null
                 ? null
-                : new PacketQueryService(dbContextFactory, NullLogger<PacketQueryService>.Instance));
+                : new PacketQueryService(new SqliteRuntimeReader(dbContextFactory), NullLogger<PacketQueryService>.Instance));
     }
 
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
