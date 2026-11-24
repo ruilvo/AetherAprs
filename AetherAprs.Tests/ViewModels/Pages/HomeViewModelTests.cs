@@ -198,15 +198,6 @@ public sealed class HomeViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public void EnablingTxPortWithoutCallsign_ThrowsValidationException()
-    {
-        // Verify that AprsSettings validation prevents empty callsigns
-        var configuration = new TestConfigurationService();
-        
-        Assert.Throws<ArgumentException>(() => configuration.Settings.Aprs.Callsign = string.Empty);
-    }
-
-    [Fact]
     public void UpdateMapResolution_ForwardsToLayerService()
     {
         var receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();

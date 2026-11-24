@@ -32,18 +32,16 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         var viewModel = CreateViewModel(scanner);
         var scanTask = viewModel.StartBleScanCommand.ExecuteAsync(null);
 
-        while (viewModel.BleDevices.Count < 1)
-        {
-            await Task.Yield();
-        }
+        await WaitUntilAsync(
+            () => viewModel.BleDevices.Count >= 1,
+            "the BLE advertisement to arrive");
 
         var selected = viewModel.BleDevices[0];
         viewModel.SelectedBleDevice = selected;
 
-        while (viewModel.IsBleScanning is false)
-        {
-            await Task.Yield();
-        }
+        await WaitUntilAsync(
+            () => viewModel.IsBleScanning,
+            "BLE scanning to start");
 
         Assert.Single(viewModel.BleDevices);
         Assert.Same(selected, viewModel.BleDevices[0]);
@@ -171,6 +169,20 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
 
         Assert.True(viewModel.IsEditing);
         Assert.Equal("Edit Existing Port", viewModel.Title);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, string description)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (!condition())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                Assert.Fail($"Timed out waiting for {description}.");
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
     }
 
     private static async IAsyncEnumerable<BluetoothLeAdvertisement> RepeatAdvertisementAsync(

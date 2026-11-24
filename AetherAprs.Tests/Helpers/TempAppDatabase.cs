@@ -9,12 +9,19 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Data;
 using AetherAprs.Data.Mappers;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Tests.Helpers;
 
 internal sealed class TempAppDatabase : IDisposable
 {
+    private const int DeleteAttempts = 80;
+    private static readonly TimeSpan DeleteRetryDelay = TimeSpan.FromMilliseconds(25);
+    private static readonly ILogger<TempAppDatabase> Logger = NullLogger<TempAppDatabase>.Instance;
+
     private TempAppDatabase(string directory, IDbContextFactory<AppDbContext> factory)
     {
         Directory = directory;
@@ -57,17 +64,28 @@ internal sealed class TempAppDatabase : IDisposable
 
     public void Dispose()
     {
-        try
+        // Idle pooled connections and in-flight background writes can keep the
+        // SQLite file open, which makes the recursive delete fail on Windows.
+        // Close idle pools, then retry briefly until the handle is released.
+        SqliteConnection.ClearAllPools();
+
+        for (var attempt = 1; attempt <= DeleteAttempts; attempt++)
         {
-            System.IO.Directory.Delete(Directory, recursive: true);
-        }
-        catch (IOException ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[TempAppDatabase] Failed to delete temp directory {Directory}: {ex.Message}");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[TempAppDatabase] Access denied deleting temp directory {Directory}: {ex.Message}");
+            try
+            {
+                System.IO.Directory.Delete(Directory, recursive: true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == DeleteAttempts)
+                {
+                    Logger.LogWarning(ex, "Failed to delete temp directory {Directory}", Directory);
+                    return;
+                }
+
+                Task.Delay(DeleteRetryDelay).GetAwaiter().GetResult();
+            }
         }
     }
 

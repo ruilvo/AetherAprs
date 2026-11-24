@@ -22,8 +22,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public static DbContextOptions<AppDbContext> CreateOptions(string databasePath)
     {
+        // Pooling keeps the SQLite file handle open after all contexts are
+        // disposed, which prevents deleting database files (notably the test
+        // suite's temporary databases).
         return new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite($"Data Source={databasePath}")
+            .UseSqlite($"Data Source={databasePath};Pooling=False")
             .Options;
     }
 
