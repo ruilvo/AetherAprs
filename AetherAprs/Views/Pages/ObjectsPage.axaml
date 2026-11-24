@@ -13,7 +13,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
-             xmlns:converters="using:AetherAprs.Converters.UI"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.ObjectsPage"
              x:DataType="vm:ObjectsViewModel"
@@ -43,12 +42,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Empty state -->
         <TextBlock Text="{loc:Loc ObjectsEmptyState}"
                    Classes="EmptyState"
-                   IsVisible="{Binding Objects, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+                   IsVisible="{Binding IsObjectsEmpty}" />
 
         <!-- Object cards -->
         <ItemsControl ItemsSource="{Binding Objects}"
                       Classes="CardList"
-                      IsVisible="{Binding Objects, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+                      IsVisible="{Binding HasObjects}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Spacing="8" />
@@ -76,7 +75,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     <Button Classes="Flat"
                             Padding="8"
                             MinHeight="48"
-                            Content="{loc:Loc EditTemplate}"
+                            Content="{loc:Loc EditObject}"
                             Command="{Binding $parent[UserControl].((vm:ObjectsViewModel)DataContext).EditCommand}"
                             CommandParameter="{Binding}" />
                     <Button Classes="Flat"

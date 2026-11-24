@@ -37,6 +37,20 @@ public sealed partial class BulletinsViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    /// <summary>
+    /// Gets a value indicating whether <see cref="Bulletins"/> has any items.
+    /// Updated whenever the collection is mutated so the page bindings do not
+    /// go stale on in-place changes.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasBulletins { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether <see cref="Bulletins"/> is empty.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsBulletinsEmpty { get; set; } = true;
+
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
 
@@ -75,6 +89,8 @@ public sealed partial class BulletinsViewModel : ViewModelBase
             {
                 Bulletins.Add(bulletin);
             }
+
+            UpdateEmptyState();
         }
         catch (Exception ex)
         {
@@ -147,5 +163,16 @@ public sealed partial class BulletinsViewModel : ViewModelBase
     private void Close()
     {
         _navigationService.GoBack();
+    }
+
+    partial void OnBulletinsChanged(ObservableCollection<BulletinPacket> value)
+    {
+        UpdateEmptyState();
+    }
+
+    private void UpdateEmptyState()
+    {
+        HasBulletins = Bulletins.Count > 0;
+        IsBulletinsEmpty = !HasBulletins;
     }
 }

@@ -33,6 +33,18 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
     public IReadOnlyList<MessageTemplate> Templates { get; private set; } = [];
 
     /// <summary>
+    /// Gets a value indicating whether <see cref="Templates"/> has any items.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasTemplates { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether <see cref="Templates"/> is empty.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsTemplatesEmpty { get; set; } = true;
+
+    /// <summary>
     /// Gets the result of the dialog, or null until confirmed.
     /// </summary>
     public MessageTemplateDialogResult? Result { get; private set; }
@@ -84,6 +96,8 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
         _hasCallerDestination = !string.IsNullOrEmpty(destination);
         Destination = destination ?? string.Empty;
         IsDestinationLocked = _hasCallerDestination;
+        HasTemplates = Templates.Count > 0;
+        IsTemplatesEmpty = !HasTemplates;
         OnPropertyChanged(nameof(Templates));
     }
 

@@ -36,6 +36,20 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
     public ObservableCollection<MessageTemplate> Templates { get; } = [];
 
     /// <summary>
+    /// Gets a value indicating whether <see cref="Templates"/> has any items.
+    /// Updated whenever the collection is refreshed so the page bindings do not
+    /// go stale on in-place changes.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasTemplates { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether <see cref="Templates"/> is empty.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsTemplatesEmpty { get; set; } = true;
+
+    /// <summary>
     /// Raised when the user requests adding a template.
     /// </summary>
     public event EventHandler<MessageTemplate?>? AddRequested;
@@ -67,6 +81,9 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
         {
             Templates.Add(template);
         }
+
+        HasTemplates = Templates.Count > 0;
+        IsTemplatesEmpty = !HasTemplates;
     }
 
     [RelayCommand]

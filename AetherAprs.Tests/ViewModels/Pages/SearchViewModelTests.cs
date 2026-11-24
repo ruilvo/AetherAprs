@@ -83,6 +83,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
 
         Assert.True(vm.HasSearched);
         Assert.False(vm.ShowNoResults);
+        Assert.True(vm.HasResults);
         var result = Assert.Single(vm.Results);
         Assert.Equal("N0CALL-1", result.Name);
         Assert.Equal("Station", result.Kind);
@@ -122,6 +123,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
 
         Assert.Empty(vm.Results);
         Assert.True(vm.ShowNoResults);
+        Assert.False(vm.HasResults);
     }
 
     [Fact]
@@ -138,6 +140,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
         Assert.Empty(vm.Results);
         Assert.False(vm.HasSearched);
         Assert.False(vm.ShowNoResults);
+        Assert.False(vm.HasResults);
     }
 
     [Fact]

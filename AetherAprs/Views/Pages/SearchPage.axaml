@@ -13,7 +13,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
-             xmlns:converters="using:AetherAprs.Converters.UI"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.SearchPage"
              x:DataType="vm:SearchViewModel"
@@ -62,7 +61,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Results -->
         <ItemsControl ItemsSource="{Binding Results}"
                       Classes="CardList"
-                      IsVisible="{Binding Results, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+                      IsVisible="{Binding HasResults}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Spacing="8" />
