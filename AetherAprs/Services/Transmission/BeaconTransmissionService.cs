@@ -160,8 +160,18 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             BeaconQueueItem? queued = null;
             try
             {
-                queued = _queue?.Enqueue(port.Id, location, DateTimeOffset.UtcNow);
-                _queue?.MarkSending(queued?.Id ?? Guid.Empty);
+                if (_queue is not null)
+                {
+                    var enqueueResult = _queue.Enqueue(port.Id, location, DateTimeOffset.UtcNow);
+                    queued = enqueueResult.Queued;
+                    LogEnqueueResult(enqueueResult, port.Name);
+                }
+
+                if (queued is not null)
+                {
+                    _queue!.MarkSending(queued.Id);
+                }
+
                 await _portService.SendPacketAsync(port.Id, packet);
                 if (queued is not null)
                 {
@@ -231,8 +241,18 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                 BeaconQueueItem? queued = null;
                 try
                 {
-                    queued = _queue?.Enqueue(port.Id, userLocation, DateTimeOffset.UtcNow);
-                    _queue?.MarkSending(queued?.Id ?? Guid.Empty);
+                    if (_queue is not null)
+                    {
+                        var enqueueResult = _queue.Enqueue(port.Id, userLocation, DateTimeOffset.UtcNow);
+                        queued = enqueueResult.Queued;
+                        LogEnqueueResult(enqueueResult, port.Name);
+                    }
+
+                    if (queued is not null)
+                    {
+                        _queue!.MarkSending(queued.Id);
+                    }
+
                     await _portService.SendPacketAsync(port.Id, packet);
                     if (queued is not null)
                     {
@@ -363,14 +383,30 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
-        try
+        var result = _queue.Enqueue(Guid.Empty, location, DateTimeOffset.UtcNow);
+        LogEnqueueResult(result, "any usable route");
+        BeaconStatus = Strings.Get("NoTxPortsEnabled");
+    }
+
+    /// <summary>
+    /// Surfaces an outbox overflow on the beacon path instead of throwing: the
+    /// caller learns which beacon was evicted and whether the new one was tracked.
+    /// </summary>
+    private void LogEnqueueResult(BeaconEnqueueResult result, string routeDescription)
+    {
+        if (result.Dropped is { } dropped)
         {
-            _queue.Enqueue(Guid.Empty, location, DateTimeOffset.UtcNow);
-            BeaconStatus = Strings.Get("NoTxPortsEnabled");
+            _logger.LogWarning(
+                "Beacon outbox full on {Route}; dropped queued beacon {BeaconId} for port {PortId} to admit a newer beacon.",
+                routeDescription,
+                dropped.Id,
+                dropped.PortId);
         }
-        catch (Exception exception)
+        else if (result.Queued is null)
         {
-            _logger.LogWarning(exception, "Beacon transmit queue rejected an offline beacon.");
+            _logger.LogWarning(
+                "Beacon outbox full on {Route}; the beacon was not tracked because every slot is in flight.",
+                routeDescription);
         }
     }
 
