@@ -59,6 +59,9 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private readonly CancellationTokenSource _disposalCts = new();
     private readonly Channel<QueuedPacket> _packetChannel;
     private readonly Task _packetProcessorTask;
+    private readonly Channel<DigipeatCandidate> _digipeatChannel;
+    private readonly Task _digipeatProcessorTask;
+    private readonly int _digipeatQueueCapacity;
     private readonly IDiagnosticEventSink? _diagnosticSink;
 
     // Inbound drops are counted per ingress port so a saturated or failing ingest
@@ -70,10 +73,18 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     /// <summary>Default number of queued inbound packets before drops are counted.</summary>
     private const int DefaultPacketQueueCapacity = 1024;
 
+    /// <summary>Default number of queued digipeat candidates before drops are counted.</summary>
+    private const int DefaultDigipeatQueueCapacity = 256;
+
+    /// <summary>Maximum time one digipeat transmission may occupy the relay consumer.</summary>
+    private static readonly TimeSpan DigipeatTransmitTimeout = TimeSpan.FromSeconds(30);
+
     /// <summary>Total storage attempts for one inbound packet, including the first.</summary>
     private const int StoreAttemptLimit = 3;
 
     private sealed record QueuedPacket(Guid PortId, AprsPacket Packet);
+
+    private sealed record DigipeatCandidate(Guid SourcePortId, AprsPacket Packet);
 
     public PortService(
         IDbContextFactory<AppDbContext> dbContextFactory,
@@ -90,7 +101,8 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         ISecretProtector secretProtector,
         ILocationTrackingService? locationTrackingService = null,
         IDiagnosticEventSink? diagnosticSink = null,
-        int packetQueueCapacity = DefaultPacketQueueCapacity)
+        int packetQueueCapacity = DefaultPacketQueueCapacity,
+        int digipeatQueueCapacity = DefaultDigipeatQueueCapacity)
     {
         ArgumentNullException.ThrowIfNull(secretProtector);
 
@@ -119,6 +131,18 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             FullMode = BoundedChannelFullMode.Wait
         });
         _packetProcessorTask = Task.Run(ProcessPacketQueueAsync);
+
+        // Digipeat candidates are relayed by their own consumer so a slow RF
+        // transmission never holds up ingest for other ports (audit C-06).
+        // The producer checks occupancy before writing, so a full queue drops the
+        // incoming candidate and counts it instead of silently discarding another.
+        _digipeatQueueCapacity = digipeatQueueCapacity;
+        _digipeatChannel = Channel.CreateBounded<DigipeatCandidate>(new BoundedChannelOptions(digipeatQueueCapacity)
+        {
+            SingleReader = true,
+            FullMode = BoundedChannelFullMode.DropNewest
+        });
+        _digipeatProcessorTask = Task.Run(ProcessDigipeatQueueAsync);
 
         _ports = [];
     }
@@ -792,9 +816,10 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
                 packet.Raw);
         }
 
-        // Queue for ordered sequential processing: storage → event → digipeat.
-        // A bounded channel preserves receive order (Id-ordering assumptions in the
-        // query service) and prevents unbounded Task.Run fan-out under bursts.
+        // Queue for ordered sequential processing: storage → event, then a
+        // separate digipeat consumer. A bounded channel preserves receive order
+        // (Id-ordering assumptions in the query service) and prevents unbounded
+        // Task.Run fan-out under bursts.
         // TryWrite is intentional: this runs on the modem read loop, which must not
         // block on the database. A full queue therefore drops the newest packet and
         // records it below rather than waiting (audit C-07).
@@ -820,6 +845,36 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         catch (Exception ex)
         {
             _logger.LogError(ex, "Packet processing queue terminated unexpectedly.");
+        }
+    }
+
+    private async Task ProcessDigipeatQueueAsync()
+    {
+        try
+        {
+            await foreach (var candidate in _digipeatChannel.Reader.ReadAllAsync(_disposalCts.Token).ConfigureAwait(false))
+            {
+                try
+                {
+                    await HandleDigipeatAsync(candidate.SourcePortId, candidate.Packet).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Failed to digipeat packet from {Source} received on port {SourcePortId}.",
+                        candidate.Packet.Source,
+                        candidate.SourcePortId);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected during disposal
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Digipeat queue terminated unexpectedly.");
         }
     }
 
@@ -849,15 +904,25 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             _logger.LogError(ex, "Exception in PacketReceived subscriber for packet from {Source}", packet.Source);
         }
 
-        // Handle digipeating
-        try
+        // Handle digipeating on a separate consumer: RF transmit latency must
+        // never block ingest of subsequent packets from any port (audit C-06).
+        EnqueueDigipeatCandidate(portId, packet);
+    }
+
+    /// <summary>
+    /// Queues a stored, published packet for the digipeat consumer. Runs on the
+    /// ingest consumer, so it never waits for transmit capacity; a full queue
+    /// drops the incoming candidate and counts it.
+    /// </summary>
+    private void EnqueueDigipeatCandidate(Guid portId, AprsPacket packet)
+    {
+        if (_digipeatChannel.Reader.Count >= _digipeatQueueCapacity)
         {
-            await HandleDigipeatAsync(portId, packet).ConfigureAwait(false);
+            RecordDroppedPacket(portId, packet, "Digipeat queue full; candidate dropped.");
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to digipeat packet from {Source}", packet.Source);
-        }
+
+        _digipeatChannel.Writer.TryWrite(new DigipeatCandidate(portId, packet));
     }
 
     /// <summary>
@@ -949,67 +1014,76 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     private async Task HandleDigipeatAsync(Guid sourcePortId, AprsPacket packet)
     {
-        try
+        // Get source port info
+        PortConfig? sourcePort;
+        lock (_stateLock)
         {
-            // Get source port info
-            PortConfig? sourcePort;
-            lock (_stateLock)
-            {
-                sourcePort = _ports.FirstOrDefault(p => p.Id == sourcePortId);
-            }
-
-            if (sourcePort is null)
-            {
-                return;
-            }
-
-            bool sourceIsAprsIs = sourcePort.TypeSettings is AprsIsSettings;
-
-            // Build list of available ports (running and TX-capable)
-            List<PortInfo> availablePorts;
-            lock (_stateLock)
-            {
-                availablePorts = [.. _ports
-                    .Where(p => _activeSessions.ContainsKey(p.Id))
-                    .Select(p => new PortInfo(
-                        p.Id,
-                        p.TypeSettings is AprsIsSettings,
-                        p.IsTx,
-                        p.AllowDigipeat))];
-            }
-
-            // Get digipeat targets
-            var targets = _digipeaterService.GetDigipeatTargets(
-                packet,
-                sourcePortId,
-                sourceIsAprsIs,
-                availablePorts);
-
-            // Send to each target port
-            foreach (var target in targets)
-            {
-                try
-                {
-                    await SendPacketAsync(target.PortId, target.Packet).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Expected during disposal
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(
-                        ex,
-                        "Failed to digipeat packet from {Source} to port {TargetPortId}",
-                        packet.Source,
-                        target.PortId);
-                }
-            }
+            sourcePort = _ports.FirstOrDefault(p => p.Id == sourcePortId);
         }
-        catch (Exception ex)
+
+        if (sourcePort is null)
         {
-            _logger.LogError(ex, "Error in digipeat handler for packet from {Source}", packet.Source);
+            return;
+        }
+
+        bool sourceIsAprsIs = sourcePort.TypeSettings is AprsIsSettings;
+
+        // Build list of available ports (running and TX-capable)
+        List<PortInfo> availablePorts;
+        lock (_stateLock)
+        {
+            availablePorts = [.. _ports
+                .Where(p => _activeSessions.ContainsKey(p.Id))
+                .Select(p => new PortInfo(
+                    p.Id,
+                    p.TypeSettings is AprsIsSettings,
+                    p.IsTx,
+                    p.AllowDigipeat))];
+        }
+
+        // Get digipeat targets
+        var targets = _digipeaterService.GetDigipeatTargets(
+            packet,
+            sourcePortId,
+            sourceIsAprsIs,
+            availablePorts);
+
+        // Send to each target port
+        foreach (var target in targets)
+        {
+            // A wedged modem must not stall the relay consumer forever. The token
+            // is linked to disposal and bounds only this transmit; the underlying
+            // SendPacketAsync has no cancellation parameter.
+            using var transmitCts = CancellationTokenSource.CreateLinkedTokenSource(_disposalCts.Token);
+            transmitCts.CancelAfter(DigipeatTransmitTimeout);
+
+            try
+            {
+                await SendPacketAsync(target.PortId, target.Packet)
+                    .WaitAsync(transmitCts.Token)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_disposalCts.IsCancellationRequested)
+            {
+                // Expected during disposal
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    "Digipeat transmit from {Source} to port {TargetPortId} timed out after {TimeoutSeconds} seconds.",
+                    packet.Source,
+                    target.PortId,
+                    DigipeatTransmitTimeout.TotalSeconds);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to digipeat packet from {Source} to port {TargetPortId}",
+                    packet.Source,
+                    target.PortId);
+            }
         }
     }
 
@@ -1042,15 +1116,26 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         GC.SuppressFinalize(this);
         _logger.LogInformation("Disposing PortService and stopping all active ports.");
 
-        // Stop packet processing first, then ports. The CTS is intentionally not
-        // disposed: queued callbacks may still reference its token, and disposing
-        // it can throw ObjectDisposedException synchronously into modem threads.
+        // Stop packet processing first, then digipeat relay and ports. The CTS is
+        // intentionally not disposed: queued callbacks may still reference its
+        // token, and disposing it can throw ObjectDisposedException synchronously
+        // into modem threads.
         _disposalCts.Cancel();
         _packetChannel.Writer.TryComplete();
+        _digipeatChannel.Writer.TryComplete();
 
         try
         {
             await _packetProcessorTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected during disposal
+        }
+
+        try
+        {
+            await _digipeatProcessorTask.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
