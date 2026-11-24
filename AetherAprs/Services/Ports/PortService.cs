@@ -193,7 +193,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             return false;
         }
 
-        return await StartModemAsync(port).ConfigureAwait(false);
+        return await StartModemAsync(port, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -571,10 +571,19 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         }
     }
 
-    private async Task<bool> StartModemAsync(PortConfig port)
+    private async Task<bool> StartModemAsync(PortConfig port, CancellationToken cancellationToken = default)
     {
+        // The caller's token (session supervision) and disposal both abort a
+        // transport that is still opening. BLE/RFCOMM connects can block for
+        // many seconds, so the token must reach IKissStreamConnector.ConnectAsync
+        // (audit P-18).
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            _disposalCts.Token);
+        var startToken = linkedCts.Token;
+
         var gate = GetSessionGate(port.Id);
-        await gate.WaitAsync(_disposalCts.Token).ConfigureAwait(false);
+        await gate.WaitAsync(startToken).ConfigureAwait(false);
         try
         {
             lock (_stateLock)
@@ -586,7 +595,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
                 }
             }
 
-            return await StartModemCoreAsync(port).ConfigureAwait(false);
+            return await StartModemCoreAsync(port, startToken).ConfigureAwait(false);
         }
         finally
         {
@@ -594,10 +603,12 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         }
     }
 
-    private async Task<bool> StartModemCoreAsync(PortConfig port)
+    private async Task<bool> StartModemCoreAsync(PortConfig port, CancellationToken cancellationToken)
     {
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             switch (port.TypeSettings)
             {
                 case AprsIsSettings aprsIsSettings:
@@ -646,7 +657,9 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
                     }
                 case KissSettings kiss:
                     {
-                        var stream = await _kissStreamFactory.OpenAsync(kiss).ConfigureAwait(false);
+                        var stream = await _kissStreamFactory
+                            .OpenAsync(kiss, cancellationToken)
+                            .ConfigureAwait(false);
                         var kissModem = new KissModem(stream, _loggerFactory);
                         var modem = new AprsRfModem(kissModem, _loggerFactory);
 
@@ -705,6 +718,25 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             }
 
             return true;
+        }
+        catch (OperationCanceledException) when (_disposalCts.IsCancellationRequested)
+        {
+            _logger.LogDebug(
+                "Start cancelled while PortService is disposing for port {PortName} ({PortId}).",
+                port.Name,
+                port.Id);
+            return false;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Supervision cancelled the connect (for example while stopping the
+            // session); let the caller observe cancellation instead of reporting
+            // a failed modem.
+            _logger.LogDebug(
+                "Start cancelled for port {PortName} ({PortId}).",
+                port.Name,
+                port.Id);
+            throw;
         }
         catch (Exception ex)
         {

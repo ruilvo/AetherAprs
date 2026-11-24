@@ -37,6 +37,12 @@ public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
             throw new ArgumentException("Bluetooth LE device address is required.", nameof(settings));
         }
 
+        // GetRemoteDevice throws IllegalArgumentException on a malformed address,
+        // so reject it before requesting permissions or touching the adapter.
+        var deviceAddress = BluetoothDeviceAddress.Normalize(
+            leSettings.DeviceAddress,
+            nameof(settings));
+
         await BluetoothPermissionHelper.EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
         var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
@@ -46,8 +52,8 @@ public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
             throw new InvalidOperationException("Bluetooth is disabled.");
         }
 
-        var device = adapter.GetRemoteDevice(leSettings.DeviceAddress)
-            ?? throw new InvalidOperationException($"Bluetooth LE device '{leSettings.DeviceAddress}' was not found.");
+        var device = adapter.GetRemoteDevice(deviceAddress)
+            ?? throw new InvalidOperationException($"Bluetooth LE device '{deviceAddress}' was not found.");
 
         return await BluetoothLeGattDuplexStream.ConnectAsync(
             device,

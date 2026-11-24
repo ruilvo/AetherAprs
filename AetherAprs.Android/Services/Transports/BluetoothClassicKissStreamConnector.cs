@@ -20,6 +20,13 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
 {
     private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB")!;
 
+    /// <summary>
+    /// Upper bound for the blocking RFCOMM connect. Some stacks report a
+    /// connection failure only after 10–30 seconds, and a hung peer can block
+    /// indefinitely; the socket is closed when this bound expires (audit P-19).
+    /// </summary>
+    private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(20);
+
     public Type SettingsType => typeof(BluetoothClassicKissTransportSettings);
 
     public bool IsSupported => true;
@@ -40,6 +47,12 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
             throw new ArgumentException("Bluetooth Classic device address is required.", nameof(settings));
         }
 
+        // Validate before requesting permissions or touching the adapter:
+        // GetRemoteDevice throws IllegalArgumentException on a malformed address.
+        var deviceAddress = BluetoothDeviceAddress.Normalize(
+            classicSettings.DeviceAddress,
+            nameof(settings));
+
         await BluetoothPermissionHelper.EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
         var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
@@ -49,8 +62,8 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
             throw new InvalidOperationException("Bluetooth is disabled.");
         }
 
-        var device = adapter.GetRemoteDevice(classicSettings.DeviceAddress)
-            ?? throw new InvalidOperationException($"Bluetooth device '{classicSettings.DeviceAddress}' was not found.");
+        var device = adapter.GetRemoteDevice(deviceAddress)
+            ?? throw new InvalidOperationException($"Bluetooth device '{deviceAddress}' was not found.");
         var socket = device.CreateRfcommSocketToServiceRecord(SppUuid)
             ?? throw new InvalidOperationException("Failed to create RFCOMM socket for SPP.");
         try
@@ -63,43 +76,40 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var connectTask = Task.Run(socket.Connect, cancellationToken);
-
-            await using (cancellationToken.Register(() =>
+            await using (cancellationToken.Register(() => CloseSocket(socket)))
             {
-                try
-                {
-                    socket.Close();
-                }
-                catch
-                {
-                    // Best-effort cancel.
-                }
-            }))
-            {
-                await connectTask.ConfigureAwait(false);
+                await BlockingConnectTimeout
+                    .RunAsync(socket.Connect, ConnectTimeout, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             if (!socket.IsConnected)
             {
-                throw new IOException($"Failed to connect to Bluetooth Classic device '{classicSettings.DeviceAddress}'.");
+                throw new IOException($"Failed to connect to Bluetooth Classic device '{deviceAddress}'.");
             }
 
             return new BluetoothSocketDuplexStream(socket);
         }
         catch
         {
-            try
-            {
-                socket.Close();
-            }
-            catch
-            {
-                // Ignore close failures while propagating the original error.
-            }
-
+            // The wait was bounded or cancelled while Connect() may still be
+            // blocked; closing the socket releases the native handle and lets
+            // the platform call fail instead of leaking a connection attempt.
+            CloseSocket(socket);
             socket.Dispose();
             throw;
+        }
+    }
+
+    private static void CloseSocket(global::Android.Bluetooth.BluetoothSocket socket)
+    {
+        try
+        {
+            socket.Close();
+        }
+        catch
+        {
+            // Best-effort cancel/cleanup.
         }
     }
 }
