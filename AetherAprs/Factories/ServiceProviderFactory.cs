@@ -168,8 +168,10 @@ public static class ServiceProviderFactory
         // Register location and transmission services
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
         services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
-        services.AddSingleton<IBeaconTransmitQueue>(_ =>
-            new FileBeaconTransmitQueue(Path.Combine(privateAppDataDirectory, "beacon-outbox.json")));
+        services.AddSingleton<IBeaconTransmitQueue>(provider =>
+            new FileBeaconTransmitQueue(
+                Path.Combine(privateAppDataDirectory, "beacon-outbox.json"),
+                provider.GetRequiredService<ILogger<FileBeaconTransmitQueue>>()));
 
         // Register factories
         services.AddSingleton<IPacketFactory, PacketFactory>();
