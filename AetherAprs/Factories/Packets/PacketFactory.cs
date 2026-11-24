@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
 using Geo;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AetherAprs.Factories.Packets;
@@ -17,8 +19,21 @@ namespace AetherAprs.Factories.Packets;
 /// </summary>
 public sealed class PacketFactory : IPacketFactory
 {
-    private readonly IConfigurationService _configurationService;
     private const double MetersToFeet = 3.28084;
+
+    /// <summary>
+    /// AX.25 destination carried by every packet this application transmits.
+    /// </summary>
+    /// <remarks>
+    /// By APRS convention the AX.25 destination field holds the software identifier
+    /// of the transmitting application, which lets receiving stations and APRS-IS
+    /// attribute the packet to its source. The identifier follows the allocation
+    /// scheme: the reserved <c>APZ</c> prefix marks an unregistered application and
+    /// <c>AEP</c> identifies AetherAprs.
+    /// </remarks>
+    private const string AprsSoftwareIdentifier = "APZAEP";
+
+    private readonly IConfigurationService _configurationService;
 
     public PacketFactory(IConfigurationService configurationService)
     {
@@ -33,41 +48,31 @@ public sealed class PacketFactory : IPacketFactory
         double? course = null,
         string? comment = null)
     {
-        if (!Callsign.TryParse(callsign, out var sourceCallsign))
-        {
-            throw new ArgumentException($"Invalid callsign format: {callsign}", nameof(callsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Use provided comment or fall back to configured default
-        var packetComment = comment;
-        if (string.IsNullOrWhiteSpace(packetComment))
+        return CreatePacket(callsign, settings, (source, destination, path) =>
         {
-            packetComment = _configurationService.Settings.Aprs.BeaconComment;
-        }
+            // Use provided comment or fall back to configured default
+            var packetComment = string.IsNullOrWhiteSpace(comment)
+                ? settings.BeaconComment
+                : comment;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
+            var format = settings.PositionFormat;
 
-        var format = _configurationService.Settings.Aprs.PositionFormat;
-
-        return new PositionPacket
-        {
-            Source = sourceCallsign,
-            Destination = new Callsign("APRS"),
-            Path = path,
-            Location = location.Location,
-            Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
-            Course = course,
-            Symbol = new Symbol(symbolTable, symbolCode),
-            Comment = packetComment,
-            Format = format,
-            Precision = format == PositionFormat.Compressed ? 3 : 2
-        };
+            return new PositionPacket
+            {
+                Source = source,
+                Destination = destination,
+                Path = path,
+                Location = location.Location,
+                Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
+                Course = course,
+                Symbol = new Symbol(symbolTable, symbolCode),
+                Comment = packetComment,
+                Format = format,
+                Precision = format == PositionFormat.Compressed ? 3 : 2
+            };
+        });
     }
 
     public MessagePacket CreateMessagePacket(
@@ -76,28 +81,17 @@ public sealed class PacketFactory : IPacketFactory
         string messageText,
         int? messageNumber = null)
     {
-        if (!Callsign.TryParse(sourceCallsign, out var source))
-        {
-            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
-
-        return new MessagePacket
+        return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessagePacket
         {
             Source = source,
-            Destination = new Callsign("APRS"),
+            Destination = destination,
             Path = path,
             Addressee = addressee,
             Text = messageText,
             MessageNumber = messageNumber
-        };
+        });
     }
 
     public MessageAckPacket CreateAckPacket(
@@ -105,27 +99,16 @@ public sealed class PacketFactory : IPacketFactory
         AprsAddress addressee,
         int messageNumber)
     {
-        if (!Callsign.TryParse(sourceCallsign, out var source))
-        {
-            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
-
-        return new MessageAckPacket
+        return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessageAckPacket
         {
             Source = source,
-            Destination = new Callsign("APRS"),
+            Destination = destination,
             Path = path,
             Addressee = addressee,
             MessageNumber = messageNumber
-        };
+        });
     }
 
     public MessageRejPacket CreateRejPacket(
@@ -133,27 +116,16 @@ public sealed class PacketFactory : IPacketFactory
         AprsAddress addressee,
         int messageNumber)
     {
-        if (!Callsign.TryParse(sourceCallsign, out var source))
-        {
-            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
-
-        return new MessageRejPacket
+        return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessageRejPacket
         {
             Source = source,
-            Destination = new Callsign("APRS"),
+            Destination = destination,
             Path = path,
             Addressee = addressee,
             MessageNumber = messageNumber
-        };
+        });
     }
 
     public ObjectPacket CreateObjectPacket(
@@ -165,23 +137,12 @@ public sealed class PacketFactory : IPacketFactory
         bool isLive = true,
         string? comment = null)
     {
-        if (!Callsign.TryParse(sourceCallsign, out var source))
-        {
-            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
-
-        return new ObjectPacket
+        return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ObjectPacket
         {
             Source = source,
-            Destination = new Callsign("APRS"),
+            Destination = destination,
             Path = path,
             Name = name,
             IsLive = isLive,
@@ -189,7 +150,7 @@ public sealed class PacketFactory : IPacketFactory
             Symbol = new Symbol(symbolTable, symbolCode),
             Comment = comment,
             Precision = 2
-        };
+        });
     }
 
     public ItemPacket CreateItemPacket(
@@ -201,23 +162,12 @@ public sealed class PacketFactory : IPacketFactory
         bool isLive = true,
         string? comment = null)
     {
-        if (!Callsign.TryParse(sourceCallsign, out var source))
-        {
-            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
-
-        return new ItemPacket
+        return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ItemPacket
         {
             Source = source,
-            Destination = new Callsign("APRS"),
+            Destination = destination,
             Path = path,
             Name = name,
             IsLive = isLive,
@@ -225,7 +175,7 @@ public sealed class PacketFactory : IPacketFactory
             Symbol = new Symbol(symbolTable, symbolCode),
             Comment = comment,
             Precision = 2
-        };
+        });
     }
 
     public BulletinPacket CreateBulletinPacket(
@@ -234,27 +184,50 @@ public sealed class PacketFactory : IPacketFactory
         string text,
         int? messageNumber = null)
     {
-        if (!Callsign.TryParse(sourceCallsign, out var source))
-        {
-            throw new ArgumentException($"Invalid callsign format: {sourceCallsign}", nameof(sourceCallsign));
-        }
+        var settings = _configurationService.Settings.Aprs;
 
-        // Get digipeater path from settings
-        var path = Array.Empty<Callsign>();
-        var pathString = _configurationService.Settings.Aprs.DigipeaterPath;
-        if (!string.IsNullOrWhiteSpace(pathString))
-        {
-            path = PathHelper.ParsePath(pathString).ToArray();
-        }
-
-        return new BulletinPacket
+        return CreatePacket(sourceCallsign, settings, (source, destination, path) => new BulletinPacket
         {
             Source = source,
-            Destination = new Callsign("APRS"),
+            Destination = destination,
             Path = path,
             Name = name,
             Text = text,
             MessageNumber = messageNumber
-        };
+        });
+    }
+
+    /// <summary>
+    /// Builds a packet from the addressing every APRS packet shares: the validated
+    /// source callsign, the software-identifier destination, and the configured
+    /// digipeater path.
+    /// </summary>
+    private static T CreatePacket<T>(
+        string sourceCallsign,
+        AprsSettings settings,
+        Func<Callsign, Callsign, IReadOnlyList<Callsign>, T> build)
+    {
+        var source = ResolveSource(sourceCallsign);
+
+        return build(source, new Callsign(AprsSoftwareIdentifier), ResolvePath(settings));
+    }
+
+    private static Callsign ResolveSource(string callsign)
+    {
+        if (!Callsign.TryParse(callsign, out var source))
+        {
+            throw new ArgumentException($"Invalid callsign format: {callsign}", nameof(callsign));
+        }
+
+        return source;
+    }
+
+    private static IReadOnlyList<Callsign> ResolvePath(AprsSettings settings)
+    {
+        var pathString = settings.DigipeaterPath;
+
+        return string.IsNullOrWhiteSpace(pathString)
+            ? Array.Empty<Callsign>()
+            : PathHelper.ParsePath(pathString).ToArray();
     }
 }

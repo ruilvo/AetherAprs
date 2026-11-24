@@ -143,7 +143,7 @@ public sealed partial class SearchViewModel : ViewModelBase
 
     private static SearchResultItem CreateResultItem(PacketRecord packet)
     {
-        var source = FormatCallsign(packet.SourceBase, packet.SourceSsid);
+        var source = AprsSsidExtensions.FormatCallsign(packet.SourceBase, packet.SourceSsid);
 
         // Object packets match on their name and are reported by a station; the
         // details page is keyed by source callsign, so navigating an object opens
@@ -162,13 +162,6 @@ public sealed partial class SearchViewModel : ViewModelBase
             Strings.Get("SearchStationKind"),
             source,
             null);
-    }
-
-    private static string FormatCallsign(string baseCallsign, AprsSsid ssid)
-    {
-        return ssid != AprsSsid.PrimaryStation
-            ? $"{baseCallsign}-{(byte)ssid}"
-            : baseCallsign;
     }
 
     [RelayCommand]

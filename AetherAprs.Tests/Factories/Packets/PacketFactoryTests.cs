@@ -22,6 +22,12 @@ public sealed class PacketFactoryTests
 {
     private const string DefaultBeaconComment = "AetherAprs beacon";
 
+    /// <summary>
+    /// The AX.25 destination software identifier expected on every transmitted packet.
+    /// Kept as a literal so the test fails if the production constant changes silently.
+    /// </summary>
+    private const string ExpectedSoftwareIdentifier = "APZAEP";
+
     private static IPacketFactory CreateFactory(
         string? digipeaterPath = null,
         string beaconComment = DefaultBeaconComment,
@@ -66,7 +72,7 @@ public sealed class PacketFactoryTests
             course: 90);
 
         Assert.Equal(new Callsign("N0CALL", 7), packet.Source);
-        Assert.Equal(new Callsign("APRS"), packet.Destination);
+        Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
         Assert.Equal(38.5, packet.Location.Latitude);
         Assert.Equal(-9.0, packet.Location.Longitude);
         Assert.Equal(90, packet.Course);
@@ -235,7 +241,7 @@ public sealed class PacketFactoryTests
         var packet = factory.CreateMessagePacket("N0CALL-1", addressee, "Hello", messageNumber: 42);
 
         Assert.Equal(new Callsign("N0CALL", 1), packet.Source);
-        Assert.Equal(new Callsign("APRS"), packet.Destination);
+        Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
         Assert.Equal(addressee, packet.Addressee);
         Assert.Equal("Hello", packet.Text);
         Assert.Equal(42, packet.MessageNumber);
@@ -261,7 +267,7 @@ public sealed class PacketFactoryTests
         var packet = factory.CreateAckPacket("N0CALL-1", addressee, 5);
 
         Assert.Equal(new Callsign("N0CALL", 1), packet.Source);
-        Assert.Equal(new Callsign("APRS"), packet.Destination);
+        Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
         Assert.Equal(addressee, packet.Addressee);
         Assert.Equal(5, packet.MessageNumber);
         _ = Assert.Single(packet.Path);
@@ -286,7 +292,7 @@ public sealed class PacketFactoryTests
         var packet = factory.CreateRejPacket("N0CALL-1", addressee, 6);
 
         Assert.Equal(new Callsign("N0CALL", 1), packet.Source);
-        Assert.Equal(new Callsign("APRS"), packet.Destination);
+        Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
         Assert.Equal(addressee, packet.Addressee);
         Assert.Equal(6, packet.MessageNumber);
         _ = Assert.Single(packet.Path);
@@ -300,5 +306,77 @@ public sealed class PacketFactoryTests
 
         Assert.Throws<ArgumentException>(() =>
             factory.CreateRejPacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), 1));
+    }
+
+    [Fact]
+    public void CreateEveryPacketType_UsesSoftwareIdentifierDestinationAndConfiguredPath()
+    {
+        var factory = CreateFactory(digipeaterPath: "WIDE1-1,WIDE2-1");
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
+        var location = CreateLocation();
+
+        var packets = new AprsPacket[]
+        {
+            factory.CreatePositionPacket(
+                location, "N0CALL-1", SymbolTable.Primary, SymbolCode.HyphenMinus),
+            factory.CreateMessagePacket("N0CALL-1", addressee, "Hello", messageNumber: 1),
+            factory.CreateAckPacket("N0CALL-1", addressee, 1),
+            factory.CreateRejPacket("N0CALL-1", addressee, 1),
+            factory.CreateObjectPacket(
+                "N0CALL-1", "OBJ", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus),
+            factory.CreateItemPacket(
+                "N0CALL-1", "ITM", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus),
+            factory.CreateBulletinPacket("N0CALL-1", "BLN0TEST", "Bulletin text")
+        };
+
+        Assert.Equal(7, packets.Length);
+
+        foreach (var packet in packets)
+        {
+            // The AX.25 destination carries the APRS software identifier, not "APRS".
+            Assert.Equal(ExpectedSoftwareIdentifier, packet.Destination.Base);
+            Assert.Null(packet.Destination.Ssid);
+
+            Assert.Equal(2, packet.Path.Count);
+            Assert.Equal(new Callsign("WIDE1", 1), packet.Path[0]);
+            Assert.Equal(new Callsign("WIDE2", 1), packet.Path[1]);
+        }
+    }
+
+    [Fact]
+    public void CreateEveryPacketType_InvalidCallsign_ThrowsArgumentExceptionWithSharedMessageShape()
+    {
+        const string invalidCallsign = "BAD!";
+
+        var factory = CreateFactory();
+        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
+        var location = CreateLocation();
+
+        var cases = new (string PacketType, Func<AprsPacket> Create)[]
+        {
+            ("position", () => factory.CreatePositionPacket(
+                location, invalidCallsign, SymbolTable.Primary, SymbolCode.HyphenMinus)),
+            ("message", () => factory.CreateMessagePacket(invalidCallsign, addressee, "Hello")),
+            ("ack", () => factory.CreateAckPacket(invalidCallsign, addressee, 1)),
+            ("rej", () => factory.CreateRejPacket(invalidCallsign, addressee, 1)),
+            ("object", () => factory.CreateObjectPacket(
+                invalidCallsign, "OBJ", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus)),
+            ("item", () => factory.CreateItemPacket(
+                invalidCallsign, "ITM", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus)),
+            ("bulletin", () => factory.CreateBulletinPacket(invalidCallsign, "BLN0TEST", "Text"))
+        };
+
+        Assert.Equal(7, cases.Length);
+
+        foreach (var @case in cases)
+        {
+            var exception = Assert.Throws<ArgumentException>(() => @case.Create());
+
+            Assert.True(
+                exception.Message.StartsWith(
+                    $"Invalid callsign format: {invalidCallsign}",
+                    StringComparison.Ordinal),
+                $"{@case.PacketType} packet must keep the shared invalid-callsign message shape.");
+        }
     }
 }

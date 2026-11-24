@@ -220,7 +220,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         var isObject = record.Object != null || record.Item != null;
         var source = isObject
             ? (record.Object?.Name ?? record.Item?.Name ?? string.Empty)
-            : FormatCallsign(record.SourceBase, record.SourceSsid);
+            : AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
 
         return new PacketSummary
         {
@@ -262,7 +262,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
         if (record.Message != null)
         {
-            var addressee = FormatCallsign(record.Message.AddresseeBase, record.Message.AddresseeSsid);
+            var addressee = AprsSsidExtensions.FormatCallsign(record.Message.AddresseeBase, record.Message.AddresseeSsid);
             return Strings.Format("PreviewMessageTo", addressee, record.Message.Text);
         }
 
@@ -278,13 +278,6 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         }
 
         return record.RawInfo != null && record.RawInfo.Length > 40 ? record.RawInfo[..40] + "..." : record.RawInfo ?? "";
-    }
-
-    private static string FormatCallsign(string baseCallsign, AprsSsid? ssid)
-    {
-        return ssid.HasValue && ssid.Value != AprsSsid.PrimaryStation
-            ? $"{baseCallsign}-{(byte)ssid.Value}"
-            : baseCallsign;
     }
 
     /// <summary>
