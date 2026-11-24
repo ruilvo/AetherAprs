@@ -27,18 +27,24 @@ platform-independent development.
 
 ## Install
 
-Download the latest signed Android APK from
-[GitHub Releases](https://github.com/RuiOliveira/AetherAprs/releases). Android asks for
-location, Bluetooth, notification, and foreground-service permissions as needed.
+Install the signed APK from [GitHub Releases](https://github.com/ruilvo/AetherAprs/releases)
+on Android 13 or later.
 
-The user guides are in [`DOCS/wiki`](DOCS/wiki):
+1. In **Settings**, set your station callsign and SSID, symbol, and beacon profile.
+2. In **Ports**, add an APRS-IS or KISS port. APRS-IS uses a server, optional receive
+   filter, and a valid passcode for transmit; `rotate.aprs2.net:14580` is a common
+   starting point. KISS/TCP uses the TNC's address. Pair Classic devices in Android
+   settings; scan for a compatible BLE KISS device from the port editor.
+3. Enable RX on the port, save it, and start it. Check **Packets** for traffic and
+   **Home** for positions. If nothing arrives, check the connection and receive filter.
+4. Enable TX only on the intended routes. Review your beacon comment, APRS path, and
+   forwarding settings before sending. **Messages** shows conversations and delivery
+   status. APRS traffic is public; don't transmit private information.
 
-- [Getting Started](DOCS/wiki/Getting-Started.md)
-- [Port Configuration](DOCS/wiki/Port-Configuration.md)
-- [Beaconing](DOCS/wiki/Beaconing-Setup.md)
-- [Messaging](DOCS/wiki/Messaging.md)
-- [APRS Paths and Comments](DOCS/wiki/APRS-Path-and-Comments.md)
-- [Production-Grade Design Sheet](DOCS/wiki/Production-Grade-Design-Sheet.md)
+The app requests location permission; a position also needs a usable fix. Bluetooth
+needs nearby-device permissions and Android controls notification and background
+behavior. Continuous operation after Android stops the app is not guaranteed.
+Download or select offline map data before losing Internet access.
 
 ## Build
 
@@ -50,15 +56,16 @@ Prerequisites:
 - Git
 
 ```bash
-git clone https://github.com/RuiOliveira/AetherAprs.git
+git clone https://github.com/ruilvo/AetherAprs.git
 cd AetherAprs
+dotnet workload restore AetherAprs.Android/AetherAprs.Android.csproj
 dotnet build AetherAprs.slnx
 dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
-dotnet build AetherAprs.Android/AetherAprs.Android.csproj -c Release
+dotnet build AetherAprs.Android/AetherAprs.Android.csproj
 ```
 
-For Android deployment, emulator setup, signing, and troubleshooting, see
-[Building from Source](DOCS/wiki/Building-from-Source.md).
+For local deployment, use an API 33+ emulator or a device with USB debugging and
+`dotnet build AetherAprs.Android/AetherAprs.Android.csproj -t:Install`.
 
 ## Architecture
 
@@ -74,10 +81,11 @@ The read path is:
 SQLite → PacketQueryService → ViewModels → Avalonia views
 ```
 
-Transmission always goes through `PortService`. Ports do not access the database,
-`PacketStorageService` is the packet writer, and ViewModels do not query EF Core directly.
-The [Developer Guide](DOCS/wiki/Developer-Guide.md) describes the project structure and
-development workflow. [AGENTS.md](AGENTS.md) contains the repository rules.
+`PortService` coordinates packet transmission. Packet history has a shared storage
+and query path; the application-wide SQLite writer and reader boundaries are still
+being consolidated. [AGENTS.md](AGENTS.md) covers the source layout and contributor
+rules. The [architecture roadmap](DOCS/ARCHITECTURE-ROADMAP-2026-11-24.md) describes
+the target architecture, feature work, and implementation order.
 
 ## Contributing
 
@@ -90,11 +98,18 @@ dotnet test AetherAprs.Tests/AetherAprs.Tests.csproj
 pre-commit run reuse-lint-file --all-files
 ```
 
+Report unfixed vulnerabilities privately through
+[GitHub Security Advisories](https://github.com/ruilvo/AetherAprs/security/advisories/new).
+Include the affected build, observed impact, and a minimal description with synthetic
+data. Keep credentials, real callsigns, location histories, and packet or message
+content out of diagnostic attachments and public issues.
+
 ## License
 
 Code is licensed under GPL-3.0-or-later. Documentation is licensed under CC-BY-SA-4.0.
 Configuration files use the license stated in their SPDX header. License texts are in
-[`LICENSES`](LICENSES).
+[`LICENSES`](LICENSES); bundled symbols retain their
+[upstream notices](AetherAprs/Assets/Aprs/COPYRIGHT.md).
 
 APRS transmissions must comply with the operator's license privileges, local regulations,
 and applicable APRS network practices.

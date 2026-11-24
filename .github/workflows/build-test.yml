@@ -40,8 +40,5 @@ jobs:
       - name: Check repository whitespace
         run: git diff --check
 
-      - name: Check codebase structure documentation
-        run: python3 .github/scripts/check_docs_structure.py
-
       - name: Check for vulnerable packages
         run: python3 .github/scripts/check_vulnerable_packages.py AetherAprs.slnx

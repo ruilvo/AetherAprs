@@ -39,7 +39,7 @@ AetherAprs/                 Core application and platform-neutral services
 AetherAprs.Android/         Android entry point and Android service adapters
 AetherAprs.Tests/            xUnit v3 tests
 AetherAprs.Android.Tests/    Android instrumentation tests (build-only in CI)
-DOCS/wiki/                  User and developer guides
+DOCS/ARCHITECTURE-ROADMAP-2026-11-24.md   Target design and implementation backlog
 ```
 
 Within the core project:
@@ -47,51 +47,60 @@ Within the core project:
 - `Configuration/` contains settings and port configuration.
 - `Data/` contains EF Core entities, mappers, migrations, and database infrastructure.
 - `Models/Aprs/Packets/` contains APRS packet types.
-- `Services/{Beaconing,Location,Messaging,Packets,Platform,Ports,Transmission,UI}/`
-  contains domain services and platform abstractions.
+- `Services/{Beaconing,Bluetooth,Configuration,Contracts,Diagnostics,Location,Messaging,Objects,Packets,Platform,Ports,Transmission,UI}/`
+  contains domain services, contracts, diagnostics, objects, and platform abstractions.
 - `Factories/` contains service and ViewModel factories.
 - `ViewModels/Pages/` and `ViewModels/Components/` mirror `Views/Pages/` and
-  `Views/Components/`.
+  `Views/Components/`; `Views/Windows/` contains top-level windows.
 - `Converters/Aprs/` and `Converters/UI/` contain Avalonia converters.
 - New namespaces must match their folder path.
 
-See [CODEBASE_STRUCTURE.md](CODEBASE_STRUCTURE.md) for the folder map.
+Android adapters live under `AetherAprs.Android/Services/Platform/` and
+`AetherAprs.Android/Transports/`. Match tests to the subsystem in `AetherAprs.Tests/`.
 
 ## Architecture boundaries
 
-Incoming packets follow:
+Packet ingestion follows:
 
 ```text
-Port → PortService → PacketStorageService → SQLite
+Port → PortService → packet ingest queue → PacketStorageService → SQLite
 ```
 
-Database reads follow:
+Packet reads follow:
 
 ```text
 SQLite → PacketQueryService → consumers
 ```
 
-Outgoing packets follow:
+Outbound producers use `PortService.SendPacketAsync()` for transmission. Persist
+durable work (such as user messages) before sending; don't queue live-only
+forwarding work for replay.
 
-```text
-consumer → PortService.SendPacketAsync() → Port
-```
-
-Ports must not write to the database. `PacketStorageService` is the only packet writer.
-ViewModels must use `PacketQueryService` for packet database reads; message data goes
-through `MessageService`. Consumers must use `PortService` for transmission. Views
-contain presentation and bindings, not business or infrastructure logic.
+The [roadmap](DOCS/ARCHITECTURE-ROADMAP-2026-11-24.md) defines the target: one
+serialized runtime SQLite writer and one logical reader with typed operations.
+Existing feature persistence is being migrated. Do not add direct EF access to
+feature services or ViewModels. Use `PacketStorageService` and `PacketQueryService`
+for packet history. Publish configuration changes only after successful persistence;
+reconnect must never change the operator's saved enablement.
+ViewModels must use query services for database reads and feature services for
+state changes. Consumers must use `PortService` for transmission. Views contain
+bindings, presentation logic, event wiring, and UI dialog orchestration; business,
+persistence, and transport logic belong in ViewModels or services.
 
 ## MVVM and dependency injection
 
 - Use CommunityToolkit.Mvvm.
 - Use partial `[ObservableProperty]` properties, not backing-field generator syntax.
 - Inject services and child ViewModels through constructors.
-- Register every new ViewModel in `ServiceProviderFactory`, `DesignData`, and `ViewLocator`.
-- Use a factory for transient ViewModels that need post-construction context.
-- Let `ViewLocator` map ViewModels to views. Use `ContentControl` for child ViewModels.
-- Keep design-time registrations free of live databases, network connections, hardware,
-  and platform-only APIs.
+- Register ViewModels created by DI or resolved through navigation. Add a
+  `ViewLocator` mapping only for ViewModels rendered through automatic
+  data-template resolution; child ViewModels may be constructed by their owner.
+- Use factories for transient ViewModels that require runtime context or
+  post-construction initialization.
+- Use `ContentControl` and `ViewLocator` for child ViewModels rendered by data
+  templates. Explicitly wired views don't need a locator entry.
+- Keep design time isolated from production data, network, hardware, and
+  platform-only APIs. An isolated test database or a fake is fine.
 
 ## Events, async code, and disposal
 
@@ -101,7 +110,11 @@ contain presentation and bindings, not business or infrastructure logic.
 - Avoid `async void` except for event handlers, and catch/log failures in those handlers.
 - Give background work cancellation and stop it during disposal.
 - Use `ILogger<T>` with structured messages; do not use `Debug.WriteLine`.
-- Use `System.DateTime` in UTC for SQLite timestamps and convert at UI boundaries.
+- Store SQLite timestamps in UTC. Domain instants can use `DateTimeOffset`;
+  convert for local display at the UI boundary. Keep receipt time distinct from
+  protocol timestamps.
+- Keep credentials, message text, raw frames, and exact positions out of routine
+  diagnostics. Use synthetic data in fixtures and reports.
 
 ## Naming and source conventions
 
@@ -143,4 +156,5 @@ Run `pre-commit run reuse-lint-file --all-files` before committing.
 - REUSE lint passes.
 - No stale docs, hardcoded UI strings, direct database access, or unregistered ViewModels
   were introduced.
-- User-facing behavior is documented in `DOCS/wiki` when it changes.
+- Update README setup or usage instructions when affected; update the roadmap when
+  an architectural decision or work-item status changes.
