@@ -19,6 +19,7 @@ AetherAprs.Android.Tests/   Android instrumentation tests (build-only in CI)
 
 | Folder | Responsibility |
 |---|---|
+| `Assets/` | Application icon and bundled image assets |
 | `Behaviors/` | Avalonia attached behaviors |
 | `Configuration/` | Settings, port configuration, UI enums |
 | `Converters/Aprs/` | APRS-specific converters |
