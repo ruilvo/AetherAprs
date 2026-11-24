@@ -20,13 +20,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<BeaconingStateRecord> BeaconingState => Set<BeaconingStateRecord>();
 
-    public static DbContextOptions<AppDbContext> CreateOptions(string databasePath)
+    public static DbContextOptions<AppDbContext> CreateOptions(string databasePath, bool pooling = true)
     {
         // Pooling keeps the SQLite file handle open after all contexts are
-        // disposed, which prevents deleting database files (notably the test
-        // suite's temporary databases).
+        // disposed, which prevents deleting database files. Production wants the
+        // pool; the test suite disables it so its temporary databases can be
+        // removed (audit T-02).
+        var connectionString = pooling
+            ? $"Data Source={databasePath}"
+            : $"Data Source={databasePath};Pooling=False";
         return new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite($"Data Source={databasePath};Pooling=False")
+            .UseSqlite(connectionString)
             .Options;
     }
 

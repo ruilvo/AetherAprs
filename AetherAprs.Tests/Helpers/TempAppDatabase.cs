@@ -91,7 +91,8 @@ internal sealed class TempAppDatabase : IDisposable
 
     private sealed class TestAppDbContextFactory(string path) : IDbContextFactory<AppDbContext>
     {
-        public AppDbContext CreateDbContext() => new(AppDbContext.CreateOptions(path));
+        public AppDbContext CreateDbContext() =>
+            new(AppDbContext.CreateOptions(path, pooling: false));
 
         public Task<AppDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(CreateDbContext());
