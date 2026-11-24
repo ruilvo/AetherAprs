@@ -26,4 +26,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <ItemGroup>
     <ProjectReference Include="..\AetherAprs\AetherAprs.csproj" />
   </ItemGroup>
+
+  <!--
+    Android transport helpers that contain no Android types are compiled into
+    this desktop test assembly so their validation, status-classification and
+    timeout behaviour can be unit-tested without a device.
+  -->
+  <ItemGroup>
+    <Compile Include="..\AetherAprs.Android\Services\Transports\BluetoothDeviceAddress.cs"
+             Link="Android\Services\Transports\BluetoothDeviceAddress.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\BlockingConnectTimeout.cs"
+             Link="Android\Services\Transports\BlockingConnectTimeout.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattConnectionPolicy.cs"
+             Link="Android\Services\Transports\GattConnectionPolicy.cs" />
+  </ItemGroup>
 </Project>

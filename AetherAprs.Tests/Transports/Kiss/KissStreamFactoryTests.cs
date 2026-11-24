@@ -49,6 +49,35 @@ public sealed class KissStreamFactoryTests
     }
 
     [Fact]
+    public async Task OpenAsync_ForwardsCancellationTokenToBothBluetoothConnectors()
+    {
+        var classic = new StubConnector(typeof(BluetoothClassicKissTransportSettings), isSupported: true);
+        var le = new StubConnector(typeof(BluetoothLeKissTransportSettings), isSupported: true);
+        var factory = new KissStreamFactory([classic, le]);
+        using var cts = new CancellationTokenSource();
+
+        await using (var stream = await factory.OpenAsync(
+            new KissSettings
+            {
+                Transport = new BluetoothClassicKissTransportSettings()
+            },
+            cts.Token))
+        {
+            Assert.Equal(cts.Token, classic.CapturedToken);
+        }
+
+        await using (var stream = await factory.OpenAsync(
+            new KissSettings
+            {
+                Transport = new BluetoothLeKissTransportSettings()
+            },
+            cts.Token))
+        {
+            Assert.Equal(cts.Token, le.CapturedToken);
+        }
+    }
+
+    [Fact]
     public async Task OpenAsync_UnsupportedTransportType_ThrowsNotSupportedException()
     {
         var factory = new KissStreamFactory([new TcpKissStreamConnector()]);
@@ -88,11 +117,14 @@ public sealed class KissStreamFactoryTests
 
         public int ConnectCount { get; private set; }
 
+        public CancellationToken CapturedToken { get; private set; }
+
         public Stream? LastOpenedStream { get; private set; }
 
         public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default)
         {
             ConnectCount++;
+            CapturedToken = cancellationToken;
             LastOpenedStream = new MemoryStream();
             return Task.FromResult(LastOpenedStream);
         }

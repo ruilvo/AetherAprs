@@ -443,16 +443,16 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         }
     }
 
-        internal void OnRemoteClosed()
-        {
-            var exception = new IOException("BLE GATT connection closed by the remote device.");
-            _rxChannel.Writer.TryComplete(exception);
+    internal void OnRemoteClosed()
+    {
+        var exception = new IOException("BLE GATT connection closed by the remote device.");
+        _rxChannel.Writer.TryComplete(exception);
 
-            lock (_sync)
-            {
-                _writeCompletion?.TrySetException(exception);
-            }
+        lock (_sync)
+        {
+            _writeCompletion?.TrySetException(exception);
         }
+    }
 
     protected override void Dispose(bool disposing)
     {
@@ -508,6 +508,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
         private BluetoothLeGattDuplexStream? _stream;
         private BluetoothGattCharacteristic? _txCharacteristic;
+        private int _aborted;
 
         public GattCallback(
             Guid serviceUuid,
@@ -530,26 +531,40 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 return;
             }
 
-            if (newState == ProfileState.Connected && status == GattStatus.Success)
-            {
-                if (!gatt.DiscoverServices())
-                {
-                    FailReady(new IOException("BLE service discovery failed to start."));
-                }
+            var action = GattConnectionPolicy.Classify(
+                (int)status,
+                newState == ProfileState.Connected,
+                newState == ProfileState.Disconnected);
 
-                return;
-            }
-
-            if (newState == ProfileState.Disconnected)
+            switch (action)
             {
-                _stream?.OnRemoteClosed();
-                FailReady(new IOException($"BLE GATT disconnected with status {status}."));
+                case GattConnectionAction.DiscoverServices:
+                    if (!gatt.DiscoverServices())
+                    {
+                        FailReady(new IOException("BLE service discovery failed to start."));
+                    }
+
+                    return;
+
+                case GattConnectionAction.Fail:
+                    // Android can report an error status together with Connected
+                    // (for example GATT_ERROR 133). Any non-success status must
+                    // fail the pending connect, otherwise it waits forever
+                    // (audit P-18).
+                    FailConnection(
+                        gatt,
+                        new IOException(
+                            $"BLE GATT connection failed with status {status} while {newState}."));
+                    return;
+
+                default:
+                    return;
             }
         }
 
         public override void OnServicesDiscovered(BluetoothGatt? gatt, GattStatus status)
         {
-            if (gatt is null)
+            if (gatt is null || IsAborted)
             {
                 return;
             }
@@ -607,7 +622,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             BluetoothGattDescriptor? descriptor,
             GattStatus status)
         {
-            if (_stream is null)
+            if (_stream is null || IsAborted)
             {
                 return;
             }
@@ -633,7 +648,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
         public override void OnMtuChanged(BluetoothGatt? gatt, int mtu, GattStatus status)
         {
-            if (_stream is null)
+            if (_stream is null || IsAborted)
             {
                 return;
             }
@@ -662,7 +677,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             BluetoothGatt? gatt,
             BluetoothGattCharacteristic? characteristic)
         {
-            if (characteristic is null || _txCharacteristic is null)
+            if (IsAborted || characteristic is null || _txCharacteristic is null)
             {
                 return;
             }
@@ -682,7 +697,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             BluetoothGattCharacteristic? characteristic,
             byte[]? value)
         {
-            if (characteristic is null || _txCharacteristic is null)
+            if (IsAborted || characteristic is null || _txCharacteristic is null)
             {
                 return;
             }
@@ -726,10 +741,46 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             }
         }
 
+        private bool IsAborted => Volatile.Read(ref _aborted) != 0;
+
+        private void FailConnection(BluetoothGatt gatt, Exception exception)
+        {
+            _stream?.OnRemoteClosed();
+            FailReady(exception);
+            CloseGatt(gatt);
+        }
+
         private void FailReady(Exception exception)
         {
+            Interlocked.Exchange(ref _aborted, 1);
             _rxChannel.Writer.TryComplete(exception);
             _readyTcs.TrySetException(exception);
+        }
+
+        /// <summary>
+        /// Releases the GATT client after a connection failure. Closing is
+        /// idempotent because <see cref="BluetoothLeGattDuplexStream.ConnectAsync"/>
+        /// repeats the cleanup when the ready task faults.
+        /// </summary>
+        private static void CloseGatt(BluetoothGatt gatt)
+        {
+            try
+            {
+                gatt.Disconnect();
+            }
+            catch
+            {
+                // Best-effort cleanup after a failed connection.
+            }
+
+            try
+            {
+                gatt.Close();
+            }
+            catch
+            {
+                // Best-effort cleanup after a failed connection.
+            }
         }
 
         private static UUID ToJavaUuid(Guid guid) => UUID.FromString(guid.ToString())!;
