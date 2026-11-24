@@ -36,7 +36,6 @@ public class MainActivity : AvaloniaMainActivity
     private INavigationService? navigationService;
     private BackInvokedCallback? backInvokedCallback;
     private bool _backCallbackRegistered;
-    private StopPortsBroadcastReceiver? stopPortsReceiver;
     private bool permissionsRequested = false;
     private string? pendingConversationCallsign;
 
@@ -201,11 +200,6 @@ public class MainActivity : AvaloniaMainActivity
 
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
-
-        // Register broadcast receiver for stopping ports (Android 13+, SupportedOSPlatformVersion = 33)
-        stopPortsReceiver = new StopPortsBroadcastReceiver();
-        var filter = new IntentFilter("com.aetheraprs.STOP_ALL_PORTS");
-        RegisterReceiver(stopPortsReceiver, filter, ReceiverFlags.NotExported);
     }
 
     protected override void OnResume()
@@ -558,13 +552,6 @@ public class MainActivity : AvaloniaMainActivity
         AndroidLifecycleTelemetry.State.ActivityDestroyed();
         navigationService?.RequestAppExit -= OnRequestAppExit;
 
-        // Unregister broadcast receiver
-        if (stopPortsReceiver != null)
-        {
-            UnregisterReceiver(stopPortsReceiver);
-            stopPortsReceiver = null;
-        }
-
         // Clear instance reference
         if (Instance == this)
         {
@@ -633,39 +620,6 @@ public class MainActivity : AvaloniaMainActivity
         public void OnBackInvoked()
         {
             onBackInvoked?.Invoke();
-        }
-    }
-
-    private sealed class StopPortsBroadcastReceiver : BroadcastReceiver
-    {
-        public override void OnReceive(Context? context, Intent? intent)
-        {
-            if (intent?.Action == "com.aetheraprs.STOP_ALL_PORTS")
-            {
-                // Get the app and stop all ports
-                var app = (App?)Avalonia.Application.Current;
-                if (app != null)
-                {
-                    var portService = app.ServiceProvider.GetService<AetherAprs.Services.Ports.IPortService>();
-                    var logger = app.ServiceProvider.GetService<Microsoft.Extensions.Logging.ILogger<MainActivity>>();
-                    
-                    if (portService != null)
-                    {
-                        // Stop all ports asynchronously
-                        _ = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                await portService.StopAllPortsAsync();
-                            }
-                            catch (Exception ex)
-                            {
-                                logger?.LogError(ex, "Error stopping ports from notification action");
-                            }
-                        });
-                    }
-                }
-            }
         }
     }
 }

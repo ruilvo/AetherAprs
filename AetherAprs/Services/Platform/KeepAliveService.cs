@@ -32,15 +32,28 @@ public sealed class KeepAliveService : IKeepAliveService
     public async Task AcquireAsync(KeepAliveReason reason)
     {
         bool start;
+        bool refresh;
+        ForegroundServiceType requiredTypes;
         lock (_lock)
         {
-            start = _activeReasons.Add(reason) && _activeReasons.Count == 1;
+            var added = _activeReasons.Add(reason);
+            start = added && _activeReasons.Count == 1;
+            refresh = added && !start;
+            requiredTypes = GetRequiredTypesLocked();
         }
 
         if (start)
         {
-            await _foregroundService.StartAsync().ConfigureAwait(false);
+            await _foregroundService.StartAsync(requiredTypes).ConfigureAwait(false);
             _logger.LogInformation("Started keep-alive foreground service");
+        }
+        else if (refresh)
+        {
+            // A second reason became active while running (for example location
+            // tracking after the ports started the service): the platform must
+            // declare the additional service type.
+            await _foregroundService.StartAsync(requiredTypes).ConfigureAwait(false);
+            _logger.LogInformation("Updated keep-alive foreground service types");
         }
     }
 
@@ -57,5 +70,26 @@ public sealed class KeepAliveService : IKeepAliveService
             await _foregroundService.StopAsync().ConfigureAwait(false);
             _logger.LogInformation("Stopped keep-alive foreground service");
         }
+    }
+
+    /// <summary>
+    /// Maps the active keep-alive reasons to the service types the platform must
+    /// declare. Callers must hold <see cref="_lock"/>.
+    /// </summary>
+    private ForegroundServiceType GetRequiredTypesLocked()
+    {
+        var types = ForegroundServiceType.None;
+
+        if (_activeReasons.Contains(KeepAliveReason.Ports))
+        {
+            types |= ForegroundServiceType.ConnectedDevice;
+        }
+
+        if (_activeReasons.Contains(KeepAliveReason.LocationTracking))
+        {
+            types |= ForegroundServiceType.Location;
+        }
+
+        return types;
     }
 }

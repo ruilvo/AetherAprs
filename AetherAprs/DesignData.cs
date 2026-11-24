@@ -213,7 +213,7 @@ public static class DesignData
     {
         public bool IsRunning => false;
 
-        public Task StartAsync() => Task.CompletedTask;
+        public Task StartAsync(ForegroundServiceType requiredTypes) => Task.CompletedTask;
 
         public Task StopAsync() => Task.CompletedTask;
     }
