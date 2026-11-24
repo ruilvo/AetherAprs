@@ -4,12 +4,14 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Platform;
 using AetherAprs.Models.Aprs;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -67,6 +69,53 @@ public sealed class ConfigurationServiceTests
 
             Assert.Equal(SymbolTable.Primary, service.Settings.Aprs.SymbolTable);
             Assert.Equal(SymbolCode.LeftSquareBracket, service.Settings.Aprs.SymbolCode);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Constructor_ReportsEachInvalidValueAndBindsTheRemainder()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(directory, "appsettings.json"),
+                "{\"Aprs\":{\"Callsign\":\"TOOLONGCALL\",\"Ssid\":99,"
+                + "\"PacketRetentionDays\":45,\"BeaconComment\":\"kept\"}}");
+            var logger = new RecordingLogger<ConfigurationService>();
+            var service = new ConfigurationService(
+                new TestAppDataDirProvider(directory),
+                logger);
+
+            // Both invalid values fall back to their defaults...
+            Assert.Equal("N0CALL", service.Settings.Aprs.Callsign);
+            Assert.Equal(AprsSsid.PrimaryStation, service.Settings.Aprs.Ssid);
+
+            // ...without discarding the rest of the document.
+            Assert.Equal(45, service.Settings.Aprs.PacketRetentionDays);
+            Assert.Equal("kept", service.Settings.Aprs.BeaconComment);
+
+            var invalidWarnings = logger.Entries
+                .Where(entry => entry.Level == LogLevel.Warning
+                    && entry.Message.Contains(
+                        "Ignoring invalid settings value",
+                        StringComparison.Ordinal))
+                .ToList();
+            Assert.Equal(2, invalidWarnings.Count);
+            Assert.Contains(
+                invalidWarnings,
+                entry => entry.Message.Contains(
+                    "Aprs:Callsign",
+                    StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(
+                invalidWarnings,
+                entry => entry.Message.Contains(
+                    "Aprs:Ssid",
+                    StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

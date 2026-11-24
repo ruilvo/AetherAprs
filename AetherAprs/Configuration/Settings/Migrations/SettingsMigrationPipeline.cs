@@ -42,11 +42,15 @@ public static class SettingsMigrationPipeline
     /// Migrations known to this build, ordered by <see cref="ISettingsMigration.FromVersion"/>.
     /// </summary>
     /// <remarks>
-    /// Empty today: the first versioned layout needed no structural rewrite.
-    /// Add an entry here when a persisted property is renamed, retyped, or moved,
-    /// and bump <see cref="SettingsSchema.CurrentVersion"/>.
+    /// The only entry marks pre-versioning documents as version 1; that layout
+    /// needed no structural rewrite. Add an entry here when a persisted
+    /// property is renamed, retyped, or moved, and bump
+    /// <see cref="SettingsSchema.CurrentVersion"/>.
     /// </remarks>
-    private static readonly ISettingsMigration[] Migrations = [];
+    private static readonly ISettingsMigration[] Migrations =
+    [
+        new UnversionedSettingsMigration(),
+    ];
 
     /// <summary>
     /// Migrates <paramref name="values"/> using the migrations known to this build.

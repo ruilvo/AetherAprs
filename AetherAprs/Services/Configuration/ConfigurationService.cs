@@ -11,7 +11,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -56,6 +55,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// Use UpdateSettingsAsync for thread-safe read-modify-write cycles.
     /// </summary>
     public AppSettings Settings { get; }
+
+    /// <summary>
+    /// Whether the settings file was written by a newer build and must not be
+    /// overwritten. When <see langword="true"/>, every save or update path is
+    /// refused so a downgrade cannot destroy settings or their schema version.
+    /// </summary>
+    public bool IsReadOnly { get; private set; }
 
     /// <inheritdoc />
     public event EventHandler? SettingsChanged;
@@ -136,15 +142,26 @@ public class ConfigurationService : IConfigurationService, IDisposable
             SettingsSchema.CurrentVersion,
             _logger);
 
-        if (documentVersion > SettingsSchema.CurrentVersion)
+        var isNewerDocument = documentVersion > SettingsSchema.CurrentVersion;
+        var migrationSucceeded = documentVersion < SettingsSchema.CurrentVersion
+            && migratedVersion == SettingsSchema.CurrentVersion;
+
+        if (isNewerDocument)
         {
+            IsReadOnly = true;
             _logger.LogWarning(
-                "Settings file declares schema version {DocumentVersion}, which is newer than this build ({CurrentVersion}). It will be loaded as-is and backed up before the next save.",
+                "Settings file declares schema version {DocumentVersion}, which is newer than this build ({CurrentVersion}). Settings are loaded read-only; saves are refused so the newer file is not overwritten.",
                 documentVersion,
                 SettingsSchema.CurrentVersion);
         }
-
-        if (migratedVersion < SettingsSchema.CurrentVersion)
+        else if (migrationSucceeded)
+        {
+            _logger.LogInformation(
+                "Migrated settings from schema version {DocumentVersion} to {CurrentVersion}.",
+                documentVersion,
+                SettingsSchema.CurrentVersion);
+        }
+        else if (documentVersion < SettingsSchema.CurrentVersion)
         {
             _logger.LogWarning(
                 "Settings could not be fully migrated (now at version {Version}, expected {TargetVersion}).",
@@ -159,25 +176,150 @@ public class ConfigurationService : IConfigurationService, IDisposable
             BackupSettingsFile(configDirectory, documentVersion);
         }
 
+        BindSettings(normalizedValues);
+
+        // Only claim the current version when this build actually produced it.
+        // For newer documents the document's own version is kept, which is the
+        // signal that a downgrade must not overwrite the file.
+        if (migrationSucceeded)
+        {
+            Settings.SchemaVersion = SettingsSchema.CurrentVersion;
+        }
+        else if (isNewerDocument)
+        {
+            Settings.SchemaVersion = documentVersion;
+        }
+        else
+        {
+            Settings.SchemaVersion = migratedVersion;
+        }
+
+        SanitizeMessageTemplates();
+
+        // Make the on-disk state match memory after a successful upgrade, so a
+        // crash before the next save cannot leave a half-migrated file behind.
+        if (migrationSucceeded)
+        {
+            PersistMigratedSettings();
+        }
+    }
+
+    /// <summary>
+    /// Binds the flattened settings values one property at a time so one
+    /// invalid value (for example a rejected validated setter) is logged and
+    /// skipped without discarding the values that follow it.
+    /// </summary>
+    private void BindSettings(IDictionary<string, string?> values)
+    {
+        // The template list is bound as a whole section: binding it key-by-key
+        // would rebuild the list on every value. Its property setters are
+        // unvalidated strings, so a failure there cannot leak into another
+        // section. Every scalar property, including Logging, binds individually.
+        BindSection(values, "MessageTemplates");
+
+        foreach (var pair in values)
+        {
+            if (IsInSection(pair.Key, "MessageTemplates"))
+            {
+                continue;
+            }
+
+            BindSingleValue(pair.Key, pair.Value);
+        }
+    }
+
+    private void BindSection(IDictionary<string, string?> values, string section)
+    {
+        var sectionValues = new Dictionary<string, string?>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var pair in values)
+        {
+            if (IsInSection(pair.Key, section))
+            {
+                sectionValues[pair.Key] = pair.Value;
+            }
+        }
+
+        if (sectionValues.Count == 0)
+        {
+            return;
+        }
+
         try
         {
             new ConfigurationBuilder()
-                .AddInMemoryCollection(normalizedValues)
+                .AddInMemoryCollection(sectionValues)
                 .Build()
                 .Bind(Settings);
         }
         catch (Exception ex)
         {
-            // Throwing setters / unrecognized enum names during binding must not
-            // prevent startup: fall back to defaults for the affected values.
+            _logger.LogWarning(
+                ex,
+                "Ignoring invalid values in settings section {Section}; affected properties use their defaults.",
+                section);
+        }
+    }
+
+    private void BindSingleValue(string key, string? value)
+    {
+        var singleValue = new Dictionary<string, string?>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            [key] = value,
+        };
+
+        try
+        {
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(singleValue)
+                .Build()
+                .Bind(Settings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Ignoring invalid settings value for {Key}: {Value}.",
+                key,
+                value);
+        }
+    }
+
+    private static bool IsInSection(string key, string section)
+    {
+        return key.Equals(section, StringComparison.OrdinalIgnoreCase)
+            || key.StartsWith(section + ":", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Persists the newly migrated settings during construction, where the
+    /// asynchronous save path cannot be awaited.
+    /// </summary>
+    private void PersistMigratedSettings()
+    {
+        _settingsLock.Wait();
+        try
+        {
+            SaveLocked();
+            _logger.LogInformation(
+                "Persisted settings at schema version {Version}.",
+                SettingsSchema.CurrentVersion);
+        }
+        catch (Exception ex) when (ex is IOException
+            or UnauthorizedAccessException
+            or JsonException
+            or NotSupportedException)
+        {
             _logger.LogError(
                 ex,
-                "Failed to bind appsettings values; some settings may use defaults.");
+                "Failed to persist migrated settings; the in-memory settings remain migrated.");
         }
-
-        Settings.SchemaVersion = SettingsSchema.CurrentVersion;
-
-        SanitizeMessageTemplates();
+        finally
+        {
+            _settingsLock.Release();
+        }
     }
 
     /// <summary>
@@ -292,20 +434,16 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
     public async Task SaveSettingsAsync()
     {
-        var filePath = GetSettingsFilePath();
+        if (IsReadOnly)
+        {
+            LogReadOnlyWriteRefused(nameof(SaveSettingsAsync));
+            return;
+        }
 
         await _settingsLock.WaitAsync();
         try
         {
-            var json = JsonSerializer.Serialize(
-                Settings,
-                _jsonSerializerOptions);
-
-            // Atomic write: serialize to a temp file, then atomically replace
-            // the live config so a crash mid-write cannot corrupt it (H4 fix).
-            var tempFilePath = filePath + ".tmp";
-            await File.WriteAllTextAsync(tempFilePath, json);
-            File.Move(tempFilePath, filePath, overwrite: true);
+            await Task.Run(SaveLocked);
         }
         finally
         {
@@ -324,11 +462,17 @@ public class ConfigurationService : IConfigurationService, IDisposable
     {
         ArgumentNullException.ThrowIfNull(updateAction);
 
+        if (IsReadOnly)
+        {
+            LogReadOnlyWriteRefused(nameof(UpdateSettingsAsync));
+            return;
+        }
+
         await _settingsLock.WaitAsync();
         try
         {
             updateAction(Settings);
-            await SaveLockedAsync();
+            await Task.Run(SaveLocked);
         }
         finally
         {
@@ -339,45 +483,30 @@ public class ConfigurationService : IConfigurationService, IDisposable
     }
 
     /// <summary>
-    /// Persists the current settings. Caller must hold <see cref="_settingsLock"/>.
+    /// Persists the current settings with an atomic temp-file write.
+    /// Caller must hold <see cref="_settingsLock"/>.
     /// </summary>
-    private async Task SaveLockedAsync()
+    private void SaveLocked()
     {
         var filePath = GetSettingsFilePath();
-
         var json = JsonSerializer.Serialize(
             Settings,
             _jsonSerializerOptions);
 
+        // Atomic write: serialize to a temp file, then replace the live config
+        // so a crash mid-write cannot corrupt it (H4 fix).
         var tempFilePath = filePath + ".tmp";
-        await File.WriteAllTextAsync(tempFilePath, json);
+        File.WriteAllText(tempFilePath, json);
         File.Move(tempFilePath, filePath, overwrite: true);
     }
 
-    /// <summary>
-    /// Persists the current settings synchronously, using the same atomic
-    /// temp-file write as <see cref="SaveSettingsAsync"/>.
-    /// Used during construction, where an async save cannot be awaited.
-    /// </summary>
-    private void SaveSettingsSync()
+    private void LogReadOnlyWriteRefused(string operation)
     {
-        var filePath = GetSettingsFilePath();
-
-        _settingsLock.Wait();
-        try
-        {
-            var json = JsonSerializer.Serialize(
-                Settings,
-                _jsonSerializerOptions);
-
-            var tempFilePath = filePath + ".tmp";
-            File.WriteAllText(tempFilePath, json);
-            File.Move(tempFilePath, filePath, overwrite: true);
-        }
-        finally
-        {
-            _settingsLock.Release();
-        }
+        _logger.LogWarning(
+            "Refusing {Operation}: the settings file declares schema version {DocumentVersion}, which is newer than this build ({CurrentVersion}), so it is read-only.",
+            operation,
+            Settings.SchemaVersion,
+            SettingsSchema.CurrentVersion);
     }
 
     /// <summary>
@@ -433,56 +562,16 @@ public class ConfigurationService : IConfigurationService, IDisposable
         _settingsLock.Wait();
         try
         {
-            // Manual deep clone because AprsSettings has validated setters
-            var snapshot = new AppSettings
-            {
-                Logging = Settings.Logging, // LoggerFilterOptions is framework type, reference is OK
-                Aprs = new AprsSettings
-                {
-                    Callsign = Settings.Aprs.Callsign,
-                    Ssid = Settings.Aprs.Ssid,
-                    SymbolTable = Settings.Aprs.SymbolTable,
-                    SymbolCode = Settings.Aprs.SymbolCode,
-                    SymbolOverlay = Settings.Aprs.SymbolOverlay,
-                    PacketRetentionDays = Settings.Aprs.PacketRetentionDays,
-                    PacketRetentionMaxRows = Settings.Aprs.PacketRetentionMaxRows,
-                    DisplayTimeRange = Settings.Aprs.DisplayTimeRange,
-                    CustomDisplayTimeRangeHours = Settings.Aprs.CustomDisplayTimeRangeHours,
-                    LoadHistoryOnStartup = Settings.Aprs.LoadHistoryOnStartup,
-                    MessageMaxRetries = Settings.Aprs.MessageMaxRetries,
-                    MessageRetryTimeoutSeconds = Settings.Aprs.MessageRetryTimeoutSeconds,
-                    AutoAcknowledgeMessages = Settings.Aprs.AutoAcknowledgeMessages,
-                    EnableDigipeater = Settings.Aprs.EnableDigipeater,
-                    DigipeaterInsertCallsign = Settings.Aprs.DigipeaterInsertCallsign,
-                    DigipeaterRespondToWide1 = Settings.Aprs.DigipeaterRespondToWide1,
-                    DigipeaterRespondToWide2 = Settings.Aprs.DigipeaterRespondToWide2,
-                    DigipeaterRespondToTrace = Settings.Aprs.DigipeaterRespondToTrace,
-                    EnableAprsIsToRfGate = Settings.Aprs.EnableAprsIsToRfGate,
-                    EnableRfToAprsIsGate = Settings.Aprs.EnableRfToAprsIsGate,
-                    BeaconComment = Settings.Aprs.BeaconComment,
-                    PositionFormat = Settings.Aprs.PositionFormat,
-                    DigipeaterPath = Settings.Aprs.DigipeaterPath
-                },
-                MessageTemplates = new MessageTemplatesSettings
-                {
-                    Templates = Settings.MessageTemplates.Templates
-                        .Select(template => new MessageTemplate
-                        {
-                            Name = template.Name,
-                            Destination = template.Destination,
-                            Body = template.Body,
-                            FieldDefaults = new Dictionary<string, string>(template.FieldDefaults)
-                        })
-                        .ToList()
-                },
-                Map = new MapSettings
-                {
-                    TileSource = Settings.Map.TileSource,
-                    MbTilesFilePath = Settings.Map.MbTilesFilePath
-                },
-                Theme = Settings.Theme
-            };
-            return snapshot;
+            // A serializer round-trip clones every property on the settings
+            // graph, including ones added after this code was written, using
+            // the same converters as persistence. A hand-written clone silently
+            // omitted new properties; this cannot.
+            var json = JsonSerializer.Serialize(
+                Settings,
+                _jsonSerializerOptions);
+            return JsonSerializer.Deserialize<AppSettings>(
+                json,
+                _jsonSerializerOptions)!;
         }
         finally
         {
