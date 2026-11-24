@@ -228,7 +228,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             {
                 if (record.Position != null)
                 {
-                    var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
+                    var callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
                     _logger.LogDebug(
                         "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
                         callsign,
@@ -298,7 +298,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 if (trailFeature != null)
                 {
                     var latest = trailPositions[^1];
-                    _trailFeatures[FormatCallsign(latest.SourceBase, latest.SourceSsid)] = trailFeature;
+                    _trailFeatures[AprsSsidExtensions.FormatCallsign(latest.SourceBase, latest.SourceSsid)] = trailFeature;
                 }
             }
 
@@ -385,7 +385,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     private static BeaconMarker CreateMarkerFromRecord(PacketRecord record)
     {
-        var callsign = FormatCallsign(record.SourceBase, record.SourceSsid);
+        var callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
         var (x, y) = SphericalMercator.FromLonLat(
             record.Position!.Location.Longitude,
             record.Position!.Location.Latitude);
@@ -586,13 +586,6 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
 
         return feature;
-    }
-
-    private static string FormatCallsign(string baseCallsign, AprsSsid? ssid)
-    {
-        return ssid.HasValue && ssid.Value != AprsSsid.PrimaryStation
-            ? $"{baseCallsign}-{(byte)ssid.Value}"
-            : baseCallsign;
     }
 
     /// <summary>
