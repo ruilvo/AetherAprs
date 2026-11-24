@@ -94,6 +94,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
             // Indexes for efficient querying
             entity.HasIndex(packet => new { packet.SourceBase, packet.SourceSsid });
+            entity.Property(packet => packet.Timestamp)
+                .HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(packet => packet.PacketTimestamp)
+                .HasConversion(new UtcDateTimeValueConverter());
             entity.HasIndex(packet => packet.Timestamp);
             entity.HasIndex(packet => packet.PacketType);
             entity.HasIndex(packet => new { packet.SourceBase, packet.SourceSsid, packet.Timestamp });
@@ -121,6 +125,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 message.Property(m => m.AddresseeSsid).IsRequired();
                 message.Property(m => m.Text).IsRequired().HasMaxLength(67);
                 message.Property(m => m.RetryCount).IsRequired();
+                message.Property(m => m.NextRetryTime)
+                    .HasConversion(new UtcDateTimeValueConverter());
             });
 
             // Status data
