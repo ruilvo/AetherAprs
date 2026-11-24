@@ -41,4 +41,4 @@ jobs:
         run: git diff --check
 
       - name: Check for vulnerable packages
-        run: dotnet list AetherAprs.slnx package --vulnerable --include-transitive
+        run: python3 .github/scripts/check_vulnerable_packages.py AetherAprs.slnx
