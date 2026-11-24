@@ -20,7 +20,7 @@ public sealed class KeepAliveServiceTests
 
         await service.AcquireAsync(KeepAliveReason.Ports);
 
-        await foreground.Received(1).StartAsync();
+        await foreground.Received(1).StartAsync(ForegroundServiceType.ConnectedDevice);
         await foreground.DidNotReceive().StopAsync();
     }
 
@@ -33,11 +33,11 @@ public sealed class KeepAliveServiceTests
         await service.AcquireAsync(KeepAliveReason.Ports);
         await service.AcquireAsync(KeepAliveReason.Ports);
 
-        await foreground.Received(1).StartAsync();
+        await foreground.Received(1).StartAsync(Arg.Any<ForegroundServiceType>());
     }
 
     [Fact]
-    public async Task AcquireAsync_DistinctReasons_StartsOnlyOnce()
+    public async Task AcquireAsync_DistinctReasons_RefreshesDeclaredTypes()
     {
         var foreground = Substitute.For<IForegroundService>();
         var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
@@ -45,7 +45,9 @@ public sealed class KeepAliveServiceTests
         await service.AcquireAsync(KeepAliveReason.Ports);
         await service.AcquireAsync(KeepAliveReason.LocationTracking);
 
-        await foreground.Received(1).StartAsync();
+        await foreground.Received(1).StartAsync(ForegroundServiceType.ConnectedDevice);
+        await foreground.Received(1).StartAsync(
+            ForegroundServiceType.ConnectedDevice | ForegroundServiceType.Location);
     }
 
     [Fact]
@@ -86,6 +88,6 @@ public sealed class KeepAliveServiceTests
         await service.ReleaseAsync(KeepAliveReason.Ports);
 
         await foreground.DidNotReceive().StopAsync();
-        await foreground.DidNotReceive().StartAsync();
+        await foreground.DidNotReceive().StartAsync(Arg.Any<ForegroundServiceType>());
     }
 }

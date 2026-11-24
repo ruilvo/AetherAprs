@@ -26,6 +26,9 @@ public sealed class KissModem : IAsyncDisposable
     /// <summary>Serializes concurrent send attempts so KISS frames cannot interleave on the wire.</summary>
     private readonly SemaphoreSlim _sendLock = new(1, 1);
 
+    /// <summary>Set once the transport stream has been closed (0 = open, 1 = closed).</summary>
+    private int _streamClosed;
+
     /// <summary>Guards the start/stop lifecycle state so concurrent Start/Stop calls cannot race.</summary>
     private readonly object _lifecycleLock = new();
 
@@ -35,6 +38,19 @@ public sealed class KissModem : IAsyncDisposable
     /// frame is ~330 bytes); anything above this means no FEND will ever arrive.
     /// </summary>
     private const int MaxFrameLength = 4096;
+
+    /// <summary>
+    /// How long to wait for in-flight sends before closing the transport anyway.
+    /// A stalled transport write must not make stopping the modem hang.
+    /// </summary>
+    private static readonly TimeSpan SendDrainTimeout = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Upper bound on waiting for the receive loop to observe the closed stream.
+    /// A platform read (Java <c>InputStream</c>) is a blocking call that cannot
+    /// observe cancellation; it completes only once the stream is closed.
+    /// </summary>
+    private static readonly TimeSpan ReadLoopStopTimeout = TimeSpan.FromSeconds(2);
 
     private Task? _readTask;
     private CancellationTokenSource? _readCts;
@@ -97,9 +113,14 @@ public sealed class KissModem : IAsyncDisposable
     }
 
     /// <summary>
-    /// Stops the background receive loop.
+    /// Stops the background receive loop and closes the transport stream. Closing
+    /// is required because a blocking platform read cannot observe cancellation;
+    /// a stopped modem needs a new transport stream before it can be started again.
     /// </summary>
-    /// <returns>A task that completes when the receive loop has stopped.</returns>
+    /// <returns>
+    /// A task that completes when the receive loop has stopped, or when the bounded
+    /// shutdown wait for a stream that cannot be unblocked expires.
+    /// </returns>
     public async Task StopAsync()
     {
         Task? readTask;
@@ -122,14 +143,13 @@ public sealed class KissModem : IAsyncDisposable
             await readCts.CancelAsync().ConfigureAwait(false);
         }
 
-        try
-        {
-            await readTask.ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected on cancellation.
-        }
+        // Close the transport before awaiting the receive loop. A platform read
+        // (the Java InputStream behind Bluetooth Classic) is a blocking call that
+        // cannot observe the cancellation token, so disposing the stream is what
+        // lets the read task complete. Stop is therefore terminal for the
+        // transport: restarting the modem requires a fresh stream.
+        await CloseStreamAsync().ConfigureAwait(false);
+        await AwaitReadLoopStoppedAsync(readTask).ConfigureAwait(false);
 
         _logger.LogInformation("KISS modem stopped.");
     }
@@ -174,31 +194,77 @@ public sealed class KissModem : IAsyncDisposable
         }
 
         var readTask = _readTask;
-        if (readTask is not null)
-        {
-            try
-            {
-                await readTask.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected on cancellation.
-            }
-        }
 
-        // Wait for in-flight sends before tearing down the stream.
-        await _sendLock.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            _stream.Dispose();
-        }
-        finally
-        {
-            _sendLock.Release();
-        }
+        // Close the stream first: that is what unblocks a blocking platform read.
+        // Only then is it safe to await the receive loop, and the wait is bounded
+        // so a pathological transport cannot hang disposal.
+        await CloseStreamAsync().ConfigureAwait(false);
+        await AwaitReadLoopStoppedAsync(readTask).ConfigureAwait(false);
 
         _sendLock.Dispose();
         readCts?.Dispose();
+    }
+
+    /// <summary>
+    /// Serializes with in-flight sends and disposes the transport stream. The
+    /// send drain is bounded: a stalled transport write must not hang shutdown,
+    /// and disposing the stream is also what breaks a stuck write out.
+    /// </summary>
+    private async Task CloseStreamAsync()
+    {
+        var sendDrainAcquired = await _sendLock.WaitAsync(SendDrainTimeout).ConfigureAwait(false);
+        try
+        {
+            // StopAsync and DisposeAsync both close the stream, and the port's stop
+            // sequence can use both; close it exactly once.
+            if (Interlocked.Exchange(ref _streamClosed, 1) != 0)
+            {
+                return;
+            }
+
+            _stream.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to close the KISS transport stream.");
+        }
+        finally
+        {
+            if (sendDrainAcquired)
+            {
+                _sendLock.Release();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Waits for the receive loop to finish, bounded by <see cref="ReadLoopStopTimeout"/>.
+    /// </summary>
+    private async Task AwaitReadLoopStoppedAsync(Task? readTask)
+    {
+        if (readTask is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await readTask.WaitAsync(ReadLoopStopTimeout).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on cancellation.
+        }
+        catch (TimeoutException)
+        {
+            _logger.LogWarning(
+                "KISS receive loop did not stop within {TimeoutSeconds} s after the transport stream was closed.",
+                ReadLoopStopTimeout.TotalSeconds);
+        }
+        catch (Exception)
+        {
+            // The receive loop already reports transport failures through ReceiveError.
+        }
     }
 
     private async Task ReadLoopAsync(CancellationToken cancellationToken)
@@ -214,8 +280,12 @@ public sealed class KissModem : IAsyncDisposable
 
                 if (bytesRead == 0)
                 {
-                    // Stream closed by remote end.
-                    OnReceiveError(new IOException("KISS transport stream closed by the remote device."));
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        // Stream closed by remote end.
+                        OnReceiveError(new IOException("KISS transport stream closed by the remote device."));
+                    }
+
                     break;
                 }
 
@@ -268,7 +338,13 @@ public sealed class KissModem : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            OnReceiveError(ex);
+            // Closing the stream to stop the loop surfaces as a transport error
+            // on platform streams that ignore cancellation; do not report it as
+            // an unexpected receive failure.
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                OnReceiveError(ex);
+            }
         }
     }
 

@@ -332,6 +332,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Recebendo e transmitindo pacotes APRS</value></data>
   <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>Serviço em Primeiro Plano do AetherAprs</value></data>
   <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Mantém o AetherAprs ativo enquanto recebe e transmite pacotes</value></data>
+  <data name="ForegroundServiceTimeoutTitle" xml:space="preserve"><value>AetherAprs parado</value></data>
+  <data name="ForegroundServiceTimeoutText" xml:space="preserve"><value>O Android parou a operação em segundo plano quando o limite de tempo do serviço em primeiro plano foi atingido. As portas e o rastreamento de localização foram desativados. Reabra a aplicação para retomar.</value></data>
+  <data name="ForegroundServiceTimeoutChannelName" xml:space="preserve"><value>Alertas do AetherAprs</value></data>
+  <data name="ForegroundServiceTimeoutChannelDescription" xml:space="preserve"><value>Notifica quando a operação em segundo plano tem de parar</value></data>
   <data name="MessageNotificationChannelName" xml:space="preserve"><value>Mensagens APRS</value></data>
   <data name="MessageNotificationChannelDescription" xml:space="preserve"><value>Notificações de mensagens APRS recebidas</value></data>
   <data name="UseTemplate" xml:space="preserve"><value>Usar modelo</value></data>

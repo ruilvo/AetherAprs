@@ -2,15 +2,21 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Localization;
+using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using AndroidX.Core.App;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
-using AetherAprs.Localization;
-using Microsoft.Extensions.Logging;
+
+// Android's Service base class exposes a ForegroundServiceType property that
+// shadows the core enum name inside derived classes; use an alias for the contract type.
+using KeepAliveServiceTypes = AetherAprs.Services.Platform.ForegroundServiceType;
 
 namespace AetherAprs.Android.Services.Platform;
 
@@ -18,18 +24,36 @@ namespace AetherAprs.Android.Services.Platform;
 /// Android foreground service to keep the app active while receiving/transmitting packets
 /// and while location tracking is enabled.
 /// </summary>
-[Service(ForegroundServiceType = ForegroundService.TypeDataSync | ForegroundService.TypeLocation)]
+/// <remarks>
+/// The service declares <c>connectedDevice</c> (a long-lived radio/socket link) and
+/// <c>location</c> (while tracking). It deliberately does not declare
+/// <c>dataSync</c>: on Android 15+ that type is capped at six hours per 24 hours,
+/// which would silently stop continuous operation.
+/// </remarks>
+[Service(ForegroundServiceType = ForegroundService.TypeConnectedDevice | ForegroundService.TypeLocation)]
 public class AetherAprsForegroundService : Service
 {
     private const int NotificationId = 1001;
+    private const int TimeoutNotificationId = 1002;
     private const string ChannelId = "aetheraprs_foreground";
+    private const string AlertChannelId = "aetheraprs_alerts";
     private const string ActionStart = "START_FOREGROUND";
     private const string ActionStop = "STOP_FOREGROUND";
+
+    /// <summary>
+    /// Action of the notification "Stop" button. Handled by the service itself so
+    /// it works even when no activity (and therefore no runtime receiver) exists.
+    /// </summary>
+    private const string ActionStopAll = "STOP_ALL_PORTS";
     internal const string StateAction = "com.aetheraprs.FOREGROUND_SERVICE_STATE";
     internal const string StateExtra = "state";
     internal const string StateStarted = "started";
     internal const string StateStopped = "stopped";
     internal const string StateFailed = "failed";
+
+    /// <summary>Intent extra carrying the <see cref="KeepAliveServiceTypes"/> bitmask.</summary>
+    internal const string RequiredTypesExtra = "requiredTypes";
+    internal const int DefaultRequiredTypes = (int)KeepAliveServiceTypes.ConnectedDevice;
     private const string WakeLockTag = "AetherAprs:ForegroundService";
 
     private PowerManager.WakeLock? _wakeLock;
@@ -65,18 +89,44 @@ public class AetherAprsForegroundService : Service
         base.OnDestroy();
     }
 
+    /// <summary>
+    /// Degrades gracefully when a time-limited foreground service type reaches its
+    /// platform limit. Android 15+ requires an override here; without one the app
+    /// is killed. The service stops the ports, releases the keep-alive reasons and
+    /// posts a user-visible explanation instead of crashing.
+    /// </summary>
+    public override void OnTimeout(int startId, ForegroundService fgsType)
+    {
+        global::Android.Util.Log.Warn(
+            "AetherAprs",
+            $"Foreground service type {fgsType} reached its platform time limit; stopping cleanly.");
+
+        ShowTimeoutNotification();
+
+        // Give up foreground status immediately to satisfy the platform grace
+        // period, then finish the orderly teardown in the still-running process.
+        StopForeground(StopForegroundFlags.Remove);
+
+        _ = StopAllFromNotificationAsync();
+    }
+
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
-        if (intent?.Action == ActionStop)
-        {
-            // Broadcast intent to notify the app to stop all ports
-            var stopPortsIntent = new Intent("com.aetheraprs.STOP_ALL_PORTS");
-            SendBroadcast(stopPortsIntent);
+        var action = intent?.Action;
 
-            // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 24/N)
+        if (action == ActionStop)
+        {
             StopForeground(StopForegroundFlags.Remove);
             StopSelf();
             PublishState(StateStopped);
+            return StartCommandResult.NotSticky;
+        }
+
+        if (action == ActionStopAll)
+        {
+            // Explicit delivery from the notification's "Stop" action. This runs
+            // entirely inside the service, so it works when the UI is gone.
+            _ = StopAllFromNotificationAsync();
             return StartCommandResult.NotSticky;
         }
 
@@ -89,12 +139,13 @@ public class AetherAprsForegroundService : Service
             notificationIntent, 
             PendingIntentFlags.Immutable);
 
-        var stopIntent = new Intent(this, typeof(AetherAprsForegroundService));
-        stopIntent.SetAction(ActionStop);
+        // Explicit service delivery: no runtime activity receiver is required.
+        var stopAllIntent = new Intent(this, typeof(AetherAprsForegroundService));
+        stopAllIntent.SetAction(ActionStopAll);
         var stopPendingIntent = PendingIntent.GetService(
             this, 
-            0, 
-            stopIntent, 
+            1, 
+            stopAllIntent, 
             PendingIntentFlags.Immutable);
 
         var builder = new NotificationCompat.Builder(this, ChannelId);
@@ -108,9 +159,11 @@ public class AetherAprsForegroundService : Service
 
         if (notification != null)
         {
+            var requiredTypes = ToAndroidServiceType(GetRequiredTypes(intent));
+
             try
             {
-                StartForeground(NotificationId, notification);
+                StartForeground(NotificationId, notification, requiredTypes);
             }
             catch (Java.Lang.SecurityException ex)
             {
@@ -136,6 +189,110 @@ public class AetherAprsForegroundService : Service
         return StartCommandResult.Sticky;
     }
 
+    /// <summary>
+    /// Stops every port and releases all keep-alive reasons, then stops the
+    /// service. Shared by the notification action and the timeout handler; every
+    /// step is best-effort and the service is always stopped afterwards.
+    /// </summary>
+    private async Task StopAllFromNotificationAsync()
+    {
+        // Release location first so the shared foreground service stays held by
+        // the ports while they shut down; both releases are idempotent.
+        await ReleaseKeepAliveAsync(KeepAliveReason.LocationTracking).ConfigureAwait(false);
+
+        try
+        {
+            var portService = AetherAprs.App.GetService<IPortService>();
+            await portService.StopAllPortsAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Error(
+                "AetherAprs",
+                $"Failed to stop ports from the foreground service notification: {ex}");
+        }
+        finally
+        {
+            await ReleaseKeepAliveAsync(KeepAliveReason.Ports).ConfigureAwait(false);
+            PublishState(StateStopped);
+            StopForeground(StopForegroundFlags.Remove);
+            StopSelf();
+        }
+    }
+
+    private static async Task ReleaseKeepAliveAsync(KeepAliveReason reason)
+    {
+        try
+        {
+            var keepAlive = AetherAprs.App.GetService<IKeepAliveService>();
+            await keepAlive.ReleaseAsync(reason).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Warn(
+                "AetherAprs",
+                $"Failed to release keep-alive reason {reason}: {ex.Message}");
+        }
+    }
+
+    private static KeepAliveServiceTypes GetRequiredTypes(Intent? intent)
+    {
+        var rawTypes = intent?.GetIntExtra(RequiredTypesExtra, DefaultRequiredTypes)
+            ?? DefaultRequiredTypes;
+
+        return (KeepAliveServiceTypes)rawTypes;
+    }
+
+    private static ForegroundService ToAndroidServiceType(KeepAliveServiceTypes requiredTypes)
+    {
+        var androidTypes = ForegroundService.TypeNone;
+
+        if ((requiredTypes & KeepAliveServiceTypes.ConnectedDevice) != 0)
+        {
+            androidTypes |= ForegroundService.TypeConnectedDevice;
+        }
+
+        if ((requiredTypes & KeepAliveServiceTypes.Location) != 0)
+        {
+            androidTypes |= ForegroundService.TypeLocation;
+        }
+
+        return androidTypes == ForegroundService.TypeNone
+            ? ForegroundService.TypeConnectedDevice
+            : androidTypes;
+    }
+
+    private void ShowTimeoutNotification()
+    {
+        CreateNotificationChannel();
+        CreateAlertChannel();
+
+        var notificationIntent = new Intent(this, typeof(MainActivity));
+        var pendingIntent = PendingIntent.GetActivity(
+            this,
+            0,
+            notificationIntent,
+            PendingIntentFlags.Immutable);
+
+        var builder = new NotificationCompat.Builder(this, AlertChannelId);
+        builder.SetContentTitle(Strings.Get("ForegroundServiceTimeoutTitle"));
+        builder.SetContentText(Strings.Get("ForegroundServiceTimeoutText"));
+        builder.SetSmallIcon(Resource.Drawable.icon_400px);
+        builder.SetContentIntent(pendingIntent);
+        builder.SetAutoCancel(true);
+
+        var notification = builder.Build();
+        if (notification == null)
+        {
+            return;
+        }
+
+        // The AndroidX compatibility helper is annotated nullable in the .NET
+        // bindings; use the platform manager the channel setup already uses.
+        var notificationManager = GetSystemService(NotificationService) as NotificationManager;
+        notificationManager?.Notify(TimeoutNotificationId, notification);
+    }
+
     private void PublishState(string state)
     {
         var intent = new Intent(StateAction);
@@ -153,6 +310,21 @@ public class AetherAprsForegroundService : Service
             NotificationImportance.Low)
         {
             Description = Strings.Get("ForegroundServiceNotificationChannelDescription")
+        };
+
+        var notificationManager = GetSystemService(NotificationService) as NotificationManager;
+        notificationManager?.CreateNotificationChannel(channel);
+    }
+
+    private void CreateAlertChannel()
+    {
+        // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 26/O)
+        var channel = new NotificationChannel(
+            AlertChannelId,
+            Strings.Get("ForegroundServiceTimeoutChannelName"),
+            NotificationImportance.Default)
+        {
+            Description = Strings.Get("ForegroundServiceTimeoutChannelDescription")
         };
 
         var notificationManager = GetSystemService(NotificationService) as NotificationManager;
@@ -184,26 +356,35 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
 
     public bool IsRunning => _isRunning;
 
-    public Task StartAsync()
+    public Task StartAsync(KeepAliveServiceTypes requiredTypes)
     {
-        if (_isRunning || _startRequested)
-        {
-            return Task.CompletedTask;
-        }
+        var types = requiredTypes == KeepAliveServiceTypes.None
+            ? KeepAliveServiceTypes.ConnectedDevice
+            : requiredTypes;
 
         var intent = new Intent(_context, typeof(AetherAprsForegroundService));
-        _startRequested = true;
+        intent.PutExtra(AetherAprsForegroundService.RequiredTypesExtra, (int)types);
 
         try
         {
-            AndroidLifecycleTelemetry.State.ForegroundStartRequested();
-            if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
+            if (_isRunning)
             {
-                _context.StartForegroundService(intent);
+                // Already foreground: refresh the declared service types (for
+                // example when location tracking starts after the ports did).
+                _context.StartService(intent);
             }
             else
             {
-                _context.StartService(intent);
+                AndroidLifecycleTelemetry.State.ForegroundStartRequested();
+                _startRequested = true;
+                if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
+                {
+                    _context.StartForegroundService(intent);
+                }
+                else
+                {
+                    _context.StartService(intent);
+                }
             }
         }
         catch (Exception ex)
@@ -213,7 +394,6 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
             _logger?.LogWarning(ex, "Failed to start foreground service");
             AndroidLifecycleTelemetry.State.ForegroundRejected();
             _startRequested = false;
-            return Task.CompletedTask;
         }
 
         return Task.CompletedTask;

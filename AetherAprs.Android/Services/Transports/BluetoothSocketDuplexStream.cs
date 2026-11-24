@@ -101,10 +101,9 @@ internal sealed class BluetoothSocketDuplexStream : Stream
 
             try
             {
-                if (_socket.IsConnected)
-                {
-                    _socket.Close();
-                }
+                // Close the socket even when it reports a half-open state: that is
+                // exactly the case where closing is needed to unblock a pending read.
+                _socket.Close();
             }
             catch
             {
