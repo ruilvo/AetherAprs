@@ -14,7 +14,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
-             xmlns:converters="using:AetherAprs.Converters.UI"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.BulletinsPage"
              x:DataType="vm:BulletinsViewModel"
@@ -44,12 +43,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Empty state -->
         <TextBlock Text="{loc:Loc BulletinsEmptyState}"
                    Classes="EmptyState"
-                   IsVisible="{Binding Bulletins, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+                   IsVisible="{Binding IsBulletinsEmpty}" />
 
         <!-- Bulletin cards -->
         <ItemsControl ItemsSource="{Binding Bulletins}"
                       Classes="CardList"
-                      IsVisible="{Binding Bulletins, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+                      IsVisible="{Binding HasBulletins}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Spacing="8" />

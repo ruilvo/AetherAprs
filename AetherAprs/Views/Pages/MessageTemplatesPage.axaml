@@ -13,7 +13,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
              xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:loc="using:AetherAprs.Localization"
-             xmlns:converters="using:AetherAprs.Converters.UI"
              mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="800"
              x:Class="AetherAprs.Views.Pages.MessageTemplatesPage"
              x:DataType="vm:MessageTemplatesViewModel"
@@ -38,12 +37,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Empty state -->
         <TextBlock Text="{loc:Loc TemplatesEmptyState}"
                    Classes="EmptyState"
-                   IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+                   IsVisible="{Binding IsTemplatesEmpty}" />
 
         <!-- Template cards -->
         <ItemsControl ItemsSource="{Binding Templates}"
                       Classes="CardList"
-                      IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+                      IsVisible="{Binding HasTemplates}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Spacing="8" />

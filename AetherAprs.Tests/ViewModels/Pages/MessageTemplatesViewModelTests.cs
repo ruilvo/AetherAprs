@@ -56,6 +56,60 @@ public sealed class MessageTemplatesViewModelTests
     }
 
     [Fact]
+    public void Refresh_EmptyThenPopulated_TogglesEmptyStateFlags()
+    {
+        var backing = new List<MessageTemplate>();
+        var templateService = Substitute.For<IMessageTemplateService>();
+        templateService.Templates.Returns(_ => backing);
+
+        var vm = CreateViewModel(templateService);
+
+        vm.Refresh();
+        Assert.False(vm.HasTemplates);
+        Assert.True(vm.IsTemplatesEmpty);
+
+        backing.Add(new MessageTemplate { Name = "A" });
+        vm.Refresh();
+        Assert.True(vm.HasTemplates);
+        Assert.False(vm.IsTemplatesEmpty);
+    }
+
+    [Fact]
+    public void Refresh_PopulatedThenEmpty_TogglesEmptyStateFlags()
+    {
+        var backing = new List<MessageTemplate> { new() { Name = "A" } };
+        var templateService = Substitute.For<IMessageTemplateService>();
+        templateService.Templates.Returns(_ => backing);
+
+        var vm = CreateViewModel(templateService);
+
+        vm.Refresh();
+        Assert.True(vm.HasTemplates);
+        Assert.False(vm.IsTemplatesEmpty);
+
+        backing.Clear();
+        vm.Refresh();
+        Assert.False(vm.HasTemplates);
+        Assert.True(vm.IsTemplatesEmpty);
+    }
+
+    [Fact]
+    public void Refresh_RaisesStateFlagNotifications()
+    {
+        var templateService = Substitute.For<IMessageTemplateService>();
+        templateService.Templates.Returns(new List<MessageTemplate> { new() { Name = "A" } });
+
+        var vm = CreateViewModel(templateService);
+        var raised = new List<string>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
+
+        vm.Refresh();
+
+        Assert.Contains(nameof(MessageTemplatesViewModel.HasTemplates), raised);
+        Assert.Contains(nameof(MessageTemplatesViewModel.IsTemplatesEmpty), raised);
+    }
+
+    [Fact]
     public async Task DeleteAsync_WithoutConfirmation_DoesNotCallService()
     {
         var templateService = Substitute.For<IMessageTemplateService>();

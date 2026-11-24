@@ -43,6 +43,14 @@ public sealed partial class SearchViewModel : ViewModelBase
     public partial bool IsLoading { get; set; }
 
     /// <summary>
+    /// Gets a value indicating whether <see cref="Results"/> has any items.
+    /// Updated whenever the collection is mutated so the page bindings do not
+    /// go stale on in-place changes.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasResults { get; set; }
+
+    /// <summary>
     /// True once at least one search has run, so the UI can distinguish the
     /// initial prompt from a genuine "no results" state.
     /// </summary>
@@ -78,6 +86,7 @@ public sealed partial class SearchViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(value))
         {
             Results.Clear();
+            HasResults = false;
             HasSearched = false;
             ShowNoResults = false;
             IsLoading = false;
@@ -107,6 +116,7 @@ public sealed partial class SearchViewModel : ViewModelBase
         if (trimmed.Length == 0)
         {
             Results.Clear();
+            HasResults = false;
             HasSearched = false;
             ShowNoResults = false;
             IsLoading = false;
@@ -124,8 +134,9 @@ public sealed partial class SearchViewModel : ViewModelBase
                 Results.Add(CreateResultItem(packet));
             }
 
+            HasResults = Results.Count > 0;
             HasSearched = true;
-            ShowNoResults = Results.Count == 0;
+            ShowNoResults = !HasResults;
         }
         catch (OperationCanceledException)
         {
@@ -187,6 +198,11 @@ public sealed partial class SearchViewModel : ViewModelBase
     private void Close()
     {
         _navigationService.GoBack();
+    }
+
+    partial void OnResultsChanged(ObservableCollection<SearchResultItem> value)
+    {
+        HasResults = Results.Count > 0;
     }
 }
 

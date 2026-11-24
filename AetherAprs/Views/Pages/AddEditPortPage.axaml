@@ -150,7 +150,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc Host}"
                      UseFloatingPlaceholder="True" />
             <TextBox Text="{Binding TcpPort}"
-                     PlaceholderText="{loc:Loc SerialPortPlaceholder}"
+                     PlaceholderText="{loc:Loc PortPlaceholder}"
                      wpf:TextFieldAssist.Label="{loc:Loc Port}"
                      UseFloatingPlaceholder="True" />
           </StackPanel>

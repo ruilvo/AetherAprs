@@ -28,6 +28,28 @@ public sealed class MessageTemplateDialogViewModelTests
     }
 
     [Fact]
+    public void Initialize_WithTemplates_SetsHasTemplates()
+    {
+        var vm = new MessageTemplateDialogViewModel();
+
+        vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], null);
+
+        Assert.True(vm.HasTemplates);
+        Assert.False(vm.IsTemplatesEmpty);
+    }
+
+    [Fact]
+    public void Initialize_WithNoTemplates_SetsEmptyState()
+    {
+        var vm = new MessageTemplateDialogViewModel();
+
+        vm.Initialize([], null);
+
+        Assert.False(vm.HasTemplates);
+        Assert.True(vm.IsTemplatesEmpty);
+    }
+
+    [Fact]
     public void SelectTemplate_PopulatesFieldsInFirstOccurrenceOrder()
     {
         var vm = new MessageTemplateDialogViewModel();

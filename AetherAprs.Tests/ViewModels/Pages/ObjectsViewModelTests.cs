@@ -58,6 +58,63 @@ public sealed class ObjectsViewModelTests
     }
 
     [Fact]
+    public async Task RefreshAsync_EmptyThenPopulated_TogglesEmptyStateFlags()
+    {
+        var backing = new List<ObjectPacket>();
+        var objectService = Substitute.For<IObjectService>();
+        objectService.GetObjectsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => new List<ObjectPacket>(backing));
+
+        var vm = CreateViewModel(objectService: objectService);
+
+        await vm.RefreshAsync();
+        Assert.False(vm.HasObjects);
+        Assert.True(vm.IsObjectsEmpty);
+
+        backing.Add(new ObjectPacket { Name = "SHELTER1" });
+        await vm.RefreshAsync();
+        Assert.True(vm.HasObjects);
+        Assert.False(vm.IsObjectsEmpty);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_PopulatedThenEmpty_TogglesEmptyStateFlags()
+    {
+        var backing = new List<ObjectPacket> { new() { Name = "SHELTER1" } };
+        var objectService = Substitute.For<IObjectService>();
+        objectService.GetObjectsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => new List<ObjectPacket>(backing));
+
+        var vm = CreateViewModel(objectService: objectService);
+
+        await vm.RefreshAsync();
+        Assert.True(vm.HasObjects);
+        Assert.False(vm.IsObjectsEmpty);
+
+        backing.Clear();
+        await vm.RefreshAsync();
+        Assert.False(vm.HasObjects);
+        Assert.True(vm.IsObjectsEmpty);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_PopulatesObjects_RaisesStateFlagNotifications()
+    {
+        var objectService = Substitute.For<IObjectService>();
+        objectService.GetObjectsAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<ObjectPacket> { new() { Name = "SHELTER1" } });
+
+        var vm = CreateViewModel(objectService: objectService);
+        var raised = new List<string>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
+
+        await vm.RefreshAsync();
+
+        Assert.Contains(nameof(ObjectsViewModel.HasObjects), raised);
+        Assert.Contains(nameof(ObjectsViewModel.IsObjectsEmpty), raised);
+    }
+
+    [Fact]
     public void Add_NavigatesToNewEditor()
     {
         var navigation = Substitute.For<INavigationService>();

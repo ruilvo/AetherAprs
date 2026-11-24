@@ -34,6 +34,20 @@ public sealed partial class ObjectsViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    /// <summary>
+    /// Gets a value indicating whether <see cref="Objects"/> has any items.
+    /// Updated whenever the collection is mutated so the page bindings do not
+    /// go stale on in-place changes.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasObjects { get; set; }
+
+    /// <summary>
+    /// Gets a value indicating whether <see cref="Objects"/> is empty.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsObjectsEmpty { get; set; } = true;
+
     public ObjectsViewModel(
         IObjectService objectService,
         INavigationService navigationService,
@@ -64,6 +78,8 @@ public sealed partial class ObjectsViewModel : ViewModelBase
             {
                 Objects.Add(obj);
             }
+
+            UpdateEmptyState();
         }
         catch (Exception ex)
         {
@@ -126,5 +142,16 @@ public sealed partial class ObjectsViewModel : ViewModelBase
     private void Close()
     {
         _navigationService.GoBack();
+    }
+
+    partial void OnObjectsChanged(ObservableCollection<ObjectPacket> value)
+    {
+        UpdateEmptyState();
+    }
+
+    private void UpdateEmptyState()
+    {
+        HasObjects = Objects.Count > 0;
+        IsObjectsEmpty = !HasObjects;
     }
 }

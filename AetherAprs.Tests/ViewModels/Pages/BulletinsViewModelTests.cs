@@ -112,6 +112,26 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     }
 
     [Fact]
+    public async Task RefreshAsync_EmptyThenPopulated_TogglesEmptyStateFlags()
+    {
+        var backing = new List<BulletinPacket>();
+        var bulletinService = Substitute.For<IBulletinService>();
+        bulletinService.GetBulletinsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => new List<BulletinPacket>(backing));
+
+        var vm = CreateViewModel(bulletinService: bulletinService);
+
+        await vm.RefreshAsync();
+        Assert.False(vm.HasBulletins);
+        Assert.True(vm.IsBulletinsEmpty);
+
+        backing.Add(new BulletinPacket { Name = "BLN0SPCL", Text = "Special event" });
+        await vm.RefreshAsync();
+        Assert.True(vm.HasBulletins);
+        Assert.False(vm.IsBulletinsEmpty);
+    }
+
+    [Fact]
     public async Task Send_ValidInput_CallsServiceAndClearsText()
     {
         var bulletinService = Substitute.For<IBulletinService>();

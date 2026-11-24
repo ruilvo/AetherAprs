@@ -9,7 +9,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:config="using:AetherAprs.Configuration.Settings"
              xmlns:wpf="clr-namespace:Material.Styles.Assists;assembly=Material.Styles"
              xmlns:loc="using:AetherAprs.Localization"
-             xmlns:converters="using:AetherAprs.Converters.UI"
              x:Class="AetherAprs.Views.Components.MessageTemplateDialogComponent"
              x:DataType="vm:MessageTemplateDialogViewModel">
   <StackPanel Spacing="12" MinWidth="320" MaxWidth="480">
@@ -24,12 +23,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <TextBlock Text="{loc:Loc TemplatePickerNoTemplates}"
                TextWrapping="Wrap"
-               IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.Instance}}" />
+               IsVisible="{Binding IsTemplatesEmpty}" />
 
     <ListBox ItemsSource="{Binding Templates}"
              SelectedItem="{Binding SelectedTemplate}"
              MaxHeight="200"
-             IsVisible="{Binding Templates, Converter={x:Static converters:CollectionEmptyToBoolConverter.InstanceInverted}}">
+             IsVisible="{Binding HasTemplates}">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="config:MessageTemplate">
           <StackPanel Spacing="2">
