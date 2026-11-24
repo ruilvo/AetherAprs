@@ -14,6 +14,9 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public readonly record struct AprsAddress
 {
+    private const int MinimumBaseLength = 1;
+    private const int MaximumBaseLength = 9;
+
     /// <summary>
     /// Gets the base address (1-9 characters, letters and digits).
     /// </summary>
@@ -36,17 +39,14 @@ public readonly record struct AprsAddress
         ArgumentException.ThrowIfNullOrWhiteSpace(addressBase);
         addressBase = addressBase.Trim().ToUpperInvariant();
 
-        if (addressBase.Length < 1 || addressBase.Length > 9)
+        if (addressBase.Length is < MinimumBaseLength or > MaximumBaseLength)
         {
             throw new ArgumentException($"APRS address base must be 1-9 characters, got '{addressBase}'.", nameof(addressBase));
         }
 
-        foreach (var character in addressBase)
+        if (!HasOnlyBaseCharacters(addressBase))
         {
-            if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-'))
-            {
-                throw new ArgumentException("APRS address base must contain only ASCII letters, digits, and hyphens.", nameof(addressBase));
-            }
+            throw new ArgumentException("APRS address base must contain only ASCII letters, digits, and hyphens.", nameof(addressBase));
         }
 
         if (ssid is < 0 or > 15)
@@ -90,22 +90,31 @@ public readonly record struct AprsAddress
             addressBase = value;
         }
 
-        if (addressBase.Length < 1 || addressBase.Length > 9)
+        if (addressBase.Length is < MinimumBaseLength or > MaximumBaseLength
+            || !HasOnlyBaseCharacters(addressBase))
         {
             return false;
-        }
-
-        foreach (var character in addressBase)
-        {
-            if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-'))
-            {
-                return false;
-            }
         }
 
         address = new AprsAddress(addressBase, ssid);
         return true;
     }
+
+    private static bool HasOnlyBaseCharacters(string value)
+    {
+        foreach (var character in value)
+        {
+            if (!IsBaseCharacter(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsBaseCharacter(char character) =>
+        character is >= 'A' and <= 'Z' or >= '0' and <= '9' or '-';
 
     /// <summary>
     /// Creates an AprsAddress from a Callsign.
@@ -139,6 +148,11 @@ public readonly record struct AprsAddress
     /// <summary>
     /// Returns the string representation: e.g. "APRS2SOTA" or "N0CALL-1".
     /// </summary>
+    /// <remarks>
+    /// SSID 0 and no SSID both format as the base address alone. Use the
+    /// <see cref="AprsAddress"/> value itself, not this string, as a dictionary key or
+    /// identity because those two values are not equal.
+    /// </remarks>
     public override string ToString()
     {
         return Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;

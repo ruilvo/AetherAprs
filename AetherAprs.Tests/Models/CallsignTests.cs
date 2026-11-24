@@ -131,6 +131,26 @@ public class CallsignTests
         Assert.NotEqual(a, b);
     }
 
+    [Fact]
+    public void Equality_ZeroSsidAndNoSsid_AreNotEqual()
+    {
+        // Both print as "N0CALL", but SSID 0 carries AX.25 meaning (for example a
+        // repeated path element). Never use ToString() as an identity key.
+        var withZeroSsid = new Callsign("N0CALL", 0);
+        var withoutSsid = new Callsign("N0CALL");
+
+        Assert.NotEqual(withZeroSsid, withoutSsid);
+        Assert.Equal(withZeroSsid.ToString(), withoutSsid.ToString());
+    }
+
+    [Fact]
+    public void TryParse_ExplicitZeroSsid_PreservesZero()
+    {
+        Assert.True(Callsign.TryParse("N0CALL-0", out var callsign));
+
+        Assert.Equal(0, callsign.Ssid);
+    }
+
     [Theory]
     [InlineData("N0CALL", "N0CALL", null)]
     [InlineData("n0call-1", "N0CALL", 1)]

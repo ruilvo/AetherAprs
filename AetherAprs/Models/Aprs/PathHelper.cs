@@ -61,7 +61,7 @@ public static class PathHelper
     /// <returns>A comma-separated string of callsigns.</returns>
     public static string FormatPath(IReadOnlyList<Callsign> path)
     {
-        if (path == null || path.Count == 0)
+        if (path.Count == 0)
         {
             return string.Empty;
         }
@@ -92,6 +92,6 @@ public static class PathHelper
             return null;
         }
 
-        return new Callsign(callsign.Base, callsign.Ssid.Value - 1);
+        return new Callsign(callsign.Base, callsign.Ssid.Value - 1, callsign.HasBeenRepeated);
     }
 }

@@ -176,6 +176,17 @@ public class PathHelperTests
     }
 
     [Fact]
+    public void DecrementSsid_RepeatedCallsign_PreservesRepeatedFlag()
+    {
+        var callsign = new Callsign("WIDE2", 2, hasBeenRepeated: true);
+        var result = PathHelper.DecrementSsid(callsign);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.Value.Ssid);
+        Assert.True(result.Value.HasBeenRepeated);
+    }
+
+    [Fact]
     public void ParsePath_RoundTrip_PreservesData()
     {
         var original = "WIDE1-1,WIDE2-1";

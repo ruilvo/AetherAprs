@@ -11,6 +11,9 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public readonly record struct Callsign
 {
+    private const int MinimumBaseLength = 2;
+    private const int MaximumBaseLength = 6;
+
     /// <summary>
     /// Gets the base callsign (2-6 characters, letters and digits).
     /// </summary>
@@ -42,17 +45,14 @@ public readonly record struct Callsign
         ArgumentException.ThrowIfNullOrWhiteSpace(callsignBase);
         callsignBase = callsignBase.Trim().ToUpperInvariant();
 
-        if (callsignBase.Length < 2 || callsignBase.Length > 6)
+        if (callsignBase.Length is < MinimumBaseLength or > MaximumBaseLength)
         {
             throw new ArgumentException($"Callsign base must be 2-6 characters, got '{callsignBase}'.", nameof(callsignBase));
         }
 
-        foreach (var character in callsignBase)
+        if (!HasOnlyBaseCharacters(callsignBase))
         {
-            if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')))
-            {
-                throw new ArgumentException("Callsign base must contain only ASCII letters and digits.", nameof(callsignBase));
-            }
+            throw new ArgumentException("Callsign base must contain only ASCII letters and digits.", nameof(callsignBase));
         }
 
         if (ssid is < 0 or > 15)
@@ -97,26 +97,40 @@ public readonly record struct Callsign
             callsignBase = value;
         }
 
-        if (callsignBase.Length < 2 || callsignBase.Length > 6)
+        if (callsignBase.Length is < MinimumBaseLength or > MaximumBaseLength
+            || !HasOnlyBaseCharacters(callsignBase))
         {
             return false;
-        }
-
-        foreach (var character in callsignBase)
-        {
-            if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9')))
-            {
-                return false;
-            }
         }
 
         callsign = new Callsign(callsignBase, ssid);
         return true;
     }
 
+    private static bool HasOnlyBaseCharacters(string value)
+    {
+        foreach (var character in value)
+        {
+            if (!IsBaseCharacter(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsBaseCharacter(char character) =>
+        character is >= 'A' and <= 'Z' or >= '0' and <= '9';
+
     /// <summary>
     /// Returns the string representation: e.g. "N0CALL" or "N0CALL-1".
     /// </summary>
+    /// <remarks>
+    /// SSID 0 and no SSID both format as the base callsign alone. Use the
+    /// <see cref="Callsign"/> value itself, not this string, as a dictionary key or
+    /// identity because those two values are not equal.
+    /// </remarks>
     public override string ToString()
     {
         return Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;
