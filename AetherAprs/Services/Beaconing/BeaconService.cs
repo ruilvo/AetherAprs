@@ -559,12 +559,21 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         _disposed = true;
         _disposalCts.Cancel();
 
-        await _evaluationTimer.DisposeAsync();
+        if (_evaluationTimer is not null)
+        {
+            await _evaluationTimer.DisposeAsync();
+        }
 
         // Wait for any in-flight background persist to complete so the DbContext is
-        // not used after the service is gone.
-        await _persistLock.WaitAsync();
-        _persistLock.Dispose();
+        // not used after the service is gone — but bound the wait: acquiring the
+        // semaphore and only then disposing it turned an unfinished persist into a
+        // shutdown hang (audit M-08). The semaphore is deliberately not disposed;
+        // SemaphoreSlim only needs disposal when it holds a kernel wait handle.
+        if (await _persistLock.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
+        {
+            _persistLock.Release();
+        }
+
         // Do not dispose _disposalCts: a queued timer callback may still read its
         // Token. The source is finalized with the singleton service (M9).
     }
