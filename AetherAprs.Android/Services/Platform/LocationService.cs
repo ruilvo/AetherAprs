@@ -217,10 +217,10 @@ public class LocationService : ILocationService
             await using var cancellationRegistration = cancellationToken.Register(() =>
                 tcs.TrySetCanceled(cancellationToken));
 
-            fusedClient.RequestLocationUpdates(locationRequest, callback, Looper.MainLooper);
-
             try
             {
+                fusedClient.RequestLocationUpdates(locationRequest, callback, Looper.MainLooper);
+
                 var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(FusedRequestTimeout, CancellationToken.None));
 
                 if (completedTask != tcs.Task)
@@ -235,6 +235,10 @@ public class LocationService : ILocationService
             finally
             {
                 fusedClient.RemoveLocationUpdates(callback);
+                // The callback is a Java.Lang.Object: removing it from the client
+                // is not enough, the JNI peer must be released or every fix leaks
+                // one global reference.
+                callback.Dispose();
             }
         }
         catch (System.OperationCanceledException)
@@ -279,18 +283,18 @@ public class LocationService : ILocationService
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // RequestLocationUpdates is available on all Android API levels we support (API 23+).
         // The Looper.MainLooper call is also available on all supported API levels.
-        foreach (var provider in providers)
-        {
-            locationManager.RequestLocationUpdates(
-                provider,
-                minTimeMs: 0,
-                minDistanceM: 0,
-                listener,
-                Looper.MainLooper);
-        }
-
         try
         {
+            foreach (var provider in providers)
+            {
+                locationManager.RequestLocationUpdates(
+                    provider,
+                    minTimeMs: 0,
+                    minDistanceM: 0,
+                    listener,
+                    Looper.MainLooper);
+            }
+
             var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(LocationManagerRequestTimeout, CancellationToken.None));
 
             if (completedTask != tcs.Task)
@@ -304,7 +308,10 @@ public class LocationService : ILocationService
         finally
         {
             // RemoveUpdates unregisters the listener from every provider at once.
+            // The listener is a Java.Lang.Object, so the JNI peer must also be
+            // disposed to avoid leaking one global reference per location fix.
             locationManager.RemoveUpdates(listener);
+            listener.Dispose();
         }
     }
 
@@ -339,10 +346,20 @@ public class LocationService : ILocationService
         };
     }
 
-    private sealed class SingleUpdateLocationListener(Action<Location> onLocationReceived) : Java.Lang.Object, global::Android.Locations.ILocationListener
+    private sealed class SingleUpdateLocationListener(Action<Location> onLocationReceived)
+        : Java.Lang.Object, global::Android.Locations.ILocationListener
     {
+        private int _disposed;
+
         public void OnLocationChanged(Location location)
         {
+            // A provider can deliver a final fix while RemoveUpdates is in
+            // flight; never touch the callback after it was disposed.
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return;
+            }
+
             onLocationReceived(location);
         }
 
@@ -357,17 +374,37 @@ public class LocationService : ILocationService
         public void OnStatusChanged(string? provider, Availability status, Bundle? extras)
         {
         }
+
+        protected override void Dispose(bool disposing)
+        {
+            Interlocked.Exchange(ref _disposed, 1);
+            base.Dispose(disposing);
+        }
     }
 
     private sealed class FirstFixLocationCallback(Action<Location> onFirstFix) : LocationCallback
     {
+        private int _disposed;
+
         public override void OnLocationResult(LocationResult result)
         {
+            // A delivery can race the removal call; ignore it once disposed.
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return;
+            }
+
             var location = result?.LastLocation;
             if (location != null)
             {
                 onFirstFix(location);
             }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            Interlocked.Exchange(ref _disposed, 1);
+            base.Dispose(disposing);
         }
     }
 }

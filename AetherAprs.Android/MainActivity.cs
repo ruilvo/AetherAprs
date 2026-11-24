@@ -24,19 +24,38 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Android;
 
+// Layout-only configuration changes are absorbed without re-creating the
+// activity: the Avalonia view forwards them to its platform (insets, screens)
+// and re-lays out from the new metrics. Locale and font-scale changes stay
+// unhandled on purpose so the activity is re-created and the UI culture plus
+// resources are re-applied from the new configuration.
 [Activity(
     Label = "AetherAprs",
     Theme = "@style/AetherAprsTheme.Splash",
     Icon = "@drawable/icon_400px",
     MainLauncher = true,
     WindowSoftInputMode = SoftInput.AdjustResize,
-    ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
+    ConfigurationChanges = ConfigChanges.Orientation
+        | ConfigChanges.ScreenSize
+        | ConfigChanges.SmallestScreenSize
+        | ConfigChanges.ScreenLayout
+        | ConfigChanges.UiMode
+        | ConfigChanges.LayoutDirection
+        | ConfigChanges.KeyboardHidden
+        | ConfigChanges.Density)]
 public class MainActivity : AvaloniaMainActivity
 {
+    // The initial permission burst is intentionally process-scoped: Android
+    // re-creates the activity for configuration changes that are not listed
+    // above, and running the burst again would orphan the first instance's
+    // pending waiter. A fresh process starts unset and asks the user again.
+    private static readonly ProcessLifetimeFlag _initialPermissionPromptRequested = new();
+
     private INavigationService? navigationService;
     private BackInvokedCallback? backInvokedCallback;
     private bool _backCallbackRegistered;
-    private bool permissionsRequested = false;
+    private bool _destroyed;
+    private bool _initialPermissionBurstStarted;
     private string? pendingConversationCallsign;
 
     private const int NotificationPermissionRequestCode = 1000;
@@ -63,6 +82,11 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public async Task<bool> RequestNotificationPermissionAsync()
     {
+        if (_destroyed)
+        {
+            return false;
+        }
+
         // Android 13+ only (SupportedOSPlatformVersion = 33)
         var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications);
         global::Android.Util.Log.Info("AetherAprs", $"Notification permission current status: {currentStatus}");
@@ -90,7 +114,7 @@ public class MainActivity : AvaloniaMainActivity
         try
         {
             RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, NotificationPermissionRequestCode);
-            var result = await _notificationPermissionTcs.Task.ConfigureAwait(false);
+            var result = await notificationTcs.Task.ConfigureAwait(false);
             global::Android.Util.Log.Info("AetherAprs", $"Notification permission dialog result: {result}");
             return result;
         }
@@ -106,6 +130,11 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public async Task<bool> RequestBluetoothPermissionAsync()
     {
+        if (_destroyed)
+        {
+            return false;
+        }
+
         // Android 13+ only (SupportedOSPlatformVersion = 33, includes S/12 permissions)
         var bluetoothScanStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothScan);
         var bluetoothConnectStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothConnect);
@@ -139,7 +168,7 @@ public class MainActivity : AvaloniaMainActivity
                 global::Android.Manifest.Permission.BluetoothScan,
                 global::Android.Manifest.Permission.BluetoothConnect
             }, BluetoothPermissionRequestCode);
-            var result = await _bluetoothPermissionTcs.Task.ConfigureAwait(false);
+            var result = await bluetoothTcs.Task.ConfigureAwait(false);
             global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission dialog result: {result}");
             return result;
         }
@@ -155,6 +184,11 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public async Task<bool> RequestAudioPermissionAsync()
     {
+        if (_destroyed)
+        {
+            return false;
+        }
+
         var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio);
         global::Android.Util.Log.Info("AetherAprs", $"Audio permission current status: {currentStatus}");
 
@@ -174,7 +208,7 @@ public class MainActivity : AvaloniaMainActivity
         try
         {
             RequestPermissions(new[] { global::Android.Manifest.Permission.RecordAudio }, AudioPermissionRequestCode);
-            var result = await _audioPermissionTcs.Task.ConfigureAwait(false);
+            var result = await audioTcs.Task.ConfigureAwait(false);
             global::Android.Util.Log.Info("AetherAprs", $"Audio permission dialog result: {result}");
             return result;
         }
@@ -223,10 +257,14 @@ public class MainActivity : AvaloniaMainActivity
             }
         }
 
-        // Request permissions on first resume only
-        if (!permissionsRequested)
+        // Request permissions on the first resume of this process only. The flag
+        // is process-scoped (see the field comment) so an activity re-created for
+        // a configuration change does not re-run the burst.
+        if (_initialPermissionPromptRequested.TrySet())
         {
-            permissionsRequested = true;
+            // Marked before starting: the burst can complete synchronously when
+            // every permission is already granted.
+            _initialPermissionBurstStarted = true;
             _ = RequestInitialPermissionsAsync();
         }
 
@@ -269,7 +307,7 @@ public class MainActivity : AvaloniaMainActivity
 
     private void UpdateBackCallback()
     {
-        if (backInvokedCallback is null || OnBackInvokedDispatcher is null)
+        if (_destroyed || backInvokedCallback is null || OnBackInvokedDispatcher is null)
         {
             return;
         }
@@ -362,14 +400,16 @@ public class MainActivity : AvaloniaMainActivity
             // routes this to the app settings page)
             var backgroundLocationGranted = await RequestBackgroundLocationPermissionAsync();
             global::Android.Util.Log.Info("AetherAprs", $"Background location permission result: {backgroundLocationGranted}");
-
-            // Signal that initial permissions are complete
-            Services.Platform.AndroidPermissionService.SignalPermissionsComplete();
         }
         catch (Exception ex)
         {
             global::Android.Util.Log.Error("AetherAprs", $"Error requesting permissions: {ex.Message}");
-            // Signal completion even on error
+        }
+        finally
+        {
+            // Signal completion on every path, including a burst aborted by the
+            // activity being destroyed, so the waiting core service does not sit
+            // until its own timeout.
             Services.Platform.AndroidPermissionService.SignalPermissionsComplete();
         }
     }
@@ -379,6 +419,11 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public async Task<bool> RequestLocationPermissionsAsync()
     {
+        if (_destroyed)
+        {
+            return false;
+        }
+
         var fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
         var coarseLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessCoarseLocation);
         global::Android.Util.Log.Info("AetherAprs", $"Location permission current status - FINE: {fineLocationStatus}, COARSE: {coarseLocationStatus}");
@@ -444,6 +489,11 @@ public class MainActivity : AvaloniaMainActivity
     /// </summary>
     public async Task<bool> RequestBackgroundLocationPermissionAsync()
     {
+        if (_destroyed)
+        {
+            return false;
+        }
+
         const int backgroundLocationRequestCode = 1002;
 
         // Android 10 (Q) introduced ACCESS_BACKGROUND_LOCATION; SupportedOSPlatformVersion is 33.
@@ -508,18 +558,20 @@ public class MainActivity : AvaloniaMainActivity
         {
             navigationService.CurrentViewModelChanged -= OnCurrentViewModelChanged;
         }
-        // Unregister the modern back callback for Android 13+
-        if (_backCallbackRegistered && backInvokedCallback != null)
-        {
-            OnBackInvokedDispatcher?.UnregisterOnBackInvokedCallback(backInvokedCallback);
-            _backCallbackRegistered = false;
-        }
+        // Unregister (but keep) the modern back callback while paused; OnResume
+        // registers it again through UpdateBackCallback.
+        UnregisterBackCallback();
 
         base.OnPause();
     }
 
     private void HandleBackPressed()
     {
+        if (_destroyed)
+        {
+            return;
+        }
+
         if (DialogHost.GetDialogSession("MainDialogHost") != null)
         {
             DialogHost.Close("MainDialogHost", false);
@@ -550,7 +602,32 @@ public class MainActivity : AvaloniaMainActivity
     protected override void OnDestroy()
     {
         AndroidLifecycleTelemetry.State.ActivityDestroyed();
-        navigationService?.RequestAppExit -= OnRequestAppExit;
+        _destroyed = true;
+
+        // OnDestroy can run without OnPause (for example when the activity never
+        // resumed), so every subscription and JNI peer is released here as well.
+        // Every step below is safe to run after the matching OnPause work.
+        if (Avalonia.Application.Current is { } app)
+        {
+            app.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
+        }
+        if (navigationService != null)
+        {
+            navigationService.CurrentViewModelChanged -= OnCurrentViewModelChanged;
+            navigationService.RequestAppExit -= OnRequestAppExit;
+            navigationService = null;
+        }
+
+        DisposeBackCallback();
+        CompletePendingPermissionRequests();
+
+        if (_initialPermissionBurstStarted)
+        {
+            // The burst cannot continue on this destroyed instance and the process
+            // flag prevents a re-created activity from running it again, so tell
+            // the waiting core service now instead of letting it time out.
+            Services.Platform.AndroidPermissionService.SignalPermissionsComplete();
+        }
 
         // Clear instance reference
         if (Instance == this)
@@ -559,6 +636,62 @@ public class MainActivity : AvaloniaMainActivity
         }
 
         base.OnDestroy();
+    }
+
+    private void UnregisterBackCallback()
+    {
+        if (!_backCallbackRegistered)
+        {
+            return;
+        }
+
+        // Clear the flag first so a throwing platform call cannot leave the
+        // lifecycle believing the callback is still registered.
+        _backCallbackRegistered = false;
+        var callback = backInvokedCallback;
+        if (callback == null)
+        {
+            return;
+        }
+
+        try
+        {
+            OnBackInvokedDispatcher?.UnregisterOnBackInvokedCallback(callback);
+        }
+        catch (Exception ex)
+        {
+            // The dispatcher may already be tearing down; disposal below must
+            // still release the JNI peer.
+            global::Android.Util.Log.Warn("AetherAprs", $"Failed to unregister back callback: {ex.Message}");
+        }
+    }
+
+    private void DisposeBackCallback()
+    {
+        try
+        {
+            UnregisterBackCallback();
+        }
+        finally
+        {
+            // BackInvokedCallback wraps a Java peer; leaking it leaks one JNI
+            // global reference per activity re-creation.
+            backInvokedCallback?.Dispose();
+            backInvokedCallback = null;
+        }
+    }
+
+    private void CompletePendingPermissionRequests()
+    {
+        // A destroyed activity never receives OnRequestPermissionsResult, so
+        // complete the waiters now rather than leaving the startup burst to its
+        // 30 s timeout. A denial is the correct outcome: no permission was granted.
+        _notificationPermissionTcs?.TrySetResult(false);
+        _notificationPermissionTcs = null;
+        _bluetoothPermissionTcs?.TrySetResult(false);
+        _bluetoothPermissionTcs = null;
+        _audioPermissionTcs?.TrySetResult(false);
+        _audioPermissionTcs = null;
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
