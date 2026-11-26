@@ -39,7 +39,7 @@ public sealed class SessionCoordinatorTelemetryTests
             jitter: () => 0,
             initialBackoff: TimeSpan.FromSeconds(1),
             maximumBackoff: TimeSpan.FromSeconds(3));
-        using var bridge = new SessionCoordinatorTelemetryBridge(
+        await using var bridge = new SessionCoordinatorTelemetryBridge(
             portService,
             coordinator,
             NullLogger<SessionCoordinatorTelemetryBridge>.Instance);
@@ -91,7 +91,7 @@ public sealed class SessionCoordinatorTelemetryTests
         var portService = new FakePortService();
 
         await using var coordinator = new SessionCoordinator(controller, store);
-        using var bridge = new SessionCoordinatorTelemetryBridge(
+        await using var bridge = new SessionCoordinatorTelemetryBridge(
             portService,
             coordinator,
             NullLogger<SessionCoordinatorTelemetryBridge>.Instance);

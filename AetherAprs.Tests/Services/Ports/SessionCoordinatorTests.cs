@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -33,6 +34,7 @@ public sealed class SessionCoordinatorTests
 
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
         await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
 
         var status = Assert.Single(coordinator.Ports);
         Assert.Equal(SessionLifecycleState.Running, coordinator.State);
@@ -76,11 +78,80 @@ public sealed class SessionCoordinatorTests
         await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
         await controller.ConnectStarted.Task;
 
-        await coordinator.StopAsync(TestContext.Current.CancellationToken);
+        await coordinator.StopAsync();
 
         Assert.Equal(SessionLifecycleState.Stopped, coordinator.State);
         Assert.Equal(PortSessionState.Stopped, Assert.Single(coordinator.Ports).State);
         Assert.Equal(1, controller.DisconnectAttempts);
+    }
+
+    [Fact]
+    public async Task StopAsync_UsesAnInternalDeadlineWhenATransportHangs()
+    {
+        var portId = Guid.NewGuid();
+        var controller = new FakePortController { BlockDisconnect = true };
+        await using var coordinator = CreateCoordinator(
+            controller,
+            new RecordingStateStore(),
+            teardownTimeout: TimeSpan.FromMilliseconds(100));
+
+        await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
+        await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
+
+        var stopwatch = Stopwatch.StartNew();
+        await coordinator.StopAsync();
+        stopwatch.Stop();
+
+        Assert.Equal(SessionLifecycleState.Stopped, coordinator.State);
+        Assert.Equal(PortSessionState.Stopped, Assert.Single(coordinator.Ports).State);
+        Assert.InRange(stopwatch.Elapsed, TimeSpan.FromMilliseconds(80), TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Intent_IsSeparateFromRuntimeStatus_AndDisarmsOnStop()
+    {
+        var portId = Guid.NewGuid();
+        await using var coordinator = CreateCoordinator(
+            new FakePortController(),
+            new RecordingStateStore());
+
+        await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
+        Assert.False(coordinator.Intent.IsArmed);
+
+        await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
+
+        Assert.True(coordinator.Intent.IsArmed);
+        Assert.True(coordinator.Intent.Includes(portId));
+        Assert.Equal(portId, Assert.Single(coordinator.Intent.PortIds));
+
+        await coordinator.StopAsync();
+
+        Assert.False(coordinator.Intent.IsArmed);
+        Assert.Empty(coordinator.Intent.PortIds);
+    }
+
+    [Fact]
+    public async Task PeriodicDiagnosticFlush_PersistsTheLatestTimestamps()
+    {
+        var portId = Guid.NewGuid();
+        var store = new RecordingStateStore();
+        await using var coordinator = CreateCoordinator(
+            new FakePortController(),
+            store,
+            diagnosticPersistInterval: TimeSpan.FromMilliseconds(50));
+
+        await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
+        await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
+        var savesAfterStart = store.SaveCalls;
+
+        await coordinator.ReportReceiveAsync(portId, TestContext.Current.CancellationToken);
+
+        await EventuallyAsync(
+            () => store is { SaveCalls: > 0, LastSnapshot: { Ports: [var latest] } }
+                && latest.LastReceiveUtc is not null);
+
+        Assert.True(store.SaveCalls > savesAfterStart);
     }
 
     [Fact]
@@ -185,7 +256,9 @@ public sealed class SessionCoordinatorTests
     private static SessionCoordinator CreateCoordinator(
         FakePortController controller,
         RecordingStateStore store,
-        Func<TimeSpan, CancellationToken, Task>? delay = null)
+        Func<TimeSpan, CancellationToken, Task>? delay = null,
+        TimeSpan? teardownTimeout = null,
+        TimeSpan? diagnosticPersistInterval = null)
     {
         return new SessionCoordinator(
             controller,
@@ -193,13 +266,31 @@ public sealed class SessionCoordinatorTests
             delayAsync: delay ?? ((_, _) => Task.CompletedTask),
             jitter: () => 0,
             initialBackoff: TimeSpan.FromSeconds(1),
-            maximumBackoff: TimeSpan.FromSeconds(2));
+            maximumBackoff: TimeSpan.FromSeconds(2),
+            teardownTimeout: teardownTimeout,
+            diagnosticPersistInterval: diagnosticPersistInterval ?? TimeSpan.Zero);
+    }
+
+    private static async Task EventuallyAsync(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(10), TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(condition(), "The expected session telemetry state was not observed.");
     }
 
     private sealed class FakePortController : ISessionPortController
     {
         public int FailuresBeforeSuccess { get; set; }
         public bool BlockConnect { get; set; }
+        public bool BlockDisconnect { get; set; }
         public int ConnectAttempts { get; private set; }
         public int DisconnectAttempts { get; private set; }
         public TaskCompletionSource ConnectStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -220,10 +311,14 @@ public sealed class SessionCoordinatorTests
             }
         }
 
-        public Task DisconnectAsync(Guid portId, CancellationToken cancellationToken)
+        public async Task DisconnectAsync(Guid portId, CancellationToken cancellationToken)
         {
             DisconnectAttempts++;
-            return Task.CompletedTask;
+
+            if (BlockDisconnect)
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
         }
     }
 
@@ -231,12 +326,14 @@ public sealed class SessionCoordinatorTests
     {
         public SessionSnapshot? Snapshot { get; set; }
         public SessionSnapshot? LastSnapshot { get; private set; }
+        public int SaveCalls { get; private set; }
 
         public Task<SessionSnapshot?> LoadAsync(CancellationToken cancellationToken) =>
             Task.FromResult(Snapshot);
 
         public Task SaveAsync(SessionSnapshot snapshot, CancellationToken cancellationToken)
         {
+            SaveCalls++;
             LastSnapshot = snapshot;
             return Task.CompletedTask;
         }

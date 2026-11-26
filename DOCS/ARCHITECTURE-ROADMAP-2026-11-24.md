@@ -745,6 +745,40 @@ compatibility façade is still needed.
 - Bound telemetry input with a channel.
 - Stop with a non-cancelled teardown token and deadline.
 
+> **Status: implemented.** `SessionCoordinator` now exposes `SessionIntent`, the
+> operator's desired running set, separately from the per-port `PortSessionStatus`
+> runtime state it supervises. Intent lives only in memory, so a restarted process
+> always comes up disarmed and waits for an explicit start; `StartAsync` arms it and
+> `StopAsync` disarms it.
+>
+> Persistence goes through `SessionStateWriter`, the single owner of the
+> `session-state.json` writer. Its queue holds one request, so a burst of reconnect
+> transitions collapses into one write of the newest snapshot instead of one write
+> per event, and `FlushAsync` lets a caller that needs durability wait against its
+> own deadline. Transitions are published immediately; `LastReceiveUtc` and
+> `LastTransmitUtc` are diagnostic timestamps that travel with the next transition
+> or the periodic flush, which runs every `diagnosticPersistInterval` (one minute by
+> default) instead of once per packet (audit C-03).
+>
+> `SessionCoordinatorTelemetryBridge` no longer starts one task per transport event.
+> It posts observations into `SessionTelemetryIntake`, a bounded queue with a single
+> consumer that applies them in order; a full queue drops the observation instead of
+> blocking a modem read loop and exposes `DroppedObservations` so the loss is
+> observable.
+>
+> `StopAsync` takes no cancellation token. Teardown runs against an internal
+> `teardownTimeout` (ten seconds by default) so a shutdown that has already cancelled
+> its own token still cancels reconnect loops, disconnects every port and flushes the
+> final snapshot; an expired deadline is recorded as a diagnostic instead of leaving
+> sessions half torn down.
+>
+> A007 covers the two new queue owners. Tests: `SessionStateWriterTests` proves
+> coalescing, flush ordering, recovery after a failed write, and drain-on-dispose;
+> `SessionTelemetryIntakeTests` proves in-order delivery, the counted drop when the
+> queue is full, and that a failing handler does not stop later observations;
+> `SessionCoordinatorTests` adds intent/runtime separation, the internal teardown
+> deadline when a transport hangs, and the periodic diagnostic flush.
+
 **R3.3 Startup**
 
 - Sequence database initialization, settings load, feature permissions, session arm,

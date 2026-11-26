@@ -8,6 +8,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Services.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Services.Ports;
 
@@ -65,25 +67,39 @@ public interface ISessionStateStore
 /// <summary>
 /// Coordinates application lifecycle and reconnect work independently of the UI.
 /// </summary>
+/// <remarks>
+/// The coordinator keeps the operator's intent (<see cref="Intent"/>) apart from
+/// the runtime status of each port. Intent is never persisted, so a restarted
+/// process comes up disarmed. Runtime transitions are written through a single
+/// coalescing writer, and diagnostic timestamps are flushed on a fixed interval
+/// instead of once per packet. Stopping always uses an internal deadline: a
+/// cancelled caller cannot leave sessions half torn down.
+/// </remarks>
 public sealed class SessionCoordinator : IAsyncDisposable
 {
     private static readonly TimeSpan DefaultInitialBackoff = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan DefaultMaximumBackoff = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan DefaultTeardownTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DefaultDiagnosticPersistInterval = TimeSpan.FromMinutes(1);
 
     private readonly ISessionPortController _portController;
     private readonly ISessionStateStore _stateStore;
+    private readonly SessionStateWriter _stateWriter;
     private readonly TimeProvider _timeProvider;
     private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;
     private readonly Func<double> _jitter;
     private readonly TimeSpan _initialBackoff;
     private readonly TimeSpan _maximumBackoff;
+    private readonly TimeSpan _teardownTimeout;
+    private readonly TimeSpan _diagnosticPersistInterval;
     private readonly IDiagnosticEventSink? _diagnostics;
-    private readonly SemaphoreSlim _persistGate = new(1, 1);
     private readonly object _gate = new();
     private readonly Dictionary<Guid, PortSessionStatus> _ports = new();
     private readonly Dictionary<Guid, Task> _reconnectTasks = new();
 
     private CancellationTokenSource? _sessionCts;
+    private SessionIntent _intent = SessionIntent.Disarmed;
+    private ITimer? _diagnosticTimer;
     private SessionLifecycleState _state = SessionLifecycleState.Stopped;
     private bool _initialized;
     private bool _disposed;
@@ -96,15 +112,26 @@ public sealed class SessionCoordinator : IAsyncDisposable
         Func<double>? jitter = null,
         TimeSpan? initialBackoff = null,
         TimeSpan? maximumBackoff = null,
-        IDiagnosticEventSink? diagnostics = null)
+        IDiagnosticEventSink? diagnostics = null,
+        ILogger<SessionCoordinator>? logger = null,
+        TimeSpan? teardownTimeout = null,
+        TimeSpan? diagnosticPersistInterval = null)
     {
+        ArgumentNullException.ThrowIfNull(portController);
+        ArgumentNullException.ThrowIfNull(stateStore);
+
         _portController = portController;
         _stateStore = stateStore;
+        _stateWriter = new SessionStateWriter(
+            stateStore,
+            logger ?? NullLogger<SessionCoordinator>.Instance);
         _timeProvider = timeProvider ?? TimeProvider.System;
         _delayAsync = delayAsync ?? Task.Delay;
         _jitter = jitter ?? (() => Random.Shared.NextDouble());
         _initialBackoff = initialBackoff ?? DefaultInitialBackoff;
         _maximumBackoff = maximumBackoff ?? DefaultMaximumBackoff;
+        _teardownTimeout = teardownTimeout ?? DefaultTeardownTimeout;
+        _diagnosticPersistInterval = diagnosticPersistInterval ?? DefaultDiagnosticPersistInterval;
         _diagnostics = diagnostics;
 
         if (_initialBackoff <= TimeSpan.Zero)
@@ -116,6 +143,16 @@ public sealed class SessionCoordinator : IAsyncDisposable
         {
             throw new ArgumentOutOfRangeException(nameof(maximumBackoff));
         }
+
+        if (_teardownTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(teardownTimeout));
+        }
+
+        if (_diagnosticPersistInterval < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(diagnosticPersistInterval));
+        }
     }
 
     public SessionLifecycleState State
@@ -125,6 +162,20 @@ public sealed class SessionCoordinator : IAsyncDisposable
             lock (_gate)
             {
                 return _state;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The operator's desired running set. Disarmed until an explicit start.
+    /// </summary>
+    public SessionIntent Intent
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _intent;
             }
         }
     }
@@ -162,9 +213,12 @@ public sealed class SessionCoordinator : IAsyncDisposable
                 }
             }
 
+            _intent = SessionIntent.Disarmed;
             _state = SessionLifecycleState.Stopped;
             _initialized = true;
         }
+
+        StartDiagnosticTimer();
     }
 
     public async Task StartAsync(
@@ -176,6 +230,8 @@ public sealed class SessionCoordinator : IAsyncDisposable
         {
             throw new ArgumentException("At least one port is required.", nameof(portIds));
         }
+
+        IReadOnlyList<Guid> armedPortIds;
 
         lock (_gate)
         {
@@ -189,29 +245,104 @@ public sealed class SessionCoordinator : IAsyncDisposable
                 return;
             }
 
+            _intent = SessionIntent.Armed(portIds);
+            armedPortIds = _intent.PortIds;
             _sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _state = SessionLifecycleState.Starting;
-            foreach (var portId in portIds.Distinct())
+            foreach (var portId in armedPortIds)
             {
                 _ports[portId] = new PortSessionStatus(portId, PortSessionState.Connecting);
             }
         }
 
-        await PersistAsync(cancellationToken).ConfigureAwait(false);
+        PublishTransition();
 
         lock (_gate)
         {
-            foreach (var portId in portIds.Distinct())
+            foreach (var portId in armedPortIds)
             {
-                var task = ReconnectLoopAsync(portId, _sessionCts!.Token);
-                _reconnectTasks[portId] = task;
+                if (_sessionCts is null || _state is SessionLifecycleState.Stopping or SessionLifecycleState.Stopped)
+                {
+                    break;
+                }
+
+                _reconnectTasks[portId] = ReconnectLoopAsync(portId, _sessionCts.Token);
             }
         }
     }
 
-    public async Task StopAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Stops every session and disarms the intent.
+    /// </summary>
+    /// <remarks>
+    /// Stopping is not cancellable by the caller: teardown runs against an internal
+    /// deadline so a shutdown that has already cancelled its own token still releases
+    /// the transports.
+    /// </remarks>
+    public async Task StopAsync()
     {
         ThrowIfDisposed();
+        await StopCoreAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Completes once the current session snapshot reached the state store.
+    /// </summary>
+    public Task FlushAsync(CancellationToken cancellationToken = default) =>
+        _stateWriter.FlushAsync(cancellationToken);
+
+    public Task ReportReceiveAsync(Guid portId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ApplyPortUpdate(
+            portId,
+            status => status with { LastReceiveUtc = _timeProvider.GetUtcNow() });
+        return Task.CompletedTask;
+    }
+
+    public Task ReportTransmitAsync(Guid portId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ApplyPortUpdate(
+            portId,
+            status => status with { LastTransmitUtc = _timeProvider.GetUtcNow() });
+        return Task.CompletedTask;
+    }
+
+    public Task ReportPortFaultAsync(
+        Guid portId,
+        Exception exception,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        ApplyPortUpdate(
+            portId,
+            status => status with
+            {
+                State = PortSessionState.Degraded,
+                Error = exception.Message,
+                NextRetryUtc = _timeProvider.GetUtcNow()
+            });
+
+        lock (_gate)
+        {
+            if (_sessionCts is null ||
+                _state is SessionLifecycleState.Stopping or SessionLifecycleState.Stopped ||
+                (_reconnectTasks.TryGetValue(portId, out var task) && !task.IsCompleted))
+            {
+                return Task.CompletedTask;
+            }
+
+            _reconnectTasks[portId] = ReconnectLoopAsync(portId, _sessionCts.Token);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task StopCoreAsync()
+    {
         Task[] reconnectTasks;
         Guid[] ports;
 
@@ -222,24 +353,56 @@ public sealed class SessionCoordinator : IAsyncDisposable
                 return;
             }
 
+            _intent = SessionIntent.Disarmed;
             _state = SessionLifecycleState.Stopping;
             reconnectTasks = [.. _reconnectTasks.Values];
             ports = [.. _ports.Keys];
             _sessionCts?.Cancel();
         }
 
+        using var teardown = new CancellationTokenSource(_teardownTimeout);
+
         try
         {
-            await Task.WhenAll(reconnectTasks).ConfigureAwait(false);
+            await Task.WhenAll(reconnectTasks).WaitAsync(teardown.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            // Cancellation is the normal stop path.
+            // Cancellation is the normal exit path for the reconnect loops. A
+            // deadline expiry surfaces through the disconnect sweep below.
+        }
+        catch (Exception exception)
+        {
+            _diagnostics?.Record(
+                "session",
+                DiagnosticSeverity.Error,
+                "Stopping",
+                $"A reconnect loop ended with an error: {exception.Message}");
         }
 
         foreach (var portId in ports)
         {
-            await _portController.DisconnectAsync(portId, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await _portController.DisconnectAsync(portId, teardown.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (teardown.IsCancellationRequested)
+            {
+                _diagnostics?.Record(
+                    "session",
+                    DiagnosticSeverity.Warning,
+                    "Stopping",
+                    "The teardown deadline expired while disconnecting ports.");
+                break;
+            }
+            catch (Exception exception)
+            {
+                _diagnostics?.Record(
+                    "session",
+                    DiagnosticSeverity.Error,
+                    "Stopping",
+                    $"A port could not be disconnected: {exception.Message}");
+            }
         }
 
         lock (_gate)
@@ -260,51 +423,19 @@ public sealed class SessionCoordinator : IAsyncDisposable
             _state = SessionLifecycleState.Stopped;
         }
 
-        await PersistAsync(cancellationToken).ConfigureAwait(false);
-    }
+        PublishTransition();
 
-    public async Task ReportReceiveAsync(Guid portId, CancellationToken cancellationToken = default)
-    {
-        await UpdatePortAsync(
-            portId,
-            status => status with { LastReceiveUtc = _timeProvider.GetUtcNow() },
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task ReportTransmitAsync(Guid portId, CancellationToken cancellationToken = default)
-    {
-        await UpdatePortAsync(
-            portId,
-            status => status with { LastTransmitUtc = _timeProvider.GetUtcNow() },
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task ReportPortFaultAsync(
-        Guid portId,
-        Exception exception,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(exception);
-        await UpdatePortAsync(
-            portId,
-            status => status with
-            {
-                State = PortSessionState.Degraded,
-                Error = exception.Message,
-                NextRetryUtc = _timeProvider.GetUtcNow()
-            },
-            cancellationToken).ConfigureAwait(false);
-
-        lock (_gate)
+        try
         {
-            if (_sessionCts is null ||
-                _state is SessionLifecycleState.Stopping or SessionLifecycleState.Stopped ||
-                (_reconnectTasks.TryGetValue(portId, out var task) && !task.IsCompleted))
-            {
-                return;
-            }
-
-            _reconnectTasks[portId] = ReconnectLoopAsync(portId, _sessionCts.Token);
+            await _stateWriter.FlushAsync(teardown.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            _diagnostics?.Record(
+                "session",
+                DiagnosticSeverity.Warning,
+                "Stopping",
+                "The teardown deadline expired before the final session state was written.");
         }
     }
 
@@ -315,7 +446,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             var now = _timeProvider.GetUtcNow();
-            await UpdatePortAsync(
+            ApplyPortUpdate(
                 portId,
                 status => status with
                 {
@@ -323,13 +454,12 @@ public sealed class SessionCoordinator : IAsyncDisposable
                     RetryCount = retryCount,
                     NextRetryUtc = null,
                     Error = null
-                },
-                cancellationToken).ConfigureAwait(false);
+                });
 
             try
             {
                 await _portController.ConnectAsync(portId, cancellationToken).ConfigureAwait(false);
-                await UpdatePortAsync(
+                ApplyPortUpdate(
                     portId,
                     status => status with
                     {
@@ -337,8 +467,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
                         RetryCount = 0,
                         NextRetryUtc = null,
                         Error = null
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                    });
                 return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -349,7 +478,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
             {
                 retryCount++;
                 var delay = CalculateBackoff(retryCount);
-                await UpdatePortAsync(
+                ApplyPortUpdate(
                     portId,
                     status => status with
                     {
@@ -357,8 +486,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
                         RetryCount = retryCount,
                         NextRetryUtc = now.Add(delay),
                         Error = ex.Message
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                    });
 
                 await _delayAsync(delay, cancellationToken).ConfigureAwait(false);
             }
@@ -376,10 +504,9 @@ public sealed class SessionCoordinator : IAsyncDisposable
             exponentialSeconds * jitterFactor));
     }
 
-    private async Task UpdatePortAsync(
+    private void ApplyPortUpdate(
         Guid portId,
-        Func<PortSessionStatus, PortSessionStatus> update,
-        CancellationToken cancellationToken)
+        Func<PortSessionStatus, PortSessionStatus> update)
     {
         var changed = false;
         lock (_gate)
@@ -401,13 +528,12 @@ public sealed class SessionCoordinator : IAsyncDisposable
         // LastReceiveUtc/LastTransmitUtc are diagnostics, not state. Rewriting the
         // whole session file, raising StateChanged and recording a diagnostic for
         // every received packet saturates the disk on a busy APRS-IS feed, so only
-        // real transitions are persisted (audit C-03).
-        if (!changed)
+        // real transitions are published here (audit C-03). Timestamps travel with
+        // the next transition or the periodic diagnostic flush.
+        if (changed)
         {
-            return;
+            PublishTransition();
         }
-
-        await PersistAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private void UpdateAggregateStateLocked()
@@ -434,7 +560,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
         }
     }
 
-    private async Task PersistAsync(CancellationToken cancellationToken)
+    private void PublishTransition()
     {
         SessionSnapshot snapshot;
         lock (_gate)
@@ -442,15 +568,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
             snapshot = new SessionSnapshot(_state, [.. _ports.Values]);
         }
 
-        await _persistGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            await _stateStore.SaveAsync(snapshot, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            _persistGate.Release();
-        }
+        _stateWriter.Request(snapshot);
 
         try
         {
@@ -463,14 +581,56 @@ public sealed class SessionCoordinator : IAsyncDisposable
 
         _diagnostics?.Record(
             "session",
-            snapshot.State is SessionLifecycleState.Faulted
-                ? DiagnosticSeverity.Error
-                : snapshot.State is SessionLifecycleState.Degraded
-                    ? DiagnosticSeverity.Warning
-                    : DiagnosticSeverity.Information,
+            SeverityFor(snapshot.State),
             snapshot.State.ToString(),
-            "Session state persisted.");
+            "Session state changed.");
     }
+
+    private void StartDiagnosticTimer()
+    {
+        if (_diagnosticPersistInterval <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        _diagnosticTimer?.Dispose();
+        _diagnosticTimer = _timeProvider.CreateTimer(
+            OnDiagnosticTick,
+            null,
+            _diagnosticPersistInterval,
+            _diagnosticPersistInterval);
+    }
+
+    private void OnDiagnosticTick(object? state)
+    {
+        if (Volatile.Read(ref _disposed))
+        {
+            return;
+        }
+
+        SessionSnapshot snapshot;
+        lock (_gate)
+        {
+            if (!_initialized)
+            {
+                return;
+            }
+
+            snapshot = new SessionSnapshot(_state, [.. _ports.Values]);
+        }
+
+        // The latest receive and transmit timestamps are worth one small write per
+        // interval even when the lifecycle state did not change.
+        _stateWriter.Request(snapshot);
+    }
+
+    private static DiagnosticSeverity SeverityFor(SessionLifecycleState state) =>
+        state switch
+        {
+            SessionLifecycleState.Faulted => DiagnosticSeverity.Error,
+            SessionLifecycleState.Degraded => DiagnosticSeverity.Warning,
+            _ => DiagnosticSeverity.Information
+        };
 
     private void ThrowIfDisposed()
     {
@@ -484,12 +644,11 @@ public sealed class SessionCoordinator : IAsyncDisposable
             return;
         }
 
-        if (_sessionCts is not null)
-        {
-            await StopAsync().ConfigureAwait(false);
-        }
+        await StopCoreAsync().ConfigureAwait(false);
 
         _disposed = true;
-        _persistGate.Dispose();
+        _diagnosticTimer?.Dispose();
+        _diagnosticTimer = null;
+        await _stateWriter.DisposeAsync().ConfigureAwait(false);
     }
 }
