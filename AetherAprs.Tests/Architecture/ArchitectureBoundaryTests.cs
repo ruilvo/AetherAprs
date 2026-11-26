@@ -315,6 +315,34 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticLogcatCallOutsideTheProvider_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs.Android/MainActivity.cs",
+                "global::Android.Util.Log.Warn(\"AetherAprs\", \"denied\");"),
+            Source(
+                "AetherAprs.Android/Services/Platform/AndroidPermissionService.cs",
+                "global::Android.Util.Log.Info(\"AetherAprs\", \"granted\");")
+        ]);
+
+        Assert.Equal(2, violations.Count);
+        Assert.All(violations, violation => Assert.Equal("A013", violation.RuleId));
+    }
+
+    [Fact]
+    public void Scan_LogcatProvider_IsAllowedToNameThePlatformLog()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source(
+                "AetherAprs.Android/Services/Platform/AndroidLogcatLoggerProvider.cs",
+                "global::Android.Util.Log.Warn(Tag, message);")]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

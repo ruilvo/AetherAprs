@@ -11,6 +11,7 @@ using AetherAprs.Factories;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.IO;
 
 namespace AetherAprs.Android
@@ -60,6 +61,9 @@ namespace AetherAprs.Android
     [Application]
     public class Application : AvaloniaAndroidApplication<AndroidApp>
     {
+        // Android constructs this class, so it cannot take an injected logger.
+        private static readonly ILogger _logger = ApplicationLog.For<Application>();
+
         private static readonly string _appSettingsFileName = "appsettings.json";
 #if DEBUG
         private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
@@ -104,10 +108,7 @@ namespace AetherAprs.Android
             catch (System.Exception ex)
             {
                 // Log before rethrowing; without configuration files, app cannot start.
-                global::Android.Util.Log.Error(
-                    "AetherAprs",
-                    $"Configuration initialization failed; startup cannot continue. " +
-                    $"ExceptionType={ex.GetType().FullName}; Message={ex.Message}");
+                _logger.LogCritical(ex, "Configuration initialization failed; startup cannot continue");
                 throw;
             }
         }

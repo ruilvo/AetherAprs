@@ -138,6 +138,16 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/DesignData.cs"
     };
 
+    /// <summary>
+    /// Files permitted to write to logcat directly. Android entry points log
+    /// through <c>ILogger</c>; the logcat provider is the single adapter that
+    /// translates those records for the platform before the container exists.
+    /// </summary>
+    private static readonly HashSet<string> AndroidLogcatOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs.Android/Services/Platform/AndroidLogcatLoggerProvider.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -216,7 +226,13 @@ internal static class ArchitectureBoundaryScanner
             "A012",
             "Dependencies arrive through constructor injection; a static service accessor hides them from validation and from the caller.",
             ["App.GetService", "ServiceProviderFactory.ServiceProvider"],
-            new HashSet<string>(StringComparer.Ordinal))
+            new HashSet<string>(StringComparer.Ordinal)),
+
+        new ArchitectureRule(
+            "A013",
+            "Android code logs through ILogger; the logcat provider is the only place that names Android.Util.Log.",
+            ["Android.Util.Log"],
+            AndroidLogcatOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>

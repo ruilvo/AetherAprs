@@ -396,12 +396,14 @@ stay inside the configuration adapter, added with `R3.1`), `A010` (startup steps
 are declared in the composition root, added with `R3.3`), `A011` (only the
 composition root builds a container, added with the composition-root items) and
 `A012` (no static service accessor, added with the close-out of composition-root
-item 5). The
+item 5) and `A013` (Android code logs through `ILogger`; only the logcat provider
+names `Android.Util.Log`, added with the `R5.4` logging work). The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
-were removed rather than re-baselined. Payload redaction assertions remain open and
-belong to the owning log paths (`R5.4`, `R6.7`).
+were removed rather than re-baselined. Payload redaction is asserted where a log
+path owns it — the permission reporting path has a capturing-logger case — and
+remains open for the hot packet paths (`R6.7`).
 
 **R0.3 Test harness**
 
@@ -993,9 +995,10 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Verify exported activity/deep-link inputs and notification privacy.
 - Document the `neverForLocation` rationale or remove the flag.
 
-> **Status: lost credentials no longer hide the port list, and the operator can
-> repair them in the port editor (2026-11-26); activity logging, exported-input
-> review and the `neverForLocation` decision still open.**
+> **Status: lost credentials no longer hide the port list, the operator can repair
+> them in the port editor, and Android logging goes through `ILogger`
+> (2026-11-26); exported-input review and the `neverForLocation` decision still
+> open.**
 > `PortRegistry` restored the APRS-IS passcode while mapping every record, so one
 > unreadable secret threw out of `LoadAsync` and the operator saw no ports at all.
 > Mapping now catches `SecretUnavailableException` per port: the port keeps its name,
@@ -1029,8 +1032,25 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > `BuildConfig_WhenThePasscodeWasNotReentered_KeepsThePortReceiveOnly` fail, so that
 > case is a regression test too.
 >
-> Still open for this item: routing activity/application logging through `ILogger`,
-> exported input review, and the `neverForLocation` decision.
+> Logging no longer reaches a bare platform call. `MainActivity`, the Android
+> application class, the foreground service and the permission adapter all write
+> through `ILogger` categories; `ApplicationLog` resolves the container's factory
+> for those framework-created objects and falls back to
+> `AndroidLogcatLoggerProvider` before the container exists, so bootstrap failures
+> still reach logcat from one adapter instead of dozens of call sites. Repeated
+> step-by-step permission chatter moved to debug and the startup burst reports one
+> bounded summary, so volume drops without losing the outcome.
+>
+> Tests: architecture rule A013 rejects any `Android.Util.Log` outside the logcat
+> provider, with one case for a rejected call site and one for the permitted
+> provider. `PermissionLoggingTests` drives the permission reporting path with a
+> capturing logger over ports carrying a distinctive server, passcode, filter and
+> name, and asserts the single warning names only the permission and its
+> consequence while neither the rendered message nor the structured state contains
+> any of those values; a second case asserts a fully granted launch logs nothing.
+>
+> Still open for this item: exported input review and the `neverForLocation`
+> decision.
 
 Exit: permission, disconnect, notification stop, and route change behavior have
 focused acceptance checks. When a behavior depends on native APIs, use a short

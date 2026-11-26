@@ -41,6 +41,10 @@ public class AetherAprsForegroundService : Service
     private const string ActionStart = "START_FOREGROUND";
     private const string ActionStop = "STOP_FOREGROUND";
 
+    // Android creates the service itself, so it cannot take an injected logger;
+    // ApplicationLog resolves the container's category once Avalonia is up.
+    private static readonly ILogger Log = ApplicationLog.For<AetherAprsForegroundService>();
+
     /// <summary>
     /// Action of the notification "Stop" button. Handled by the service itself so
     /// it works even when no activity (and therefore no runtime receiver) exists.
@@ -98,9 +102,9 @@ public class AetherAprsForegroundService : Service
     /// </summary>
     public override void OnTimeout(int startId, ForegroundService fgsType)
     {
-        global::Android.Util.Log.Warn(
-            "AetherAprs",
-            $"Foreground service type {fgsType} reached its platform time limit; stopping cleanly.");
+        Log.LogWarning(
+            "Foreground service type {ServiceType} reached its platform time limit; stopping cleanly.",
+            fgsType);
 
         ShowTimeoutNotification();
 
@@ -171,7 +175,7 @@ public class AetherAprsForegroundService : Service
             }
             catch (Java.Lang.SecurityException ex)
             {
-                global::Android.Util.Log.Warn("AetherAprs", $"Foreground service unavailable: {ex.Message}");
+                Log.LogWarning(ex, "Foreground service unavailable");
                 AndroidLifecycleTelemetry.State.ForegroundRejected();
                 PublishState(StateFailed);
                 StopSelf();
@@ -179,7 +183,7 @@ public class AetherAprsForegroundService : Service
             }
             catch (ForegroundServiceStartNotAllowedException ex)
             {
-                global::Android.Util.Log.Warn("AetherAprs", $"Foreground service unavailable: {ex.Message}");
+                Log.LogWarning(ex, "Foreground service unavailable");
                 AndroidLifecycleTelemetry.State.ForegroundRejected();
                 PublishState(StateFailed);
                 StopSelf();
@@ -211,8 +215,7 @@ public class AetherAprsForegroundService : Service
             // The container is not available, so there is nothing to disarm. Give
             // up foreground status anyway; the platform can then reclaim the
             // process instead of leaving a stale notification.
-            global::Android.Util.Log.Warn(
-                "AetherAprs",
+            Log.LogWarning(
                 "Application services are unavailable; stopping the foreground service only.");
         }
         else
@@ -222,16 +225,15 @@ public class AetherAprsForegroundService : Service
                 var result = await sessionControl.StopAsync().ConfigureAwait(false);
                 foreach (var failure in result.Failures)
                 {
-                    global::Android.Util.Log.Warn(
-                        "AetherAprs",
-                        $"Application stop step {failure.Step} failed: {failure.Message}");
+                    Log.LogWarning(
+                        "Application stop step {Step} failed: {Message}",
+                        failure.Step,
+                        failure.Message);
                 }
             }
             catch (Exception ex)
             {
-                global::Android.Util.Log.Error(
-                    "AetherAprs",
-                    $"Failed to stop the application session from the foreground service: {ex.Message}");
+                Log.LogError(ex, "Failed to stop the application session from the foreground service");
             }
         }
 
@@ -279,9 +281,7 @@ public class AetherAprsForegroundService : Service
             }
             catch (Exception ex)
             {
-                global::Android.Util.Log.Warn(
-                    "AetherAprs",
-                    $"Failed to close the activity after an application stop: {ex.Message}");
+                Log.LogWarning(ex, "Failed to close the activity after an application stop");
             }
         });
     }

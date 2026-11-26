@@ -52,6 +52,10 @@ public class MainActivity : AvaloniaMainActivity
     // pending waiter. A fresh process starts unset and asks the user again.
     private static readonly ProcessLifetimeFlag _initialPermissionPromptRequested = new();
 
+    // Android constructs the activity, so it cannot take an injected logger;
+    // ApplicationLog resolves the container's category once Avalonia is up.
+    private static readonly ILogger _logger = ApplicationLog.For<MainActivity>();
+
     private INavigationService? navigationService;
     private BackInvokedCallback? backInvokedCallback;
     private bool _backCallbackRegistered;
@@ -90,22 +94,22 @@ public class MainActivity : AvaloniaMainActivity
 
         // Android 13+ only (SupportedOSPlatformVersion = 33)
         var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications);
-        global::Android.Util.Log.Info("AetherAprs", $"Notification permission current status: {currentStatus}");
+        _logger.LogDebug("Notification permission status: {Status}", currentStatus);
 
         if (currentStatus == Permission.Granted)
         {
-            global::Android.Util.Log.Info("AetherAprs", "Notification permission already granted");
+            _logger.LogDebug("Notification permission already granted");
             return true;
         }
 
         // Check if we should show rationale
         if (ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.PostNotifications))
         {
-            global::Android.Util.Log.Info("AetherAprs", "Should show notification permission rationale");
+            _logger.LogDebug("Notification permission rationale is suggested");
         }
 
         // Request permission and wait for result
-        global::Android.Util.Log.Info("AetherAprs", "Requesting notification permission dialog...");
+        _logger.LogDebug("Requesting the notification permission");
         _notificationPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var notificationTcs = _notificationPermissionTcs;
         using var notificationTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -116,12 +120,12 @@ public class MainActivity : AvaloniaMainActivity
         {
             RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, NotificationPermissionRequestCode);
             var result = await notificationTcs.Task.ConfigureAwait(false);
-            global::Android.Util.Log.Info("AetherAprs", $"Notification permission dialog result: {result}");
+            _logger.LogDebug("Notification permission result: {Granted}", result);
             return result;
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error("AetherAprs", $"Error requesting notification permission: {ex.Message}");
+            _logger.LogWarning(ex, "Requesting the notification permission failed");
             return false;
         }
     }
@@ -139,11 +143,14 @@ public class MainActivity : AvaloniaMainActivity
         // Android 13+ only (SupportedOSPlatformVersion = 33, includes S/12 permissions)
         var bluetoothScanStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothScan);
         var bluetoothConnectStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothConnect);
-        global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission current status - SCAN: {bluetoothScanStatus}, CONNECT: {bluetoothConnectStatus}");
+        _logger.LogDebug(
+            "Bluetooth permission status: {ScanStatus}, {ConnectStatus}",
+            bluetoothScanStatus,
+            bluetoothConnectStatus);
 
         if (bluetoothScanStatus == Permission.Granted && bluetoothConnectStatus == Permission.Granted)
         {
-            global::Android.Util.Log.Info("AetherAprs", "Bluetooth permissions already granted");
+            _logger.LogDebug("Bluetooth permissions already granted");
             return true;
         }
 
@@ -151,11 +158,11 @@ public class MainActivity : AvaloniaMainActivity
         if (ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.BluetoothScan) ||
             ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.BluetoothConnect))
         {
-            global::Android.Util.Log.Info("AetherAprs", "Should show Bluetooth permission rationale");
+            _logger.LogDebug("Bluetooth permission rationale is suggested");
         }
 
         // Request permissions and wait for result
-        global::Android.Util.Log.Info("AetherAprs", "Requesting Bluetooth permission dialog...");
+        _logger.LogDebug("Requesting the Bluetooth permissions");
         _bluetoothPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var bluetoothTcs = _bluetoothPermissionTcs;
         using var bluetoothTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -170,12 +177,12 @@ public class MainActivity : AvaloniaMainActivity
                 global::Android.Manifest.Permission.BluetoothConnect
             }, BluetoothPermissionRequestCode);
             var result = await bluetoothTcs.Task.ConfigureAwait(false);
-            global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission dialog result: {result}");
+            _logger.LogDebug("Bluetooth permission result: {Granted}", result);
             return result;
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error("AetherAprs", $"Error requesting Bluetooth permission: {ex.Message}");
+            _logger.LogWarning(ex, "Requesting the Bluetooth permissions failed");
             return false;
         }
     }
@@ -191,15 +198,15 @@ public class MainActivity : AvaloniaMainActivity
         }
 
         var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio);
-        global::Android.Util.Log.Info("AetherAprs", $"Audio permission current status: {currentStatus}");
+        _logger.LogDebug("Audio permission status: {Status}", currentStatus);
 
         if (currentStatus == Permission.Granted)
         {
-            global::Android.Util.Log.Info("AetherAprs", "Audio permission already granted");
+            _logger.LogDebug("Audio permission already granted");
             return true;
         }
 
-        global::Android.Util.Log.Info("AetherAprs", "Requesting audio permission dialog...");
+        _logger.LogDebug("Requesting the audio permission");
         _audioPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var audioTcs = _audioPermissionTcs;
         using var audioTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -210,12 +217,12 @@ public class MainActivity : AvaloniaMainActivity
         {
             RequestPermissions(new[] { global::Android.Manifest.Permission.RecordAudio }, AudioPermissionRequestCode);
             var result = await audioTcs.Task.ConfigureAwait(false);
-            global::Android.Util.Log.Info("AetherAprs", $"Audio permission dialog result: {result}");
+            _logger.LogDebug("Audio permission result: {Granted}", result);
             return result;
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error("AetherAprs", $"Error requesting audio permission: {ex.Message}");
+            _logger.LogWarning(ex, "Requesting the audio permission failed");
             return false;
         }
     }
@@ -377,34 +384,30 @@ public class MainActivity : AvaloniaMainActivity
     {
         try
         {
-            // Request notification permission
-            global::Android.Util.Log.Info("AetherAprs", "Requesting notification permission from MainActivity...");
+            _logger.LogDebug("Requesting the initial permission burst");
+
             var notificationGranted = await RequestNotificationPermissionAsync();
-            global::Android.Util.Log.Info("AetherAprs", $"Notification permission result: {notificationGranted}");
-
-            // Request Bluetooth permissions
-            global::Android.Util.Log.Info("AetherAprs", "Requesting Bluetooth permissions from MainActivity...");
             var bluetoothGranted = await RequestBluetoothPermissionAsync();
-            global::Android.Util.Log.Info("AetherAprs", $"Bluetooth permission result: {bluetoothGranted}");
-
-            // Request location permissions
-            global::Android.Util.Log.Info("AetherAprs", "Requesting location permissions from MainActivity...");
             var locationGranted = await RequestLocationPermissionsAsync();
-            global::Android.Util.Log.Info("AetherAprs", $"Location permission result: {locationGranted}");
-
-            // Request audio (microphone) permission
-            global::Android.Util.Log.Info("AetherAprs", "Requesting audio permission from MainActivity...");
             var audioGranted = await RequestAudioPermissionAsync();
-            global::Android.Util.Log.Info("AetherAprs", $"Audio permission result: {audioGranted}");
 
             // Request background location (non-fatal when denied; Android 11+
             // routes this to the app settings page)
             var backgroundLocationGranted = await RequestBackgroundLocationPermissionAsync();
-            global::Android.Util.Log.Info("AetherAprs", $"Background location permission result: {backgroundLocationGranted}");
+
+            // One bounded summary instead of a line per step: the individual
+            // methods already report their own status at debug level.
+            _logger.LogDebug(
+                "Initial permission burst finished: notifications {Notifications}, Bluetooth {Bluetooth}, location {Location}, audio {Audio}, background location {BackgroundLocation}",
+                notificationGranted,
+                bluetoothGranted,
+                locationGranted,
+                audioGranted,
+                backgroundLocationGranted);
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error("AetherAprs", $"Error requesting permissions: {ex.Message}");
+            _logger.LogWarning(ex, "Requesting the initial permissions failed");
         }
         finally
         {
@@ -427,11 +430,14 @@ public class MainActivity : AvaloniaMainActivity
 
         var fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
         var coarseLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessCoarseLocation);
-        global::Android.Util.Log.Info("AetherAprs", $"Location permission current status - FINE: {fineLocationStatus}, COARSE: {coarseLocationStatus}");
+        _logger.LogDebug(
+            "Location permission status: {FineStatus}, {CoarseStatus}",
+            fineLocationStatus,
+            coarseLocationStatus);
 
         if (fineLocationStatus == Permission.Granted || coarseLocationStatus == Permission.Granted)
         {
-            global::Android.Util.Log.Info("AetherAprs", "Location permissions already granted");
+            _logger.LogDebug("Location permissions already granted");
             return true;
         }
 
@@ -439,11 +445,11 @@ public class MainActivity : AvaloniaMainActivity
         if (ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.AccessFineLocation) ||
             ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.AccessCoarseLocation))
         {
-            global::Android.Util.Log.Info("AetherAprs", "Should show location permission rationale");
+            _logger.LogDebug("Location permission rationale is suggested");
         }
 
         // Request permissions and wait for result
-        global::Android.Util.Log.Info("AetherAprs", "Requesting location permission dialog...");
+        _logger.LogDebug("Requesting the location permissions");
         
         // Use the LocationService's existing request code to avoid conflicts
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -472,12 +478,12 @@ public class MainActivity : AvaloniaMainActivity
                 global::Android.Manifest.Permission.AccessCoarseLocation
             }, 1001); // Use LocationService's request code
             var result = await tcs.Task.ConfigureAwait(false);
-            global::Android.Util.Log.Info("AetherAprs", $"Location permission dialog result: {result}");
+            _logger.LogDebug("Location permission result: {Granted}", result);
             return result;
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error("AetherAprs", $"Error requesting location permission: {ex.Message}");
+            _logger.LogWarning(ex, "Requesting the location permissions failed");
             OnPermissionResult -= OnPermissionResultHandler;
             return false;
         }
@@ -500,7 +506,7 @@ public class MainActivity : AvaloniaMainActivity
         // Android 10 (Q) introduced ACCESS_BACKGROUND_LOCATION; SupportedOSPlatformVersion is 33.
         if (CheckSelfPermission(global::Android.Manifest.Permission.AccessBackgroundLocation) == Permission.Granted)
         {
-            global::Android.Util.Log.Info("AetherAprs", "Background location permission already granted");
+            _logger.LogDebug("Background location permission already granted");
             return true;
         }
 
@@ -509,11 +515,11 @@ public class MainActivity : AvaloniaMainActivity
         var fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
         if (fineLocationStatus != Permission.Granted)
         {
-            global::Android.Util.Log.Info("AetherAprs", "Fine location not granted; skipping background location request");
+            _logger.LogDebug("Fine location not granted; skipping the background location request");
             return false;
         }
 
-        global::Android.Util.Log.Info("AetherAprs", "Requesting background location permission...");
+        _logger.LogDebug("Requesting the background location permission");
 
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var backgroundTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -537,12 +543,12 @@ public class MainActivity : AvaloniaMainActivity
             OnPermissionResult += OnPermissionResultHandler;
             RequestPermissions(new[] { global::Android.Manifest.Permission.AccessBackgroundLocation }, backgroundLocationRequestCode);
             var result = await tcs.Task.ConfigureAwait(false);
-            global::Android.Util.Log.Info("AetherAprs", $"Background location permission result: {result}");
+            _logger.LogDebug("Background location permission result: {Granted}", result);
             return result;
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error("AetherAprs", $"Error requesting background location permission: {ex.Message}");
+            _logger.LogWarning(ex, "Requesting the background location permission failed");
             OnPermissionResult -= OnPermissionResultHandler;
             return false;
         }
@@ -608,17 +614,16 @@ public class MainActivity : AvaloniaMainActivity
                 var result = await sessionControl.StopAsync();
                 foreach (var failure in result.Failures)
                 {
-                    global::Android.Util.Log.Warn(
-                        "AetherAprs",
-                        $"Application stop step {failure.Step} failed: {failure.Message}");
+                    _logger.LogWarning(
+                        "Application stop step {Step} failed: {Message}",
+                        failure.Step,
+                        failure.Message);
                 }
             }
         }
         catch (Exception ex)
         {
-            global::Android.Util.Log.Error(
-                "AetherAprs",
-                $"Failed to stop the application session on exit: {ex.Message}");
+            _logger.LogError(ex, "Failed to stop the application session on exit");
         }
         finally
         {
@@ -697,7 +702,7 @@ public class MainActivity : AvaloniaMainActivity
         {
             // The dispatcher may already be tearing down; disposal below must
             // still release the JNI peer.
-            global::Android.Util.Log.Warn("AetherAprs", $"Failed to unregister back callback: {ex.Message}");
+            _logger.LogDebug(ex, "Failed to unregister the back callback");
         }
     }
 

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.Platform;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -25,6 +26,13 @@ public class AndroidPermissionService : IPermissionService
     private static readonly ConcurrentDictionary<PermissionKind, bool> _promptedKinds = new();
 
     private static readonly TimeSpan _permissionWaitTimeout = TimeSpan.FromSeconds(30);
+
+    private readonly ILogger<AndroidPermissionService> _logger;
+
+    public AndroidPermissionService(ILogger<AndroidPermissionService> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
     /// <summary>
     /// Called by MainActivity when initial permission requests are complete.
@@ -62,7 +70,7 @@ public class AndroidPermissionService : IPermissionService
 
             // Without the startup burst there is no reliable prompt host, so the
             // permission is treated as unavailable instead of silently denied.
-            global::Android.Util.Log.Warn("AetherAprs", $"Permission check for {kind} timed out: {exception.Message}");
+            _logger.LogWarning(exception, "Permission check for {Permission} timed out", kind);
             return PermissionRequestResult.Unavailable(kind);
         }
 
@@ -117,7 +125,7 @@ public class AndroidPermissionService : IPermissionService
         }
         catch (Exception exception)
         {
-            global::Android.Util.Log.Warn("AetherAprs", $"Could not open application settings: {exception.Message}");
+            _logger.LogWarning(exception, "Could not open application settings");
             return Task.FromResult(false);
         }
     }
@@ -155,7 +163,7 @@ public class AndroidPermissionService : IPermissionService
         _ => false
     };
 
-    private static PermissionRequestResult RequestBatteryOptimizationExemption(MainActivity activity)
+    private PermissionRequestResult RequestBatteryOptimizationExemption(MainActivity activity)
     {
         var powerManager = activity.GetSystemService(global::Android.Content.Context.PowerService) as global::Android.OS.PowerManager;
         if (powerManager == null)
@@ -180,7 +188,7 @@ public class AndroidPermissionService : IPermissionService
         }
         catch (Exception exception)
         {
-            global::Android.Util.Log.Warn("AetherAprs", $"Could not open battery optimization settings: {exception.Message}");
+            _logger.LogWarning(exception, "Could not open battery optimization settings");
             return PermissionRequestResult.Unavailable(PermissionKind.BatteryOptimization);
         }
     }
