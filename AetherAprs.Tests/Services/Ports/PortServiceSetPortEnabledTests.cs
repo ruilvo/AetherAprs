@@ -72,13 +72,15 @@ public sealed class PortServiceSetPortEnabledTests
             Arg.Any<System.Collections.Generic.IReadOnlyList<PortInfo>>())
             .Returns([]);
 
-        return new PortService(
-            StoreFactory.CreatePortRegistry(db),
+        return TestPortService.Create(
+            db,
             TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
-            NullLogger<PortService>.Instance,
-            mockPacketStorage,
-            mockKeepAliveService,
-            mockDigipeater);
+            new TestPortService.PortServiceCollaborators
+            {
+                PacketStorageService = mockPacketStorage,
+                DigipeaterService = mockDigipeater,
+                KeepAliveService = mockKeepAliveService
+            });
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

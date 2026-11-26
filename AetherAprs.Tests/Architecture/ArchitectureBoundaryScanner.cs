@@ -70,6 +70,21 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Services/Ports/PortSessionManager.cs"
     };
 
+    /// <summary>
+    /// Files permitted to create a bounded work queue. A queue is a resource with a
+    /// consumer and a drop policy, so it needs a named owner rather than being
+    /// created wherever a burst happens to arrive.
+    /// </summary>
+    private static readonly HashSet<string> BoundedQueueOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Data/SqliteRuntimeWriter.cs",
+        "AetherAprs/Services/Packets/PacketIngestPipeline.cs",
+        "AetherAprs/Services/Ports/DigipeatRouter.cs",
+        "AetherAprs/Services/Transmission/BeaconTransmitQueue.cs",
+        "AetherAprs.Android/Services/Bluetooth/AndroidBluetoothLeScanner.cs",
+        "AetherAprs.Android/Services/Transports/BluetoothLeGattDuplexStream.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -109,7 +124,13 @@ internal static class ArchitectureBoundaryScanner
             "A006",
             "Sessions start through the coordinator; a bulk start-all path bypasses supervision and backoff.",
             ["StartAllEnabledPortsAsync"],
-            new HashSet<string>(StringComparer.Ordinal))
+            new HashSet<string>(StringComparer.Ordinal)),
+
+        new ArchitectureRule(
+            "A007",
+            "Bounded queues belong to a named owner that also owns the consumer and drop policy.",
+            ["Channel.CreateBounded", "Channel.CreateUnbounded"],
+            BoundedQueueOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>

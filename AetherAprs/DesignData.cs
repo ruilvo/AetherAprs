@@ -87,6 +87,11 @@ public static class DesignData
         services.AddSingleton<IPttService, NoOpPttService>();
         services.AddSingleton<IModemFactory, ModemFactory>();
         services.AddSingleton<IPortSessionManager, PortSessionManager>();
+        services.AddSingleton<IPortConfigurationService, PortConfigurationService>();
+        services.AddSingleton<IPortConfigurationSource>(services =>
+            services.GetRequiredService<IPortConfigurationService>());
+        services.AddSingleton<IPacketIngestPipeline, PacketIngestPipeline>();
+        services.AddSingleton<IDigipeatRouter, DigipeatRouter>();
 
         services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
         services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();

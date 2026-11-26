@@ -62,7 +62,8 @@ public sealed class RedactedSupportReportService(
                         .Select(port => new
                         {
                             port.PortId,
-                            dropped = portTelemetry.GetDroppedPacketCount(port.PortId)
+                            dropped = portTelemetry.GetDroppedPacketCount(port.PortId),
+                            droppedForwards = portTelemetry.GetDroppedForwardCount(port.PortId)
                         })
                         .ToArray()
                 }

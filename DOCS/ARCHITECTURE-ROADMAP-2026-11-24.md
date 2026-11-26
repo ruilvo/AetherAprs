@@ -351,8 +351,9 @@ explicit "Check architecture boundaries" step in `build-test.yml`.
 
 Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
 `A003` (`Debug.WriteLine`), `A004` (modem construction, added with `R2.1`),
-`A005` (modem handle ownership) and `A006` (no bulk start-all path), the last two
-added with `R2.2`. The
+`A005` (modem handle ownership), `A006` (no bulk start-all path) and `A007`
+(bounded queues need a named owner), the last three added alongside the port
+runtime work items `R2.2` and `R2.3`. The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -567,6 +568,54 @@ Tests:
 - Route digipeat through the same transmit authorization and leases as other work.
 - With deterministic bursts and a blocked route, assert RX persistence continues,
   drops are counted and a stale forward is discarded rather than replayed.
+
+> **Status: implemented.** The inbound queue and its consumer moved to
+> `IPacketIngestPipeline` (`AetherAprs/Services/Packets/`), built from
+> `PacketIngestOptions` so queue capacity, storage attempt limit and retry delay are
+> explicit policy instead of constants. `Accept` never blocks the modem read loop;
+> a full queue drops the newest packet, and `GetMetrics()` exposes enqueued, stored
+> and dropped counts while the diagnostic sink records the drop reason. The pipeline
+> raises `PacketStored` only after the write succeeded, which is what keeps live
+> consumers and the database from diverging.
+>
+> Forwarding moved to `IDigipeatRouter` (`DigipeatRouter`), which owns its own
+> bounded queue and consumer and decides routes when a candidate is dequeued, not
+> when it arrives. Each decision reads current configuration through
+> `IPortConfigurationSource` and current sessions through `IPortSessionManager`, so
+> a route that disappeared is discarded instead of being retried. Transmission goes
+> through `IPortSessionManager.SendAsync`, which means a forward uses the same send
+> lease and stop-drain rules as any other outbound work, and the router never starts
+> a port to satisfy a forward: only operator enablement may do that.
+> `DigipeatRouterOptions.MaxCandidateAge` bounds freshness, so a relay that waited
+> behind a blocked route is discarded rather than replayed, and
+> `DigipeatRouterOptions.TransmitTimeout` keeps one wedged modem from stalling the
+> consumer. Discards and failures are counted separately from receive drops:
+> `IPortServiceTelemetry.GetDroppedForwardCount` reports the forwarding path, the
+> redacted support report exposes both, and the diagnostic sink records the reason.
+>
+> To keep those dependencies acyclic, configured ports moved out of `PortService`
+> into `IPortConfigurationService` (`PortConfigurationService`): it owns the port
+> list, applies every mutation durable-first, publishes independent copies and
+> raises `PortsChanged`; `IPortConfigurationSource` is the read-only view the router
+> consumes. `PortService` is now a compatibility façade that converges operator
+> intent, forwards observations, and keeps the keep-alive reason aligned; the
+> composition root and design-time provider register every new owner. A007 confines
+> bounded queue creation to the named owners (runtime writer, ingest pipeline,
+> digipeat router, beacon transmit queue, and the two Android stream adapters that
+> own their own consumers).
+>
+> Tests: `PacketIngestPipelineTests` proves a full queue counts the newest drop,
+> that `PacketStored` is raised only after storage, that a storage failure drops
+> without publishing, and that invalid options are rejected. `DigipeatRouterTests`
+> proves queue-full discard, aged-out discard instead of replay, that a forward to a
+> port that is not running is discarded without starting it, that a running target
+> receives the forward and raises `PacketForwarded`, that a transmit failure is
+> counted, and that a candidate from a port that is no longer configured is
+> discarded. `PortConfigurationServiceTests` proves durable-first ordering, copy
+> semantics, change-only notifications and that updating an unconfigured port
+> reports no change. The end-to-end pipeline tests keep asserting that ingest
+> continues while a relay is blocked and that forwarding drops are counted
+> separately from receive drops.
 
 **R2.4 Extract keep-alive**
 

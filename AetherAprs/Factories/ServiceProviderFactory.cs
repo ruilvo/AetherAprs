@@ -152,9 +152,17 @@ public static class ServiceProviderFactory
         // on audio, PTT or transport connectors directly.
         services.AddSingleton<IModemFactory, ModemFactory>();
 
-        // Register the single owner of running modem sessions. PortService keeps
-        // configuration and ingest; sessions, gates and send leases live here.
+        // Register the single owner of running modem sessions. Configured ports,
+        // session gates and send leases each have exactly one owner.
         services.AddSingleton<IPortSessionManager, PortSessionManager>();
+        services.AddSingleton<IPortConfigurationService, PortConfigurationService>();
+        services.AddSingleton<IPortConfigurationSource>(services =>
+            services.GetRequiredService<IPortConfigurationService>());
+
+        // Register the inbound queue and the forwarding queue. Each owns its own
+        // bounded channel and consumer; feature code never queues packets itself.
+        services.AddSingleton<IPacketIngestPipeline, PacketIngestPipeline>();
+        services.AddSingleton<IDigipeatRouter, DigipeatRouter>();
 
         // Register port service
 

@@ -193,7 +193,7 @@ public sealed class PortServiceReceivePipelineTests
         await storeEntered.Task.WaitAsync(
             TimeSpan.FromSeconds(3),
             TestContext.Current.CancellationToken);
-        await WaitForDropsAsync(service, portId);
+        await WaitForIngestDropsAsync(service, portId);
 
         Assert.True(
             service.GetDroppedPacketCount(portId) >= 1,
@@ -204,10 +204,24 @@ public sealed class PortServiceReceivePipelineTests
         await service.StopAllPortsAsync();
     }
 
-    private static async Task WaitForDropsAsync(PortService service, Guid portId)
+    private static async Task WaitForIngestDropsAsync(PortService service, Guid portId)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
         while (service.GetDroppedPacketCount(portId) == 0)
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                return;
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
+
+    private static async Task WaitForForwardDropsAsync(PortService service, Guid portId)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (service.GetDroppedForwardCount(portId) == 0)
         {
             if (DateTime.UtcNow >= deadline)
             {
@@ -411,15 +425,15 @@ public sealed class PortServiceReceivePipelineTests
             await digipeater.Entered.Task.WaitAsync(
                 TimeSpan.FromSeconds(3),
                 TestContext.Current.CancellationToken);
-            await WaitForDropsAsync(service, portId);
+            await WaitForForwardDropsAsync(service, portId);
             Assert.True(
                 await WaitForDropReasonAsync(diagnostics, "Digipeat queue full; candidate dropped."),
                 "A full digipeat queue must record the digipeat drop reason.");
 
             Assert.True(
-                service.GetDroppedPacketCount(portId) >= 1,
-                "A full digipeat queue must count the dropped candidates.");
-            Assert.Equal(service.TotalDroppedPackets, service.GetDroppedPacketCount(portId));
+                service.GetDroppedForwardCount(portId) >= 1,
+                "A full digipeat queue must count the discarded candidates.");
+            Assert.Equal(0, service.TotalDroppedPackets);
             Assert.DoesNotContain(
                 diagnostics.Events,
                 diagnosticEvent => diagnosticEvent.Reason == "Inbound queue full; newest packet dropped.");
@@ -463,16 +477,18 @@ public sealed class PortServiceReceivePipelineTests
         int digipeatQueueCapacity = 256)
     {
         var kissStreamFactory = new ScriptedKissStreamFactory(scriptedPortSettings, injectedKissBuffer, targetWriteTcs);
-        return new PortService(
-            StoreFactory.CreatePortRegistry(db),
+        return TestPortService.Create(
+            db,
             TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
-            NullLogger<PortService>.Instance,
-            storage,
-            Substitute.For<IKeepAliveService>(),
-            digipeater,
-            diagnosticSink: diagnosticSink,
-            packetQueueCapacity: packetQueueCapacity,
-            digipeatQueueCapacity: digipeatQueueCapacity);
+            new TestPortService.PortServiceCollaborators
+            {
+                PacketStorageService = storage,
+                DigipeaterService = digipeater,
+                KeepAliveService = Substitute.For<IKeepAliveService>(),
+                DiagnosticSink = diagnosticSink,
+                IngestOptions = new PacketIngestOptions { QueueCapacity = packetQueueCapacity },
+                DigipeatOptions = new DigipeatRouterOptions { QueueCapacity = digipeatQueueCapacity }
+            });
     }
 
     private static byte[] BuildAx25Frame(string destination, string source, string infoField)

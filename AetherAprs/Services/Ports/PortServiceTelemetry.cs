@@ -29,8 +29,14 @@ public interface IPortServiceTelemetry
 
     /// <summary>
     /// Number of inbound packets dropped before publication for a port, because the
-    /// ingest queue was full, the packet could not be persisted, or its digipeat
-    /// candidate could not be queued.
+    /// ingest queue was full or the packet could not be persisted.
     /// </summary>
     long GetDroppedPacketCount(Guid portId);
+
+    /// <summary>
+    /// Number of forwarding candidates received on a port that were never
+    /// transmitted, because the relay queue was full, the candidate aged out, or
+    /// the route was no longer available.
+    /// </summary>
+    long GetDroppedForwardCount(Guid portId);
 }

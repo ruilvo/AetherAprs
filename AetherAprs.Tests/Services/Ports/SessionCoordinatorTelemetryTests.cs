@@ -203,6 +203,8 @@ public sealed class SessionCoordinatorTelemetryTests
 
         public long GetDroppedPacketCount(Guid portId) => 0;
 
+        public long GetDroppedForwardCount(Guid portId) => 0;
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         public void RaisePacketReceived(PortPacketReceivedEventArgs args) =>

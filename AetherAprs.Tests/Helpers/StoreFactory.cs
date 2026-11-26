@@ -33,4 +33,12 @@ internal static class StoreFactory
         new BeaconStateStore(
             new SqliteRuntimeWriter(database.Factory),
             new SqliteRuntimeReader(database.Factory));
+
+    /// <summary>
+    /// Creates the single owner of configured ports, backed by
+    /// <paramref name="database"/>.
+    /// </summary>
+    public static IPortConfigurationService CreatePortConfigurationService(
+        TempAppDatabase database, ISecretProtector? secretProtector = null) =>
+        new PortConfigurationService(CreatePortRegistry(database, secretProtector));
 }

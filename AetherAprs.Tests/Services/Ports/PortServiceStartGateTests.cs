@@ -76,13 +76,15 @@ public sealed class PortServiceStartGateTests
             Arg.Any<IReadOnlyList<PortInfo>>())
             .Returns([]);
 
-        return new PortService(
-            StoreFactory.CreatePortRegistry(db),
+        return TestPortService.Create(
+            db,
             TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
-            NullLogger<PortService>.Instance,
-            Substitute.For<IPacketStorageService>(),
-            Substitute.For<IKeepAliveService>(),
-            digipeater);
+            new TestPortService.PortServiceCollaborators
+            {
+                PacketStorageService = Substitute.For<IPacketStorageService>(),
+                DigipeaterService = digipeater,
+                KeepAliveService = Substitute.For<IKeepAliveService>()
+            });
     }
 
     private sealed class BlockingKissStreamFactory : IKissStreamFactory

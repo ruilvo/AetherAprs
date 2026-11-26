@@ -95,13 +95,15 @@ public sealed class PortServiceTransportFaultTests
             Arg.Any<System.Collections.Generic.IReadOnlyList<PortInfo>>())
             .Returns([]);
 
-        return new PortService(
-            StoreFactory.CreatePortRegistry(db),
+        return TestPortService.Create(
+            db,
             TestSessionManager.Create(new SingleModemFactory(modem)),
-            NullLogger<PortService>.Instance,
-            Substitute.For<IPacketStorageService>(),
-            Substitute.For<IKeepAliveService>(),
-            digipeater);
+            new TestPortService.PortServiceCollaborators
+            {
+                PacketStorageService = Substitute.For<IPacketStorageService>(),
+                DigipeaterService = digipeater,
+                KeepAliveService = Substitute.For<IKeepAliveService>()
+            });
     }
 
     private sealed class SingleModemFactory(IPortModem modem) : IModemFactory

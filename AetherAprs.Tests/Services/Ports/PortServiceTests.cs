@@ -144,7 +144,7 @@ public sealed class PortServiceTests
     {
         var existingPort = new PortConfig { Id = Guid.NewGuid(), Name = "Port" };
         using var db = TempAppDatabase.Create(existingPort);
-        var service = CreateService(db);
+        var service = await CreateAndInitializeServiceAsync(db);
         var changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
@@ -152,7 +152,7 @@ public sealed class PortServiceTests
 
         Assert.Empty(service.Ports);
         Assert.Equal(1, changeCount);
-        var reloaded = CreateService(db);
+        var reloaded = await CreateAndInitializeServiceAsync(db);
         Assert.Empty(reloaded.Ports);
     }
 
@@ -375,13 +375,15 @@ public sealed class PortServiceTests
         var mockPacketStorage = new MockPacketStorageService();
         var mockKeepAliveService = Substitute.For<IKeepAliveService>();
         var mockDigipeaterService = new MockDigipeaterService();
-        return new PortService(
-            StoreFactory.CreatePortRegistry(db),
+        return TestPortService.Create(
+            db,
             TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
-            NullLogger<PortService>.Instance,
-            mockPacketStorage,
-            mockKeepAliveService,
-            mockDigipeaterService);
+            new TestPortService.PortServiceCollaborators
+            {
+                PacketStorageService = mockPacketStorage,
+                DigipeaterService = mockDigipeaterService,
+                KeepAliveService = mockKeepAliveService
+            });
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

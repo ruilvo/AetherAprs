@@ -144,6 +144,28 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticQueueInFeatureCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source("AetherAprs/Services/Ports/PortService.cs",
+                "var queue = Channel.CreateBounded<AprsPacket>(1048576);")]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A007", violation.RuleId);
+        Assert.Equal("Channel.CreateBounded", violation.Symbol);
+    }
+
+    [Fact]
+    public void Scan_PipelineOwnedQueue_IsAllowed()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source("AetherAprs/Services/Packets/PacketIngestPipeline.cs",
+                "var queue = Channel.CreateBounded<AprsPacket>(1024);")]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(
