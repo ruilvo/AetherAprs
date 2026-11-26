@@ -49,6 +49,22 @@ public sealed class PacketQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task QueryService_RunsWithoutAnAvaloniaApplication()
+    {
+        // The read capability is an application service: a plain host with no
+        // Avalonia application instance must be able to construct it and query.
+        Assert.Null(Avalonia.Application.Current);
+
+        using PacketQueryService service = new(_reader, _logger);
+
+        IReadOnlyDictionary<string, PacketRecord> result = await service.GetMostRecentPacketsAsync(
+            limit: 10, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Empty(result);
+        Assert.Null(Avalonia.Application.Current);
+    }
+
+    [Fact]
     public async Task GetMostRecentPacketsAsync_MultiplePacketsFromSameStation_ReturnsOnlyMostRecent()
     {
         // Arrange

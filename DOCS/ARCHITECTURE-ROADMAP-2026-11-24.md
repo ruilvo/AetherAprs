@@ -178,12 +178,6 @@ Acceptance:
 - A restart restores only unexpired pending work.
 - No feature service creates `AppDbContext`.
 
-### R4 Application/UI separation
-
-- Virtualize unbounded lists and add paging to details/search.
-
-Exit: application services can run in a plain test host with no Avalonia application.
-
 ### R5.1 Permission acceptance
 
 - Run the clean-install, denial, revoke, settings-return, activity-recreation and
