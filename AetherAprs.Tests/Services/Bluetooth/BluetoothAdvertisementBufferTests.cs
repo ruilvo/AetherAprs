@@ -5,6 +5,7 @@
 using System;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using AetherAprs.Configuration;
 using AetherAprs.Services.Bluetooth;
 using Xunit;
 
@@ -40,12 +41,65 @@ public sealed class BluetoothAdvertisementBufferTests
     {
         var buffer = new BluetoothAdvertisementBuffer(capacity: 3);
 
-        Assert.True(buffer.Publish(Ad("DEVICE-1")));
-        Assert.True(buffer.Publish(Ad("DEVICE-2")));
+        Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, buffer.Publish(Ad("DEVICE-1")));
+        Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, buffer.Publish(Ad("DEVICE-2")));
 
         Assert.Equal(0, buffer.DroppedCount);
         Assert.Equal("DEVICE-1", (await ReadAsync(buffer)).Address);
         Assert.Equal("DEVICE-2", (await ReadAsync(buffer)).Address);
+    }
+
+    [Fact]
+    public void Publish_WhenTheAdvertisementNamesNoService_IsBuffered()
+    {
+        // Most KISS-over-BLE bridges reveal their services only after connecting,
+        // so an advertisement without service UUIDs must still reach the picker.
+        var buffer = FilteredBuffer();
+
+        Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, buffer.Publish(Ad("BRIDGE")));
+        Assert.Equal(0, buffer.RejectedCount);
+    }
+
+    [Fact]
+    public void Publish_WhenTheAdvertisementNamesASupportedService_IsBuffered()
+    {
+        var buffer = FilteredBuffer();
+
+        var result = buffer.Publish(Ad("TNC", BluetoothLeKissTransportSettings.DefaultServiceUuid));
+
+        Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, result);
+        Assert.Equal(0, buffer.RejectedCount);
+    }
+
+    [Fact]
+    public void Publish_WhenTheAdvertisementNamesOnlyForeignServices_IsFiltered()
+    {
+        var buffer = FilteredBuffer();
+
+        var result = buffer.Publish(Ad("HEADPHONES", ForeignServiceUuid));
+
+        Assert.Equal(BluetoothAdvertisementPublishResult.Filtered, result);
+        Assert.Equal(1, buffer.RejectedCount);
+        Assert.Equal(0, buffer.DroppedCount);
+    }
+
+    [Fact]
+    public async Task Publish_WhenForeignAdvertisementsCompeteForCapacity_KeepsOnlySupportedOnes()
+    {
+        var buffer = new BluetoothAdvertisementBuffer(
+            capacity: 2,
+            filter: BluetoothLeServiceFilter.SupportedTransports);
+
+        buffer.Publish(Ad("TNC-1", BluetoothLeKissTransportSettings.DefaultServiceUuid));
+        buffer.Publish(Ad("HEADPHONES", ForeignServiceUuid));
+        buffer.Publish(Ad("TNC-2", BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid));
+        buffer.Publish(Ad("SPEAKER", ForeignServiceUuid));
+        buffer.Publish(Ad("TNC-3", BluetoothLeKissTransportSettings.DefaultServiceUuid));
+
+        Assert.Equal(2, buffer.RejectedCount);
+        Assert.Equal(1, buffer.DroppedCount);
+        Assert.Equal("TNC-2", (await ReadAsync(buffer)).Address);
+        Assert.Equal("TNC-3", (await ReadAsync(buffer)).Address);
     }
 
     [Fact]
@@ -55,7 +109,7 @@ public sealed class BluetoothAdvertisementBufferTests
 
         buffer.Complete();
 
-        Assert.False(buffer.Publish(Ad("DEVICE-1")));
+        Assert.Equal(BluetoothAdvertisementPublishResult.Completed, buffer.Publish(Ad("DEVICE-1")));
     }
 
     [Fact]
@@ -91,7 +145,13 @@ public sealed class BluetoothAdvertisementBufferTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new BluetoothAdvertisementBuffer(capacity));
     }
 
-    private static BluetoothLeAdvertisement Ad(string address) => new(address, address, -60, []);
+    private static readonly Guid ForeignServiceUuid = Guid.Parse("00001812-0000-1000-8000-00805F9B34FB");
+
+    private static BluetoothAdvertisementBuffer FilteredBuffer() =>
+        new(filter: BluetoothLeServiceFilter.SupportedTransports);
+
+    private static BluetoothLeAdvertisement Ad(string address, params Guid[] serviceUuids) =>
+        new(address, address, -60, serviceUuids);
 
     private static async Task<BluetoothLeAdvertisement> ReadAsync(BluetoothAdvertisementBuffer buffer) =>
         await buffer.Reader.ReadAsync(TestContext.Current.CancellationToken);

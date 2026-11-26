@@ -1035,8 +1035,8 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Add native adapter tests for Keystore key loss, audio short writes, audio route
   changes, compass re-entry, and notification icon/action behavior.
 
-> **Status: the scan channel is bounded and owned (2026-11-26); service filtering,
-> hardware doubles and device validation still open.**
+> **Status: the scan hand-off is bounded, owned, and filtered by service
+> (2026-11-26); hardware doubles and device validation still open.**
 > `AndroidBluetoothLeScanner` wrote every advertisement into an unbounded channel,
 > so a consumer that fell behind let memory grow for the length of the scan. The
 > hand-off now goes through `BluetoothAdvertisementBuffer`, which keeps at most 256
@@ -1047,16 +1047,32 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > queues belong to a named owner that also owns the consumer and drop policy) now
 > names the buffer instead of the scanner.
 >
+> `BluetoothLeServiceFilter` decides what reaches the buffer, because a scan sees
+> every peripheral in range. An advertisement that names the Nordic UART service
+> (KISS over Bluetooth LE) or the LoRa APRS tracker service is kept; one that names
+> services but none supported is rejected and counted in `RejectedCount`, so the
+> picker's capacity is spent on devices that could actually be chosen. An
+> advertisement that names no service at all is kept deliberately: GATT services
+> often appear only after connecting, so filtering those would empty the picker on
+> exactly the bridges the operator is looking for. That is also why this is a
+> buffer-stage filter rather than a platform `ScanFilter`, which would hide those
+> devices before the application can tell what they are.
+>
 > Tests: `BluetoothAdvertisementBufferTests` publishes five advertisements into a
 > three-slot buffer and asserts the three newest survive with `DroppedCount == 2`;
 > covers the below-capacity case dropping nothing, a publish after completion being
 > refused, the reader ending on normal completion, a scan failure surfacing as the
 > reader's `ChannelClosedException` inner exception, and non-positive capacities
-> being rejected.
+> being rejected. Filtering is covered on both sides of the bound: a supported
+> advertisement is buffered, a service-less one is buffered, a foreign one is
+> filtered and counted, and interleaving five advertisements (three supported, two
+> foreign) into a two-slot buffer keeps the two newest supported entries while
+> reporting `RejectedCount == 2` and `DroppedCount == 1`.
+> `BluetoothLeServiceFilterTests` pins the policy itself, including an advertisement
+> that names both a foreign and a supported service.
 >
-> Still open for this item: filtering advertisements by supported service (the scan
-> still reports every device, and `BluetoothLeAdvertisement.ServiceUuids` is read
-> but not used to filter), the BLE/RFCOMM doubles, and the device checks.
+> Still open for this item: the BLE/RFCOMM test doubles, scanner/native adapter
+> tests, and the on-device checks.
 
 **R5.4 Android logging and security**
 
@@ -1426,7 +1442,7 @@ report is valid or open. Historical locations and details are in the [audit].
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
 | P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, and one queued prompt with request-id matching replaces the per-kind completion sources; resume recheck, rationale UI and repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
-| P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded and owned, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
+| P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded, owned and filtered by advertised service, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |
 | V-01–V-19 | R4/R6.4/R6.8: separate actual policy from legitimate presentation glue; remove duplicate location start (working-tree fix), fix map detach/ownership, virtualize history, validate bindings/fallback and culture. V-11 requires checking actual SDK defaults, V-12 compile item removed, V-13/V-17 fixes landed. Confirm the audit's overlapping converter and time issues individually. |
 

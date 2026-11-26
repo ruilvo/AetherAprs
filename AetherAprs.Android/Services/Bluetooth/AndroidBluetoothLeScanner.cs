@@ -38,7 +38,11 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
 
         var scanner = adapter.BluetoothLeScanner
             ?? throw new InvalidOperationException("Bluetooth LE scanner is not available on this device.");
-        var buffer = new BluetoothAdvertisementBuffer();
+        // Filter by advertised service here rather than at the platform: a
+        // ScanFilter would also hide devices that only reveal their GATT services
+        // after connecting, which is how most KISS-over-BLE bridges appear.
+        var buffer = new BluetoothAdvertisementBuffer(
+            filter: BluetoothLeServiceFilter.SupportedTransports);
 
         var callback = new AdvertisementScanCallback(advertisement =>
         {

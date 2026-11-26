@@ -19,6 +19,10 @@ namespace AetherAprs.Services.Bluetooth;
 /// instead: the device picker exists to show what is around now, not everything
 /// that was ever seen. Dropped advertisements are counted so a scan that outruns
 /// its consumer can be noticed rather than silently losing entries.
+///
+/// An optional <see cref="BluetoothLeServiceFilter"/> keeps peripherals that
+/// advertise unrelated services out of the buffer entirely, so the capacity is
+/// spent on devices the operator could actually pick.
 /// </remarks>
 public sealed class BluetoothAdvertisementBuffer
 {
@@ -30,18 +34,27 @@ public sealed class BluetoothAdvertisementBuffer
     public const int DefaultCapacity = 256;
 
     private readonly Channel<BluetoothLeAdvertisement> _channel;
+    private readonly BluetoothLeServiceFilter? _filter;
     private long _dropped;
+    private long _rejected;
 
     /// <summary>
     /// Creates a buffer that holds at most <paramref name="capacity"/>
     /// advertisements.
     /// </summary>
     /// <param name="capacity">The maximum number of retained advertisements.</param>
-    public BluetoothAdvertisementBuffer(int capacity = DefaultCapacity)
+    /// <param name="filter">
+    /// An optional service filter. Advertisements it rejects are counted and never
+    /// reach the consumer.
+    /// </param>
+    public BluetoothAdvertisementBuffer(
+        int capacity = DefaultCapacity,
+        BluetoothLeServiceFilter? filter = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
 
         Capacity = capacity;
+        _filter = filter;
         _channel = Channel.CreateBounded<BluetoothLeAdvertisement>(new BoundedChannelOptions(capacity)
         {
             SingleReader = true,
@@ -65,25 +78,42 @@ public sealed class BluetoothAdvertisementBuffer
     public long DroppedCount => Interlocked.Read(ref _dropped);
 
     /// <summary>
+    /// The number of advertisements the service filter rejected. Together with
+    /// <see cref="DroppedCount"/> this explains why a scan showed fewer devices
+    /// than are broadcasting nearby.
+    /// </summary>
+    public long RejectedCount => Interlocked.Read(ref _rejected);
+
+    /// <summary>
     /// Offers one advertisement to the consumer.
     /// </summary>
     /// <param name="advertisement">The advertisement to publish.</param>
-    /// <returns>
-    /// <see langword="true"/> when the advertisement was retained or replaced the
-    /// oldest entry; <see langword="false"/> when the buffer is already complete.
-    /// </returns>
-    public bool Publish(BluetoothLeAdvertisement advertisement)
+    /// <returns>What happened to the advertisement.</returns>
+    public BluetoothAdvertisementPublishResult Publish(BluetoothLeAdvertisement advertisement)
     {
         ArgumentNullException.ThrowIfNull(advertisement);
 
+        if (!_channel.Reader.CanCount)
+        {
+            return BluetoothAdvertisementPublishResult.Completed;
+        }
+
+        if (_filter is not null && !_filter.Accepts(advertisement))
+        {
+            Interlocked.Increment(ref _rejected);
+            return BluetoothAdvertisementPublishResult.Filtered;
+        }
+
         // DropOldest still reports success, so the eviction has to be observed
         // before the write to be counted at all.
-        if (_channel.Reader.CanCount && _channel.Reader.Count >= Capacity)
+        if (_channel.Reader.Count >= Capacity)
         {
             Interlocked.Increment(ref _dropped);
         }
 
-        return _channel.Writer.TryWrite(advertisement);
+        return _channel.Writer.TryWrite(advertisement)
+            ? BluetoothAdvertisementPublishResult.Buffered
+            : BluetoothAdvertisementPublishResult.Completed;
     }
 
     /// <summary>
