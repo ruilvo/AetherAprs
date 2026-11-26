@@ -313,6 +313,33 @@ public class AprsParserTests
     }
 
     [Fact]
+    public void ParseInfoField_TelemetryWithAnEmptyChannel_KeepsTheLaterChannelInPlace()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("T#005,,,42.5,7",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var tel = Assert.IsType<TelemetryPacket>(result);
+        Assert.Equal(4, tel.AnalogValues.Count);
+        Assert.Null(tel.AnalogValues[0]);
+        Assert.Null(tel.AnalogValues[1]);
+        Assert.Equal(42.5, tel.AnalogValues[2]);
+        Assert.Equal(7.0, tel.AnalogValues[3]);
+    }
+
+    [Fact]
+    public void ParseInfoField_TelemetryWithAMalformedChannel_ReportsItAsNotSent()
+    {
+        var result = AprsInfoFieldParser.ParseInfoField("T#006,1.5,not-a-number,3.5",
+            new Callsign("N0CALL"), new Callsign("APZ001"));
+
+        var tel = Assert.IsType<TelemetryPacket>(result);
+        Assert.Equal(3, tel.AnalogValues.Count);
+        Assert.Equal(1.5, tel.AnalogValues[0]);
+        Assert.Null(tel.AnalogValues[1]);
+        Assert.Equal(3.5, tel.AnalogValues[2]);
+    }
+
+    [Fact]
     public void ParseInfoField_TelemetryPartial_ReturnsPartialData()
     {
         var result = AprsInfoFieldParser.ParseInfoField("T#042,12.5,3.7",

@@ -17,9 +17,11 @@ public sealed record TelemetryPacket : AprsPacket
     public int SequenceNumber { get; init; }
 
     /// <summary>
-    /// Analog values (up to 5 channels).
+    /// Analog channels, indexed by channel number. A missing entry means the
+    /// station did not report that channel in this packet; a trailing absent
+    /// channel is omitted rather than padded.
     /// </summary>
-    public IReadOnlyList<double> AnalogValues { get; init; } = [];
+    public IReadOnlyList<double?> AnalogValues { get; init; } = [];
 
     /// <summary>
     /// Digital value (8 bits).

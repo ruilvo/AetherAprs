@@ -291,6 +291,46 @@ public sealed class PacketRecordMapperTests
     }
 
     [Fact]
+    public void MapToPacket_TelemetryWithAnInteriorGap_KeepsTheChannelPosition()
+    {
+        var record = CreateRecord("Telemetry");
+        record.Telemetry = new TelemetryDataRecord
+        {
+            SequenceNumber = 3,
+            Analog1 = null,
+            Analog2 = 20.0,
+            Analog3 = null,
+            Analog4 = 40.0
+        };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var telemetry = Assert.IsType<TelemetryPacket>(packet);
+        Assert.Equal(4, telemetry.AnalogValues.Count);
+        Assert.Null(telemetry.AnalogValues[0]);
+        Assert.Equal(20.0, telemetry.AnalogValues[1]);
+        Assert.Null(telemetry.AnalogValues[2]);
+        Assert.Equal(40.0, telemetry.AnalogValues[3]);
+    }
+
+    [Fact]
+    public void ToRecord_ThenMapToPacket_KeepsAnEmptyChannelBetweenValues()
+    {
+        var packet = new TelemetryPacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            SequenceNumber = 9,
+            AnalogValues = [1.0, null, 3.0]
+        };
+
+        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        var restored = Assert.IsType<TelemetryPacket>(PacketRecordMapper.MapToPacket(record));
+
+        Assert.Equal([1.0, null, 3.0], restored.AnalogValues);
+    }
+
+    [Fact]
     public void ToRecord_TelemetryPacket_PersistsAnalogChannels()
     {
         var packet = new TelemetryPacket

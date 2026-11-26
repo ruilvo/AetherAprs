@@ -406,28 +406,26 @@ internal static class PacketRecordMapper
 
     /// <summary>
     /// Rebuilds the telemetry analog-channel list from the five fixed nullable
-    /// columns, stopping at the first null (channels are populated contiguously).
+    /// columns. Interior gaps stay in place because channels are positional;
+    /// only trailing channels the station never reported are dropped.
     /// </summary>
-    private static IReadOnlyList<double> BuildAnalogValues(TelemetryDataRecord telemetry)
+    private static IReadOnlyList<double?> BuildAnalogValues(TelemetryDataRecord telemetry)
     {
-        var values = new List<double>(5);
-        foreach (var channel in new double?[]
-                 {
-                     telemetry.Analog1,
-                     telemetry.Analog2,
-                     telemetry.Analog3,
-                     telemetry.Analog4,
-                     telemetry.Analog5
-                 })
-        {
-            if (channel is null)
-            {
-                break;
-            }
+        double?[] channels =
+        [
+            telemetry.Analog1,
+            telemetry.Analog2,
+            telemetry.Analog3,
+            telemetry.Analog4,
+            telemetry.Analog5
+        ];
 
-            values.Add(channel.Value);
+        var length = channels.Length;
+        while (length > 0 && channels[length - 1] is null)
+        {
+            length--;
         }
 
-        return values;
+        return length == 0 ? [] : channels[..length];
     }
 }

@@ -61,6 +61,29 @@ public sealed class DateTimeToLocalConverterTests
     }
 
     [Fact]
+    public void Convert_InstantsOnBothSidesOfADstBoundary_UseTheZoneOffsetForEachInstant()
+    {
+        // January and July are on opposite sides of the daylight-saving boundary in
+        // zones that observe it. Each instant must take the offset in force at that
+        // instant, not the current one.
+        var winter = new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        var summer = new DateTime(2026, 7, 15, 12, 0, 0, DateTimeKind.Utc);
+
+        var winterResult = Assert.IsType<DateTime>(Converter.Convert(winter, typeof(DateTime), null, Culture));
+        var summerResult = Assert.IsType<DateTime>(Converter.Convert(summer, typeof(DateTime), null, Culture));
+
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(winter, TimeZoneInfo.Local), winterResult);
+        Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(summer, TimeZoneInfo.Local), summerResult);
+
+        if (TimeZoneInfo.Local.SupportsDaylightSavingTime)
+        {
+            Assert.NotEqual(
+                TimeZoneInfo.Local.GetUtcOffset(winter),
+                TimeZoneInfo.Local.GetUtcOffset(summer));
+        }
+    }
+
+    [Fact]
     public void Convert_NonDateValue_ReturnsUnchanged()
     {
         Assert.Equal("not a date", Converter.Convert("not a date", typeof(object), null, Culture));

@@ -1391,6 +1391,32 @@ close the ticket without refactoring unrelated code.
 > `AddEditPortViewModelTests` covers a denied save (general error set, Bluetooth
 > status untouched, no navigation) and a retry that clears the previous error.
 
+> **Status: sparse telemetry channels preserved; repeated path flags and
+> UTC-at-the-UI-boundary verified (2026-11-26); encoded units still open.**
+> Telemetry channels are positional, and the parser was compacting them: an empty or
+> unparsable analog slot was skipped, so `T#005,,,42.5,7` reported channel 3's reading
+> as channel 1. `TelemetryPacket.AnalogValues` is now `IReadOnlyList<double?>`, the
+> parser inserts `null` for a slot the station did not send, and the record mapper
+> keeps interior gaps while trimming only trailing channels nobody reported - both
+> directions of the SQLite round trip behave the same way.
+>
+> The other two behaviors in this row were already correct, so they gained coverage
+> rather than a rewrite. `PathHelper.DecrementSsid` keeps `HasBeenRepeated` while
+> lowering the SSID, and the digipeater marks the serviced hop and any inserted own
+> callsign as repeated. Timestamps are stored and displayed as UTC and converted only
+> at the UI boundary by `DateTimeToLocal`, which also treats the `Unspecified` kind
+> from SQLite as UTC.
+>
+> Tests: `AprsParserTests` covers a later channel after an empty slot and a malformed
+> slot; `PacketRecordMapperTests` covers an interior gap read from the columns and an
+> empty slot surviving a write/read cycle.
+> `DateTimeToLocalConverterTests` adds both sides of a DST boundary, and the existing
+> digipeater and path tests already assert the repeated flag after decrementing.
+> Reverting the parser to skip a missing channel makes the two telemetry cases fail.
+>
+> Still open for this row: explicit units at conversions and coverage for encoded
+> units (`m-15`, `m-47`).
+
 > **Status: callsign, addressee and object name types audited and separated (2026-11-26).**
 > The app now states which of the three it means at each boundary. `Callsign` (two to
 > six characters plus SSID) stays on AX.25 station fields only: source, destination,

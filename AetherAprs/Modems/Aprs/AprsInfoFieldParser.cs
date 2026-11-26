@@ -1244,12 +1244,19 @@ public static class AprsInfoFieldParser
             return AsUnknown(info, source, dest, path.ToArray());
         }
 
-        var analogValues = new List<double>();
+        // Channels are positional: an empty slot means the station did not
+        // report that channel, and dropping it would shift every later value
+        // into the wrong channel.
+        var analogValues = new List<double?>();
         for (int i = 1; i < Math.Min(parts.Length, 6); i++)
         {
             if (double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 analogValues.Add(value);
+            }
+            else
+            {
+                analogValues.Add(null);
             }
         }
 
