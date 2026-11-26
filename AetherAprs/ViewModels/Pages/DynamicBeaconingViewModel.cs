@@ -34,6 +34,30 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     [ObservableProperty]
     public partial BeaconConfigurationItemViewModel? CustomConfiguration { get; set; }
 
+    /// <summary>Selectable beacon modes, labelled once so the picker binds to typed items.</summary>
+    public IReadOnlyList<BeaconModeChoice> ModeChoices { get; } =
+    [
+        new(DynamicBeaconMode.Walk, Localization.Strings.Get("WalkPedestrian")),
+        new(DynamicBeaconMode.Drive, Localization.Strings.Get("DriveVehicular")),
+        new(DynamicBeaconMode.Custom, Localization.Strings.Get("Custom")),
+    ];
+
+    /// <summary>
+    /// The picker's selection. Setting it moves <see cref="ActiveMode"/>; persisting the
+    /// new mode stays with <see cref="SetActiveModeAsync"/>.
+    /// </summary>
+    public BeaconModeChoice? SelectedModeChoice
+    {
+        get => FindChoice(ActiveMode);
+        set
+        {
+            if (value is not null && value.Mode != ActiveMode)
+            {
+                ActiveMode = value.Mode;
+            }
+        }
+    }
+
     public DynamicBeaconingViewModel(IBeaconService beaconService, INavigationService navigationService)
     {
         _beaconService = beaconService ?? throw new ArgumentNullException(nameof(beaconService));
@@ -100,6 +124,20 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     {
         // The explicit command owns persistence; a property-changed handler cannot
         // await a write or report its failure, so it must not mutate durable state.
+        OnPropertyChanged(nameof(SelectedModeChoice));
+    }
+
+    private BeaconModeChoice? FindChoice(DynamicBeaconMode mode)
+    {
+        foreach (BeaconModeChoice choice in ModeChoices)
+        {
+            if (choice.Mode == mode)
+            {
+                return choice;
+            }
+        }
+
+        return null;
     }
 
     [RelayCommand]
@@ -145,6 +183,11 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
         CustomConfiguration = new BeaconConfigurationItemViewModel(defaultCustom);
     }
 }
+
+/// <summary>One selectable beacon mode with its localized label.</summary>
+/// <param name="Mode">The mode the picker selects.</param>
+/// <param name="DisplayName">The localized label shown for the mode.</param>
+public sealed record BeaconModeChoice(DynamicBeaconMode Mode, string DisplayName);
 
 /// <summary>
 /// ViewModel for a single beacon configuration that can be edited.

@@ -67,6 +67,18 @@ dotnet build AetherAprs.Android/AetherAprs.Android.csproj
 For local deployment, use an API 33+ emulator or a device with USB debugging and
 `dotnet build AetherAprs.Android/AetherAprs.Android.csproj -t:Install`.
 
+Release APKs are built for the device ABI with trimming and composite ReadyToRun
+enabled, because .NET 11 Android runs on CoreCLR:
+
+```bash
+dotnet publish AetherAprs.Android/AetherAprs.Android.csproj -c Release -f net11.0-android -r android-arm64
+```
+
+ReadyToRun precompiles the assemblies into the APK so startup does less JIT work. It
+costs package size (roughly 24 MB → 43 MB for the current arm64 APK). Release builds
+trim the shared framework; trimming the application and its dependencies is tracked in
+the [architecture roadmap](DOCS/ARCHITECTURE-ROADMAP-2026-11-24.md).
+
 ## Architecture
 
 The receive path is:

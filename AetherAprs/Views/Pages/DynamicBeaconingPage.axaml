@@ -48,15 +48,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
           <ComboBox Theme="{StaticResource MaterialOutlineComboBox}"
                     assists:ComboBoxAssist.Label="{loc:Loc Mode}"
-                    x:CompileBindings="False"
-                    SelectedValue="{Binding ActiveMode, Mode=TwoWay}"
-                    SelectedValueBinding="{Binding Tag}">
-            <ComboBoxItem Content="{loc:Loc WalkPedestrian}"
-                          Tag="{x:Static models:DynamicBeaconMode.Walk}" />
-            <ComboBoxItem Content="{loc:Loc DriveVehicular}"
-                          Tag="{x:Static models:DynamicBeaconMode.Drive}" />
-            <ComboBoxItem Content="{loc:Loc Custom}"
-                          Tag="{x:Static models:DynamicBeaconMode.Custom}" />
+                    ItemsSource="{Binding ModeChoices}"
+                    SelectedItem="{Binding SelectedModeChoice, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:BeaconModeChoice">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
           </ComboBox>
         </StackPanel>
 

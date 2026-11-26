@@ -250,6 +250,12 @@ the item without refactoring unrelated code.
    claim out of the documentation until the workflow really does it.
 4. Preserve GitHub Releases as the distribution channel and keep artifact checksum,
    signature and upgrade behaviour verifiable. Use release notes for version history.
+5. Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
+   framework only; trimming the application and its dependencies adds IL2026 for the
+   `GroupBy` key projections in `PacketQueryService` and for the `SettingsViewModel`
+   setters reached from two-way bindings, and IL2104 for EF Core, which has no compiled
+   model, and for `Material.Styles`. Clear those hazards, then validate a fully trimmed
+   APK on a device before making it the release default.
 
 ## Definition of architectural done
 

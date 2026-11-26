@@ -86,6 +86,17 @@ jobs:
             -p:AndroidPackageFormat=apk \
             -p:AndroidSdkBuildToolsVersion=34.0.0
       
+      - name: Verify ReadyToRun images
+        shell: bash
+        run: |
+          set -euo pipefail
+          R2R_DIR="AetherAprs.Android/obj/Release/net11.0-android/android-arm64/R2R"
+          if [ ! -d "$R2R_DIR" ] || [ -z "$(find "$R2R_DIR" -name '*.r2r.dll' -print -quit)" ]; then
+            echo "::error::No composite ReadyToRun image was produced; the release APK would ship JIT-only code."
+            exit 1
+          fi
+          ls -lh "$R2R_DIR"
+
       - name: Verify build output
         run: |
           echo "=== Checking build output directory ==="

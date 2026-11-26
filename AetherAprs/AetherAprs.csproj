@@ -20,6 +20,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
          otherwise report. -->
     <IsTrimmable>true</IsTrimmable>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <!-- Typed bindings compile against x:DataType instead of reflecting over the
+         property at run time: no reflection hazards for the trimmer and less work per
+         binding update on the device. -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,7 +49,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="DialogHost.Avalonia" />
     <PackageReference Include="Material.Avalonia" />
-    <PackageReference Include="Material.Avalonia.DataGrid" />
     <PackageReference Include="Material.Avalonia.Dialogs" />
     <PackageReference Include="Material.Icons.Avalonia" />
     <PackageReference Include="Microsoft.Extensions.Configuration" />

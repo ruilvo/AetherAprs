@@ -14,10 +14,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
-    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
     <!-- Device validation uses a self-contained APK; do not depend on Fast Deployment files. -->
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
-    <AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
     <!-- Trimming is enabled for Release only: Debug builds stay untrimmed so the
          linker does not slow the edit loop. Every reflection hazard the trimmer
          reported has been removed (source-generated JSON, a trim-safe text length
@@ -31,9 +29,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
          loaded, so the code is suppressed here instead of adding an unused TreeDataGrid
          package only to satisfy an annotation. -->
     <NoWarn>$(NoWarn);IL2035</NoWarn>
-    <!-- .NET 11 Android runs on CoreCLR, where AOT means ReadyToRun and the
-         RunAOTCompilation switch is rejected (XA1044). -->
-    <PublishReadyToRun>false</PublishReadyToRun>
+    <!-- .NET 11 Android runs on CoreCLR, so the release optimisation is ReadyToRun, not
+         Mono AOT. Release builds therefore publish a composite ReadyToRun image. No MIBC
+         profile is supplied, so crossgen2 precompiles every assembly rather than a profiled
+         subset: the APK grows by roughly 19 MB, and startup pays for no JIT work on the
+         precompiled code. Trimming must stay enabled for Release; without it the SDK turns
+         ReadyToRun off and reports warning XA0119. -->
+    <PublishReadyToRun Condition="'$(Configuration)' == 'Release'">true</PublishReadyToRun>
+    <PublishReadyToRunComposite Condition="'$(Configuration)' == 'Release'">true</PublishReadyToRunComposite>
   </PropertyGroup>
 
   <ItemGroup>
