@@ -337,6 +337,10 @@ separate work items.
 
 **R0.2 Boundary scan**
 
+Status: implemented. `AetherAprs.Tests/Architecture/` enforces the rules as
+`dotnet test` cases, so CI runs the gate through the existing test step and the
+explicit "Check architecture boundaries" step in `build-test.yml`.
+
 - Fail if application services contain `IDbContextFactory`, `AppDbContext`, `DbSet`,
   `SaveChanges`, or `Dispatcher.UIThread` outside approved infrastructure adapters.
 - Fail if `Debug.WriteLine` appears in production code.
@@ -344,6 +348,13 @@ separate work items.
   a capturing logger in the paths that handle credentials or content.
 - Baseline existing architecture violations by exact type and work ID. Fail on new
   violations and remove baseline entries when the corresponding migration lands.
+
+Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
+`A003` (`Debug.WriteLine`). The baseline in `ArchitectureBaseline.cs` records the
+remaining `PortService`, `BeaconService` (`R1.3`) violations. `MessageService` and
+`ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
+were removed rather than re-baselined. Payload redaction assertions remain open and
+belong to the owning log paths (`R5.4`, `R6.7`).
 
 **R0.3 Test harness**
 

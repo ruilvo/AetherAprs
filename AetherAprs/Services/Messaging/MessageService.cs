@@ -11,8 +11,7 @@ using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
-using Avalonia;
-using Avalonia.Threading;
+using AetherAprs.Services.UI;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -45,6 +44,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly ILogger<MessageService> _logger;
     private readonly IPacketQueryService? _packetQueryService;
     private readonly INotificationService? _notificationService;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = new();
     private readonly object _dedupLock = new();
@@ -64,6 +64,7 @@ public sealed class MessageService : IMessageService, IDisposable
         IAprsPortSettingsResolver portSettingsResolver,
         IPacketFactory packetFactory,
         ILogger<MessageService> logger,
+        IUiDispatcher uiDispatcher,
         IPacketQueryService? packetQueryService = null,
         INotificationService? notificationService = null)
     {
@@ -73,6 +74,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _portSettingsResolver = portSettingsResolver;
         _packetFactory = packetFactory;
         _logger = logger;
+        _uiDispatcher = uiDispatcher;
         _packetQueryService = packetQueryService;
         _notificationService = notificationService;
         _portService.PacketReceived += OnPacketReceived;
@@ -568,16 +570,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private static void RunOnUi(Action action)
-    {
-        if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
-        {
-            action();
-            return;
-        }
-
-        Dispatcher.UIThread.Post(action);
-    }
+    private void RunOnUi(Action action) => _uiDispatcher.Post(action);
 
     private async Task ShowMessageNotificationAsync(AprsAddress peer, string text)
     {

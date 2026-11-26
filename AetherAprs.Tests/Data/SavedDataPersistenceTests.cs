@@ -115,6 +115,7 @@ public sealed class SavedDataPersistenceTests
                    Substitute.For<IAprsPortSettingsResolver>(),
                    new TestPacketFactory(),
                    NullLogger<MessageService>.Instance,
+                   SynchronousUiDispatcher.Instance,
                     new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance)))
         {
             await service.InitializeAsync(TestContext.Current.CancellationToken);
@@ -134,6 +135,7 @@ public sealed class SavedDataPersistenceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance));
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         var threadReloaded = Assert.Single(reloaded.Conversations);

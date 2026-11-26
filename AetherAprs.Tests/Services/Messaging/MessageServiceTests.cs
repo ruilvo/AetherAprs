@@ -1,4 +1,4 @@
-ï»¿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -60,7 +60,8 @@ public sealed class MessageServiceTests
             configuration,
             resolver,
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(addressee, "Hello", TestContext.Current.CancellationToken);
@@ -138,6 +139,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             new PacketQueryService(new SqliteRuntimeReader(database.Factory), NullLogger<PacketQueryService>.Instance));
 
         await firstProcess.SendAsync(
@@ -162,6 +164,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             new PacketQueryService(new SqliteRuntimeReader(database.Factory), NullLogger<PacketQueryService>.Instance));
         await recoveredProcess.InitializeAsync(TestContext.Current.CancellationToken);
 
@@ -186,7 +189,8 @@ public sealed class MessageServiceTests
             configuration,
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -219,6 +223,7 @@ public sealed class MessageServiceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             notificationService: notificationService);
 
         var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
@@ -256,6 +261,7 @@ public sealed class MessageServiceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             notificationService: notificationService);
 
         var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
@@ -294,6 +300,7 @@ public sealed class MessageServiceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             notificationService: notificationService);
 
         var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
@@ -332,6 +339,7 @@ public sealed class MessageServiceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             notificationService: notificationService);
 
         var viewedCallsign = new Callsign("K0PEER", 1);
@@ -384,7 +392,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken));
@@ -401,7 +410,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken));
@@ -425,7 +435,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         var longText = new string('A', 68);
         await Assert.ThrowsAsync<ArgumentException>(
@@ -443,7 +454,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -484,7 +496,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL", defaultSsid: 1),
             resolver,
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
 
@@ -517,7 +530,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         // Act - receive 100 packets concurrently from different callsigns
         var tasks = Enumerable.Range(1, 100)
@@ -563,7 +577,8 @@ public sealed class MessageServiceTests
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
             packetFactory,
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         var callsign = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         var conversations = new ConcurrentBag<ConversationThread>();
@@ -725,7 +740,8 @@ public sealed class MessageServiceTests
             configuration,
             resolver,
             new TestPacketFactory(),
-            NullLogger<MessageService>.Instance);
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
 
         var peerCallsign = new Callsign("K0OTH", 7);
         var peer = AprsAddress.FromCallsign(peerCallsign);
@@ -764,7 +780,7 @@ public sealed class MessageServiceTests
         Assert.Equal(0, stored.RetryCount);
 
         // Make the message due for retry, then run the retry pass directly
-        // (the real timer ticks every 5 s â€” too slow for tests).
+        // (the real timer ticks every 5 s — too slow for tests).
         stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
         service.ProcessRetries(null);
 
@@ -947,6 +963,7 @@ public sealed class MessageServiceTests
             resolver,
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
             dbContextFactory is null
                 ? null
                 : new PacketQueryService(new SqliteRuntimeReader(dbContextFactory), NullLogger<PacketQueryService>.Instance));
@@ -986,7 +1003,7 @@ public sealed class MessageServiceTests
 
         public bool FailSends { get; set; }
 
-        /// <summary>Signalled whenever a packet is sent â€” lets tests await deterministic sends.</summary>
+        /// <summary>Signalled whenever a packet is sent — lets tests await deterministic sends.</summary>
         public TaskCompletionSource<AprsPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void RaisePacketReceived(PortPacketReceivedEventArgs args) =>

@@ -1,0 +1,103 @@
+// This file is part of AetherAprs
+// SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace AetherAprs.Tests.Architecture;
+
+/// <summary>
+/// Enforces the persistence and presentation ownership boundaries described in
+/// the architecture roadmap (work item R0.2).
+/// </summary>
+/// <remarks>
+/// The scan runs over the production source tree rather than compiled metadata so
+/// it reports the exact symbol that broke a rule. Comments and string literal
+/// contents are stripped first: code is the only thing that creates a dependency.
+/// </remarks>
+internal static class ArchitectureBoundaryScanner
+{
+    /// <summary>
+    /// Files permitted to open a database context or mutate persisted state. These
+    /// are the data infrastructure and the composition root, not feature services.
+    /// </summary>
+    private static readonly HashSet<string> PersistenceOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Data/AppDbContext.cs",
+        "AetherAprs/Data/AppDbContextFactory.cs",
+        "AetherAprs/Data/AppSavedDataInitializer.cs",
+        "AetherAprs/Data/SqliteRuntimeRegistration.cs",
+        "AetherAprs/Data/SqliteRuntimeReader.cs",
+        "AetherAprs/Data/SqliteRuntimeWriter.cs",
+        "AetherAprs/Data/Packets/PacketQueryService.cs",
+        "AetherAprs/Data/Packets/PacketStorageService.cs",
+        "AetherAprs/Factories/ServiceProviderFactory.cs",
+        "AetherAprs/DesignData.cs"
+    };
+
+    /// <summary>
+    /// Files permitted to marshal work onto the Avalonia UI thread. These are the
+    /// presentation adapters for that concern.
+    /// </summary>
+    private static readonly HashSet<string> UiThreadOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Services/UI/AvaloniaUiDispatcher.cs",
+        "AetherAprs/Services/UI/SnackbarTransientFeedbackService.cs",
+        "AetherAprs/Behaviors/ScrollToFocusedControlBehavior.cs"
+    };
+
+    /// <summary>Every rule, in the order it is reported.</summary>
+    public static IReadOnlyList<ArchitectureRule> Rules { get; } =
+    [
+        new ArchitectureRule(
+            "A001",
+            "Feature and service code must not open a database context or write directly; use the runtime writer and query services.",
+            [
+                "IDbContextFactory", "AppDbContext", "DbSet<", "Set<", "SaveChanges", "ExecuteDelete", "ExecuteUpdate"
+            ],
+            PersistenceOwners),
+
+        new ArchitectureRule(
+            "A002",
+            "Application and service code must not dispatch through Avalonia; inject IUiDispatcher instead.",
+            ["Dispatcher.UIThread", "Avalonia.Threading"],
+            UiThreadOwners),
+
+        new ArchitectureRule(
+            "A003",
+            "Production code must log structured events through ILogger, not Debug.WriteLine.",
+            ["Debug.WriteLine"],
+            new HashSet<string>(StringComparer.Ordinal))
+    ];
+
+    /// <summary>Scans the live production tree.</summary>
+    public static IReadOnlyList<ArchitectureViolation> Scan() =>
+        Scan(SourceScanner.ReadProductionSources());
+
+    /// <summary>Scans an explicit set of sources, so rules can be unit-tested in isolation.</summary>
+    public static IReadOnlyList<ArchitectureViolation> Scan(IEnumerable<ScannedSource> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        var violations = new List<ArchitectureViolation>();
+
+        foreach (var source in sources)
+        {
+            var probe = source with { Text = SourceTextStripper.StripCommentsAndLiterals(source.Text) };
+
+            foreach (var rule in Rules)
+            {
+                if (rule.IsAllowed(source))
+                {
+                    continue;
+                }
+
+                violations.AddRange(rule.FindViolations(probe)
+                    .Select(symbol => new ArchitectureViolation(rule.Id, source.RelativePath, source.TypeName, symbol)));
+            }
+        }
+
+        return violations;
+    }
+}

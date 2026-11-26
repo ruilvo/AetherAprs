@@ -9,8 +9,6 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
-using Avalonia;
-using Avalonia.Threading;
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Nts;
@@ -64,6 +62,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private readonly IConfigurationService _configurationService;
     private readonly IPacketViewFilterService _filterService;
     private readonly AprsSymbolMapConverter _symbolConverter;
+    private readonly IUiDispatcher _uiDispatcher;
     private readonly ILogger<ReceivedBeaconsMapLayerService> _logger;
     private readonly WritableLayer _beaconsLayer;
     private readonly WritableLayer _trailsLayer;
@@ -87,6 +86,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         IConfigurationService configurationService,
         IPacketViewFilterService filterService,
         IAprsSymbolBitmapProvider symbolBitmapProvider,
+        IUiDispatcher uiDispatcher,
         ILogger<ReceivedBeaconsMapLayerService> logger)
     {
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
@@ -96,6 +96,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         _filterService = filterService ?? throw new ArgumentNullException(nameof(filterService));
         _symbolConverter = new AprsSymbolMapConverter(
             symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
+        _uiDispatcher = uiDispatcher ?? throw new ArgumentNullException(nameof(uiDispatcher));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         _beaconsLayer = new WritableLayer
@@ -197,16 +198,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
     }
 
-    private static void RunOnUi(Action action)
-    {
-        if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
-        {
-            action();
-            return;
-        }
-
-        Dispatcher.UIThread.Post(action);
-    }
+    private void RunOnUi(Action action) => _uiDispatcher.Post(action);
 
     private async Task RebuildVisibleLayersAsync()
     {
