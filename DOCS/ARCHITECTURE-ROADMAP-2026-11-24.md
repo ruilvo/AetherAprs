@@ -786,10 +786,12 @@ compatibility façade is still needed.
 - Request Bluetooth/audio/location permissions when the feature is used.
 - Keep arm in runtime memory. Initialize disarmed on reboot, force-stop, update
   and process death; activity recreation in the same live session is not a new
-  arm or a stop. Show pending work and a resume action.
+  arm or a stop. Show pending work and a resume action. (Decided: the resume is
+  automatic — launch re-arms every enabled port, because configuration is the
+  operator's durable intent; see the status note below.)
 - Make maintenance a cancellable deferred worker.
 
-> **Status: partially implemented.** Startup now runs one ordered sequence
+> **Status: implemented.** Startup now runs one ordered sequence
 > instead of independent fire-and-forget tasks. `ApplicationStartup` executes
 > named `StartupStep` records in declaration order, stops on a failed required
 > step and skips the rest, records a failed optional step and continues, and
@@ -812,13 +814,15 @@ compatibility façade is still needed.
 > first sweep, repeats on an interval, keeps running after a failed sweep, and
 > cancels with the application.
 >
-> Arm/resume remains open: the session still arms every enabled port during
-> startup, so a process death currently resumes work without asking. Finishing
-> this item means leaving the process disarmed after death, reboot, force-stop
-> or update, and offering the operator the previously running set with a resume
-> action, plus the process-death harness that proves the safe path. That is a
-> product decision about whether launch may connect without an explicit tap, so
-> it is tracked as the remaining work here rather than changed implicitly.
+> Arm/resume is settled by an explicit product decision: **launch auto-arms every
+> enabled port**. Configuration is the operator's durable intent, so after a reboot,
+> force-stop, update or process death the process restores no live session from the
+> snapshot and arms exactly the ports that are enabled now. Intent itself never
+> leaves memory, so activity recreation in a live process still does not re-arm or
+> stop anything. The restart harness (`RestartResumeTests`) proves both halves:
+> a snapshot that recorded a connected session restores as `Stopped` with no intent,
+> and arming connects only the port that is still enabled, never the one disabled
+> since the previous run.
 
 Exit: a startup harness proves ordering and a process-death harness proves safe resume.
 
