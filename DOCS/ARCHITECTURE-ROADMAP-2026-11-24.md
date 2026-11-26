@@ -67,12 +67,20 @@ Presentation services may adapt application state into UI objects.
 
 ### Persistence
 
-The writer/reader split is in place. What remains is the domain-facing message
+The writer/reader split is in place. Message delivery has its own domain-facing
 boundary:
 
-- `IMessageCommands` and `IMessageQueries`: one logical outbound message, attempt
-  updates, ACK/REJ transitions, expiry and recovery. The outbox is separate from
-  packet history; queries join explicitly when a feature needs both.
+- `IMessageCommands` and `IMessageQueries` (`AetherAprs/Data/Messaging/OutboxMessageStore.cs`):
+  one logical outbound message, attempt updates, ACK/REJ transitions, expiry and
+  recovery. The outbox is separate from packet history; queries join explicitly when
+  a feature needs both.
+- A caller-generated GUID is the logical identity from first insertion, so an enqueue
+  retry or a restart addresses the same row. The wire number is reserved atomically
+  for the lifetime of an active message; when none is free the message stays `Queued`
+  instead of reusing an active number, and a bounded reuse guard delays reuse after a
+  terminal outcome so late ACKs cannot land on a different message.
+- History rows keep the logical identity, and legacy rows without one are never
+  replayed: they are reported as expired on load.
 
 ### Packet ingest
 
@@ -149,34 +157,6 @@ Each item is sized so one agent can implement it without deciding architecture a
 Read the relevant source and tests first, add a regression test, and report build and
 test evidence. A source-only change is partial where the observable behaviour is not
 demonstrated.
-
-### R1.2 Message outbox and durable identity
-
-Files: `PacketStorageService.cs`, `PacketQueryService.cs`, `MessageService.cs`,
-message entities and mappers.
-
-- Move delivery and retry into outbox commands; notify subscribers after commit and
-  isolate each subscriber's failure from the command result and from other
-  subscribers.
-- Return a stable logical message identity from first insertion. Use a
-  caller-generated GUID for identity across enqueue retries and restart; reserve the
-  limited wire number atomically while the message is active, and correlate using
-  local identity, normalized peer identity and number.
-- Retain a bounded reuse guard for late ACKs. When no wire number is available, show a
-  blocked/queued state instead of reusing an active number.
-- Migrate legacy rows with a deterministic merge and a safe fallback for ambiguous
-  ownership; preserve history and never replay an uncertain legacy send.
-- Make terminal rows eligible for cleanup; pending rows require expiry.
-
-Acceptance:
-
-- Five concurrent sends for one logical message create one durable message record.
-- Attempt count increments on that record.
-- ACK/REJ matches local and normalized peer identity plus number; duplicate and late
-  outcomes never regress terminal state. A number becomes reusable only after the
-  reservation and reuse guard expire.
-- A restart restores only unexpired pending work.
-- No feature service creates `AppDbContext`.
 
 ### R5.1 Permission acceptance
 

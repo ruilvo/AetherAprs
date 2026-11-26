@@ -68,12 +68,14 @@ internal static class PacketRecordMapper
     /// <see cref="MessageDeliveryStatus.Pending"/> when omitted so retry
     /// bookkeeping can supply the real status instead of the mapper guessing it.
     /// </param>
+    /// <param name="logicalId">Logical outbound message identity, when known.</param>
     public static PacketRecord ToRecord(
         AprsPacket packet,
         Guid? portId,
         DateTimeOffset timestamp,
         bool isOutbound,
-        MessageDeliveryStatus? deliveryStatus = null)
+        MessageDeliveryStatus? deliveryStatus = null,
+        Guid? logicalId = null)
     {
         PacketRecord record = new()
         {
@@ -125,7 +127,8 @@ internal static class PacketRecordMapper
                         ? deliveryStatus ?? MessageDeliveryStatus.Pending
                         : null,
                     RetryCount = 0,
-                    NextRetryTime = null
+                    NextRetryTime = null,
+                    LogicalId = logicalId
                 };
                 break;
 

@@ -7,30 +7,44 @@ namespace AetherAprs.Models.Messaging;
 /// <summary>
 /// Delivery status for outbound APRS messages.
 /// </summary>
+/// <remarks>
+/// The numeric values are persisted in SQLite, so existing members keep their
+/// values and new members are appended.
+/// </remarks>
 public enum MessageDeliveryStatus
 {
     /// <summary>
     /// Message is pending delivery/acknowledgment.
     /// </summary>
-    Pending,
+    Pending = 0,
 
     /// <summary>
     /// Message was acknowledged by the recipient.
     /// </summary>
-    Acknowledged,
+    Acknowledged = 1,
 
     /// <summary>
     /// Message was rejected by the recipient.
     /// </summary>
-    Rejected,
+    Rejected = 2,
 
     /// <summary>
     /// Message timed out waiting for acknowledgment.
     /// </summary>
-    Timeout,
+    Timeout = 3,
 
     /// <summary>
     /// Message could not be sent (no TX port or the initial send failed entirely).
     /// </summary>
-    Failed
+    Failed = 4,
+
+    /// <summary>
+    /// Message is waiting for a free wire number; it has not been sent.
+    /// </summary>
+    Queued = 5,
+
+    /// <summary>
+    /// Message expired before it was delivered.
+    /// </summary>
+    Expired = 6,
 }

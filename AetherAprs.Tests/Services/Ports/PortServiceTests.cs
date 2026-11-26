@@ -406,7 +406,7 @@ public sealed class PortServiceTests
         public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task EnsureOutboundMessageAsync(MessagePacket packet, Guid? portId, int retryCount,
-            DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
+            DateTimeOffset? nextRetryTime, Guid? logicalId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task UpdateOutboundMessageStatusAsync(AprsAddress addressee, int messageNumber,
             AetherAprs.Models.Messaging.MessageDeliveryStatus deliveryStatus, int retryCount,

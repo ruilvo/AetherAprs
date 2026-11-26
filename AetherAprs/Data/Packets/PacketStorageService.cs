@@ -80,6 +80,7 @@ internal sealed class PacketStorageService(
         Guid? portId,
         int retryCount = 0,
         DateTimeOffset? nextRetryTime = null,
+        Guid? logicalId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(packet);
@@ -88,11 +89,14 @@ internal sealed class PacketStorageService(
             throw new ArgumentException("A logical outbound message must have a message number.", nameof(packet));
         }
 
-        PacketRecord newRecord = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: true);
+        PacketRecord newRecord = PacketRecordMapper.ToRecord(
+            packet, portId, DateTimeOffset.UtcNow, isOutbound: true, logicalId: logicalId);
         AprsAddress addressee = packet.Addressee;
         bool inserted = await writer.EnqueueAsync("packet.ensure-outbound-message", async (context, token) =>
         {
-            List<PacketRecord> records = await FindOutboundMessage(context, addressee, number)
+            List<PacketRecord> records = await (logicalId.HasValue
+                    ? FindOutboundMessageByLogicalId(context, logicalId.Value)
+                    : FindOutboundMessage(context, addressee, number))
                 .ToListAsync(token).ConfigureAwait(false);
             if (records.Count == 0)
             {
@@ -297,4 +301,10 @@ internal sealed class PacketStorageService(
             packet.Message != null && packet.Message.Number == messageNumber &&
             packet.Message.AddresseeBase == addressee.Base && packet.Message.AddresseeSsid == ssid);
     }
+
+    private static IQueryable<PacketRecord> FindOutboundMessageByLogicalId(
+        AppDbContext context, Guid logicalId)
+        => context.Packets.Where(packet =>
+            packet.IsOutbound && packet.PacketType == PacketTypes.Message &&
+            packet.Message != null && packet.Message.LogicalId == logicalId);
 }

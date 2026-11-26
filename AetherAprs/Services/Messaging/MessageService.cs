@@ -40,6 +40,8 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private readonly IPortService _portService;
     private readonly IPacketStorageService _packetStorageService;
+    private readonly IMessageCommands _messageCommands;
+    private readonly IMessageQueries _messageQueries;
     private readonly IConfigurationService _configurationService;
     private readonly IAprsPortSettingsResolver _portSettingsResolver;
     private readonly IPacketFactory _packetFactory;
@@ -51,6 +53,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IActiveConversationTracker? _activeConversationTracker;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = [];
+    private readonly Dictionary<Guid, StoredMessage> _queuedMessages = [];
     private readonly Lock _dedupLock = new();
     private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
     private readonly Dictionary<string, DateTimeOffset> _dedupTable = [];
@@ -58,7 +61,6 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly Lock _persistLock = new();
     private TaskCompletionSource _persistSignal = CreatePersistSignal();
     private int _pendingPersists;
-    private int _nextMessageNumber = 1;
     private bool _disposed;
 
     private readonly List<ConversationThread> _conversationList = [];
@@ -125,6 +127,8 @@ public sealed class MessageService : IMessageService, IDisposable
         IPacketFactory packetFactory,
         ILogger<MessageService> logger,
         IUiDispatcher uiDispatcher,
+        IMessageCommands messageCommands,
+        IMessageQueries messageQueries,
         IPacketQueryService? packetQueryService = null,
         INotificationService? notificationService = null,
         TimeProvider? timeProvider = null,
@@ -132,6 +136,8 @@ public sealed class MessageService : IMessageService, IDisposable
     {
         _portService = portService;
         _packetStorageService = packetStorageService;
+        _messageCommands = messageCommands;
+        _messageQueries = messageQueries;
         _configurationService = configurationService;
         _portSettingsResolver = portSettingsResolver;
         _packetFactory = packetFactory;
@@ -160,7 +166,19 @@ public sealed class MessageService : IMessageService, IDisposable
         return thread;
     }
 
+    /// <inheritdoc />
     public async Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default)
+        => await SendAsync(addressee, text, Guid.CreateVersion7(), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// Sends one logical message identified by the caller so an enqueue retry, a
+    /// concurrent caller or a restart resolves to the same durable record.
+    /// </summary>
+    public async Task<Guid> SendAsync(
+        AprsAddress addressee,
+        string text,
+        Guid clientMessageId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
         text = text.Trim();
@@ -169,21 +187,58 @@ public sealed class MessageService : IMessageService, IDisposable
             throw new ArgumentException("APRS message text must be 67 characters or fewer.", nameof(text));
         }
 
-        int messageNumber = Interlocked.Increment(ref _nextMessageNumber);
-        DateTimeOffset timestamp = _timeProvider.GetUtcNow();
         AprsSettings settings = _configurationService.Current.Aprs;
+        DateTimeOffset timestamp = _timeProvider.GetUtcNow();
+        TimeSpan retryInterval = TimeSpan.FromSeconds(settings.MessageRetryTimeoutSeconds);
+
+        // Durable first: the record exists before the wire is used, and a second
+        // caller with the same identity joins the existing record instead of
+        // creating a second message or reusing its number.
+        OutboxEnqueueResult enqueued = await _messageCommands.EnqueueAsync(
+            new OutboxMessageDraft(
+                clientMessageId,
+                addressee,
+                text,
+                timestamp,
+                timestamp.Add(GetExpiryWindow(settings)),
+                PortId: null,
+                timestamp.Add(retryInterval)),
+            cancellationToken).ConfigureAwait(false);
+
+        if (!enqueued.IsNew)
+        {
+            _logger.LogInformation(
+                "Outbound message {MessageId} is already durable with status {Status}",
+                enqueued.Id,
+                enqueued.Status);
+            return enqueued.Id;
+        }
 
         StoredMessage stored = new()
         {
+            LogicalId = enqueued.Id,
             Peer = addressee,
             Text = text,
             Timestamp = timestamp,
             IsOutbound = true,
-            MessageNumber = messageNumber,
-            DeliveryStatus = MessageDeliveryStatus.Pending,
+            MessageNumber = enqueued.MessageNumber,
+            DeliveryStatus = enqueued.Status,
             RetryCount = 0,
-            NextRetryTime = timestamp.AddSeconds(settings.MessageRetryTimeoutSeconds)
+            NextRetryTime = enqueued.NextAttemptAt
         };
+
+        if (enqueued.MessageNumber is not { } messageNumber)
+        {
+            // Every wire number is still reserved by an active or guarded message.
+            // Wait in a queued state rather than reusing one of them.
+            lock (_gate)
+            {
+                _queuedMessages[enqueued.Id] = stored;
+            }
+
+            PublishConversation(addressee, stored);
+            return enqueued.Id;
+        }
 
         lock (_gate)
         {
@@ -196,24 +251,16 @@ public sealed class MessageService : IMessageService, IDisposable
         }
         catch
         {
-            // Keep the item queued in memory. It becomes recoverable across
-            // restarts once the outbox write succeeds.
-            stored.NextRetryTime = _timeProvider.GetUtcNow().AddSeconds(
-                settings.MessageRetryTimeoutSeconds);
+            lock (_gate)
+            {
+                stored.NextRetryTime = _timeProvider.GetUtcNow().Add(retryInterval);
+            }
+
             throw;
         }
 
-        RunOnUi(() =>
-        {
-            lock (_gate)
-            {
-                ConversationThread thread = GetOrCreateConversationUnlocked(addressee);
-                thread.Add(stored);
-                MoveConversationToFront(thread);
-            }
-        });
-
-        NotifyConversationsChanged();
+        PublishConversation(addressee, stored);
+        return enqueued.Id;
     }
 
     private async Task SendMessagePacketAsync(StoredMessage message, CancellationToken cancellationToken = default)
@@ -222,6 +269,18 @@ public sealed class MessageService : IMessageService, IDisposable
         if (txPorts.Count == 0)
         {
             throw new InvalidOperationException("No enabled TX ports available to send message.");
+        }
+
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        DateTimeOffset nextAttemptAt;
+        lock (_gate)
+        {
+            nextAttemptAt = message.NextRetryTime ?? now.Add(GetBackoff(1));
+        }
+
+        if (!await RecordAttemptAsync(message, nextAttemptAt, cancellationToken).ConfigureAwait(false))
+        {
+            return;
         }
 
         string baseCallsign = _configurationService.Current.Aprs.Callsign;
@@ -249,18 +308,18 @@ public sealed class MessageService : IMessageService, IDisposable
                     message.Text,
                     message.MessageNumber);
 
-                // Note: Cannot set Timestamp after construction (init-only property)
-                // Factory creates packet with default timestamp, but we'll log the message timestamp
-
-                // One row per logical message: persist on the first attempt, then
-                // only update it from the retry/status path. Storing per attempt
-                // produced up to MaximumRetries x TX-port immortal Pending rows
-                //. The record is still written before the transport
-                // call so a crash mid-send can be recovered at startup.
+                // One history row per logical message: persist on the first
+                // attempt, then only update it from the retry/status path.
                 if (!persisted)
                 {
                     await _packetStorageService
-                        .EnsureOutboundMessageAsync(packet, port.Id, retryCount, nextRetryTime, cancellationToken)
+                        .EnsureOutboundMessageAsync(
+                            packet,
+                            port.Id,
+                            retryCount,
+                            nextRetryTime,
+                            message.LogicalId,
+                            cancellationToken)
                         .ConfigureAwait(false);
                     persisted = true;
                 }
@@ -269,11 +328,11 @@ public sealed class MessageService : IMessageService, IDisposable
 
                 sent++;
                 _logger.LogInformation(
-                    "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, retry {RetryCount})",
+                    "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, attempt {Attempt})",
                     message.Peer,
                     port.Name,
                     message.MessageNumber,
-                    message.RetryCount);
+                    retryCount + 1);
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
@@ -292,6 +351,50 @@ public sealed class MessageService : IMessageService, IDisposable
             _logger.LogError(lastError, "Failed to send APRS message to {Addressee}", message.Peer);
         }
     }
+
+    /// <summary>
+    /// Counts the attempt on the durable record before the wire is used. A record
+    /// that is already terminal (for example ACKed by a concurrent path) stops the
+    /// transmission instead of resurrecting it.
+    /// </summary>
+    private async Task<bool> RecordAttemptAsync(
+        StoredMessage message,
+        DateTimeOffset nextAttemptAt,
+        CancellationToken cancellationToken)
+    {
+        if (message.LogicalId is not { } logicalId)
+        {
+            return true;
+        }
+
+        OutboxTransitionResult recorded = await _messageCommands
+            .RecordAttemptAsync(logicalId, nextAttemptAt, cancellationToken)
+            .ConfigureAwait(false);
+        if (recorded.Outcome != OutboxTransitionOutcome.Applied)
+        {
+            _logger.LogInformation(
+                "Outbound message {MessageId} is no longer open ({Outcome}); skipping transmission",
+                logicalId,
+                recorded.Outcome);
+            return false;
+        }
+
+        return true;
+    }
+
+    private TimeSpan GetBackoff(int retryNumber)
+    {
+        int seconds = _configurationService.Current.Aprs.MessageRetryTimeoutSeconds;
+        return TimeSpan.FromSeconds(seconds * Math.Pow(2, Math.Max(0, retryNumber - 1)));
+    }
+
+    /// <summary>
+    /// Expiry follows the retry schedule, so the default wait stays bounded
+    /// without adding another operator setting.
+    /// </summary>
+    private static TimeSpan GetExpiryWindow(AprsSettings settings)
+        => TimeSpan.FromSeconds(
+            settings.MessageRetryTimeoutSeconds * Math.Pow(2, Math.Max(0, settings.MessageMaxRetries + 1)));
 
     private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
     {
@@ -344,7 +447,7 @@ public sealed class MessageService : IMessageService, IDisposable
             bool addressedToUs = string.Equals(ack.Addressee.Base, ownBase, StringComparison.Ordinal);
             if (addressedToUs)
             {
-                HandleAck(ack);
+                HandleDeliveryOutcome(ack.Source, ack.MessageNumber, MessageDeliveryStatus.Acknowledged);
             }
         }
         else if (e.Packet is MessageRejPacket rej)
@@ -352,14 +455,14 @@ public sealed class MessageService : IMessageService, IDisposable
             bool addressedToUs = string.Equals(rej.Addressee.Base, ownBase, StringComparison.Ordinal);
             if (addressedToUs)
             {
-                HandleRej(rej);
+                HandleDeliveryOutcome(rej.Source, rej.MessageNumber, MessageDeliveryStatus.Rejected);
             }
         }
     }
 
     private void HandleIncomingMessage(MessagePacket message, Guid portId)
     {
-        // Deduplicate messages: RF?APRS-IS gating means the same message may arrive
+        // Deduplicate messages: RF/APRS-IS gating means the same message may arrive
         // on multiple ports within seconds. Track recently seen (source, number) pairs.
         if (message.MessageNumber.HasValue && IsDuplicateMessage(message.Source, message.MessageNumber.Value))
         {
@@ -389,17 +492,7 @@ public sealed class MessageService : IMessageService, IDisposable
             portId,
             message.MessageNumber);
 
-        RunOnUi(() =>
-        {
-            lock (_gate)
-            {
-                ConversationThread thread = GetOrCreateConversationUnlocked(peer);
-                thread.Add(stored);
-                MoveConversationToFront(thread);
-            }
-        });
-
-        NotifyConversationsChanged();
+        PublishConversation(peer, stored);
 
         // Post a notification unless the user is already viewing this peer's
         // conversation. Fire-and-forget: notifications must never break message
@@ -420,69 +513,93 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
-    private void HandleAck(MessageAckPacket ack)
+    /// <summary>
+    /// Applies a terminal delivery outcome. The durable transition decides whether
+    /// the outcome is still relevant: a duplicate or late ACK/REJ finds no open
+    /// record and can never regress a terminal message or a reused number.
+    /// </summary>
+    private void HandleDeliveryOutcome(Callsign source, int messageNumber, MessageDeliveryStatus outcome)
     {
-        _logger.LogInformation("Received ACK from {Source} for message #{MessageNumber}", ack.Source, ack.MessageNumber);
-
-        StoredMessage? message;
+        AprsAddress peer = AprsAddress.FromCallsign(source);
+        StoredMessage? cached;
         lock (_gate)
         {
-            if (!_pendingMessages.TryGetValue(ack.MessageNumber, out message))
+            if (!_pendingMessages.TryGetValue(messageNumber, out cached))
             {
-                return;
+                cached = null;
             }
-
-            // Only the message's addressee may acknowledge it; small integer
-            // message numbers collide easily between stations (H5).
-            // Convert ack.Source (Callsign) to AprsAddress for comparison
-            AprsAddress ackSource = AprsAddress.FromCallsign(ack.Source);
-            if (!ackSource.Equals(message.Peer))
+            else if (!cached.Peer.Equals(peer))
             {
+                // Only the message's addressee may acknowledge it; small integer
+                // message numbers collide easily between stations.
                 _logger.LogWarning(
-                    "Ignoring ACK from {Source} for message #{MessageNumber} addressed to {Peer}",
-                    ack.Source,
-                    ack.MessageNumber,
-                    message.Peer);
+                    "Ignoring {Outcome} from {Source} for message #{MessageNumber} addressed to {Peer}",
+                    outcome,
+                    source,
+                    messageNumber,
+                    cached.Peer);
                 return;
             }
-
-            message.DeliveryStatus = MessageDeliveryStatus.Acknowledged;
-            _pendingMessages.Remove(ack.MessageNumber);
         }
 
-        // Persist outside the lock: the DB call may block on SQLite I/O.
-        PersistMessageStatusInBackground(message);
+        _logger.LogInformation(
+            "Received {Outcome} from {Source} for message #{MessageNumber}",
+            outcome,
+            source,
+            messageNumber);
+        _ = ApplyDeliveryOutcomeAsync(peer, messageNumber, outcome, cached);
     }
 
-    private void HandleRej(MessageRejPacket rej)
+    private async Task ApplyDeliveryOutcomeAsync(
+        AprsAddress peer,
+        int messageNumber,
+        MessageDeliveryStatus outcome,
+        StoredMessage? cached)
     {
-        _logger.LogInformation("Received REJ from {Source} for message #{MessageNumber}", rej.Source, rej.MessageNumber);
-
-        StoredMessage? message;
-        lock (_gate)
+        Interlocked.Increment(ref _pendingPersists);
+        try
         {
-            if (!_pendingMessages.TryGetValue(rej.MessageNumber, out message))
+            OutboxTransitionResult result = await _messageCommands
+                .ApplyDeliveryOutcomeAsync(peer, messageNumber, outcome)
+                .ConfigureAwait(false);
+            if (result.Outcome != OutboxTransitionOutcome.Applied)
             {
+                _logger.LogInformation(
+                    "Ignoring {Outcome} for message #{MessageNumber} to {Peer}: {Reason}",
+                    outcome,
+                    messageNumber,
+                    peer,
+                    result.Outcome);
                 return;
             }
 
-            // Convert rej.Source (Callsign) to AprsAddress for comparison
-            AprsAddress rejSource = AprsAddress.FromCallsign(rej.Source);
-            if (!rejSource.Equals(message.Peer))
+            StoredMessage? message = cached;
+            lock (_gate)
             {
-                _logger.LogWarning(
-                    "Ignoring REJ from {Source} for message #{MessageNumber} addressed to {Peer}",
-                    rej.Source,
-                    rej.MessageNumber,
-                    message.Peer);
-                return;
+                if (_pendingMessages.TryGetValue(messageNumber, out StoredMessage? tracked))
+                {
+                    message ??= tracked;
+                    _pendingMessages.Remove(messageNumber);
+                }
             }
 
-            message.DeliveryStatus = MessageDeliveryStatus.Rejected;
-            _pendingMessages.Remove(rej.MessageNumber);
+            if (message is not null)
+            {
+                message.DeliveryStatus = outcome;
+                PersistMessageStatusInBackground(message);
+            }
+
+            NotifyConversationsChanged();
         }
-
-        PersistMessageStatusInBackground(message);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to apply {Outcome} for message #{MessageNumber}", outcome, messageNumber);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _pendingPersists);
+            SignalPersistIdle();
+        }
     }
 
     internal void ProcessRetries(object? state) // internal for tests (InternalsVisibleTo AetherAprs.Tests)
@@ -497,43 +614,42 @@ public sealed class MessageService : IMessageService, IDisposable
         List<StoredMessage> toRetry = [];
         List<StoredMessage> timedOut = [];
 
+        // Scheduling stays synchronous so a virtual clock advances the state
+        // machine deterministically; only the I/O leaves the tick.
         lock (_gate)
         {
             foreach (KeyValuePair<int, StoredMessage> kvp in _pendingMessages.ToList())
             {
-                if (_disposed)
+                StoredMessage message = kvp.Value;
+                if (!message.NextRetryTime.HasValue || message.NextRetryTime.Value > now)
                 {
-                    return;
+                    continue;
                 }
 
-                StoredMessage message = kvp.Value;
-                if (message.NextRetryTime.HasValue && message.NextRetryTime.Value <= now)
+                if (message.RetryCount >= settings.MessageMaxRetries)
                 {
-                    if (message.RetryCount >= settings.MessageMaxRetries)
-                    {
-                        // Timeout
-                        message.DeliveryStatus = MessageDeliveryStatus.Timeout;
-                        _pendingMessages.Remove(kvp.Key);
-                        timedOut.Add(message);
-                        _logger.LogWarning("Message #{MessageNumber} to {Peer} timed out after {RetryCount} retries",
-                            message.MessageNumber, message.Peer, message.RetryCount);
-                    }
-                    else
-                    {
-                        // Schedule retry
-                        message.RetryCount++;
-                        double backoff = settings.MessageRetryTimeoutSeconds * Math.Pow(2, message.RetryCount - 1);
-                        message.NextRetryTime = now.AddSeconds(backoff);
-                        toRetry.Add(message);
-                    }
+                    message.DeliveryStatus = MessageDeliveryStatus.Timeout;
+                    message.NextRetryTime = null;
+                    _pendingMessages.Remove(kvp.Key);
+                    timedOut.Add(message);
+                    _logger.LogWarning(
+                        "Message #{MessageNumber} to {Peer} timed out after {RetryCount} retries",
+                        message.MessageNumber,
+                        message.Peer,
+                        message.RetryCount);
+                }
+                else
+                {
+                    message.RetryCount++;
+                    message.NextRetryTime = now.Add(GetBackoff(message.RetryCount));
+                    toRetry.Add(message);
                 }
             }
         }
 
-        // Persist and retry outside the lock.
         foreach (StoredMessage message in timedOut)
         {
-            PersistMessageStatusInBackground(message);
+            _ = Task.Run(() => CompleteAsync(message));
         }
 
         foreach (StoredMessage message in toRetry)
@@ -547,7 +663,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
                 try
                 {
-                    await SendMessagePacketAsync(message);
+                    await SendMessagePacketAsync(message).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -555,6 +671,120 @@ public sealed class MessageService : IMessageService, IDisposable
                 }
             });
         }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ExpireOutboxAsync().ConfigureAwait(false);
+                await PromoteQueuedMessagesAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to process outbound message retries");
+            }
+        });
+    }
+
+    /// <summary>Marks expired durable work so it is no longer replayed after a restart.</summary>
+    private async Task ExpireOutboxAsync()
+    {
+        IReadOnlyList<OutboxMessageSnapshot> expired = await _messageCommands
+            .ExpireAsync()
+            .ConfigureAwait(false);
+        foreach (OutboxMessageSnapshot snapshot in expired)
+        {
+            StoredMessage? message = null;
+            lock (_gate)
+            {
+                if (snapshot.MessageNumber is { } number
+                    && _pendingMessages.TryGetValue(number, out StoredMessage? pending)
+                    && pending.LogicalId == snapshot.Id)
+                {
+                    message = pending;
+                    _pendingMessages.Remove(number);
+                }
+                else if (_queuedMessages.Remove(snapshot.Id, out StoredMessage? queued))
+                {
+                    message = queued;
+                }
+            }
+
+            if (message is not null)
+            {
+                message.DeliveryStatus = MessageDeliveryStatus.Expired;
+                message.NextRetryTime = null;
+                PersistMessageStatusInBackground(message);
+            }
+        }
+
+        if (expired.Count > 0)
+        {
+            NotifyConversationsChanged();
+        }
+    }
+
+    /// <summary>Gives queued messages a wire number as soon as one is free again.</summary>
+    private async Task PromoteQueuedMessagesAsync()
+    {
+        List<StoredMessage> queued;
+        lock (_gate)
+        {
+            queued = [.. _queuedMessages.Values];
+        }
+
+        foreach (StoredMessage message in queued)
+        {
+            if (_disposed || message.LogicalId is not { } logicalId)
+            {
+                continue;
+            }
+
+            try
+            {
+                OutboxTransitionResult reserved = await _messageCommands
+                    .TryReserveNumberAsync(logicalId, message.NextRetryTime ?? _timeProvider.GetUtcNow())
+                    .ConfigureAwait(false);
+                if (reserved.Outcome != OutboxTransitionOutcome.Applied
+                    || reserved.Message is not { MessageNumber: { } number } snapshot)
+                {
+                    continue;
+                }
+
+                lock (_gate)
+                {
+                    _queuedMessages.Remove(logicalId);
+                    message.MessageNumber = number;
+                    message.DeliveryStatus = MessageDeliveryStatus.Pending;
+                    message.NextRetryTime = snapshot.NextAttemptAt;
+                    _pendingMessages[number] = message;
+                }
+
+                await SendMessagePacketAsync(message).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to promote queued message {MessageId}", logicalId);
+            }
+        }
+    }
+
+    /// <summary>Persists the terminal path: ACK/REJ/timeout/expiry share one transition.</summary>
+    private async Task CompleteAsync(StoredMessage message)
+    {
+        if (message.LogicalId is { } logicalId && message.MessageNumber is { } number)
+        {
+            OutboxTransitionResult result = await _messageCommands
+                .ApplyDeliveryOutcomeAsync(message.Peer, number, message.DeliveryStatus ?? MessageDeliveryStatus.Failed)
+                .ConfigureAwait(false);
+            if (result.Outcome == OutboxTransitionOutcome.AlreadyTerminal)
+            {
+                _logger.LogInformation("Message {MessageId} was already terminal", logicalId);
+            }
+        }
+
+        PersistMessageStatusInBackground(message);
+        NotifyConversationsChanged();
     }
 
     /// <summary>
@@ -637,6 +867,21 @@ public sealed class MessageService : IMessageService, IDisposable
         }
     }
 
+    private void PublishConversation(AprsAddress peer, StoredMessage stored)
+    {
+        RunOnUi(() =>
+        {
+            lock (_gate)
+            {
+                ConversationThread thread = GetOrCreateConversationUnlocked(peer);
+                thread.Add(stored);
+                MoveConversationToFront(thread);
+            }
+        });
+
+        NotifyConversationsChanged();
+    }
+
     private void NotifyConversationsChanged() =>
         RunOnUi(() => ConversationsChanged?.Invoke(this, EventArgs.Empty));
 
@@ -692,18 +937,50 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private async Task LoadMessagesAsync(CancellationToken cancellationToken = default)
     {
-        if (_packetQueryService is null)
+        // Expire first: durable work past its deadline must never be replayed.
+        await _messageCommands.ExpireAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<OutboxMessageSnapshot> open = await _messageQueries
+            .GetOpenAsync(cancellationToken)
+            .ConfigureAwait(false);
+        IReadOnlyList<PacketRecord> records = _packetQueryService is null
+            ? []
+            : await _packetQueryService
+                .GetMessagePacketsAsync(MaxLoadedMessages, cancellationToken)
+                .ConfigureAwait(false);
+
+        Dictionary<Guid, OutboxMessageSnapshot> openById = [];
+        foreach (OutboxMessageSnapshot snapshot in open)
         {
-            return;
+            openById[snapshot.Id] = snapshot;
         }
 
-        IReadOnlyList<PacketRecord> records = await _packetQueryService
-            .GetMessagePacketsAsync(MaxLoadedMessages, cancellationToken)
-            .ConfigureAwait(false);
+        // Terminal durable rows are authoritative for history rows that are no
+        // longer open (an ACK or expiry may have committed just before a crash).
+        HashSet<Guid> terminalIds = [];
+        foreach (PacketRecord record in records)
+        {
+            if (record.Message?.LogicalId is { } logicalId && !openById.ContainsKey(logicalId))
+            {
+                terminalIds.Add(logicalId);
+            }
+        }
+
+        Dictionary<Guid, OutboxMessageSnapshot> terminalById = [];
+        if (terminalIds.Count > 0)
+        {
+            foreach (OutboxMessageSnapshot snapshot in await _messageQueries
+                .GetByIdsAsync(terminalIds, cancellationToken).ConfigureAwait(false))
+            {
+                terminalById[snapshot.Id] = snapshot;
+            }
+        }
 
         Dictionary<string, ConversationThread> threadsByPeer = [];
-        int maxMessageNumber = await _packetQueryService
-            .GetHighestOutboundMessageNumberAsync(cancellationToken).ConfigureAwait(false) ?? 1;
+        HashSet<Guid> restored = [];
+        List<StoredMessage> pending = [];
+        List<StoredMessage> queued = [];
+        List<StoredMessage> legacyExpired = [];
+        List<StoredMessage> staleHistory = [];
 
         foreach (PacketRecord? record in records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id))
         {
@@ -718,42 +995,111 @@ public sealed class MessageService : IMessageService, IDisposable
             // Determine peer (who we're talking to)
             AprsAddress peer = record.IsOutbound ? addressee : source;
 
+            MessageDeliveryStatus? status = record.Message.DeliveryStatus;
+            int retryCount = record.Message.RetryCount;
+            DateTimeOffset? nextRetryTime = record.Message.NextRetryTime.HasValue
+                ? new DateTimeOffset(record.Message.NextRetryTime.Value, TimeSpan.Zero)
+                : null;
+
+            if (record.IsOutbound && record.Message.LogicalId is { } logicalId)
+            {
+                if (openById.TryGetValue(logicalId, out OutboxMessageSnapshot? snapshot))
+                {
+                    status = snapshot.Status;
+                    retryCount = Math.Max(0, snapshot.AttemptCount - 1);
+                    nextRetryTime = snapshot.NextAttemptAt;
+                    restored.Add(logicalId);
+                }
+                else if (terminalById.TryGetValue(logicalId, out OutboxMessageSnapshot? terminal))
+                {
+                    status = terminal.Status;
+                    retryCount = Math.Max(0, terminal.AttemptCount - 1);
+                    nextRetryTime = terminal.NextAttemptAt;
+                }
+            }
+            else if (record.IsOutbound && status == MessageDeliveryStatus.Pending)
+            {
+                // A pending row without a logical identity predates the outbox. Its
+                // ownership is unknown, so it is shown as expired and never replayed.
+                status = MessageDeliveryStatus.Expired;
+                nextRetryTime = null;
+            }
+
             StoredMessage stored = new()
             {
+                LogicalId = record.Message.LogicalId,
                 Peer = peer,
                 Text = record.Message.Text,
                 Timestamp = new DateTimeOffset(record.Timestamp, TimeSpan.Zero),
                 IsOutbound = record.IsOutbound,
                 MessageNumber = record.Message.Number,
                 PortId = record.PortId,
-                DeliveryStatus = record.Message.DeliveryStatus,
-                RetryCount = record.Message.RetryCount,
-                NextRetryTime = record.Message.NextRetryTime.HasValue
-                    ? new DateTimeOffset(record.Message.NextRetryTime.Value, TimeSpan.Zero)
-                    : null
+                DeliveryStatus = status,
+                RetryCount = retryCount,
+                NextRetryTime = nextRetryTime
             };
 
-            if (!threadsByPeer.TryGetValue(peer.ToString(), out ConversationThread? thread))
+            AddToThread(threadsByPeer, peer, stored);
+
+            if (record.IsOutbound
+                && record.Message.DeliveryStatus == MessageDeliveryStatus.Pending
+                && stored.DeliveryStatus != MessageDeliveryStatus.Pending)
             {
-                thread = new ConversationThread(peer);
-                threadsByPeer[peer.ToString()] = thread;
+                staleHistory.Add(stored);
             }
 
-            thread.Add(stored);
-
-            // Re-add pending messages to retry queue
-            if (stored.IsOutbound &&
-                stored.MessageNumber.HasValue &&
-                stored.DeliveryStatus == MessageDeliveryStatus.Pending)
+            if (stored.IsOutbound
+                && stored.LogicalId is { } id
+                && stored.MessageNumber is { } number
+                && stored.DeliveryStatus == MessageDeliveryStatus.Pending)
             {
-                stored.NextRetryTime ??= stored.Timestamp.AddSeconds(
-                    _configurationService.Current.Aprs.MessageRetryTimeoutSeconds);
-                _pendingMessages[stored.MessageNumber.Value] = stored;
+                pending.Add(stored);
+            }
+            else if (stored.IsOutbound
+                && stored.LogicalId is { } queuedId
+                && stored.DeliveryStatus == MessageDeliveryStatus.Queued)
+            {
+                queued.Add(stored);
+            }
+            else if (record.IsOutbound && stored.DeliveryStatus == MessageDeliveryStatus.Expired
+                && record.Message.LogicalId is null)
+            {
+                legacyExpired.Add(stored);
+            }
+        }
+
+        // Durable records without a history row yet (queued, or killed before the
+        // first wire attempt) still belong to the conversation set.
+        foreach (OutboxMessageSnapshot snapshot in open)
+        {
+            if (restored.Contains(snapshot.Id))
+            {
+                continue;
             }
 
-            if (stored.MessageNumber is { } number && number > maxMessageNumber)
+            StoredMessage stored = new()
             {
-                maxMessageNumber = number;
+                LogicalId = snapshot.Id,
+                Peer = snapshot.Addressee,
+                Text = snapshot.Text,
+                Timestamp = snapshot.CreatedAt,
+                IsOutbound = true,
+                MessageNumber = snapshot.MessageNumber,
+                PortId = snapshot.PortId,
+                DeliveryStatus = snapshot.Status,
+                RetryCount = Math.Max(0, snapshot.AttemptCount - 1),
+                NextRetryTime = snapshot.NextAttemptAt
+            };
+
+            AddToThread(threadsByPeer, snapshot.Addressee, stored);
+
+            if (stored.MessageNumber is { } number && stored.DeliveryStatus == MessageDeliveryStatus.Pending)
+            {
+                pending.Add(stored);
+            }
+            else if (stored.DeliveryStatus == MessageDeliveryStatus.Queued)
+            {
+                queued.Add(stored);
             }
         }
 
@@ -764,10 +1110,60 @@ public sealed class MessageService : IMessageService, IDisposable
                 _conversationList.Add(thread);
             }
 
-            _nextMessageNumber = maxMessageNumber + 1;
+            foreach (StoredMessage message in pending)
+            {
+                if (message.MessageNumber is { } number)
+                {
+                    _pendingMessages[number] = message;
+                }
+            }
+
+            foreach (StoredMessage message in queued)
+            {
+                if (message.LogicalId is { } id)
+                {
+                    _queuedMessages[id] = message;
+                }
+            }
+        }
+
+        // Deterministic legacy merge: one expiry per (peer, number) pair, so a
+        // duplicated historical row cannot resurrect the send.
+        foreach (StoredMessage message in legacyExpired)
+        {
+            PersistMessageStatusInBackground(message);
+        }
+
+        // History rows whose durable row already reached a terminal state are
+        // repaired on load instead of being displayed as pending.
+        foreach (StoredMessage message in staleHistory)
+        {
+            PersistMessageStatusInBackground(message);
+        }
+
+        if (legacyExpired.Count > 0)
+        {
+            _logger.LogWarning(
+                "Marked {Count} legacy pending outbound messages expired instead of replaying them",
+                legacyExpired.Count);
         }
 
         NotifyConversationsChanged();
+    }
+
+    private static void AddToThread(
+        Dictionary<string, ConversationThread> threadsByPeer,
+        AprsAddress peer,
+        StoredMessage stored)
+    {
+        string key = peer.ToString();
+        if (!threadsByPeer.TryGetValue(key, out ConversationThread? thread))
+        {
+            thread = new ConversationThread(peer);
+            threadsByPeer[key] = thread;
+        }
+
+        thread.Add(stored);
     }
 
     public void Dispose()

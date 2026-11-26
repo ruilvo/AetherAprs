@@ -32,6 +32,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<PacketRecord> Packets => Set<PacketRecord>();
 
+    public DbSet<OutboxMessageRecord> OutboxMessages => Set<OutboxMessageRecord>();
+
     public DbSet<BeaconConfigRecord> BeaconConfigs => Set<BeaconConfigRecord>();
 
     public DbSet<BeaconingStateRecord> BeaconingState => Set<BeaconingStateRecord>();
@@ -140,6 +142,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 message.Property(m => m.RetryCount).IsRequired();
                 message.Property(m => m.NextRetryTime)
                     .HasConversion(new UtcDateTimeValueConverter());
+                message.HasIndex(m => m.LogicalId);
             });
 
             // Status data
@@ -193,6 +196,31 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 bulletin.Property(b => b.Text).IsRequired().HasMaxLength(67);
                 bulletin.Property(b => b.Number);
             });
+        });
+
+        modelBuilder.Entity<OutboxMessageRecord>(entity =>
+        {
+            entity.ToTable("OutboxMessages");
+            entity.HasKey(message => message.Id);
+            entity.Property(message => message.AddresseeBase).IsRequired().HasMaxLength(9);
+            entity.Property(message => message.AddresseeSsid).IsRequired();
+            entity.Property(message => message.Text).IsRequired().HasMaxLength(67);
+            entity.Property(message => message.MessageNumber);
+            entity.Property(message => message.Status).IsRequired();
+            entity.Property(message => message.AttemptCount).IsRequired();
+            entity.Property(message => message.CreatedAt)
+                .HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(message => message.ExpiresAt)
+                .HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(message => message.NextAttemptAt)
+                .HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(message => message.NumberReleaseAt)
+                .HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(message => message.UpdatedAt)
+                .HasConversion(new UtcDateTimeValueConverter());
+            entity.HasIndex(message => new { message.AddresseeBase, message.AddresseeSsid, message.MessageNumber });
+            entity.HasIndex(message => message.Status);
+            entity.HasIndex(message => message.ExpiresAt);
         });
 
         modelBuilder.Entity<BeaconConfigRecord>(entity =>

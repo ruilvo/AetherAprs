@@ -258,6 +258,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Rejected" xml:space="preserve"><value>Rejected</value></data>
   <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
   <data name="Failed" xml:space="preserve"><value>Failed</value></data>
+  <data name="Queued" xml:space="preserve"><value>Queued</value></data>
+  <data name="Expired" xml:space="preserve"><value>Expired</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Display Settings</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configure what time range of packets to show in the list and on the map.</value></data>
   <data name="ThemeLabel" xml:space="preserve"><value>Theme</value></data>

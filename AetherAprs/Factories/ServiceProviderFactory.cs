@@ -4,6 +4,7 @@
 
 using AetherAprs.Data;
 using AetherAprs.Data.Beaconing;
+using AetherAprs.Data.Messaging;
 using AetherAprs.Data.Packets;
 using AetherAprs.Data.Ports;
 using AetherAprs.Factories.Packets;
@@ -126,11 +127,15 @@ public static class ServiceProviderFactory
         });
         services.AddSingleton<AppSavedDataInitializer>();
         services.AddSqliteRuntime();
+        services.AddSingleton(TimeProvider.System);
 
         // Durable configuration stores. Feature services depend on these
         // interfaces, never on a DbContext or the runtime writer directly.
         services.AddSingleton<IPortRegistry, PortRegistry>();
         services.AddSingleton<IBeaconStateStore, BeaconStateStore>();
+        services.AddSingleton<OutboxMessageStore>();
+        services.AddSingleton<IMessageCommands>(provider => provider.GetRequiredService<OutboxMessageStore>());
+        services.AddSingleton<IMessageQueries>(provider => provider.GetRequiredService<OutboxMessageStore>());
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();

@@ -222,6 +222,7 @@ public sealed class PacketIngestPipelineTests
             Guid? portId,
             int retryCount,
             DateTimeOffset? nextRetryTime,
+            Guid? logicalId,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task UpdateOutboundMessageStatusAsync(

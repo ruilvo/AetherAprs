@@ -20,7 +20,8 @@ public interface IPacketStorageService
     /// <summary>Stores an outbound logical message once in a SQLite write transaction.</summary>
     Task EnsureOutboundMessageAsync(
         MessagePacket packet, Guid? portId, int retryCount = 0,
-        DateTimeOffset? nextRetryTime = null, CancellationToken cancellationToken = default);
+        DateTimeOffset? nextRetryTime = null, Guid? logicalId = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Updates delivery state for an outbound logical message.</summary>
     Task UpdateOutboundMessageStatusAsync(

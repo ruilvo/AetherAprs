@@ -197,7 +197,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
 
         await context.Database.ExecuteSqlRawAsync("DROP TRIGGER RejectPacketInsert;", cancellationToken);
         DateTimeOffset nextRetry = DateTimeOffset.UtcNow.AddMinutes(1);
-        await _service.EnsureOutboundMessageAsync(packet, null, 1, nextRetry, cancellationToken);
+        await _service.EnsureOutboundMessageAsync(packet, null, 1, nextRetry, cancellationToken: cancellationToken);
         await _service.EnsureOutboundMessageAsync(packet, null, cancellationToken: cancellationToken);
 
         PacketRecord row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));

@@ -258,6 +258,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Rejected" xml:space="preserve"><value>Rejeitada</value></data>
   <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
   <data name="Failed" xml:space="preserve"><value>Falhou</value></data>
+  <data name="Queued" xml:space="preserve"><value>Em fila</value></data>
+  <data name="Expired" xml:space="preserve"><value>Expirada</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Definições de Visualização</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configurar que intervalo de tempo de pacotes mostrar na lista e no mapa.</value></data>
   <data name="ThemeLabel" xml:space="preserve"><value>Tema</value></data>

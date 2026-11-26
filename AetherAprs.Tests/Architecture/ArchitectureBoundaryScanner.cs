@@ -35,6 +35,7 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Data/Packets/PacketQueryService.cs",
         "AetherAprs/Data/Packets/PacketStorageService.cs",
         "AetherAprs/Data/Ports/PortRegistry.cs",
+        "AetherAprs/Data/Messaging/OutboxMessageStore.cs",
         "AetherAprs/Data/Beaconing/BeaconStateStore.cs",
         "AetherAprs/Factories/ServiceProviderFactory.cs",
         "AetherAprs/DesignData.cs"

@@ -118,7 +118,7 @@ public sealed class SavedDataPersistenceTests
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using (MessageService service = new(
+        using (MessageService service = TestMessageService.Create(
                    portService,
                    Substitute.For<IPacketStorageService>(),
                    configuration,
@@ -126,7 +126,7 @@ public sealed class SavedDataPersistenceTests
                    new TestPacketFactory(),
                    NullLogger<MessageService>.Instance,
                    SynchronousUiDispatcher.Instance,
-                    new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance)))
+                   packetQueryService: new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance)))
         {
             await service.InitializeAsync(TestContext.Current.CancellationToken);
             // Verify the service loaded the message from database
@@ -138,7 +138,7 @@ public sealed class SavedDataPersistenceTests
         }
 
         // Reload and verify persistence
-        using MessageService reloaded = new(
+        using MessageService reloaded = TestMessageService.Create(
             portService,
             Substitute.For<IPacketStorageService>(),
             configuration,
@@ -146,7 +146,7 @@ public sealed class SavedDataPersistenceTests
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance,
-            new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance));
+            packetQueryService: new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance));
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         ConversationThread threadReloaded = Assert.Single(reloaded.Conversations);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), threadReloaded.Peer);

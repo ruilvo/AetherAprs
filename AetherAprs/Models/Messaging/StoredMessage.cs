@@ -20,7 +20,12 @@ public sealed class StoredMessage
 
     public required bool IsOutbound { get; init; }
 
-    public int? MessageNumber { get; init; }
+    public int? MessageNumber { get; set; }
+
+    /// <summary>
+    /// Logical message identity shared with the durable outbox record.
+    /// </summary>
+    public Guid? LogicalId { get; init; }
 
     public Guid? PortId { get; init; }
 
@@ -53,10 +58,12 @@ public sealed class StoredMessage
 
             return DeliveryStatus.Value switch
             {
+                MessageDeliveryStatus.Queued => $"⏱ {Localization.Strings.Get("Queued")}",
                 MessageDeliveryStatus.Pending => $"⏱ {Localization.Strings.Get("Pending")}",
                 MessageDeliveryStatus.Acknowledged => $"✓ {Localization.Strings.Get("Acknowledged")}",
                 MessageDeliveryStatus.Rejected => $"✗ {Localization.Strings.Get("Rejected")}",
                 MessageDeliveryStatus.Timeout => $"⌛ {Localization.Strings.Get("Timeout")}",
+                MessageDeliveryStatus.Expired => $"⌛ {Localization.Strings.Get("Expired")}",
                 MessageDeliveryStatus.Failed => $"✗ {Localization.Strings.Get("Failed")}",
                 _ => string.Empty
             };

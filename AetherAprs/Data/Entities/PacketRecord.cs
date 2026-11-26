@@ -137,6 +137,12 @@ public sealed class MessageDataRecord
     public int? Number { get; set; }
 
     /// <summary>
+    /// Logical message identity shared with the durable outbox record. Null for
+    /// inbound messages and for rows written before the outbox existed.
+    /// </summary>
+    public Guid? LogicalId { get; set; }
+
+    /// <summary>
     /// Delivery status (for outbound messages).
     /// </summary>
     public MessageDeliveryStatus? DeliveryStatus { get; set; }
