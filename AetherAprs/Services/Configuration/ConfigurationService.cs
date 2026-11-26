@@ -11,9 +11,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -53,16 +54,20 @@ public class ConfigurationService : IConfigurationService, IDisposable
     private static readonly string _appSettingsDevelopmentFileName = "appsettings.Development.json";
 #endif
 
-    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
+    /// <summary>
+    /// Name of the section the host logging configuration owns. The settings
+    /// snapshot does not model it; a save preserves whatever the file holds.
+    /// </summary>
+    private const string LoggingSectionName = "Logging";
+
+    /// <summary>
+    /// Options for writing a parsed <see cref="JsonNode"/>. Only indentation
+    /// applies: the node already carries its own structure and no type metadata
+    /// is resolved.
+    /// </summary>
+    private static readonly JsonSerializerOptions _nodeWriterOptions = new()
     {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-        Converters =
-        {
-            new SymbolTableJsonConverter(),
-            new SymbolCodeJsonConverter(),
-            new JsonStringEnumConverter()
-        }
+        WriteIndented = true
     };
 
     /// <inheritdoc />
@@ -220,12 +225,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
         // The template list is bound as a whole section: binding it key-by-key
         // would rebuild the list on every value. Its property setters are
         // unvalidated strings, so a failure there cannot leak into another
-        // section. Every scalar property, including Logging, binds individually.
+        // section. The logging section is not modelled at all: the host logging
+        // configuration owns it and a save preserves it verbatim.
         BindSection(document, values, "MessageTemplates");
 
         foreach (var pair in values)
         {
-            if (IsInSection(pair.Key, "MessageTemplates"))
+            if (IsInSection(pair.Key, "MessageTemplates") || IsInSection(pair.Key, LoggingSectionName))
             {
                 continue;
             }
@@ -311,7 +317,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         try
         {
             var filePath = GetSettingsFilePath();
-            File.WriteAllText(filePath + ".tmp", JsonSerializer.Serialize(Current, _jsonSerializerOptions));
+            File.WriteAllText(filePath + ".tmp", SerializeSettings(Current));
             File.Move(filePath + ".tmp", filePath, overwrite: true);
             _logger.LogInformation(
                 "Persisted settings at schema version {Version}.",
@@ -325,6 +331,53 @@ public class ConfigurationService : IConfigurationService, IDisposable
             _logger.LogError(
                 ex,
                 "Failed to persist migrated settings; the in-memory settings remain migrated.");
+        }
+    }
+
+    /// <summary>
+    /// Serializes a snapshot for the settings file and preserves the sections the
+    /// snapshot does not model.
+    /// </summary>
+    /// <remarks>
+    /// The metadata is source-generated, so writing the file works in a trimmed
+    /// application. <c>Logging</c> belongs to the host logging configuration: the
+    /// snapshot deliberately does not model it, so the node already on disk is
+    /// carried over instead of being dropped by a settings save.
+    /// </remarks>
+    private string SerializeSettings(AppSettings settings)
+    {
+        var node = JsonSerializer.SerializeToNode(settings, SettingsJsonContext.Default.AppSettings)!.AsObject();
+
+        if (ReadExistingSection(GetSettingsFilePath(), LoggingSectionName) is { } logging)
+        {
+            node[LoggingSectionName] = logging;
+        }
+
+        return node.ToJsonString(_nodeWriterOptions);
+    }
+
+    private JsonNode? ReadExistingSection(string filePath, string section)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            return JsonNode.Parse(File.ReadAllText(filePath))?[section]?.DeepClone();
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or JsonException)
+        {
+            // A corrupt or unreadable file is the load path's problem. A save
+            // simply has no section to preserve.
+            _logger.LogWarning(
+                exception,
+                "Could not preserve the {Section} section of the settings file.",
+                section);
+            return null;
         }
     }
 
@@ -464,7 +517,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
             // published snapshot in place, so memory never claims a state the
             // file does not hold.
             await SaveJsonAsync(
-                JsonSerializer.Serialize(candidate, _jsonSerializerOptions),
+                SerializeSettings(candidate),
                 cancellationToken).ConfigureAwait(false);
 
             Volatile.Write(ref _current, candidate);

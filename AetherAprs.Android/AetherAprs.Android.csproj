@@ -6,7 +6,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0-android</TargetFramework>
+    <TargetFramework>net11.0-android</TargetFramework>
     <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -18,11 +18,22 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <!-- Device validation uses a self-contained APK; do not depend on Fast Deployment files. -->
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
-    <!-- Material.Avalonia.DataGrid 3.20.0 references an absent TreeDataGrid
-         assembly from a DynamicDependency attribute; trimming fails before
-         packaging. Keep all managed assemblies until the package is fixed. -->
-    <PublishTrimmed>false</PublishTrimmed>
-    <RunAOTCompilation>false</RunAOTCompilation>
+    <!-- Trimming is enabled for Release only: Debug builds stay untrimmed so the
+         linker does not slow the edit loop. Every reflection hazard the trimmer
+         reported has been removed (source-generated JSON, a trim-safe text length
+         attribute, a modelled-free Logging section) or is a narrowly scoped,
+         justified suppression where the reflective targets are statically rooted
+         (EF Core's closed model, the MVVM validator's property attributes). -->
+    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
+    <!-- Material.Avalonia's style toolkit carries a DynamicDependency to its optional
+         TreeDataGrid style package, which this application does not reference. ILLink
+         reports the dangling annotation as IL2035 even though those styles are never
+         loaded, so the code is suppressed here instead of adding an unused TreeDataGrid
+         package only to satisfy an annotation. -->
+    <NoWarn>$(NoWarn);IL2035</NoWarn>
+    <!-- .NET 11 Android runs on CoreCLR, where AOT means ReadyToRun and the
+         RunAOTCompilation switch is rejected (XA1044). -->
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
@@ -49,9 +60,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" />
     <PackageReference Include="Xamarin.GooglePlayServices.Location" />
-    <!-- Microsoft.Data.Sqlite resolves the provider transitively, but the Android
-         native library must be a direct package asset to be included in the APK. -->
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" />
     <!--
       AvaloniaUI.DiagnosticsSupport flows in transitively from the core project (Debug only).
       Its Developer Tools auto-connect defaults to ON for Android and crashes the app with

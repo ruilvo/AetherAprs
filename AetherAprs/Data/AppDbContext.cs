@@ -5,9 +5,25 @@
 using AetherAprs.Data.Converters;
 using AetherAprs.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics.CodeAnalysis;
 
 namespace AetherAprs.Data;
 
+/// <summary>
+/// The application's SQLite model.
+/// </summary>
+/// <remarks>
+/// EF Core 11 still marks its <see cref="DbContext"/> constructors as requiring
+/// unreferenced code, because its model building uses reflection. This context is
+/// a closed model: every entity is a public type listed in <see cref="OnModelCreating"/>,
+/// the mappings are explicit, and the model is never built from assembly scanning.
+/// The suppression records that the reflective targets are all rooted rather than
+/// hiding a dynamic model.
+/// </remarks>
+[UnconditionalSuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "The EF model is a closed set of statically referenced entity types configured explicitly in OnModelCreating.")]
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public const string DatabaseFileName = "aetheraprs.db";

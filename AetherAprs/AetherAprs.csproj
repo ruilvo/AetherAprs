@@ -8,11 +8,18 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <InternalsVisibleTo Include="AetherAprs.Tests" />
   </ItemGroup>
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <NeutralLanguage>en</NeutralLanguage>
+    <!-- This library ships inside a trimmed Android app. Declaring it trimmable
+         makes the trim analyzer run on every build, so a reflection hazard fails
+         here instead of only surfacing in a Release publish; the configuration
+         binder generator replaces the reflection-based Bind calls it would
+         otherwise report. -->
+    <IsTrimmable>true</IsTrimmable>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
   </PropertyGroup>
 
   <ItemGroup>

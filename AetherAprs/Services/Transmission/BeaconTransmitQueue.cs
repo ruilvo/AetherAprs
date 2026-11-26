@@ -97,7 +97,6 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
     private readonly ILogger<FileBeaconTransmitQueue> _logger;
     private readonly Lock _gate = new();
     private readonly List<BeaconQueueItem> _items;
-    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
 
     // Coalescing signal: one pending byte is enough, extra signals are dropped
     // because the writer always serializes the latest in-memory snapshot.
@@ -343,7 +342,7 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
                     return;
                 }
 
-                json = JsonSerializer.Serialize(_items, _jsonOptions);
+                json = JsonSerializer.Serialize(_items, BeaconQueueJsonContext.Default.ListBeaconQueueItem);
                 _persistPending = false;
             }
         }
@@ -432,9 +431,9 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
         try
         {
-            return JsonSerializer.Deserialize<List<BeaconQueueItem>>(
+            return JsonSerializer.Deserialize(
                 File.ReadAllText(path),
-                _jsonOptions) ?? [];
+                BeaconQueueJsonContext.Default.ListBeaconQueueItem) ?? [];
         }
         catch (Exception exception) when (exception is JsonException
             or IOException

@@ -15,7 +15,6 @@ namespace AetherAprs.Services.Ports;
 /// </summary>
 public sealed class FileSessionStateStore : ISessionStateStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string _path;
 
     public FileSessionStateStore(string path)
@@ -31,9 +30,9 @@ public sealed class FileSessionStateStore : ISessionStateStore
         }
 
         await using var stream = File.OpenRead(_path);
-        return await JsonSerializer.DeserializeAsync<SessionSnapshot>(
+        return await JsonSerializer.DeserializeAsync(
             stream,
-            JsonOptions,
+            SessionStateJsonContext.Default.SessionSnapshot,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -53,7 +52,7 @@ public sealed class FileSessionStateStore : ISessionStateStore
                 await JsonSerializer.SerializeAsync(
                     stream,
                     snapshot,
-                    JsonOptions,
+                    SessionStateJsonContext.Default.SessionSnapshot,
                     cancellationToken).ConfigureAwait(false);
                 await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }

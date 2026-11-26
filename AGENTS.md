@@ -7,8 +7,8 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 # AetherAprs development guide
 
 This is the working guide for contributors and coding agents. Keep it aligned with the
-code. The supported application target is Android; the core project targets `net10.0`
-and the test project targets `net10.0`.
+code. The supported application target is Android; the core project targets `net11.0`
+and the test project targets `net11.0`.
 
 ## Before changing code
 

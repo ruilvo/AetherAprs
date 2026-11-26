@@ -953,6 +953,42 @@ SBOM. Keep the existing dependency gate. In a separate release tooling change:
 4. Preserve GitHub Releases as the distribution channel and keep artifact checksum,
    signature, and upgrade behavior verifiable. Use release notes for version history.
 
+> **Status: platform baseline updated (2026-11-26).** The solution targets
+> `net11.0` and `net11.0-android` on SDK 11.0.100, with Avalonia 12.2.0 (plus
+> `Xaml.Behaviors.Avalonia` 12.2.0 and `Avalonia.Controls.DataGrid` 12.1.2),
+> EF Core, `Microsoft.Data.Sqlite` and `Microsoft.Extensions` at 11.0.0, and
+> Material.Avalonia 3.22.0. Two .NET 11 Android changes were required: AOT is now
+> ReadyToRun, so `RunAOTCompilation` is rejected (XA1044) and
+> `PublishReadyToRun` is the switch, and BLE connects use the
+> settings/executor overload on API 37 while keeping the legacy overload on API
+> 33–36.
+>
+> The explicit `SQLitePCLRaw.lib.e_sqlite3.android` 2.1.x reference is gone. It
+> was never needed: `Microsoft.Data.Sqlite` 11 brings SQLitePCLRaw 3.x, whose
+> native library already ships in the APK (verified for arm64-v8a and x86_64),
+> and pinning the 2.x lib as well put two different builds of `libe_sqlite3.so`
+> in the same APK.
+>
+> Trimming is on for Release. `AetherAprs` declares `IsTrimmable`, so the trim
+> analyzer runs on every build, and the Android project publishes Release with
+> `PublishTrimmed=true`. Every hazard the earlier publish reported was removed
+> rather than silenced: the settings snapshot no longer models `Logging` (the
+> host logging configuration owns that section, so a save now carries the node
+> from disk over verbatim), the settings file, session snapshot and beacon outbox
+> serialize through source-generated `JsonSerializerContext`s, the support report
+> builds its JSON node graph explicitly instead of serializing anonymous types,
+> `MaxLengthAttribute` was replaced by a reflection-free
+> `MaxTextLengthAttribute`, and the per-key configuration binding is rewritten by
+> the binding generator. Three narrow suppressions remain, each with its
+> reflective targets statically rooted and the reasoning written in code:
+> `AppDbContext` (EF Core 11 still annotates `DbContext` construction),
+> `ViewModelBase`/`SettingsViewModel` (the MVVM validator inspects attributes on
+> properties the views bind), and the lazy-query guard in `SqliteRuntimeReader`
+> (interface identity only, no member access). ILLink additionally reports IL2035
+> because Material.Avalonia's style toolkit annotates an optional TreeDataGrid
+> package this application never references; that single code is suppressed for
+> the Android project instead of adding an unused dependency.
+
 ## Implementation handoffs
 
 | Handoff | First change | Must be true before the next slice |

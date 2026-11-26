@@ -7,17 +7,23 @@ using AetherAprs.Services.Configuration;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+using AetherAprs.ViewModels.Validation;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.ViewModels.Pages;
 
+[UnconditionalSuppressMessage(
+    "Trimming",
+    "IL2026",
+    Justification = "The settings properties validate through ObservableValidator, which reflects over the attributes declared on them. The settings view binds every one of these properties, so they and their attributes are preserved.")]
 public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
     // NOTE: SettingsViewModel is registered as a Singleton in ServiceProviderFactory.
@@ -99,7 +105,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool AutoAcknowledgeMessages { get; set; } = true;
 
     [ObservableProperty]
-    [MaxLength(43, ErrorMessageResourceName = nameof(Strings.ValidationCommentMaxLength), ErrorMessageResourceType = typeof(Strings))]
+    [MaxTextLength(43, ErrorMessageResourceName = nameof(Strings.ValidationCommentMaxLength), ErrorMessageResourceType = typeof(Strings))]
     [NotifyDataErrorInfo]
     public partial string? BeaconComment { get; set; } = "Using AetherAPRS!";
 

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
 
 namespace AetherAprs.Configuration.Settings;
@@ -25,12 +24,6 @@ public sealed record AppSettings
     /// </remarks>
     [JsonPropertyName(SettingsSchema.VersionPropertyName)]
     public int SchemaVersion { get; init; } = SettingsSchema.CurrentVersion;
-
-    /// <summary>
-    /// Provider logging model. The logging builder owns its behavior; this
-    /// snapshot only carries it so a save does not drop the section.
-    /// </summary>
-    public LoggerFilterOptions Logging { get; init; } = new();
 
     /// <summary>
     /// Gets the station identity and APRS behavior.

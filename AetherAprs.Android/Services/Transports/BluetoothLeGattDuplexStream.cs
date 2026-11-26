@@ -93,6 +93,37 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         set => throw new NotSupportedException();
     }
 
+    private static BluetoothGatt? StartGattConnection(
+        BluetoothDevice device,
+        global::Android.Content.Context context,
+        BluetoothGattCallback callback)
+    {
+        if (OperatingSystem.IsAndroidVersionAtLeast(37))
+        {
+            var settings = new BluetoothGattConnectionSettings.Builder()
+                .SetAutoConnectEnabled(false)
+                .SetTransport((int)BluetoothTransports.Le)
+                .Build();
+
+            if (settings is null)
+            {
+                throw new InvalidOperationException("The BLE connection settings could not be built.");
+            }
+
+            var executor = context.MainExecutor
+                ?? throw new InvalidOperationException("The Android context has no main executor.");
+
+            return device.ConnectGatt(settings, executor, callback);
+        }
+
+        // Android 17 (API 37) obsoleted every context-based overload in favour of
+        // the settings/executor form, but that form does not exist below 37 and the
+        // application still supports API 33.
+#pragma warning disable CA1422 // The executor overload is unavailable below API 37.
+        return device.ConnectGatt(context, autoConnect: false, callback, BluetoothTransports.Le);
+#pragma warning restore CA1422
+    }
+
     public static async Task<BluetoothLeGattDuplexStream> ConnectAsync(
         BluetoothDevice device,
         Guid serviceUuid,
@@ -118,7 +149,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             txCharacteristicUuid,
             rxChannel,
             readyTcs);
-        var gatt = device.ConnectGatt(context, autoConnect: false, callback)
+        var gatt = StartGattConnection(device, context, callback)
             ?? throw new InvalidOperationException("Failed to start BLE GATT connection.");
         await using (cancellationToken.Register(() =>
         {

@@ -6,7 +6,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0-android</TargetFramework>
+    <TargetFramework>net11.0-android</TargetFramework>
     <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -14,7 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <ApplicationId>com.AetherRadio.AetherAprs.Tests</ApplicationId>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <PublishTrimmed>false</PublishTrimmed>
-    <RunAOTCompilation>false</RunAOTCompilation>
+    <PublishReadyToRun>false</PublishReadyToRun>
     <AndroidLinkMode>None</AndroidLinkMode>
   </PropertyGroup>
 

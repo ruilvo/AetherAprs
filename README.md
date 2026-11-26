@@ -10,8 +10,8 @@ AetherAprs is an Android APRS application for amateur radio operators. It connec
 APRS-IS and KISS TNCs, displays received stations on a map, sends position beacons and
 messages, and supports digipeating and RF/Internet gating.
 
-The application is built with Avalonia UI 12, Material.Avalonia, and .NET 10. Android is
-the supported application target. The core project also builds on `net10.0` for tests and
+The application is built with Avalonia UI 12, Material.Avalonia, and .NET 11. Android is
+the supported application target. The core project also builds on `net11.0` for tests and
 platform-independent development.
 
 ## Features
@@ -50,7 +50,7 @@ Download or select offline map data before losing Internet access.
 
 Prerequisites:
 
-- .NET 10 SDK
+- .NET 11 SDK
 - Android workload for Android builds
 - Android SDK for Android builds
 - Git

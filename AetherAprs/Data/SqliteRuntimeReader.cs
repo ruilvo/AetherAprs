@@ -6,6 +6,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,9 +33,7 @@ internal sealed class SqliteRuntimeReader(IDbContextFactory<AppDbContext> dbCont
         context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
 
         var result = await query(context, cancellationToken).ConfigureAwait(false);
-        if (result is IQueryable || result?.GetType().GetInterfaces().Any(type =>
-                type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>)) == true ||
-            context.ChangeTracker.HasChanges())
+        if (ReturnsDeferredQuery(result) || context.ChangeTracker.HasChanges())
         {
             throw new InvalidOperationException("SQLite queries must return materialized results without modifying the context.");
         }
@@ -43,4 +42,16 @@ internal sealed class SqliteRuntimeReader(IDbContextFactory<AppDbContext> dbCont
         context.ChangeTracker.Clear();
         return result;
     }
+
+    private static bool ReturnsDeferredQuery<T>(T result) =>
+        result is IQueryable || (result is not null && IsAsyncEnumerable(result));
+
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2075",
+        Justification = "Only the interface list of the returned object is inspected to reject a lazy query. " +
+            "Trimming keeps the interfaces a reachable type implements, and no member of the runtime type is accessed.")]
+    private static bool IsAsyncEnumerable(object value) =>
+        value.GetType().GetInterfaces().Any(type =>
+            type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>));
 }

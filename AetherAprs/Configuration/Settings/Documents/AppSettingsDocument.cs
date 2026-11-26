@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Microsoft.Extensions.Logging;
-
 namespace AetherAprs.Configuration.Settings.Documents;
 
 /// <summary>
@@ -21,8 +19,6 @@ internal sealed class AppSettingsDocument
 {
     public int SchemaVersion { get; set; } = SettingsSchema.CurrentVersion;
 
-    public LoggerFilterOptions Logging { get; set; } = new();
-
     public AprsSettingsDocument Aprs { get; set; } = new();
 
     public MessageTemplatesSettingsDocument MessageTemplates { get; set; } = new();
@@ -34,7 +30,6 @@ internal sealed class AppSettingsDocument
     public AppSettings ToSettings() => new()
     {
         SchemaVersion = SchemaVersion,
-        Logging = Logging,
         Aprs = Aprs.ToSettings(),
         MessageTemplates = MessageTemplates.ToSettings(),
         Map = Map.ToSettings(),
