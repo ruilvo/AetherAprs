@@ -52,7 +52,8 @@ internal static class TestPortService
             ingest,
             digipeat,
             NullLogger<PortService>.Instance,
-            collaborators.KeepAliveService);
+            collaborators.KeepAliveService,
+            collaborators.PermissionPrompter);
     }
 
     /// <summary>
@@ -66,6 +67,8 @@ internal static class TestPortService
         public required IDigipeaterService DigipeaterService { get; init; }
 
         public required IKeepAliveService KeepAliveService { get; init; }
+
+        public IPortPermissionPrompter? PermissionPrompter { get; init; }
 
         public IDiagnosticEventSink? DiagnosticSink { get; init; }
 

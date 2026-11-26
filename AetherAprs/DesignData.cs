@@ -142,6 +142,7 @@ public static class DesignData
         // Register view models
         services.AddSingleton<IPermissionService, NoOpPermissionService>();
         services.AddSingleton<IPermissionAttentionReporter, PermissionAttentionService>();
+        services.AddSingleton<IPortPermissionPrompter, PortPermissionPrompter>();
         services.AddSingleton<MainViewModel>();
         services.AddTransient<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>();

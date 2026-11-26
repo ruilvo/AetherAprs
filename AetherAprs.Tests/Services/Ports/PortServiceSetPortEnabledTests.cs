@@ -57,9 +57,74 @@ public sealed class PortServiceSetPortEnabledTests
         Assert.False(service.Ports.Single(p => p.Id == portId).IsEnabled);
     }
 
+    [Fact]
+    public async Task SetPortEnabledAsync_EnablingPort_RequestsThePortsPermissions()
+    {
+        var portId = Guid.NewGuid();
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "KISS",
+            IsEnabled = false,
+            IsTx = true,
+            TypeSettings = new KissSettings
+            {
+                Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
+            }
+        };
+        using var db = TempAppDatabase.Create(port);
+        var prompter = Substitute.For<IPortPermissionPrompter>();
+        prompter.RequestForPortAsync(Arg.Any<PortConfig>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+        var service = await CreateAndInitializeServiceAsync(
+            db,
+            new TrackingKissStreamFactory(),
+            prompter);
+
+        await service.SetPortEnabledAsync(portId, true);
+
+        await prompter.Received(1).RequestForPortAsync(
+            Arg.Is<PortConfig>(candidate => candidate.Id == portId),
+            Arg.Any<CancellationToken>());
+
+        await service.SetPortEnabledAsync(portId, false);
+    }
+
+    [Fact]
+    public async Task SetPortEnabledAsync_PermissionPromptFails_StillEnablesThePort()
+    {
+        var portId = Guid.NewGuid();
+        var port = new PortConfig
+        {
+            Id = portId,
+            Name = "KISS",
+            IsEnabled = false,
+            IsTx = true,
+            TypeSettings = new KissSettings
+            {
+                Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
+            }
+        };
+        using var db = TempAppDatabase.Create(port);
+        var prompter = Substitute.For<IPortPermissionPrompter>();
+        prompter.RequestForPortAsync(Arg.Any<PortConfig>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("prompt host is gone")));
+        var service = await CreateAndInitializeServiceAsync(
+            db,
+            new TrackingKissStreamFactory(),
+            prompter);
+
+        await service.SetPortEnabledAsync(portId, true);
+
+        Assert.True(service.Ports.Single(p => p.Id == portId).IsEnabled);
+
+        await service.SetPortEnabledAsync(portId, false);
+    }
+
     private static PortService CreateService(
         TempAppDatabase db,
-        IKissStreamFactory? kissStreamFactory = null)
+        IKissStreamFactory? kissStreamFactory = null,
+        IPortPermissionPrompter? permissionPrompter = null)
     {
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = Substitute.For<IPacketStorageService>();
@@ -79,15 +144,17 @@ public sealed class PortServiceSetPortEnabledTests
             {
                 PacketStorageService = mockPacketStorage,
                 DigipeaterService = mockDigipeater,
-                KeepAliveService = mockKeepAliveService
+                KeepAliveService = mockKeepAliveService,
+                PermissionPrompter = permissionPrompter
             });
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(
         TempAppDatabase db,
-        IKissStreamFactory? kissStreamFactory = null)
+        IKissStreamFactory? kissStreamFactory = null,
+        IPortPermissionPrompter? permissionPrompter = null)
     {
-        var service = CreateService(db, kissStreamFactory);
+        var service = CreateService(db, kissStreamFactory, permissionPrompter);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
         return service;
     }

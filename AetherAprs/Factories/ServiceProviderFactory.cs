@@ -79,6 +79,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<ILocationService, NoOpLocationService>();
         services.AddSingleton<IPermissionService, NoOpPermissionService>();
         services.AddSingleton<IPermissionAttentionReporter, PermissionAttentionService>();
+        services.AddSingleton<IPortPermissionPrompter, PortPermissionPrompter>();
         services.AddSingleton<IForegroundService, NoOpForegroundService>();
         services.AddSingleton<ICompassService, NoOpCompassService>();
         services.AddSingleton<IKeepAliveService, KeepAliveService>();

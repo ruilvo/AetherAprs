@@ -257,6 +257,13 @@ public class AprsIsModemTests
         await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
+        // Writing the reply only proves the bytes reached the socket. Awaiting the
+        // modem's own readiness signal proves its read loop consumed the reply, so
+        // the assertion below cannot race the authentication parser.
+        await modem.ConnectionReady.WaitAsync(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken);
+
         // A packet received over RF carries a non-empty RawFrameHex, which tells
         // the modem to emit qAR (not qAo) and preserve the digipeater path.
         var packet = new PositionPacket
@@ -404,6 +411,37 @@ public class AprsIsModemTests
 
         var ex = await Assert.ThrowsAnyAsync<Exception>(() =>
             modem.SendAsync(packet, TestContext.Current.CancellationToken));
+        Assert.Contains("rejected", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ConnectionReady_FailedLogin_FaultsWithRejection()
+    {
+        // The readiness signal is the only observable proof that the login reply was
+        // consumed, so it must report a rejection instead of completing successfully.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("# logresp N0CALL failed, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            modem.ConnectionReady.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken));
+
         Assert.Contains("rejected", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 

@@ -17,6 +17,16 @@ indent_size = 4
 indent_size = 2
 
 [*.cs]
+# Parameters use camelCase (AGENTS.md). A captured primary-constructor parameter is
+# a parameter at the source level and the compiler generates its backing field, so
+# this rule must be evaluated before the private-field prefix rule below. Without
+# it, every primary-constructor parameter is reported as a field missing "_".
+dotnet_naming_rule.parameters_camel_case.severity = warning
+dotnet_naming_rule.parameters_camel_case.symbols = parameters
+dotnet_naming_rule.parameters_camel_case.style = camel_case
+dotnet_naming_symbols.parameters.applicable_kinds = parameter
+dotnet_naming_style.camel_case.capitalization = camel_case
+
 # Naming conventions (AGENTS.md rules, compiler-enforced)
 dotnet_naming_rule.private_fields_underscore.severity = warning
 dotnet_naming_rule.private_fields_underscore.symbols = private_fields
@@ -25,6 +35,18 @@ dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel.required_prefix = _
 dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# Expression bodies are a one-line shorthand: a member whose body wraps must use a
+# block so the closing brace, comments and guards stay readable. This is the
+# preference the IDE0022 family reports against.
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_constructors = when_on_single_line:suggestion
+csharp_style_expression_bodied_operators = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:suggestion
+csharp_style_expression_bodied_indexers = when_on_single_line:suggestion
+csharp_style_expression_bodied_accessors = when_on_single_line:suggestion
+csharp_style_expression_bodied_lambdas = true:suggestion
+csharp_style_expression_bodied_local_functions = when_on_single_line:suggestion
 
 # Quality: fail the build on the same classes of issues enforced today.
 dotnet_diagnostic.CA2013.severity = error

@@ -66,69 +66,39 @@ internal static class PortStartupPermissions
             return;
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        LogOutcome(
-            logger,
-            attention,
-            await permissions.RequestAsync(PermissionKind.Notifications, cancellationToken).ConfigureAwait(false),
-            "the foreground service may not be allowed to run");
+        List<PermissionKind> kinds = [PermissionKind.Notifications];
 
         if (RequiresBluetooth(ports))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            LogOutcome(
-                logger,
-                attention,
-                await permissions.RequestAsync(PermissionKind.Bluetooth, cancellationToken).ConfigureAwait(false),
-                "Bluetooth ports cannot connect");
+            kinds.Add(PermissionKind.Bluetooth);
         }
 
         if (RequiresAudio(ports))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            LogOutcome(
-                logger,
-                attention,
-                await permissions.RequestAsync(PermissionKind.Audio, cancellationToken).ConfigureAwait(false),
-                "AFSK ports cannot transmit");
+            kinds.Add(PermissionKind.Audio);
         }
+
+        await PortPermissions
+            .RequestAsync(kinds, permissions, logger, cancellationToken, attention)
+            .ConfigureAwait(false);
     }
 
-    private static void LogOutcome(
+    /// <summary>
+    /// Requests the permissions one port needs when the operator enables it after
+    /// the startup burst, so the prompt appears with the action that needs it.
+    /// </summary>
+    public static Task RequestForPortAsync(
+        PortConfig port,
+        IPermissionService permissions,
         ILogger logger,
-        IPermissionAttentionReporter? attention,
-        PermissionRequestResult result,
-        string consequence)
-    {
-        attention?.Report(result);
-
-        switch (result.Outcome)
-        {
-            case PermissionOutcome.Granted:
-                return;
-
-            case PermissionOutcome.Denied:
-                logger.LogWarning(
-                    "{Permission} permission was denied; the operator can be asked again, but {Consequence} until then.",
-                    result.Kind,
-                    consequence);
-                return;
-
-            case PermissionOutcome.PermanentlyDenied:
-                logger.LogWarning(
-                    "{Permission} permission is permanently denied; the operator must grant it in the application settings, because {Consequence} until then.",
-                    result.Kind,
-                    consequence);
-                return;
-
-            default:
-                logger.LogInformation(
-                    "{Permission} permission is unavailable on this platform, so {Consequence} is not expected to work here.",
-                    result.Kind,
-                    consequence);
-                return;
-        }
-    }
+        CancellationToken cancellationToken,
+        IPermissionAttentionReporter? attention = null) =>
+        PortPermissions.RequestAsync(
+            PortPermissions.GetRequiredPermissions(port),
+            permissions,
+            logger,
+            cancellationToken,
+            attention);
 
     private static bool IsBluetoothKiss(PortConfig port) =>
         port.TypeSettings is KissSettings

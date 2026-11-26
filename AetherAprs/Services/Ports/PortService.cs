@@ -33,6 +33,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private readonly IDigipeatRouter _digipeatRouter;
     private readonly ILogger<PortService> _logger;
     private readonly IKeepAliveService _keepAliveService;
+    private readonly IPortPermissionPrompter? _permissionPrompter;
 
     private bool _disposed;
 
@@ -42,7 +43,8 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         IPacketIngestPipeline ingestPipeline,
         IDigipeatRouter digipeatRouter,
         ILogger<PortService> logger,
-        IKeepAliveService keepAliveService)
+        IKeepAliveService keepAliveService,
+        IPortPermissionPrompter? permissionPrompter = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(sessionManager);
@@ -57,6 +59,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         _digipeatRouter = digipeatRouter;
         _logger = logger;
         _keepAliveService = keepAliveService;
+        _permissionPrompter = permissionPrompter;
 
         _configuration.PortsChanged += OnPortsChanged;
         _sessionManager.PacketReceived += OnSessionPacketReceived;
@@ -134,6 +137,13 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
                 updatedPort.Name,
                 updatedPort.Id);
 
+            // A settings edit can move the port onto a transport that still lacks
+            // its runtime permission.
+            if (updatedPort.IsEnabled)
+            {
+                await RequestPortPermissionsAsync(updatedPort).ConfigureAwait(false);
+            }
+
             // The running session was built from the previous settings, so it is
             // stopped before the new ones are used; the manager serializes this
             // against any concurrent start.
@@ -203,6 +213,10 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         // running, which supervision and startup both rely on.
         if (enabled)
         {
+            // Permission belongs to the feature: a port the operator enables after
+            // launch is asked about now, not only during the startup burst.
+            await RequestPortPermissionsAsync(current).ConfigureAwait(false);
+
             var start = await _sessionManager
                 .StartAsync(current, CancellationToken.None)
                 .ConfigureAwait(false);
@@ -233,6 +247,34 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) =>
         _configuration.SetShowOnMapAsync(id, showOnMap, CancellationToken.None);
+
+    /// <summary>
+    /// Asks for the runtime permissions the port needs, without letting a prompt
+    /// failure block the operator's configuration change. A denied permission still
+    /// surfaces through the session start and the attention banner.
+    /// </summary>
+    private async Task RequestPortPermissionsAsync(PortConfig port)
+    {
+        if (_permissionPrompter is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _permissionPrompter
+                .RequestForPortAsync(port, CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Could not request runtime permissions for port {PortName} ({PortId}).",
+                port.Name,
+                port.Id);
+        }
+    }
 
     public async Task SendPacketAsync(Guid id, AprsPacket packet)
     {

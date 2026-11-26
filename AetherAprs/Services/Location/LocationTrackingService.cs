@@ -66,6 +66,7 @@ public sealed class LocationTrackingService : ILocationTrackingService
     private readonly IKeepAliveService _keepAliveService;
     private readonly ILogger<LocationTrackingService> _logger;
     private readonly IPermissionService? _permissionService;
+    private readonly IPermissionAttentionReporter? _permissionAttention;
     private readonly Lock _stateLock = new();
     private CancellationTokenSource? _locationUpdateCancellation;
     private Task? _updateLoopTask;
@@ -83,12 +84,14 @@ public sealed class LocationTrackingService : ILocationTrackingService
         ILocationService locationService,
         IKeepAliveService keepAliveService,
         ILogger<LocationTrackingService> logger,
-        IPermissionService? permissionService = null)
+        IPermissionService? permissionService = null,
+        IPermissionAttentionReporter? permissionAttention = null)
     {
         _locationService = locationService;
         _keepAliveService = keepAliveService;
         _logger = logger;
         _permissionService = permissionService;
+        _permissionAttention = permissionAttention;
     }
 
     public async Task StartTrackingAsync()
@@ -166,10 +169,12 @@ public sealed class LocationTrackingService : ILocationTrackingService
             }
         }
 
-        var hasPermission = await _locationService.RequestLocationPermissionAsync();
-        if (!hasPermission)
+        var locationPermission = await RequestLocationPermissionAsync().ConfigureAwait(false);
+        if (!locationPermission.IsGranted)
         {
-            _logger.LogWarning("Location permission denied");
+            _logger.LogWarning(
+                "Location permission {Outcome}; tracking does not start",
+                locationPermission.Outcome);
             return;
         }
 
@@ -197,6 +202,30 @@ public sealed class LocationTrackingService : ILocationTrackingService
         }
 
         await StartTrackingAsync();
+    }
+
+    /// <summary>
+    /// Requests the location permission through the adapter the attention banner
+    /// already understands, so a permanent denial is reported with the recovery
+    /// action it allows. Hosts without that adapter fall back to the location
+    /// service's own dialog.
+    /// </summary>
+    private async Task<PermissionRequestResult> RequestLocationPermissionAsync()
+    {
+        if (_permissionService is null)
+        {
+            var granted = await _locationService.RequestLocationPermissionAsync().ConfigureAwait(false);
+            return granted
+                ? PermissionRequestResult.Granted(PermissionKind.Location)
+                : PermissionRequestResult.Denied(PermissionKind.Location);
+        }
+
+        var result = await _permissionService
+            .RequestAsync(PermissionKind.Location)
+            .ConfigureAwait(false);
+
+        _permissionAttention?.Report(result);
+        return result;
     }
 
     public void StopTracking()

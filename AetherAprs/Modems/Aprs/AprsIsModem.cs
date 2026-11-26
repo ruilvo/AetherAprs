@@ -104,6 +104,25 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// <inheritdoc />
     public event EventHandler<Exception>? ReceiveError;
 
+    /// <summary>
+    /// Gets a task that completes once the current connection is authenticated.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Start"/> returns before the server's login reply arrives, so a
+    /// caller that needs proof the reply was consumed must await this instead of
+    /// assuming that writing the reply to the socket is enough.
+    /// </remarks>
+    internal Task ConnectionReady
+    {
+        get
+        {
+            lock (_connectionLock)
+            {
+                return _connectionReady.Task;
+            }
+        }
+    }
+
     /// <inheritdoc />
     public void Start()
     {
@@ -198,10 +217,6 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
         }
 
-        // Start() hands back before the login completes, so readiness - not a writer
-        // snapshot taken beforehand - is the gate for a send. The writer exists only
-        // after authentication, and a concurrent reconnect can replace it, so read it
-        // under the same lock once the connection is ready.
         // Start() hands back before the login completes, so readiness - not a writer
         // snapshot taken beforehand - is the gate for a send. The writer exists only
         // after authentication, and a concurrent reconnect can replace it, so read it
