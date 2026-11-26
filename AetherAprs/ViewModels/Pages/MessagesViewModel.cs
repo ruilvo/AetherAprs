@@ -10,6 +10,7 @@ using AetherAprs.ViewModels.Pages;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
@@ -25,7 +26,8 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string Title { get; set; } = Localization.Strings.Get("Messages");
 
-    public ObservableCollection<ConversationThread> Conversations => _messageService.Conversations;
+    public ObservableCollection<ConversationThread> Conversations { get; } = [];
+
     public bool HasConversations => Conversations.Count > 0;
 
     public MessagesViewModel(
@@ -39,14 +41,51 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
         _conversationFactory = conversationFactory;
         _bulletinsViewModel = bulletinsViewModel;
         Conversations.CollectionChanged += OnConversationsChanged;
+        _messageService.ConversationsChanged += OnServiceConversationsChanged;
+        SyncConversations();
     }
 
     private void OnConversationsChanged(object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(HasConversations));
+
+    private void OnServiceConversationsChanged(object? sender, EventArgs e) => SyncConversations();
+
+    /// <summary>
+    /// Merges the service's immutable snapshot into the owned collection, so the
+    /// selected item and object identity survive reordering.
+    /// </summary>
+    private void SyncConversations()
+    {
+        IReadOnlyList<ConversationThread> snapshot = _messageService.Conversations;
+        HashSet<ConversationThread> live = [.. snapshot];
+
+        for (int index = Conversations.Count - 1; index >= 0; index--)
+        {
+            if (!live.Contains(Conversations[index]))
+            {
+                Conversations.RemoveAt(index);
+            }
+        }
+
+        for (int index = 0; index < snapshot.Count; index++)
+        {
+            ConversationThread thread = snapshot[index];
+            int current = Conversations.IndexOf(thread);
+            if (current < 0)
+            {
+                Conversations.Insert(index, thread);
+            }
+            else if (current != index)
+            {
+                Conversations.Move(current, index);
+            }
+        }
+    }
 
     public void Dispose()
     {
         GC.SuppressFinalize(this);
         Conversations.CollectionChanged -= OnConversationsChanged;
+        _messageService.ConversationsChanged -= OnServiceConversationsChanged;
     }
 
     [RelayCommand]

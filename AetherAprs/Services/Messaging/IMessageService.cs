@@ -4,7 +4,8 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
-using System.Collections.ObjectModel;
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,7 +13,18 @@ namespace AetherAprs.Services.Messaging;
 
 public interface IMessageService
 {
-    ObservableCollection<ConversationThread> Conversations { get; }
+    /// <summary>
+    /// Immutable snapshot of the conversations, newest first. ViewModels mirror it
+    /// into their own observable collection and listen to
+    /// <see cref="ConversationsChanged"/> for updates.
+    /// </summary>
+    IReadOnlyList<ConversationThread> Conversations { get; }
+
+    /// <summary>
+    /// Raised on the UI thread after the conversation set, its order or a
+    /// conversation's messages changed.
+    /// </summary>
+    event EventHandler? ConversationsChanged;
 
     Task InitializeAsync(CancellationToken cancellationToken = default);
 

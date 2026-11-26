@@ -18,7 +18,6 @@ using AetherAprs.Services.UI;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -62,7 +61,22 @@ public sealed class MessageService : IMessageService, IDisposable
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
-    public ObservableCollection<ConversationThread> Conversations { get; } = [];
+    private readonly List<ConversationThread> _conversationList = [];
+
+    /// <inheritdoc />
+    public IReadOnlyList<ConversationThread> Conversations
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _conversationList];
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public event EventHandler? ConversationsChanged;
 
     /// <summary>
     /// How many outbound messages are still waiting for an ACK or a retry; exposed
@@ -134,10 +148,14 @@ public sealed class MessageService : IMessageService, IDisposable
 
     public ConversationThread GetOrCreateConversation(AprsAddress peer)
     {
+        ConversationThread thread;
         lock (_gate)
         {
-            return GetOrCreateConversationUnlocked(peer);
+            thread = GetOrCreateConversationUnlocked(peer);
         }
+
+        NotifyConversationsChanged();
+        return thread;
     }
 
     public void SetActiveConversation(AprsAddress? peer)
@@ -215,6 +233,8 @@ public sealed class MessageService : IMessageService, IDisposable
                 MoveConversationToFront(thread);
             }
         });
+
+        NotifyConversationsChanged();
     }
 
     private async Task SendMessagePacketAsync(StoredMessage message, CancellationToken cancellationToken = default)
@@ -399,6 +419,8 @@ public sealed class MessageService : IMessageService, IDisposable
                 MoveConversationToFront(thread);
             }
         });
+
+        NotifyConversationsChanged();
 
         // Post a notification unless the user is already viewing this peer's
         // conversation. Fire-and-forget: notifications must never break message
@@ -617,25 +639,29 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private ConversationThread GetOrCreateConversationUnlocked(AprsAddress peer)
     {
-        ConversationThread? existing = Conversations.FirstOrDefault(c => c.Peer.Equals(peer));
+        ConversationThread? existing = _conversationList.FirstOrDefault(c => c.Peer.Equals(peer));
         if (existing != null)
         {
             return existing;
         }
 
         ConversationThread created = new(peer);
-        Conversations.Insert(0, created);
+        _conversationList.Insert(0, created);
         return created;
     }
 
     private void MoveConversationToFront(ConversationThread thread)
     {
-        int index = Conversations.IndexOf(thread);
+        int index = _conversationList.IndexOf(thread);
         if (index > 0)
         {
-            Conversations.Move(index, 0);
+            _conversationList.RemoveAt(index);
+            _conversationList.Insert(0, thread);
         }
     }
+
+    private void NotifyConversationsChanged() =>
+        RunOnUi(() => ConversationsChanged?.Invoke(this, EventArgs.Empty));
 
     private void RunOnUi(Action action) => _uiDispatcher.Post(action);
 
@@ -754,12 +780,17 @@ public sealed class MessageService : IMessageService, IDisposable
             }
         }
 
-        foreach (ConversationThread? thread in threadsByPeer.Values.OrderByDescending(thread => thread.LastTimestamp))
+        lock (_gate)
         {
-            Conversations.Add(thread);
+            foreach (ConversationThread? thread in threadsByPeer.Values.OrderByDescending(thread => thread.LastTimestamp))
+            {
+                _conversationList.Add(thread);
+            }
+
+            _nextMessageNumber = maxMessageNumber + 1;
         }
 
-        _nextMessageNumber = maxMessageNumber + 1;
+        NotifyConversationsChanged();
     }
 
     public void Dispose()

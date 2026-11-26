@@ -268,12 +268,17 @@ public sealed class MainViewModelTests
 
     private sealed class FakeMessageService : IMessageService
     {
-        public ObservableCollection<ConversationThread> Conversations { get; } = [];
+        private readonly List<ConversationThread> _conversations = [];
+
+        public IReadOnlyList<ConversationThread> Conversations => _conversations;
+
+        public event EventHandler? ConversationsChanged;
 
         public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
             ConversationThread thread = new(peer);
-            Conversations.Add(thread);
+            _conversations.Add(thread);
+            ConversationsChanged?.Invoke(this, EventArgs.Empty);
             return thread;
         }
 

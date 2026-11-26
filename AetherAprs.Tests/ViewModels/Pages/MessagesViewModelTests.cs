@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,17 +24,39 @@ namespace AetherAprs.Tests.ViewModels.Pages;
 public sealed class MessagesViewModelTests : TestFixtureBase
 {
     [Fact]
-    public void Conversations_ExposesMessageServiceCollection()
+    public void Conversations_MirrorTheServiceSnapshotWithoutAliasingIt()
     {
         FakeMessageService messageService = new();
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         messageService.GetOrCreateConversation(peer);
 
-        MessagesViewModel vm = CreateViewModel(messageService, Substitute.For<INavigationService>());
+        using MessagesViewModel vm = CreateViewModel(messageService, Substitute.For<INavigationService>());
 
-        Assert.Same(messageService.Conversations, vm.Conversations);
+        Assert.NotSame(messageService.Conversations, vm.Conversations);
         ConversationThread item = Assert.Single(vm.Conversations);
+        Assert.Same(Assert.Single(messageService.Conversations), item);
         Assert.Equal(peer, item.Peer);
+    }
+
+    [Fact]
+    public void ServiceReorder_MovesTheExistingItemInsteadOfReplacingIt()
+    {
+        FakeMessageService messageService = new();
+        AprsAddress first = AprsAddress.FromCallsign(new Callsign("K0AAA", 1));
+        AprsAddress second = AprsAddress.FromCallsign(new Callsign("K0BBB", 2));
+        ConversationThread firstThread = messageService.GetOrCreateConversation(first);
+        ConversationThread secondThread = messageService.GetOrCreateConversation(second);
+
+        using MessagesViewModel vm = CreateViewModel(messageService, Substitute.For<INavigationService>());
+        Assert.Equal(2, vm.Conversations.Count);
+        Assert.Same(secondThread, vm.Conversations[0]);
+        Assert.Same(firstThread, vm.Conversations[1]);
+
+        // Touching the older conversation moves it to the front of the snapshot.
+        messageService.GetOrCreateConversation(first);
+
+        Assert.Same(firstThread, vm.Conversations[0]);
+        Assert.Same(secondThread, vm.Conversations[1]);
     }
 
     [Fact]
@@ -51,7 +74,8 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         Assert.False(vm.HasConversations);
         service.GetOrCreateConversation(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)));
         Assert.True(vm.HasConversations);
-        service.Conversations.Clear();
+        service.ClearConversations();
+        Assert.Empty(vm.Conversations);
         Assert.False(vm.HasConversations);
         Assert.Equal(2, changes);
     }
@@ -124,21 +148,40 @@ public sealed class MessagesViewModelTests : TestFixtureBase
 
     private sealed class FakeMessageService : IMessageService
     {
-        private readonly ObservableCollection<ConversationThread> _conversations = [];
+        private readonly List<ConversationThread> _conversations = [];
 
-        public ObservableCollection<ConversationThread> Conversations => _conversations;
+        public IReadOnlyList<ConversationThread> Conversations => _conversations;
+
+        public event EventHandler? ConversationsChanged;
 
         public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
             foreach (ConversationThread existing in _conversations)
             {
                 if (existing.Peer.Equals(peer))
+                {
+                    int index = _conversations.IndexOf(existing);
+                    if (index > 0)
+                    {
+                        _conversations.RemoveAt(index);
+                        _conversations.Insert(0, existing);
+                        ConversationsChanged?.Invoke(this, EventArgs.Empty);
+                    }
+
                     return existing;
+                }
             }
 
             ConversationThread thread = new(peer);
-            _conversations.Add(thread);
+            _conversations.Insert(0, thread);
+            ConversationsChanged?.Invoke(this, EventArgs.Empty);
             return thread;
+        }
+
+        public void ClearConversations()
+        {
+            _conversations.Clear();
+            ConversationsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default) =>

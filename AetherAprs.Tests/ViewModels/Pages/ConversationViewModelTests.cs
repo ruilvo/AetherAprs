@@ -209,9 +209,11 @@ public sealed class ConversationViewModelTests : TestFixtureBase
 
     private sealed class FakeMessageService : IMessageService
     {
-        private readonly ObservableCollection<ConversationThread> _conversations = [];
+        private readonly List<ConversationThread> _conversations = [];
 
-        public ObservableCollection<ConversationThread> Conversations => _conversations;
+        public IReadOnlyList<ConversationThread> Conversations => _conversations;
+
+        public event EventHandler? ConversationsChanged;
 
         public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
@@ -223,6 +225,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
 
             ConversationThread thread = new(peer);
             _conversations.Add(thread);
+            ConversationsChanged?.Invoke(this, EventArgs.Empty);
             return thread;
         }
 
@@ -236,6 +239,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
                 Timestamp = DateTimeOffset.UtcNow,
                 IsOutbound = true
             });
+            ConversationsChanged?.Invoke(this, EventArgs.Empty);
             return Task.CompletedTask;
         }
 
