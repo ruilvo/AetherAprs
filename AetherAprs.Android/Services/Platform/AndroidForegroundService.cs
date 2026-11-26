@@ -72,6 +72,7 @@ public class AetherAprsForegroundService : Service
     private const string WakeLockTag = "AetherAprs:ForegroundService";
 
     private PowerManager.WakeLock? _wakeLock;
+    private bool _batteryOptimizationReported;
 
     public override IBinder? OnBind(Intent? intent)
     {
@@ -83,25 +84,84 @@ public class AetherAprsForegroundService : Service
         base.OnCreate();
         AndroidLifecycleTelemetry.State.ForegroundStartRequested();
 
-        // Hold a partial wake lock so the CPU stays awake while the foreground
-        // service is running (e.g. GPS polling, packet processing). Released in
-        // OnDestroy.
+        // Create the lock here but do not hold it yet: the lease is armed by the
+        // start command that brings work in, and it is bounded (see WakeLeasePolicy),
+        // so a service nobody asks to work cannot keep the CPU awake.
         var powerManager = GetSystemService(PowerService) as PowerManager;
         _wakeLock = powerManager?.NewWakeLock(WakeLockFlags.Partial, WakeLockTag);
-        _wakeLock?.Acquire();
+
+        RecheckBatteryOptimization();
     }
 
     public override void OnDestroy()
     {
-        if (_wakeLock?.IsHeld == true)
-        {
-            _wakeLock.Release();
-        }
+        ApplyWakeLease(isSessionActive: false);
 
         _wakeLock = null;
         AndroidLifecycleTelemetry.State.ForegroundStopped();
         PublishState(StateStopped);
         base.OnDestroy();
+    }
+
+    /// <summary>
+    /// Arms or releases the bounded partial wake lock for the current session.
+    /// </summary>
+    /// <remarks>
+    /// The platform counts acquisitions, so the lease is only armed when the lock is
+    /// not already held and only released when it is; re-arming a held lock would
+    /// leave a reference that the matching single release cannot clear.
+    /// </remarks>
+    private void ApplyWakeLease(bool isSessionActive)
+    {
+        if (_wakeLock is not { } wakeLock)
+        {
+            return;
+        }
+
+        switch (WakeLeasePolicy.Decide(isSessionActive, wakeLock.IsHeld))
+        {
+            case WakeLeaseDecision.Arm:
+                wakeLock.Acquire(WakeLeasePolicy.LeaseMilliseconds);
+                break;
+
+            case WakeLeaseDecision.Release:
+                wakeLock.Release();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Re-reads the battery-optimization exemption when the service starts work.
+    /// </summary>
+    /// <remarks>
+    /// A foreground service is not exempt from Doze: without the exemption the
+    /// platform may defer network and location work and eventually stop the
+    /// session. The state can change while the application runs (a system update,
+    /// the operator toggling it), so it is rechecked on each start instead of being
+    /// remembered, and reported once per service instance to keep the log bounded.
+    /// </remarks>
+    private void RecheckBatteryOptimization()
+    {
+        if (_batteryOptimizationReported)
+        {
+            return;
+        }
+
+        var powerManager = GetSystemService(PowerService) as PowerManager;
+        if (powerManager is null)
+        {
+            return;
+        }
+
+        if (powerManager.IsIgnoringBatteryOptimizations(PackageName))
+        {
+            _batteryOptimizationReported = true;
+            return;
+        }
+
+        _batteryOptimizationReported = true;
+        Log.LogWarning(
+            "Battery optimization is enabled for this application; the system may defer or stop background work.");
     }
 
     /// <summary>
@@ -133,6 +193,7 @@ public class AetherAprsForegroundService : Service
 
         if (action == ActionStop)
         {
+            ApplyWakeLease(isSessionActive: false);
             StopForeground(StopForegroundFlags.Remove);
             StopSelf();
             PublishState(StateStopped);
@@ -147,6 +208,11 @@ public class AetherAprsForegroundService : Service
             _ = StopApplicationAsync(closeApplication: true);
             return StartCommandResult.NotSticky;
         }
+
+        // Work is being requested, so take a bounded lease for it and recheck the
+        // premise the background session depends on.
+        ApplyWakeLease(isSessionActive: true);
+        RecheckBatteryOptimization();
 
         CreateNotificationChannel();
 
@@ -248,6 +314,7 @@ public class AetherAprsForegroundService : Service
         }
 
         PublishState(StateStopped);
+        ApplyWakeLease(isSessionActive: false);
         StopForeground(StopForegroundFlags.Remove);
         StopSelf();
 

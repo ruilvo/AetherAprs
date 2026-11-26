@@ -374,6 +374,19 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticUnboundedWakeLock_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.ScanAndroidIntentSurface(
+            [Source(
+                "AetherAprs.Android/Services/Platform/AndroidForegroundService.cs",
+                "var wakeLock = powerManager.NewWakeLock(WakeLockFlags.Partial, Tag);\nwakeLock.Acquire();")]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A016", violation.RuleId);
+        Assert.Equal(".Acquire()", violation.Symbol);
+    }
+
+    [Fact]
     public void Scan_AndroidIntentSurface_DeclaresExportsAndImmutablePendingIntents()
     {
         var violations = ArchitectureBoundaryScanner.ScanAndroidIntentSurface(SourceScanner.ReadProductionSources());

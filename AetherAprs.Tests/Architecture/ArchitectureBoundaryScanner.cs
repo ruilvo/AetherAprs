@@ -247,14 +247,22 @@ internal static class ArchitectureBoundaryScanner
     private const string PendingIntentSymbol = "PendingIntent.Get";
 
     /// <summary>
-    /// Scans the Android entry points for declared exports and immutable pending
-    /// intents.
+    /// A wake lock acquisition without a timeout. The platform counts the lease as
+    /// held until the process releases it, so a service that dies holding one keeps
+    /// the CPU awake.
+    /// </summary>
+    private const string UnboundedWakeLockAcquire = ".Acquire()";
+
+    /// <summary>
+    /// Scans the Android entry points for declared exports, immutable pending
+    /// intents and unbounded wake locks.
     /// </summary>
     /// <remarks>
     /// These are text rules rather than symbol rules because the defect is a missing
-    /// argument: a component that omits <c>Exported</c> still compiles, and a pending
+    /// argument: a component that omits <c>Exported</c> still compiles, a pending
     /// intent that omits <c>Immutable</c> still works until another application
-    /// rewrites its extras.
+    /// rewrites its extras, and a wake lock without a timeout still compiles and
+    /// passes review while draining the battery.
     /// </remarks>
     public static IReadOnlyList<ArchitectureViolation> ScanAndroidIntentSurface(IEnumerable<ScannedSource> sources)
     {
@@ -306,6 +314,18 @@ internal static class ArchitectureBoundaryScanner
                 pendingIndex = statementEnd < 0
                     ? -1
                     : text.IndexOf(PendingIntentSymbol, statementEnd, StringComparison.Ordinal);
+            }
+
+            var acquireIndex = text.IndexOf(UnboundedWakeLockAcquire, StringComparison.Ordinal);
+            while (acquireIndex >= 0)
+            {
+                violations.Add(new ArchitectureViolation(
+                    "A016", source.RelativePath, source.TypeName, UnboundedWakeLockAcquire));
+
+                acquireIndex = text.IndexOf(
+                    UnboundedWakeLockAcquire,
+                    acquireIndex + UnboundedWakeLockAcquire.Length,
+                    StringComparison.Ordinal);
             }
         }
 

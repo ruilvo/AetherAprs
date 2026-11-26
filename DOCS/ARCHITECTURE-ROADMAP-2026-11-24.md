@@ -396,8 +396,11 @@ stay inside the configuration adapter, added with `R3.1`), `A010` (startup steps
 are declared in the composition root, added with `R3.3`), `A011` (only the
 composition root builds a container, added with the composition-root items) and
 `A012` (no static service accessor, added with the close-out of composition-root
-item 5) and `A013` (Android code logs through `ILogger`; only the logcat provider
-names `Android.Util.Log`, added with the `R5.4` logging work). The
+item 5), `A013` (Android code logs through `ILogger`; only the logcat provider
+names `Android.Util.Log`, added with the `R5.4` logging work), `A014` (an Android
+component declares whether it is exported) and `A015` (pending intents are
+immutable), both added with the exported-input review, and `A016` (a wake lock is
+acquired with a timeout, added with the `R5.2` wake-lease bound). The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -975,8 +978,35 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > timeout uses the same stop but keeps the UI available, because a type limit ends
 > the background session rather than the application.
 >
-> Remaining for this item: wakelock bounding and the native acceptance check for
-> notification publication, modem readiness and first I/O as separate states.
+> The service no longer acquires a partial wake lock without a timeout. `OnCreate`
+> creates the lock but holds nothing; each start command that brings work in arms a
+> bounded lease (`WakeLeasePolicy.LeaseMilliseconds`, ten minutes) and the stop
+> paths and `OnDestroy` release it. A held lease is never extended, because the
+> platform counts acquisitions and a second acquire would leave a reference the
+> matching single release cannot clear. A foreground service already keeps the
+> process alive, so the bound does not stop the session: network, Bluetooth and
+> location callbacks wake the CPU, and a service nobody asks to work is asleep
+> instead of pinning the CPU until the battery dies. Architecture rule A016 rejects
+> `Acquire()` without a timeout in the Android project, so the pattern cannot come
+> back unnoticed.
+>
+> The battery-optimization exemption is re-read on each service start rather than
+> remembered, and one warning per service instance records when the application is
+> still optimized, because a foreground service is not exempt from Doze and the
+> system may defer or stop the work the session depends on.
+>
+> Tests: `WakeLeasePolicyTests` proves an idle session with no lease arms it, a
+> stopped session releases it, a lease that already matches is left alone (no extra
+> platform reference), and the declared lease is positive and bounded to fifteen
+> minutes. Temporarily replacing the bounded call with `Acquire()` makes the
+> real-tree A016 scan fail with
+> `[A016 AetherAprs.Android/Services/Platform/AndroidForegroundService.cs -> .Acquire()]`,
+> so the rule is load-bearing.
+>
+> Remaining for this item: the native acceptance check for notification
+> publication, modem readiness and first I/O as separate states, and rolling back
+> requested leases when a foreground start is rejected (the current start rejection
+> reports `Degraded` but keeps the held reasons).
 
 **R5.3 Hardware transports**
 
@@ -996,9 +1026,9 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Document the `neverForLocation` rationale or remove the flag.
 
 > **Status: lost credentials no longer hide the port list, the operator can repair
-> them in the port editor, and Android logging goes through `ILogger`
-> (2026-11-26); exported-input review and the `neverForLocation` decision still
-> open.**
+> them in the port editor, Android logging goes through `ILogger`, and the exported
+> surface is declared and validated (2026-11-26); the `neverForLocation` decision
+> still open.**
 > `PortRegistry` restored the APRS-IS passcode while mapping every record, so one
 > unreadable secret threw out of `LoadAsync` and the operator saw no ports at all.
 > Mapping now catches `SecretUnavailableException` per port: the port keeps its name,
@@ -1049,8 +1079,23 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > consequence while neither the rendered message nor the structured state contains
 > any of those values; a second case asserts a fully granted launch logs nothing.
 >
-> Still open for this item: exported input review and the `neverForLocation`
-> decision.
+> Exported input no longer reaches a decision point unchecked. `MainActivity`
+> declares `Exported = true`, reads the conversation extra only from a
+> main/launcher intent and passes it through `ConversationDeepLink`, which bounds
+> the value and rejects anything that is not a plain address instead of trimming it
+> into shape; the extra is removed once consumed. The foreground service declares
+> `Exported = false` and masks the requested keep-alive types to the two it
+> advertises, so a stale or foreign intent cannot widen them. Notification and
+> service pending intents stay `Immutable`.
+>
+> Tests: architecture rules A014 and A015 reject a component without `Exported` and
+> a pending intent without `Immutable`; `ConversationDeepLinkTests` feeds valid
+> tactical addresses and same-shape rejects (spaces, path separators, shell
+> metacharacters, over-length, SSID 16) into the deep-link parser.
+>
+> Still open for this item: the `neverForLocation` decision. The exported surface
+> has architecture coverage but no device run: nothing here proves how the platform
+> delivers a malformed intent to the real activity.
 
 Exit: permission, disconnect, notification stop, and route change behavior have
 focused acceptance checks. When a behavior depends on native APIs, use a short
