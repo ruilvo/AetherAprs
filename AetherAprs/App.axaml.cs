@@ -4,12 +4,10 @@
 using AetherAprs.Configuration;
 using AetherAprs.Factories;
 using AetherAprs.Services.Configuration;
-using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
-using AetherAprs.Services.Ports;
+using AetherAprs.Services.Startup;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
-using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -20,7 +18,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -132,13 +129,14 @@ public partial class App : Application, IDisposable
         // correct light/dark palette is in effect from the first frame.
         ApplyRequestedThemeVariant();
 
+        // Creating the main view reads persisted configuration, so the schema must
+        // exist before the platform asks for it. The startup sequence reports this
+        // step again; AppSavedDataInitializer is a one-way latch, so the second
+        // call is a no-op.
         ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
 
         // Initialize OSM tile cache during app startup
         InitializeOsmTileCache();
-
-        // Start database cleanup task
-        _ = StartDatabaseCleanupAsync();
 
         if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
@@ -149,128 +147,32 @@ public partial class App : Application, IDisposable
             singleViewPlatform.MainView = CreateMainView();
         }
 
-        _ = StartEnabledPortsAsync();
-        _ = RequestPermissionsAndStartTrackingAsync();
+        _ = RunStartupAsync();
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private async Task RequestPermissionsAndStartTrackingAsync()
+    /// <summary>
+    /// Runs the ordered startup sequence and logs the outcome.
+    /// </summary>
+    private async Task RunStartupAsync()
     {
         try
         {
-            var permissionService = ServiceProvider.GetRequiredService<IPermissionService>();
-            var locationService = ServiceProvider.GetRequiredService<ILocationService>();
-            
-            // Request all permissions (MainActivity handles actual dialogs on Android)
-            _logger?.LogInformation("Requesting notification permission...");
-            var notificationGranted = await permissionService.RequestNotificationPermissionAsync();
-            _logger?.LogInformation("Notification permission: {Granted}", notificationGranted);
-            
-            _logger?.LogInformation("Requesting Bluetooth permission...");
-            var bluetoothGranted = await permissionService.RequestBluetoothPermissionAsync();
-            _logger?.LogInformation("Bluetooth permission: {Granted}", bluetoothGranted);
-            
-            _logger?.LogInformation("Requesting location permission...");
-            var locationGranted = await permissionService.RequestLocationPermissionAsync();
-            _logger?.LogInformation("Location permission: {Granted}", locationGranted);
-            
-            if (!locationGranted)
+            var report = await ServiceProvider.GetRequiredService<IApplicationStartup>().RunAsync(_shutdownCts.Token);
+
+            if (!report.Succeeded && !report.WasCancelled)
             {
-                _logger?.LogWarning("Location permission was denied by user");
-                return;
-            }
-
-            // Request exemption from battery optimization so background tracking
-            // (foreground service + wake lock) is not deferred by Doze/App Standby.
-            _logger?.LogInformation("Requesting battery optimization exemption...");
-            var batteryOptimizationExempt = await permissionService.RequestIgnoreBatteryOptimizationsAsync();
-            _logger?.LogInformation("Battery optimization exempt: {Exempt}", batteryOptimizationExempt);
-
-            // Check if location is available
-            if (!locationService.IsLocationAvailable())
-            {
-                _logger?.LogWarning("Location services are not available on this device");
-                return;
-            }
-
-            // Start location tracking through HomeViewModel
-            var homeViewModel = ServiceProvider.GetRequiredService<HomeViewModel>();
-            await homeViewModel.StartLocationTrackingAsync();
-            
-            _logger?.LogInformation("Location tracking started successfully");
-        }
-        catch (Exception exception)
-        {
-            _logger?.LogError(exception, "Failed to request permissions and start location tracking");
-        }
-    }
-
-    private async Task StartEnabledPortsAsync()
-    {
-        try
-        {
-            var portService = ServiceProvider.GetRequiredService<IPortService>();
-            await portService.InitializeAsync(_shutdownCts.Token);
-
-            var coordinator = ServiceProvider.GetRequiredService<SessionCoordinator>();
-            _ = ServiceProvider.GetRequiredService<SessionCoordinatorTelemetryBridge>();
-            await coordinator.InitializeAsync(_shutdownCts.Token);
-
-            var enabledPortIds = portService.Ports
-                .Where(port => port.IsEnabled)
-                .Select(port => port.Id)
-                .ToArray();
-
-            if (enabledPortIds.Length > 0)
-            {
-                await coordinator.StartAsync(enabledPortIds, _shutdownCts.Token);
+                _logger?.LogWarning("Startup stopped at step {Step}.", report.Failure?.Name);
             }
         }
         catch (OperationCanceledException) when (_shutdownCts.IsCancellationRequested)
         {
-            _logger?.LogInformation("Port session startup cancelled during application shutdown");
+            _logger?.LogInformation("Application startup cancelled during shutdown");
         }
         catch (Exception exception)
         {
-            _logger?.LogError(exception, "Failed to initialize or start the port session");
-        }
-    }
-
-    private async Task StartDatabaseCleanupAsync()
-    {
-        try
-        {
-            var storageService = ServiceProvider.GetRequiredService<IPacketStorageService>();
-
-            // Run cleanup immediately on startup
-            await storageService.CleanupOldPacketsAsync();
-
-            // Schedule periodic cleanup every 24 hours
-            _ = Task.Run(async () =>
-            {
-                while (!_shutdownCts.Token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        await Task.Delay(TimeSpan.FromHours(24), _shutdownCts.Token);
-                        await storageService.CleanupOldPacketsAsync();
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Expected during shutdown
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogError(ex, "Database cleanup failed");
-                    }
-                }
-            }, _shutdownCts.Token);
-        }
-        catch (Exception exception)
-        {
-            _logger?.LogError(exception, "Failed to start database cleanup");
+            _logger?.LogError(exception, "Application startup failed");
         }
     }
 

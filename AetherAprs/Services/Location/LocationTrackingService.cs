@@ -65,6 +65,7 @@ public sealed class LocationTrackingService : ILocationTrackingService
     private readonly ILocationService _locationService;
     private readonly IKeepAliveService _keepAliveService;
     private readonly ILogger<LocationTrackingService> _logger;
+    private readonly IPermissionService? _permissionService;
     private readonly Lock _stateLock = new();
     private CancellationTokenSource? _locationUpdateCancellation;
     private Task? _updateLoopTask;
@@ -81,11 +82,13 @@ public sealed class LocationTrackingService : ILocationTrackingService
     public LocationTrackingService(
         ILocationService locationService,
         IKeepAliveService keepAliveService,
-        ILogger<LocationTrackingService> logger)
+        ILogger<LocationTrackingService> logger,
+        IPermissionService? permissionService = null)
     {
         _locationService = locationService;
         _keepAliveService = keepAliveService;
         _logger = logger;
+        _permissionService = permissionService;
     }
 
     public async Task StartTrackingAsync()
@@ -168,6 +171,21 @@ public sealed class LocationTrackingService : ILocationTrackingService
         {
             _logger.LogWarning("Location permission denied");
             return;
+        }
+
+        // Battery exemption belongs to this feature: tracking is the only reason the
+        // application needs to keep running in the background. Asking here keeps the
+        // prompt out of startup for users who never enable tracking.
+        if (_permissionService is not null)
+        {
+            try
+            {
+                await _permissionService.RequestIgnoreBatteryOptimizationsAsync();
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "Could not request the battery optimization exemption");
+            }
         }
 
         await StartTrackingAsync();

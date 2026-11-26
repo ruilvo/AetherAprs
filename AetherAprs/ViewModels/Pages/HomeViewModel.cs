@@ -199,7 +199,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     public async Task StartLocationTrackingAsync()
     {
-        await _locationTrackingService.StartTrackingAsync();
+        // Permission belongs to the feature: the prompt appears when the operator
+        // starts tracking, not on every launch.
+        await _locationTrackingService.RequestPermissionAndStartTrackingAsync();
     }
 
     [RelayCommand]

@@ -226,6 +226,36 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticStartupStepInFeatureCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Services/Ports/PortService.cs",
+                "var step = new StartupStep(\"sessions\", token => StartAsync(token));"),
+            Source(
+                "AetherAprs/ViewModels/Pages/HomeViewModel.cs",
+                "var step = new StartupStep(\"location\", token => TrackAsync(token));")
+        ]);
+
+        Assert.Equal(2, violations.Count);
+        Assert.All(violations, violation => Assert.Equal("A010", violation.RuleId));
+    }
+
+    [Fact]
+    public void Scan_StartupFactory_MayDeclareTheSequence()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Factories/StartupStepFactory.cs",
+                "var step = new StartupStep(\"database\", _ => Task.CompletedTask);")
+        ]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

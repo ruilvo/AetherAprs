@@ -118,6 +118,16 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Services/Configuration/ConfigurationService.cs"
     };
 
+    /// <summary>
+    /// Files permitted to declare a startup step. The sequence is a composition-root
+    /// concern: a feature that needs work at startup asks the factory for a step, so
+    /// the order stays in one reviewable place.
+    /// </summary>
+    private static readonly HashSet<string> StartupSequenceOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Factories/StartupStepFactory.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -178,7 +188,13 @@ internal static class ArchitectureBoundaryScanner
                 "AppSettingsDocument", "AprsSettingsDocument", "MapSettingsDocument",
                 "MessageTemplatesSettingsDocument", "MessageTemplateDocument"
             ],
-            SettingsDocumentOwners)
+            SettingsDocumentOwners),
+
+        new ArchitectureRule(
+            "A010",
+            "Startup steps are declared once, in the composition root, so the startup order stays reviewable.",
+            ["new StartupStep("],
+            StartupSequenceOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>

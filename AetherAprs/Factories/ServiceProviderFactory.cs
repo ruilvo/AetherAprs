@@ -13,11 +13,13 @@ using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
+using AetherAprs.Services.Maintenance;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Startup;
 using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
@@ -130,6 +132,15 @@ public static class ServiceProviderFactory
         services.AddSingleton<ISessionPortController, PortServiceSessionController>();
         services.AddSingleton<SessionCoordinator>();
         services.AddSingleton<SessionCoordinatorTelemetryBridge>();
+
+        // Application lifecycle: one ordered startup sequence per process and one
+        // deferred retention worker. The steps are declared in StartupStepFactory.
+        services.AddSingleton<SessionStartup>();
+        services.AddSingleton<IDatabaseMaintenanceWorker, DatabaseMaintenanceWorker>();
+        services.AddSingleton<IApplicationStartup>(provider => new ApplicationStartup(
+            StartupStepFactory.Create(provider),
+            provider.GetRequiredService<ILogger<ApplicationStartup>>(),
+            provider.GetRequiredService<IDiagnosticEventSink>()));
 
         // Register navigation service
         services.AddSingleton<INavigationService, NavigationService>();
