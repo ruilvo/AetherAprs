@@ -234,11 +234,17 @@ public class LocationService : ILocationService
             }
             finally
             {
-                fusedClient.RemoveLocationUpdates(callback);
-                // The callback is a Java.Lang.Object: removing it from the client
-                // is not enough, the JNI peer must be released or every fix leaks
-                // one global reference.
-                callback.Dispose();
+                try
+                {
+                    fusedClient.RemoveLocationUpdates(callback);
+                }
+                finally
+                {
+                    // The callback is a Java.Lang.Object: removing it from the
+                    // client is not enough, the JNI peer must be released or
+                    // every fix leaks one global reference.
+                    callback.Dispose();
+                }
             }
         }
         catch (System.OperationCanceledException)
@@ -307,11 +313,17 @@ public class LocationService : ILocationService
         }
         finally
         {
-            // RemoveUpdates unregisters the listener from every provider at once.
-            // The listener is a Java.Lang.Object, so the JNI peer must also be
-            // disposed to avoid leaking one global reference per location fix.
-            locationManager.RemoveUpdates(listener);
-            listener.Dispose();
+            try
+            {
+                // RemoveUpdates unregisters the listener from every provider at once.
+                locationManager.RemoveUpdates(listener);
+            }
+            finally
+            {
+                // The listener is a Java.Lang.Object, so the JNI peer must also
+                // be disposed to avoid leaking one global reference per location fix.
+                listener.Dispose();
+            }
         }
     }
 

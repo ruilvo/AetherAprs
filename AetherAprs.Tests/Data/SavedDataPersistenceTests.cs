@@ -12,6 +12,7 @@ using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
+using AetherAprs.Data.Packets;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -114,7 +115,7 @@ public sealed class SavedDataPersistenceTests
                    Substitute.For<IAprsPortSettingsResolver>(),
                    new TestPacketFactory(),
                    NullLogger<MessageService>.Instance,
-                    new PacketQueryService(db.Factory, NullLogger<PacketQueryService>.Instance)))
+                    new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance)))
         {
             await service.InitializeAsync(TestContext.Current.CancellationToken);
             // Verify the service loaded the message from database
@@ -133,7 +134,7 @@ public sealed class SavedDataPersistenceTests
             Substitute.For<IAprsPortSettingsResolver>(),
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
-            new PacketQueryService(db.Factory, NullLogger<PacketQueryService>.Instance));
+            new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance));
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         var threadReloaded = Assert.Single(reloaded.Conversations);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), threadReloaded.Peer);

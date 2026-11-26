@@ -297,6 +297,13 @@ public sealed class PortServiceTests
         {
             return Task.CompletedTask;
         }
+
+        public Task EnsureOutboundMessageAsync(MessagePacket packet, Guid? portId, int retryCount,
+            DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task UpdateOutboundMessageStatusAsync(AprsAddress addressee, int messageNumber,
+            AetherAprs.Models.Messaging.MessageDeliveryStatus deliveryStatus, int retryCount,
+            DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class MockDigipeaterService : IDigipeaterService

@@ -65,13 +65,12 @@ public sealed class PacketViewFilterService : IPacketViewFilterService, IDisposa
 
     public DateTimeOffset? GetCutoffTime()
     {
-        var timeRange = _configurationService.Settings.Aprs.DisplayTimeRange;
-        var customHours = _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours;
-        var cutoffTime = CalculateCutoffTime(timeRange, customHours);
+        var aprs = _configurationService.Settings.Aprs;
+        var cutoffTime = CalculateCutoffTime(aprs.DisplayTimeRange, aprs.CustomDisplayTimeRangeHours);
 
         // If LoadHistoryOnStartup is false, use session start time as floor
         // This ensures fresh start when the setting is disabled
-        if (!_configurationService.Settings.Aprs.LoadHistoryOnStartup)
+        if (!aprs.LoadHistoryOnStartup)
         {
             if (!cutoffTime.HasValue || _sessionStartedUtc > cutoffTime.Value)
             {

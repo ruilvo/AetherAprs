@@ -24,6 +24,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
     private readonly ILogger<ConfigurationService> _logger;
     private readonly IConfiguration _configuration;
     private readonly SemaphoreSlim _settingsLock = new(1, 1);
+    private AppSettings _settings = new();
 
     public void Dispose()
     {
@@ -49,12 +50,10 @@ public class ConfigurationService : IConfigurationService, IDisposable
     };
 
     /// <summary>
-    /// Gets the application settings.
-    /// WARNING: Direct mutation of Settings properties requires calling SaveSettingsAsync() 
-    /// to persist changes. Consider using UpdateSettingsAsync for automatic persistence.
-    /// Use UpdateSettingsAsync for thread-safe read-modify-write cycles.
+    /// Gets the current settings reference. Treat it as read-only and do not
+    /// retain it across updates. Direct mutation is supported for legacy callers only.
     /// </summary>
-    public AppSettings Settings { get; }
+    public AppSettings Settings => Volatile.Read(ref _settings);
 
     /// <summary>
     /// Whether the settings file was written by a newer build and must not be
@@ -116,7 +115,6 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 .Build();
         }
 
-        Settings = new AppSettings();
         var normalizedValues = new Dictionary<string, string?>(
             StringComparer.OrdinalIgnoreCase);
 
@@ -299,10 +297,11 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     private void PersistMigratedSettings()
     {
-        _settingsLock.Wait();
         try
         {
-            SaveLocked();
+            var filePath = GetSettingsFilePath();
+            File.WriteAllText(filePath + ".tmp", JsonSerializer.Serialize(Settings, _jsonSerializerOptions));
+            File.Move(filePath + ".tmp", filePath, overwrite: true);
             _logger.LogInformation(
                 "Persisted settings at schema version {Version}.",
                 SettingsSchema.CurrentVersion);
@@ -315,10 +314,6 @@ public class ConfigurationService : IConfigurationService, IDisposable
             _logger.LogError(
                 ex,
                 "Failed to persist migrated settings; the in-memory settings remain migrated.");
-        }
-        finally
-        {
-            _settingsLock.Release();
         }
     }
 
@@ -443,7 +438,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         await _settingsLock.WaitAsync();
         try
         {
-            await Task.Run(SaveLocked);
+            await SaveJsonAsync(JsonSerializer.Serialize(Settings, _jsonSerializerOptions));
         }
         finally
         {
@@ -454,10 +449,9 @@ public class ConfigurationService : IConfigurationService, IDisposable
     }
 
     /// <summary>
-    /// Updates settings using the provided action and saves them atomically.
-    /// This method is preferred over direct Settings mutation for ensuring changes are persisted.
+    /// Applies a patch to a private draft and publishes the changes only after persistence succeeds.
     /// </summary>
-    /// <param name="updateAction">Action that modifies the settings.</param>
+    /// <param name="updateAction">Synchronous action that modifies the draft.</param>
     public async Task UpdateSettingsAsync(Action<AppSettings> updateAction)
     {
         ArgumentNullException.ThrowIfNull(updateAction);
@@ -471,8 +465,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
         await _settingsLock.WaitAsync();
         try
         {
-            updateAction(Settings);
-            await Task.Run(SaveLocked);
+            var draft = GetSettingsSnapshot();
+            updateAction(draft);
+            var json = JsonSerializer.Serialize(draft, _jsonSerializerOptions);
+            // Never publish references supplied to or retained by the update callback.
+            var committed = DeserializeSettings(json);
+            await SaveJsonAsync(json);
+            Volatile.Write(ref _settings, committed);
         }
         finally
         {
@@ -486,17 +485,14 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// Persists the current settings with an atomic temp-file write.
     /// Caller must hold <see cref="_settingsLock"/>.
     /// </summary>
-    private void SaveLocked()
+    private async Task SaveJsonAsync(string json)
     {
         var filePath = GetSettingsFilePath();
-        var json = JsonSerializer.Serialize(
-            Settings,
-            _jsonSerializerOptions);
 
         // Atomic write: serialize to a temp file, then replace the live config
         // so a crash mid-write cannot corrupt it (H4 fix).
         var tempFilePath = filePath + ".tmp";
-        File.WriteAllText(tempFilePath, json);
+        await File.WriteAllTextAsync(tempFilePath, json).ConfigureAwait(false);
         File.Move(tempFilePath, filePath, overwrite: true);
     }
 
@@ -553,29 +549,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
     }
 
     /// <summary>
-    /// Returns a thread-safe snapshot of the current settings.
-    /// This is a deep clone — changes to the returned object do not affect the live settings.
+    /// Returns a deep copy of the current settings without waiting for an in-flight update.
+    /// Legacy callers must not mutate the live settings concurrently.
     /// Use this method when you need consistent multi-property reads (e.g., callsign + SSID together).
     /// </summary>
-    public AppSettings GetSettingsSnapshot()
-    {
-        _settingsLock.Wait();
-        try
-        {
-            // A serializer round-trip clones every property on the settings
-            // graph, including ones added after this code was written, using
-            // the same converters as persistence. A hand-written clone silently
-            // omitted new properties; this cannot.
-            var json = JsonSerializer.Serialize(
-                Settings,
-                _jsonSerializerOptions);
-            return JsonSerializer.Deserialize<AppSettings>(
-                json,
-                _jsonSerializerOptions)!;
-        }
-        finally
-        {
-            _settingsLock.Release();
-        }
-    }
+    public AppSettings GetSettingsSnapshot() =>
+        DeserializeSettings(JsonSerializer.Serialize(Settings, _jsonSerializerOptions));
+
+    private static AppSettings DeserializeSettings(string json) =>
+        JsonSerializer.Deserialize<AppSettings>(json, _jsonSerializerOptions)!;
 }

@@ -18,12 +18,15 @@ public interface IConfigurationService
     event EventHandler? SettingsChanged;
 
     /// <summary>
-    /// Gets the strongly-typed application settings.
+    /// Gets the current strongly-typed application settings. Treat the returned
+    /// object as read-only and retrieve it again after updates.
     /// </summary>
     AppSettings Settings { get; }
 
     /// <summary>
     /// Saves the current settings to the configuration file.
+    /// Prefer <see cref="UpdateSettingsAsync"/> for new writes so mutation and
+    /// persistence occur inside one serialized update boundary.
     /// </summary>
     Task SaveSettingsAsync();
 
@@ -36,8 +39,8 @@ public interface IConfigurationService
     AppSettings GetSettingsSnapshot();
 
     /// <summary>
-    /// Updates settings using the provided action and saves them atomically.
-    /// This method is preferred over direct <see cref="Settings"/> mutation for ensuring changes are persisted.
+    /// Applies a synchronous patch to the latest settings in a serialized update.
+    /// Changes become visible after the file is saved successfully.
     /// </summary>
     /// <param name="updateAction">Action that modifies the settings.</param>
     Task UpdateSettingsAsync(Action<AppSettings> updateAction);

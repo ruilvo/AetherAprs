@@ -42,6 +42,7 @@ public sealed class SettingsViewModelTests
 
         Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
         Assert.True(configuration.SaveCount > 0);
+        Assert.Equal(1, configuration.UpdateCount);
     }
 
     [Fact]
@@ -74,6 +75,7 @@ public sealed class SettingsViewModelTests
             configuration.Settings.Aprs.SymbolTable);
         Assert.Equal(SymbolCode.GreaterThanSign, configuration.Settings.Aprs.SymbolCode);
         Assert.True(configuration.SaveCount >= 4);
+        Assert.Equal(4, configuration.UpdateCount);
     }
 
     [Fact]
@@ -94,6 +96,29 @@ public sealed class SettingsViewModelTests
         Assert.Equal(TileSourceType.MbTilesOffline, configuration.Settings.Map.TileSource);
         Assert.Equal("/data/map.mbtiles", configuration.Settings.Map.MbTilesFilePath);
         Assert.True(configuration.SaveCount > 0);
+    }
+
+    [Fact]
+    public async Task EditingCallsignPreservesOfflineMapSelectedAfterPageOpened()
+    {
+        var configuration = new TestConfigurationService();
+        var navigation = new TestNavigationService();
+        using var viewModel = new SettingsViewModel(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation));
+
+        await configuration.UpdateSettingsAsync(settings =>
+        {
+            settings.Map.TileSource = TileSourceType.MbTilesOffline;
+            settings.Map.MbTilesFilePath = "/data/selected.mbtiles";
+        });
+
+        viewModel.Callsign = "CT7ALW";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
+        Assert.Equal(TileSourceType.MbTilesOffline, configuration.Settings.Map.TileSource);
+        Assert.Equal("/data/selected.mbtiles", configuration.Settings.Map.MbTilesFilePath);
     }
 
     [Fact]
@@ -176,8 +201,10 @@ public sealed class SettingsViewModelTests
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
         private int _saveCount;
+        private int _updateCount;
         public AppSettings Settings { get; } = new();
         public int SaveCount => _saveCount;
+        public int UpdateCount => _updateCount;
         public Task SaveSettingsAsync()
         {
             // Auto-saves now run on the thread pool; count them atomically.
@@ -187,6 +214,8 @@ public sealed class SettingsViewModelTests
 
         public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
         {
+            Interlocked.Increment(ref _updateCount);
+            Interlocked.Increment(ref _saveCount);
             updateAction(Settings);
             return Task.CompletedTask;
         }

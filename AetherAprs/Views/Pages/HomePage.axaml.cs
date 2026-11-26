@@ -4,7 +4,6 @@
 
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
@@ -110,22 +109,6 @@ public partial class HomePage : UserControl
             viewModel.Map.CenterOnUser();
         }
 
-        // Start location tracking at runtime, not in designer
-        if (!Design.IsDesignMode)
-        {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await viewModel.StartLocationTrackingAsync();
-                }
-                catch (Exception ex)
-                {
-                    // Log error - location tracking failures shouldn't crash the UI
-                    System.Diagnostics.Debug.WriteLine($"Error starting location tracking: {ex}");
-                }
-            });
-        }
     }
 
     private void OnCenterOnPointRequested(object? sender, MPoint mapPoint)

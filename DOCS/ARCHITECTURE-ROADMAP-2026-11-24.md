@@ -365,7 +365,11 @@ Exit: the boundary scan runs locally and in CI; no new violation can enter unnot
 
 **R1.1 Create the serialized writer**
 
-Files: `AetherAprs/Data/`, new `Services/Data/`.
+Implemented in `AetherAprs/Data/SqliteRuntimeWriter.cs` and
+`SqliteRuntimeReader.cs`, with on-disk tests in `SqliteRuntimeTests.cs`.
+The queue admits up to 128 waiting commands; a full queue rejects new writes
+explicitly. A caller knows only after the writer returns whether its admitted
+command committed. The reader opens a separate read-only context per query.
 
 - Implement a single writer worker with a bounded command queue.
 - Preserve command result, exception, cancellation, and shutdown semantics.
@@ -381,11 +385,13 @@ Files: `AetherAprs/Data/`, new `Services/Data/`.
 
 Files: `PacketStorageService.cs`, `PacketQueryService.cs`, `MessageService.cs`.
 
-The packet/message boundary now uses a SQLite write transaction to serialize
-outbound creation by peer and message number. This works with the existing
-schema and lets status updates resolve legacy duplicate rows without deleting
-history. The application-wide writer, stable row ID contract, and pending
-expiry remain follow-up work.
+Packet history and the current message lifecycle use the shared runtime writer;
+retention yields between committed batches. Outbound creation still looks up
+the peer and wire message number in the existing schema. Packet insertion
+notifies subscribers after commit, with each subscriber isolated. `MessageService`
+uses the typed packet write and query interfaces. The separate outbox, durable
+logical identity, and pending expiry remain follow-up work, as does migration of
+port and beacon writes to this writer (R1.3).
 
 - Move inserts and cleanup into history commands; move delivery and retry into
   outbox commands. Notify subscribers after commit and isolate each subscriber's
@@ -649,7 +655,7 @@ report is valid or open. Historical locations and details are in the [audit].
 | Audit IDs | Review outcome and destination |
 |---|---|
 | C-01, C-02, C-03 | Duplicate starts now gated, reconnect no longer writes enablement, and per-packet file rewriting was reduced. Remaining send/lifecycle races and fan-out: R2.2 and R3.2. |
-| C-04, C-05 | One row across ordinary retries and store-before-publish improved. Need independent durable identity, expiry, cleanup, atomicity and observer isolation: R1.2/R6.2. |
+| C-04, C-05 | Atomic insertion for the current message key, store-before-publish, and post-commit observer isolation are implemented. Independent durable identity, wire-number reuse, and expiry remain: R1.2/R6.2. |
 | C-06, C-07 | Separate bounded forwarding and receive-drop counts exist. Audit silent-RX-drop wording is stale; validate forward drops and worker shutdown: R2.3. |
 | C-08, P-07/P-31 | Fail-closed default in working tree; check inline fallbacks, key-loss isolation, restored/old credentials and unsupported-host behavior: R1.3/R5.4/R6.7. |
 | C-09, C-10 | Newer-schema guard and clone omission addressed; mutation escape, recovery and backup retention remain: R3.1. |

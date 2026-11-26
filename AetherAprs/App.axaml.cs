@@ -279,8 +279,12 @@ public partial class App : Application, IDisposable
         try
         {
             var appDataDirService = ServiceProvider.GetRequiredService<IAppDataDirProviderService>();
-            var appDataDir = appDataDirService.GetAppDataDirectory();
-            var cacheDir = Path.Combine(appDataDir, "osm-tile-cache");
+            // Tile images are implementation details and must stay out of
+            // user-visible media storage, where gallery apps can index them.
+            var privateAppDataDir = appDataDirService.GetPrivateAppDataDirectory();
+            var cacheDir = Path.Combine(privateAppDataDir, "osm-tile-cache");
+            Directory.CreateDirectory(cacheDir);
+            File.WriteAllText(Path.Combine(cacheDir, ".nomedia"), string.Empty);
             OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
             _logger?.LogInformation("OSM tile cache initialized at {CacheDir}", cacheDir);
         }

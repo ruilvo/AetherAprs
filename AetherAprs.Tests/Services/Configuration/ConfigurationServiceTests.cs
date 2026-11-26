@@ -253,6 +253,87 @@ public sealed class ConfigurationServiceTests
         }
     }
 
+    [Fact]
+    public async Task UpdateSettingsAsync_SerializesConcurrentPartialUpdates()
+    {
+        using var fixture = new ConfigurationFixture();
+        var firstEntered = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var first = Task.Run(() => fixture.Service.UpdateSettingsAsync(settings =>
+        {
+            settings.Aprs.Callsign = "FIRST";
+            firstEntered.SetResult();
+            releaseFirst.Task.WaitAsync(TestTimeouts.TestTimeout, cancellationToken)
+                .GetAwaiter().GetResult();
+        }), cancellationToken);
+
+        var second = Task.CompletedTask;
+        try
+        {
+            await firstEntered.Task.WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
+            second = fixture.Service.UpdateSettingsAsync(settings => settings.Theme = ThemeMode.Dark);
+            Assert.False(second.IsCompleted);
+            Assert.Equal("N0CALL", fixture.Service.GetSettingsSnapshot().Aprs.Callsign);
+        }
+        finally
+        {
+            releaseFirst.TrySetResult();
+            await Task.WhenAll(first, second).WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
+        }
+
+        using var reloaded = fixture.Reload();
+        Assert.Equal("FIRST", reloaded.Settings.Aprs.Callsign);
+        Assert.Equal(ThemeMode.Dark, reloaded.Settings.Theme);
+    }
+
+    [Fact]
+    public async Task UpdateSettingsAsync_WhenPatchThrows_LeavesCommittedSettingsUnchanged()
+    {
+        using var fixture = new ConfigurationFixture();
+        var changes = 0;
+        fixture.Service.SettingsChanged += (_, _) => changes++;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.UpdateSettingsAsync(settings =>
+            {
+                settings.Theme = ThemeMode.Dark;
+                throw new InvalidOperationException("Patch failed.");
+            }).WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
+
+        using var reloaded = fixture.Reload();
+        Assert.Equal(ThemeMode.System, fixture.Service.Settings.Theme);
+        Assert.Equal(ThemeMode.System, reloaded.Settings.Theme);
+        Assert.Equal(0, changes);
+    }
+
+    private sealed class ConfigurationFixture : IDisposable
+    {
+        private readonly string _directory = CreateTemporaryDirectory();
+
+        public ConfigurationFixture()
+        {
+            File.WriteAllText(
+                Path.Combine(_directory, "appsettings.json"),
+                "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
+            Service = Reload();
+        }
+
+        public ConfigurationService Service { get; }
+
+        public ConfigurationService Reload() =>
+            new(new TestAppDataDirProvider(_directory), NullLogger<ConfigurationService>.Instance);
+
+        public void Dispose()
+        {
+            Service.Dispose();
+            Directory.Delete(_directory, recursive: true);
+        }
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");

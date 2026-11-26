@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 
@@ -145,7 +146,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _messageTemplatesViewModel = messageTemplatesViewModel;
         SymbolPicker = aprsSymbolPicker;
 
-        var aprs = _configurationService.Settings.Aprs;
+        var settings = _configurationService.GetSettingsSnapshot();
+        var aprs = settings.Aprs;
         Callsign = aprs.Callsign;
         Ssid = aprs.Ssid;
         SymbolTableCharacter = aprs.SymbolTable.ToChar().ToString();
@@ -168,9 +170,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         DigipeaterRespondToWide2 = aprs.DigipeaterRespondToWide2;
         DigipeaterRespondToTrace = aprs.DigipeaterRespondToTrace;
 
-        TileSource = _configurationService.Settings.Map.TileSource;
-        MbTilesFilePath = _configurationService.Settings.Map.MbTilesFilePath;
-        Theme = _configurationService.Settings.Theme;
+        TileSource = settings.Map.TileSource;
+        MbTilesFilePath = settings.Map.MbTilesFilePath;
+        Theme = settings.Theme;
 
         _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
             SymbolTableCharacter, SymbolCodeCharacter, SymbolOverlayCharacter);
@@ -224,192 +226,149 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     // Auto-save methods triggered by property changes
     partial void OnCallsignChanged(string value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.Callsign = value, nameof(Callsign));
     }
 
     partial void OnSsidChanged(AprsSsid value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.Ssid = value);
     }
 
     partial void OnSymbolTableCharacterChanged(string value)
     {
-        SaveSettings();
+        if (!string.IsNullOrEmpty(value))
+        {
+            SaveSettings(settings => settings.Aprs.SymbolTable = value[0].ToSymbolTable());
+        }
     }
 
     partial void OnSymbolCodeCharacterChanged(string value)
     {
-        SaveSettings();
+        if (!string.IsNullOrEmpty(value))
+        {
+            SaveSettings(settings => settings.Aprs.SymbolCode = value[0].ToSymbolCode());
+        }
     }
 
     partial void OnSymbolOverlayCharacterChanged(string? value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.SymbolOverlay =
+            string.IsNullOrEmpty(value) ? null : value[0].ToSymbolCode());
     }
 
     partial void OnDisplayTimeRangeChanged(Configuration.PacketDisplayTimeRange value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.DisplayTimeRange = value);
     }
 
     partial void OnCustomDisplayTimeRangeHoursChanged(int value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.CustomDisplayTimeRangeHours = value, nameof(CustomDisplayTimeRangeHours));
     }
 
     partial void OnLoadHistoryOnStartupChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.LoadHistoryOnStartup = value);
     }
 
     partial void OnPositionFormatChanged(PositionFormat value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.PositionFormat = value);
     }
 
     partial void OnTileSourceChanged(Configuration.TileSourceType value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Map.TileSource = value);
     }
 
     partial void OnMbTilesFilePathChanged(string? value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Map.MbTilesFilePath = value ?? string.Empty);
     }
 
     partial void OnThemeChanged(Configuration.ThemeMode value)
     {
         App.ApplyThemeMode(value);
-        SaveSettings();
+        SaveSettings(settings => settings.Theme = value);
     }
 
     partial void OnEnableDigipeaterChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.EnableDigipeater = value);
     }
 
     partial void OnDigipeaterInsertCallsignChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.DigipeaterInsertCallsign = value);
     }
 
     partial void OnEnableAprsIsToRfGateChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.EnableAprsIsToRfGate = value);
     }
 
     partial void OnEnableRfToAprsIsGateChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.EnableRfToAprsIsGate = value);
     }
 
     partial void OnMessageMaxRetriesChanged(int value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.MessageMaxRetries = value, nameof(MessageMaxRetries));
     }
 
     partial void OnMessageRetryTimeoutSecondsChanged(int value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.MessageRetryTimeoutSeconds = value, nameof(MessageRetryTimeoutSeconds));
     }
 
     partial void OnAutoAcknowledgeMessagesChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.AutoAcknowledgeMessages = value);
     }
 
     partial void OnBeaconCommentChanged(string? value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.BeaconComment = value, nameof(BeaconComment));
     }
 
     partial void OnDigipeaterPathChanged(string? value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.DigipeaterPath = value);
     }
 
     partial void OnDigipeaterRespondToWide1Changed(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.DigipeaterRespondToWide1 = value);
     }
 
     partial void OnDigipeaterRespondToWide2Changed(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.DigipeaterRespondToWide2 = value);
     }
 
     partial void OnDigipeaterRespondToTraceChanged(bool value)
     {
-        SaveSettings();
+        SaveSettings(settings => settings.Aprs.DigipeaterRespondToTrace = value);
     }
 
-    private void SaveSettings()
+    private void SaveSettings(Action<Configuration.Settings.AppSettings> update, string? validatedProperty = null)
     {
-        // Don't auto-save during initialization
-        if (_isInitializing)
+        if (_isInitializing || _disposed ||
+            (validatedProperty is not null && GetErrors(validatedProperty).Any()))
         {
             return;
         }
 
-        // Don't save if there are validation errors
-        if (HasErrors)
-        {
-            _logger?.LogDebug("Skipping save due to validation errors");
-            return;
-        }
+        _currentSaveTask = SaveAfterAsync(_currentSaveTask, update);
+    }
 
+    private async Task SaveAfterAsync(Task previousSave, Action<Configuration.Settings.AppSettings> update)
+    {
         try
         {
-            // Validate symbol fields aren't empty before accessing [0]
-            if (string.IsNullOrEmpty(SymbolTableCharacter) || string.IsNullOrEmpty(SymbolCodeCharacter))
-            {
-                _logger?.LogWarning("Symbol fields cannot be empty");
-                return;
-            }
-
-            _configurationService.Settings.Aprs.Callsign = Callsign;
-            _configurationService.Settings.Aprs.Ssid = Ssid;
-            _configurationService.Settings.Aprs.SymbolTable =
-                SymbolTableCharacter[0].ToSymbolTable();
-            _configurationService.Settings.Aprs.SymbolCode =
-                SymbolCodeCharacter[0].ToSymbolCode();
-            _configurationService.Settings.Aprs.SymbolOverlay =
-                SymbolOverlayCharacter?[0].ToSymbolCode();
-            _configurationService.Settings.Aprs.DisplayTimeRange = DisplayTimeRange;
-            _configurationService.Settings.Aprs.CustomDisplayTimeRangeHours = CustomDisplayTimeRangeHours;
-            _configurationService.Settings.Aprs.LoadHistoryOnStartup = LoadHistoryOnStartup;
-            _configurationService.Settings.Aprs.EnableDigipeater = EnableDigipeater;
-            _configurationService.Settings.Aprs.DigipeaterInsertCallsign = DigipeaterInsertCallsign;
-            _configurationService.Settings.Aprs.EnableAprsIsToRfGate = EnableAprsIsToRfGate;
-            _configurationService.Settings.Aprs.EnableRfToAprsIsGate = EnableRfToAprsIsGate;
-            _configurationService.Settings.Aprs.MessageMaxRetries = MessageMaxRetries;
-            _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds;
-            _configurationService.Settings.Aprs.AutoAcknowledgeMessages = AutoAcknowledgeMessages;
-            _configurationService.Settings.Aprs.BeaconComment = BeaconComment;
-            _configurationService.Settings.Aprs.PositionFormat = PositionFormat;
-            _configurationService.Settings.Aprs.DigipeaterPath = DigipeaterPath;
-            _configurationService.Settings.Aprs.DigipeaterRespondToWide1 = DigipeaterRespondToWide1;
-            _configurationService.Settings.Aprs.DigipeaterRespondToWide2 = DigipeaterRespondToWide2;
-            _configurationService.Settings.Aprs.DigipeaterRespondToTrace = DigipeaterRespondToTrace;
-
-            _configurationService.Settings.Map.TileSource = TileSource;
-            _configurationService.Settings.Map.MbTilesFilePath = MbTilesFilePath ?? string.Empty;
-            _configurationService.Settings.Theme = Theme;
-
-            // Fire-and-forget is acceptable here as we don't need to wait for save completion,
-            // but the exception must be observed and logged or it is silently lost.
-            // Tests can await _currentSaveTask to verify completion.
-            _currentSaveTask = Task.Run(async () =>
-            {
-                try
-                {
-                    await _configurationService.SaveSettingsAsync();
-                }
-                catch (Exception saveEx)
-                {
-                    _logger?.LogError(saveEx, "Error persisting settings");
-                }
-            });
+            await previousSave.ConfigureAwait(false);
+            await _configurationService.UpdateSettingsAsync(update).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

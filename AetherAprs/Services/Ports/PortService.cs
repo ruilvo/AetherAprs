@@ -374,52 +374,12 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             }
         }
 
-        var port = FindPortById(id);
-        var portName = port?.Name ?? id.ToString();
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-
         await session.Modem.SendAsync(packet).ConfigureAwait(false);
         PacketTransmitted?.Invoke(this, new PortPacketTransmittedEventArgs(id, packet));
 
         // Update foreground service state after auto-starting a stopped port.
-        bool sessionExists;
-        lock (_stateLock)
-        {
-            sessionExists = _activeSessions.ContainsKey(id);
-        }
-
-        if (port is not null && !sessionExists)
-        {
-            // Session no longer present (stopped concurrently); nothing to update.
-        }
-        else
-        {
-            await UpdateForegroundServiceAsync().ConfigureAwait(false);
-        }
-
-        if (packet is PositionPacket position)
-        {
-            _logger.LogInformation(
-                "Transmitted APRS position on port {PortName} ({PortId}): Latitude={Latitude:F5}, Longitude={Longitude:F5}, Altitude={Altitude}, Course={Course}, Speed={Speed}, Comment={Comment}, Raw={Raw}",
-                portName,
-                id,
-                position.Location.Latitude,
-                position.Location.Longitude,
-                position.Altitude,
-                position.Course,
-                position.Speed,
-                position.Comment,
-                infoField);
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Transmitted APRS packet on port {PortName} ({PortId}), Type={PacketType}, Raw={Raw}",
-                portName,
-                id,
-                packet.GetType().Name,
-                infoField);
-        }
+        await UpdateForegroundServiceAsync().ConfigureAwait(false);
+        _logger.LogDebug("Transmitted APRS packet on port {PortId}, Type={PacketType}.", id, packet.GetType().Name);
     }
 
     public async Task StartAllEnabledPortsAsync()
@@ -834,18 +794,17 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     private void RaisePacketReceived(Guid portId, AprsPacket packet)
     {
-        _logger.LogInformation(
-            "Packet received on port {PortId} from {Source}: {Raw}",
+        _logger.LogDebug(
+            "Packet received on port {PortId} from {Source}, Type={PacketType}.",
             portId,
             packet.Source,
-            packet.Raw);
+            packet.GetType().Name);
         if (packet is UnknownPacket)
         {
-            _logger.LogWarning(
-                "Unknown APRS packet on port {PortId} from {Source}: {Raw}",
+            _logger.LogDebug(
+                "Unknown APRS packet on port {PortId} from {Source}.",
                 portId,
-                packet.Source,
-                packet.Raw);
+                packet.Source);
         }
 
         // Queue for ordered sequential processing: storage → event, then a

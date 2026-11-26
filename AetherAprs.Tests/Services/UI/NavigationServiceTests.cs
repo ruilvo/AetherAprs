@@ -89,6 +89,7 @@ public sealed class NavigationServiceTests
         services.AddSingleton(portService);
         var configuration = Substitute.For<IConfigurationService>();
         configuration.Settings.Returns(new AppSettings());
+        configuration.GetSettingsSnapshot().Returns(_ => new AppSettings());
         services.AddSingleton(configuration);
         var beaconService = Substitute.For<IBeaconService>();
         var walk = AetherAprs.Models.BeaconConfig.CreateWalkPreset();

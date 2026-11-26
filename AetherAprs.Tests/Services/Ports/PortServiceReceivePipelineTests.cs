@@ -577,6 +577,13 @@ public sealed class PortServiceReceivePipelineTests
             StoredPackets.Add(new StoredPacketCall(packet, portId, isOutbound));
         }
 
+        public Task EnsureOutboundMessageAsync(MessagePacket packet, Guid? portId, int retryCount,
+            DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task UpdateOutboundMessageStatusAsync(AprsAddress addressee, int messageNumber,
+            AetherAprs.Models.Messaging.MessageDeliveryStatus deliveryStatus, int retryCount,
+            DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
