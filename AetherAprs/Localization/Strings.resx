@@ -205,6 +205,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Time" xml:space="preserve"><value>Time</value></data>
   <data name="Type" xml:space="preserve"><value>Type</value></data>
   <data name="Location" xml:space="preserve"><value>Location</value></data>
+  <data name="PermissionKindNotifications" xml:space="preserve"><value>Notifications</value></data>
+  <data name="PermissionKindBluetooth" xml:space="preserve"><value>Bluetooth</value></data>
+  <data name="PermissionKindAudio" xml:space="preserve"><value>Microphone</value></data>
+  <data name="PermissionKindBatteryOptimization" xml:space="preserve"><value>Battery optimization</value></data>
+  <data name="PermissionWarningDenied" xml:space="preserve"><value>{0} permission is denied. Features that depend on it will not work until it is allowed.</value></data>
+  <data name="PermissionWarningPermanentlyDenied" xml:space="preserve"><value>{0} permission is blocked. Allow it in the application settings to restore the features that depend on it.</value></data>
+  <data name="PermissionOpenSettingsAction" xml:space="preserve"><value>Open settings</value></data>
   <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
   <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
   <data name="Comment" xml:space="preserve"><value>Comment</value></data>

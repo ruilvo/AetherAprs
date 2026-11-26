@@ -45,11 +45,16 @@ internal static class PortStartupPermissions
     /// <param name="permissions">The platform permission adapter.</param>
     /// <param name="logger">The logger for denied permissions.</param>
     /// <param name="cancellationToken">Cancels between prompts.</param>
+    /// <param name="attention">
+    /// Collects the outcomes that still need the operator, so a page can show them
+    /// and offer the settings shortcut.
+    /// </param>
     public static async Task RequestAsync(
         IReadOnlyList<PortConfig> ports,
         IPermissionService permissions,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IPermissionAttentionReporter? attention = null)
     {
         ArgumentNullException.ThrowIfNull(ports);
         ArgumentNullException.ThrowIfNull(permissions);
@@ -64,6 +69,7 @@ internal static class PortStartupPermissions
         cancellationToken.ThrowIfCancellationRequested();
         LogOutcome(
             logger,
+            attention,
             await permissions.RequestAsync(PermissionKind.Notifications, cancellationToken).ConfigureAwait(false),
             "the foreground service may not be allowed to run");
 
@@ -72,6 +78,7 @@ internal static class PortStartupPermissions
             cancellationToken.ThrowIfCancellationRequested();
             LogOutcome(
                 logger,
+                attention,
                 await permissions.RequestAsync(PermissionKind.Bluetooth, cancellationToken).ConfigureAwait(false),
                 "Bluetooth ports cannot connect");
         }
@@ -81,13 +88,20 @@ internal static class PortStartupPermissions
             cancellationToken.ThrowIfCancellationRequested();
             LogOutcome(
                 logger,
+                attention,
                 await permissions.RequestAsync(PermissionKind.Audio, cancellationToken).ConfigureAwait(false),
                 "AFSK ports cannot transmit");
         }
     }
 
-    private static void LogOutcome(ILogger logger, PermissionRequestResult result, string consequence)
+    private static void LogOutcome(
+        ILogger logger,
+        IPermissionAttentionReporter? attention,
+        PermissionRequestResult result,
+        string consequence)
     {
+        attention?.Report(result);
+
         switch (result.Outcome)
         {
             case PermissionOutcome.Granted:

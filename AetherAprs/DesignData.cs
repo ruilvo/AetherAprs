@@ -140,6 +140,8 @@ public static class DesignData
         });
 
         // Register view models
+        services.AddSingleton<IPermissionService, NoOpPermissionService>();
+        services.AddSingleton<IPermissionAttentionReporter, PermissionAttentionService>();
         services.AddSingleton<MainViewModel>();
         services.AddTransient<MapViewModel>();
         services.AddTransient<AprsSymbolPickerViewModel>();

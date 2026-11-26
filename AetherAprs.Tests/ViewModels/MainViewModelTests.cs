@@ -156,6 +156,8 @@ public sealed class MainViewModelTests
             objectDetailsFactory,
             navigationService,
             SynchronousUiDispatcher.Instance,
+            new PermissionAttentionService(),
+            Substitute.For<IPermissionService>(),
             NullLogger<HomeViewModel>.Instance);
         var messages = new MessagesViewModel(messageService, navigation, conversationFactory,
             new BulletinsViewModel(

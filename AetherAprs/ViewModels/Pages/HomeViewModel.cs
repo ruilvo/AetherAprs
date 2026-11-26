@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Factories.ViewModels;
+using AetherAprs.Localization;
 using AetherAprs.Models;
 using AetherAprs.Services.Location;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
@@ -36,6 +38,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
     private readonly INavigationService _navigationService;
     private readonly IUiDispatcher _uiDispatcher;
+    private readonly IPermissionAttentionReporter _permissionAttention;
+    private readonly IPermissionService _permissionService;
     private readonly ILogger<HomeViewModel> _logger;
     private readonly HashSet<Guid> _initialBeaconSentPorts = [];
     private readonly SemaphoreSlim _initialBeaconLock = new(1, 1);
@@ -50,6 +54,27 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial string BeaconStatus { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a permission currently keeps part
+    /// of the application from working.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasPermissionWarning { get; set; }
+
+    /// <summary>
+    /// Gets or sets the localized explanation of what is blocked and what the
+    /// operator can do about it.
+    /// </summary>
+    [ObservableProperty]
+    public partial string PermissionWarningText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether only the application settings can
+    /// grant the blocked permission again.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool CanOpenPermissionSettings { get; set; }
 
     /// <summary>
     /// Map layers owned by the injected layer services. The Home view reads
@@ -72,6 +97,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         IObjectDetailsViewModelFactory objectDetailsFactory,
         INavigationService navigationService,
         IUiDispatcher uiDispatcher,
+        IPermissionAttentionReporter permissionAttention,
+        IPermissionService permissionService,
         ILogger<HomeViewModel> logger)
     {
         _locationTrackingService = locationTrackingService;
@@ -84,6 +111,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _objectDetailsFactory = objectDetailsFactory;
         _navigationService = navigationService;
         _uiDispatcher = uiDispatcher;
+        _permissionAttention = permissionAttention;
+        _permissionService = permissionService;
         _logger = logger;
         Map = mapViewModel;
         BaseMapLayer = _mapTileSourceService.CreateBaseMapLayer();
@@ -92,15 +121,77 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _portService.PortsChanged += OnPortsChanged;
         _locationTrackingService.LocationUpdated += OnLocationUpdated;
         _beaconTransmissionService.BeaconStatusChanged += OnBeaconStatusChanged;
+        _permissionAttention.Changed += OnPermissionAttentionChanged;
 
         // Initialize beacon status
         BeaconStatus = _beaconTransmissionService.BeaconStatus;
+        RefreshPermissionWarning();
     }
 
     private void OnBeaconStatusChanged(object? sender, string status)
     {
         // Events arrive on background threads; observable properties must update on the UI thread.
         _uiDispatcher.Post(() => BeaconStatus = status);
+    }
+
+    private void OnPermissionAttentionChanged(object? sender, EventArgs e) =>
+        _uiDispatcher.Post(RefreshPermissionWarning);
+
+    /// <summary>
+    /// Rebuilds the permission banner from the outcomes that still need the
+    /// operator. A granted or unavailable permission leaves nothing to act on, so
+    /// only denials reach the banner.
+    /// </summary>
+    private void RefreshPermissionWarning()
+    {
+        var outstanding = _permissionAttention.Outstanding;
+        if (outstanding.Count == 0)
+        {
+            HasPermissionWarning = false;
+            CanOpenPermissionSettings = false;
+            PermissionWarningText = string.Empty;
+            return;
+        }
+
+        var names = string.Join(", ", outstanding.Select(attention => PermissionName(attention.Kind)));
+        var requiresSettings = outstanding.Any(attention => attention.RequiresApplicationSettings);
+
+        HasPermissionWarning = true;
+        CanOpenPermissionSettings = requiresSettings;
+        PermissionWarningText = Strings.Format(
+            requiresSettings ? "PermissionWarningPermanentlyDenied" : "PermissionWarningDenied",
+            names);
+    }
+
+    private static string PermissionName(PermissionKind kind) => kind switch
+    {
+        PermissionKind.Notifications => Strings.Get("PermissionKindNotifications"),
+        PermissionKind.Bluetooth => Strings.Get("PermissionKindBluetooth"),
+        PermissionKind.Location => Strings.Get("Location"),
+        PermissionKind.Audio => Strings.Get("PermissionKindAudio"),
+        PermissionKind.BatteryOptimization => Strings.Get("PermissionKindBatteryOptimization"),
+        _ => kind.ToString()
+    };
+
+    [RelayCommand]
+    private async Task OpenPermissionSettingsAsync()
+    {
+        if (!CanOpenPermissionSettings)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await _permissionService.OpenApplicationSettingsAsync().ConfigureAwait(false))
+            {
+                _logger.LogWarning("The platform did not open the application settings");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Opening the application settings failed");
+        }
     }
 
     private void OnLocationUpdated(object? sender, LocationData currentLocation)
@@ -268,6 +359,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _portService.PortsChanged -= OnPortsChanged;
         _locationTrackingService.LocationUpdated -= OnLocationUpdated;
         _beaconTransmissionService.BeaconStatusChanged -= OnBeaconStatusChanged;
+        _permissionAttention.Changed -= OnPermissionAttentionChanged;
         _initialBeaconLock.Dispose();
     }
 }

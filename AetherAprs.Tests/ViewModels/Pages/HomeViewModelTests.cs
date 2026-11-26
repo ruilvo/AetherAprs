@@ -217,12 +217,71 @@ public sealed class HomeViewModelTests : TestFixtureBase
         receivedBeaconsLayer.Received(1).SetResolution(1234.5);
     }
 
+    [Fact]
+    public void PermissionWarning_WhenAPermissionIsDenied_ExplainsWhatIsBlocked()
+    {
+        var attention = new PermissionAttentionService();
+        using var viewModel = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: false, isTx: false)),
+            new TestBeaconService(),
+            permissionAttention: attention);
+
+        attention.Report(PermissionRequestResult.Denied(PermissionKind.Notifications));
+
+        Assert.True(viewModel.HasPermissionWarning);
+        Assert.False(viewModel.CanOpenPermissionSettings);
+        Assert.Contains("Notifications", viewModel.PermissionWarningText, StringComparison.Ordinal);
+        Assert.Contains("denied", viewModel.PermissionWarningText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PermissionWarning_WhenAPermissionIsBlockedInSettings_OffersTheSettingsShortcut()
+    {
+        var attention = new PermissionAttentionService();
+        var permissions = Substitute.For<IPermissionService>();
+        permissions.OpenApplicationSettingsAsync(Arg.Any<CancellationToken>()).Returns(true);
+        using var viewModel = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: false, isTx: false)),
+            new TestBeaconService(),
+            permissionAttention: attention,
+            permissionService: permissions);
+
+        attention.Report(PermissionRequestResult.PermanentlyDenied(PermissionKind.Bluetooth));
+
+        Assert.True(viewModel.HasPermissionWarning);
+        Assert.True(viewModel.CanOpenPermissionSettings);
+        Assert.Contains("Bluetooth", viewModel.PermissionWarningText, StringComparison.Ordinal);
+
+        await viewModel.OpenPermissionSettingsCommand.ExecuteAsync(null);
+
+        await permissions.Received(1).OpenApplicationSettingsAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void PermissionWarning_WhenThePermissionIsGrantedAgain_HidesTheNotice()
+    {
+        var attention = new PermissionAttentionService();
+        using var viewModel = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: false, isTx: false)),
+            new TestBeaconService(),
+            permissionAttention: attention);
+        attention.Report(PermissionRequestResult.Denied(PermissionKind.Notifications));
+
+        attention.Report(PermissionRequestResult.Granted(PermissionKind.Notifications));
+
+        Assert.False(viewModel.HasPermissionWarning);
+        Assert.False(viewModel.CanOpenPermissionSettings);
+        Assert.Empty(viewModel.PermissionWarningText);
+    }
+
     private static HomeViewModel CreateViewModel(
         TestPortService portService, 
         TestBeaconService beaconService,
         TestLocationTrackingService? locationTracking = null,
         TestConfigurationService? configuration = null,
-        IReceivedBeaconsMapLayerService? receivedBeaconsLayer = null)
+        IReceivedBeaconsMapLayerService? receivedBeaconsLayer = null,
+        IPermissionAttentionReporter? permissionAttention = null,
+        IPermissionService? permissionService = null)
     {
         var isConfigurationProvided = configuration != null;
         configuration ??= new TestConfigurationService();
@@ -271,6 +330,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             objectDetailsFactory,
             navigationService,
             SynchronousUiDispatcher.Instance,
+            permissionAttention ?? new PermissionAttentionService(),
+            permissionService ?? Substitute.For<IPermissionService>(),
             NullLogger<HomeViewModel>.Instance);
     }
 

@@ -26,6 +26,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Stretch" />
 
+        <Border Grid.Row="0"
+                Margin="12"
+                Padding="12"
+                VerticalAlignment="Top"
+                IsVisible="{Binding HasPermissionWarning}"
+                Background="{DynamicResource MaterialValidationErrorBrush}"
+                CornerRadius="8">
+            <StackPanel Spacing="8">
+                <TextBlock Text="{Binding PermissionWarningText}"
+                           TextWrapping="Wrap"
+                           Foreground="White" />
+                <Button Content="{loc:Loc PermissionOpenSettingsAction}"
+                        IsVisible="{Binding CanOpenPermissionSettings}"
+                        Command="{Binding OpenPermissionSettingsCommand}"
+                        HorizontalAlignment="Left" />
+            </StackPanel>
+        </Border>
+
         <StackPanel Grid.Row="0"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"

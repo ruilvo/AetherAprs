@@ -104,7 +104,8 @@ internal static class StartupStepFactory
             services.GetRequiredService<IPortService>().Ports,
             services.GetRequiredService<IPermissionService>(),
             services.GetRequiredService<ILoggerFactory>().CreateLogger(PortPermissionLoggerCategory),
-            cancellationToken);
+            cancellationToken,
+            services.GetService<IPermissionAttentionReporter>());
 
     private static async Task StartLocationTrackingAsync(IServiceProvider services, CancellationToken cancellationToken)
     {

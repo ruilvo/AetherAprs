@@ -205,6 +205,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Time" xml:space="preserve"><value>Hora</value></data>
   <data name="Type" xml:space="preserve"><value>Tipo</value></data>
 <data name="Location" xml:space="preserve"><value>Localização</value></data>
+  <data name="PermissionKindNotifications" xml:space="preserve"><value>Notificações</value></data>
+  <data name="PermissionKindBluetooth" xml:space="preserve"><value>Bluetooth</value></data>
+  <data name="PermissionKindAudio" xml:space="preserve"><value>Microfone</value></data>
+  <data name="PermissionKindBatteryOptimization" xml:space="preserve"><value>Otimização de bateria</value></data>
+  <data name="PermissionWarningDenied" xml:space="preserve"><value>{0}: permissão recusada. As funcionalidades que dependem dela não funcionarão até ser autorizada.</value></data>
+  <data name="PermissionWarningPermanentlyDenied" xml:space="preserve"><value>{0}: permissão bloqueada. Autorize-a nas definições da aplicação para restaurar as funcionalidades que dependem dela.</value></data>
+  <data name="PermissionOpenSettingsAction" xml:space="preserve"><value>Abrir definições</value></data>
   <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
   <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
   <data name="Comment" xml:space="preserve"><value>Comentário</value></data>

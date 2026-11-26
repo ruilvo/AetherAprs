@@ -114,6 +114,8 @@ public sealed class NavigationServiceTests
         // Register IPacketQueryService and IPacketStorageService - required by ViewModels
         services.AddSingleton(Substitute.For<IPacketQueryService>());
         services.AddSingleton(Substitute.For<IPacketStorageService>());
+        services.AddSingleton<IPermissionService>(Substitute.For<IPermissionService>());
+        services.AddSingleton<IPermissionAttentionReporter, PermissionAttentionService>();
 
         // Register services that replaced ViewModels
         services.AddSingleton(Substitute.For<ILocationTrackingService>());

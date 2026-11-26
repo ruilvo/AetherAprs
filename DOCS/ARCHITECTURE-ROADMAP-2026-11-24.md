@@ -908,9 +908,10 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Test clean install, denial, revoke, settings return, activity recreation, and slow
   user interaction.
 
-> **Status: distinct permission states, a single queued prompt, and a non-prompting
-> resume recheck implemented (2026-11-26); rationale UI and native acceptance still
-> open.**
+> **Status: distinct permission states, a single queued prompt, a non-prompting
+> resume recheck, and an operator-visible permission banner with a settings shortcut
+> implemented (2026-11-26); background-location explanation and native acceptance
+> still open.**
 > `IPermissionService` no longer answers with a `bool`. `RequestAsync(PermissionKind)`
 > returns a `PermissionRequestResult` carrying one of `Granted`, `Denied`,
 > `PermanentlyDenied` or `Unavailable`, so callers can tell "ask again" from "the
@@ -973,10 +974,31 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > `CanPromptAgain`), a platform that cannot report (`Unavailable`), and an unread
 > permission having no last-known outcome.
 >
-> Still open for this item: rationale UI and the settings action wired to an
-> operator-visible control, the background-location explanation, and the
+> The outcome is now also visible to the operator instead of living only in the log.
+> `PermissionAttentionService` keeps the permissions that need attention and raises
+> `Changed` only when that set actually changes; a granted or unavailable permission
+> clears its entry, because a warning the operator cannot act on trains people to
+> ignore warnings. `PortStartupPermissions` reports each outcome as it goes, so the
+> Bluetooth, notification and audio requests made at startup feed the same state.
+> `HomeViewModel` renders it as a banner over the map naming the affected permissions
+> and, when at least one of them is permanently denied, offers an "Open settings"
+> action that calls `IPermissionService.OpenApplicationSettingsAsync`. The banner
+> disappears on its own when a later report or a resume recheck clears the entries.
+>
+> Tests: `PermissionAttentionServiceTests` keeps a denial outstanding, marks a
+> permanent denial as needing settings, raises when a grant or an unavailable answer
+> clears the entry, stays quiet on a repeated identical report, and returns the
+> outstanding entries ordered by kind. `PortStartupPermissionsTests` proves a blocked
+> permission is reported to the reporter. `HomeViewModelTests` covers the banner text
+> for a denial, the settings shortcut appearing only for a permanent denial and
+> calling the service exactly once, and the banner hiding after the permission is
+> granted again.
+>
+> Still open for this item: the background-location explanation, and the
 > clean-install/denial/revoke/settings-return/recreation/slow-interaction acceptance
-> runs on a device.
+> runs on a device. The banner is driven by startup requests and resume rechecks, so
+> a location permission answered through the location service's own dialog does not
+> appear in it yet.
 
 **R5.2 Foreground service**
 
@@ -1463,7 +1485,7 @@ report is valid or open. Historical locations and details are in the [audit].
 >
 > Still open here: the remaining T items, and the process-wide culture that
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
-| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, one queued prompt with request-id matching replaces the per-kind completion sources, and a resumed activity re-reads every grant without prompting; rationale UI and the repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
+| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, one queued prompt with request-id matching replaces the per-kind completion sources, a resumed activity re-reads every grant without prompting, and the Home page shows a banner with a settings shortcut for permissions that need attention; a repeated on-demand prompt and the background-location explanation remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
 | P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded, owned and filtered by advertised service, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |

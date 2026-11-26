@@ -106,6 +106,26 @@ public sealed class PortStartupPermissionsTests
         await permissions.Received(1).RequestAsync(PermissionKind.Audio, Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task RequestAsync_WhenAPermissionIsBlocked_ReportsItForTheOperator()
+    {
+        var permissions = AllowAll();
+        permissions.RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(PermissionRequestResult.PermanentlyDenied(PermissionKind.Bluetooth)));
+        var attention = new PermissionAttentionService();
+
+        await PortStartupPermissions.RequestAsync(
+            [CreateKissPort(enabled: true, new BluetoothLeKissTransportSettings())],
+            permissions,
+            NullLogger.Instance,
+            TestContext.Current.CancellationToken,
+            attention);
+
+        var reported = Assert.Single(attention.Outstanding);
+        Assert.Equal(PermissionKind.Bluetooth, reported.Kind);
+        Assert.True(reported.RequiresApplicationSettings);
+    }
+
     private static IPermissionService AllowAll()
     {
         var permissions = Substitute.For<IPermissionService>();
