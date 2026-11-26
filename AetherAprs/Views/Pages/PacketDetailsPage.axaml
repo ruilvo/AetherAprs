@@ -170,7 +170,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
               <!-- Empty state -->
               <TextBlock Text="{loc:Loc NoPacketsFound}"
                          Classes="EmptyState"
-                         IsVisible="{Binding !Packets.Count}" />
+                         IsVisible="{Binding !HasPackets}" />
             </StackPanel>
           </ScrollViewer>
         </TabItem>
@@ -214,7 +214,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
               <TextBlock Text="{loc:Loc NoPositionHistory}"
                          Classes="EmptyState"
-                         IsVisible="{Binding !PositionHistory.Count}" />
+                         IsVisible="{Binding !HasPositionHistory}" />
             </StackPanel>
           </ScrollViewer>
         </TabItem>
@@ -260,7 +260,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
               <TextBlock Text="{loc:Loc NoPacketsFound}"
                          Classes="EmptyState"
-                         IsVisible="{Binding !Packets.Count}" />
+                         IsVisible="{Binding !HasPackets}" />
             </StackPanel>
           </ScrollViewer>
         </TabItem>
@@ -374,7 +374,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
               <TextBlock Text="{loc:Loc NoWeatherTelemetry}"
                          Classes="EmptyState"
-                         IsVisible="{Binding !WeatherStatusTelemetry.Count}" />
+                         IsVisible="{Binding !HasWeatherStatusTelemetry}" />
             </StackPanel>
           </ScrollViewer>
         </TabItem>

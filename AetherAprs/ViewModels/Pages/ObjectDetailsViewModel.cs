@@ -61,6 +61,8 @@ public partial class ObjectDetailsViewModel(
     [ObservableProperty]
     public partial ObservableCollection<PacketRecord> Reports { get; set; } = [];
 
+    public bool HasReports => Reports.Count > 0;
+
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
@@ -96,6 +98,7 @@ public partial class ObjectDetailsViewModel(
         }
         finally
         {
+            OnPropertyChanged(nameof(HasReports));
             IsLoading = false;
         }
     }

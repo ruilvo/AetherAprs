@@ -56,6 +56,12 @@ public partial class PacketDetailsViewModel(
     [ObservableProperty]
     public partial ObservableCollection<PacketRecord> WeatherStatusTelemetry { get; set; } = [];
 
+    public bool HasPackets => Packets.Count > 0;
+
+    public bool HasPositionHistory => PositionHistory.Count > 0;
+
+    public bool HasWeatherStatusTelemetry => WeatherStatusTelemetry.Count > 0;
+
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
@@ -140,6 +146,9 @@ public partial class PacketDetailsViewModel(
         }
         finally
         {
+            OnPropertyChanged(nameof(HasPackets));
+            OnPropertyChanged(nameof(HasPositionHistory));
+            OnPropertyChanged(nameof(HasWeatherStatusTelemetry));
             IsLoading = false;
         }
     }

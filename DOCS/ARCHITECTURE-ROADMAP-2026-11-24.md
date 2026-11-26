@@ -180,7 +180,6 @@ Acceptance:
 
 ### R4 Application/UI separation
 
-- Move conversation collections and active-conversation navigation state to ViewModels.
 - Extract map interaction controllers from page code-behind.
 - Replace stale collection converters with ViewModel `HasItems` properties.
 - Virtualize unbounded lists and add paging to details/search.

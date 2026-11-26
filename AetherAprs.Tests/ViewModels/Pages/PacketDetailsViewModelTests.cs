@@ -109,6 +109,32 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         Assert.Equal(4, vm.Packets.Count);
         Assert.Equal(2, vm.PositionHistory.Count);
         Assert.Equal(2, vm.WeatherStatusTelemetry.Count);
+        Assert.True(vm.HasPackets);
+        Assert.True(vm.HasPositionHistory);
+        Assert.True(vm.HasWeatherStatusTelemetry);
+    }
+
+    [Fact]
+    public async Task Initialize_WithoutPackets_KeepsEveryTabInItsEmptyState()
+    {
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
+
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        ICompassService compass = Substitute.For<ICompassService>();
+
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
+        Assert.False(vm.HasPackets);
+
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        Assert.Empty(vm.Packets);
+        Assert.False(vm.HasPackets);
+        Assert.False(vm.HasPositionHistory);
+        Assert.False(vm.HasWeatherStatusTelemetry);
     }
 
     [Fact]

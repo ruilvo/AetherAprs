@@ -107,7 +107,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <!-- Empty state -->
         <TextBlock Text="{loc:Loc NoPacketsFound}"
                    Classes="EmptyState"
-                   IsVisible="{Binding !Reports.Count}" />
+                   IsVisible="{Binding !HasReports}" />
       </StackPanel>
     </ScrollViewer>
   </Grid>
