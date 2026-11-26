@@ -162,7 +162,13 @@ public static class DesignData
         services.AddSingleton<BulletinsViewModel>();
         services.AddSingleton<SearchViewModel>();
 
-        var provider = services.BuildServiceProvider();
+        // The designer uses the same validation as the application so a broken
+        // registration fails while designing a page instead of on a device.
+        var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
         Localization.UiCulture.Apply(provider.GetRequiredService<IUiCultureProvider>().GetUiCulture());
         provider.GetRequiredService<AppSavedDataInitializer>().Initialize();
         return provider;

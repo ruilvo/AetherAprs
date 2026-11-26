@@ -171,6 +171,16 @@ Required design:
 6. Construct timers, event subscriptions, and background workers in `StartAsync` or
    `InitializeAsync`, not in constructors.
 
+> **Status: item 4 implemented.** The final container in `ServiceProviderFactory`
+> and the designer container in `DesignData` are both built with
+> `ValidateOnBuild` and `ValidateScopes`. A registration that cannot be resolved,
+> or a singleton that captures a scoped service, now fails at startup naming the
+> offending type instead of surfacing as a navigation or packet-handling failure
+> later. The graph validated clean across the whole test suite. Items 1–3 and 5–6
+> remain open: the throwaway provider at `ServiceProviderFactory.cs:83`, the
+> registration-order override protocol, and constructor-built timers and
+> subscriptions are unchanged.
+
 ### Persistence
 
 Use one infrastructure-owned runtime writer and one infrastructure-owned logical

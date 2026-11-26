@@ -251,8 +251,18 @@ public static class ServiceProviderFactory
         // implementations
         overrideCoreServices(services);
 
+        // Validate the whole graph on every startup: a missing or unreachable
+        // registration must fail here with the offending type instead of surfacing
+        // later as a navigation or packet-handling failure. Scope validation also
+        // catches a singleton that captures a scoped service.
+        var providerOptions = new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        };
+
         // Build the final service provider
-        _serviceProvider = services.BuildServiceProvider();
+        _serviceProvider = services.BuildServiceProvider(providerOptions);
         return _serviceProvider;
     }
 }

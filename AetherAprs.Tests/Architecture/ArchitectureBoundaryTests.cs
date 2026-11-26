@@ -256,6 +256,37 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticContainerInFeatureCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Services/Ports/PortService.cs",
+                "var provider = services.BuildServiceProvider();")
+        ]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A011", violation.RuleId);
+        Assert.Equal("BuildServiceProvider", violation.Symbol);
+    }
+
+    [Fact]
+    public void Scan_CompositionRootMayBuildTheProvider()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Factories/ServiceProviderFactory.cs",
+                "var provider = services.BuildServiceProvider(options);"),
+            Source(
+                "AetherAprs/DesignData.cs",
+                "var provider = services.BuildServiceProvider(options);")
+        ]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

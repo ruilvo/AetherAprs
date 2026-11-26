@@ -128,6 +128,16 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Factories/StartupStepFactory.cs"
     };
 
+    /// <summary>
+    /// Files permitted to build a service provider. Only the composition root owns
+    /// containers; a second container would hide registrations from validation.
+    /// </summary>
+    private static readonly HashSet<string> ContainerOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Factories/ServiceProviderFactory.cs",
+        "AetherAprs/DesignData.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -194,7 +204,13 @@ internal static class ArchitectureBoundaryScanner
             "A010",
             "Startup steps are declared once, in the composition root, so the startup order stays reviewable.",
             ["new StartupStep("],
-            StartupSequenceOwners)
+            StartupSequenceOwners),
+
+        new ArchitectureRule(
+            "A011",
+            "Only the composition root builds a service provider, so every registration is validated in one place.",
+            ["BuildServiceProvider"],
+            ContainerOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>
