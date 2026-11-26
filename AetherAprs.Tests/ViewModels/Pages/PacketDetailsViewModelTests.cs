@@ -15,6 +15,7 @@ using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels.Pages;
 using Geo;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -50,7 +51,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
 
     private static PacketDetailsViewModel CreateViewModel(
         IPacketQueryService query,
-        ILocationTrackingService locationTracking,
+        FakeLocationCoordinator locationTracking,
         ICompassService compass) =>
         new(
             query,
@@ -98,8 +99,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
                 }
             ]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -121,8 +122,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -145,8 +146,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns(CreateLocation(38.5, -9.0));
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.SetLocation(CreateLocation(38.5, -9.0));
         ICompassService compass = Substitute.For<ICompassService>();
         compass.HeadingDegrees.Returns((double?)null);
 
@@ -169,8 +170,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns(CreateLocation(38.5, -9.0));
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.SetLocation(CreateLocation(38.5, -9.0));
         ICompassService compass = Substitute.For<ICompassService>();
         compass.HeadingDegrees.Returns((double?)45.0);
 
@@ -178,7 +179,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
-        // Station is due west (270°), phone heading is 45° → needle at 225°.
+        // Station is due west (270Ãƒâ€šÃ‚Â°), phone heading is 45Ãƒâ€šÃ‚Â° ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ needle at 225Ãƒâ€šÃ‚Â°.
         Assert.Equal(225.0, vm.RelativeBearingDegrees, 1.0);
     }
 
@@ -190,8 +191,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -212,8 +213,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -223,9 +224,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         Assert.False(vm.HasDistance);
 
         // User location becomes available after load.
-        locationTracking.CurrentLocation.Returns(CreateLocation(38.5, -9.0));
-        locationTracking.LocationUpdated += Raise.Event<EventHandler<LocationData>>(
-            locationTracking, CreateLocation(38.5, -9.0));
+        locationTracking.SetLocation(CreateLocation(38.5, -9.0));
+        locationTracking.SetLocation(CreateLocation(38.5, -9.0));
 
         Assert.True(vm.HasDistance);
         Assert.NotEmpty(vm.DistanceText);
@@ -235,8 +235,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public void OnRetiredFromOverlay_StopsCompassAndUnsubscribes()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -249,8 +249,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         compass.Received(1).StopListening();
 
         // Raising events after retirement must not throw (subscriptions removed).
-        locationTracking.LocationUpdated += Raise.Event<EventHandler<LocationData>>(
-            locationTracking, CreateLocation(38.5, -9.0));
+        locationTracking.SetLocation(CreateLocation(38.5, -9.0));
         compass.HeadingUpdated += Raise.Event<EventHandler<double>>(compass, 45.0);
     }
 
@@ -272,8 +271,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(CreatePage(newestId: 100, count: 50)));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -298,8 +297,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         query.GetPacketsByCallsignPageAsync("N0CALL-1", 1, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -331,8 +330,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(CreatePage(newestId: 3, count: 3)));
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
@@ -356,8 +355,8 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(pending.Task);
 
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
-        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
         ICompassService compass = Substitute.For<ICompassService>();
 
         PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);

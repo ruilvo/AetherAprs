@@ -154,7 +154,10 @@ public sealed class ApplicationSessionControlTests
         FakeKeepAliveService? keepAlive = null) => new(
             coordinator,
             portService ?? new FakePortService(),
+            new LocationCoordinator(
             location ?? new FakeLocationTrackingService(),
+            TimeProvider.System,
+            NullLogger<LocationCoordinator>.Instance),
             keepAlive ?? new FakeKeepAliveService(),
             NullLogger<ApplicationSessionControl>.Instance);
 

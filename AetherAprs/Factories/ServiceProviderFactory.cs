@@ -234,6 +234,7 @@ public static class ServiceProviderFactory
 
         // Register location and transmission services
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
+        services.AddSingleton<ILocationCoordinator, LocationCoordinator>();
         services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
         services.AddSingleton<IBeaconTransmitQueue>(provider =>
             new FileBeaconTransmitQueue(

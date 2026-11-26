@@ -297,6 +297,49 @@ public sealed class HomeViewModelTests : TestFixtureBase
         Assert.Empty(viewModel.PermissionWarningText);
     }
 
+    [Fact]
+    public async Task StartLocationTracking_StartsOneWorkerForTheMapAndBeaconing()
+    {
+        TestLocationTrackingService tracking = new();
+        using HomeViewModel vm = CreateViewModel(new TestPortService(CreatePort(isEnabled: true, isTx: true)), new TestBeaconService(), tracking);
+
+        await vm.StartLocationTrackingAsync();
+
+        Assert.Equal(1, tracking.PermissionRequestCount);
+        Assert.Equal(1, tracking.StartCount);
+        Assert.Equal(0, tracking.StopCount);
+    }
+
+    [Fact]
+    public async Task DisablingDynamicBeaconing_KeepsTheWorkerForTheMap()
+    {
+        TestLocationTrackingService tracking = new();
+        using HomeViewModel vm = CreateViewModel(new TestPortService(CreatePort(isEnabled: true, isTx: true)), new TestBeaconService(), tracking);
+
+        await vm.StartLocationTrackingAsync();
+        vm.IsDynamicBeaconingEnabled = false;
+
+        // The beacon purpose is gone, but the map still needs fixes.
+        Assert.Equal(0, tracking.StopCount);
+
+        vm.StopLocationTracking();
+
+        Assert.Equal(1, tracking.StopCount);
+    }
+
+    [Fact]
+    public async Task StopLocationTracking_ReleasesTheWorkerOnce()
+    {
+        TestLocationTrackingService tracking = new();
+        using HomeViewModel vm = CreateViewModel(new TestPortService(CreatePort(isEnabled: true, isTx: true)), new TestBeaconService(), tracking);
+
+        await vm.StartLocationTrackingAsync();
+        vm.StopLocationTracking();
+        vm.StopLocationTracking();
+
+        Assert.Equal(1, tracking.StopCount);
+    }
+
     private static HomeViewModel CreateViewModel(
         TestPortService portService,
         TestBeaconService beaconService,
@@ -341,8 +384,13 @@ public sealed class HomeViewModelTests : TestFixtureBase
         IObjectDetailsViewModelFactory objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
         INavigationService navigationService = Substitute.For<INavigationService>();
 
-        return new HomeViewModel(
+        LocationCoordinator locationCoordinator = new(
             locationTracking,
+            TimeProvider.System,
+            NullLogger<LocationCoordinator>.Instance);
+
+        return new HomeViewModel(
+            locationCoordinator,
             beaconTransmission,
             userLocationLayer,
             receivedBeaconsLayer,
@@ -398,6 +446,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public LocationData? CurrentLocation => _currentLocation;
         public bool IsTracking => false;
         public bool IsLocationAvailable => true;
+        public int StartCount { get; private set; }
+        public int PermissionRequestCount { get; private set; }
+        public int StopCount { get; private set; }
 
 #pragma warning disable CS0067
         public event EventHandler<LocationData>? LocationUpdated;
@@ -409,9 +460,20 @@ public sealed class HomeViewModelTests : TestFixtureBase
             LocationUpdated?.Invoke(this, location);
         }
 
-        public Task StartTrackingAsync() => Task.CompletedTask;
-        public Task RequestPermissionAndStartTrackingAsync() => Task.CompletedTask;
-        public void StopTracking() { }
+        public Task StartTrackingAsync()
+        {
+            StartCount++;
+            return Task.CompletedTask;
+        }
+
+        public Task RequestPermissionAndStartTrackingAsync()
+        {
+            PermissionRequestCount++;
+            StartCount++;
+            return Task.CompletedTask;
+        }
+
+        public void StopTracking() => StopCount++;
         public void Dispose() { }
     }
 

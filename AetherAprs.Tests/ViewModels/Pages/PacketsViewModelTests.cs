@@ -638,7 +638,7 @@ public class PacketsViewModelTests : TestFixtureBase
             _packetQueryService,
             _navigationService,
             Substitute.For<IConversationViewModelFactory>(),
-            Substitute.For<ILocationTrackingService>(),
+            Substitute.For<ILocationCoordinator>(),
             Substitute.For<ICompassService>(),
             Substitute.For<ILogger<PacketDetailsViewModel>>());
 

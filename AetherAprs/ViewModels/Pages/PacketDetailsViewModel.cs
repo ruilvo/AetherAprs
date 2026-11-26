@@ -35,7 +35,7 @@ public partial class PacketDetailsViewModel(
     IPacketQueryService packetQueryService,
     INavigationService navigationService,
     IConversationViewModelFactory conversationFactory,
-    ILocationTrackingService locationTrackingService,
+    ILocationCoordinator locationCoordinator,
     ICompassService compassService,
     ILogger<PacketDetailsViewModel> logger) : ViewModelBase, IOverlayRetireable
 {
@@ -103,25 +103,42 @@ public partial class PacketDetailsViewModel(
         Callsign = callsign;
         Title = Strings.Format("PacketsFromCallsign", callsign);
 
-        locationTrackingService.LocationUpdated += OnLocationUpdated;
+        locationCoordinator.LocationChanged += OnLocationUpdated;
         compassService.HeadingUpdated += OnHeadingUpdated;
         compassService.StartListening();
+
+        // The details page needs distance and bearing while it is open, even after the
+        // home page that also uses the fix is gone.
+        _ = AcquireLocationPurposeAsync();
 
         _retired = false;
         HasMore = true;
         _ = LoadNextPageAsync();
     }
 
+    private async Task AcquireLocationPurposeAsync()
+    {
+        try
+        {
+            await locationCoordinator.AcquireAsync(LocationPurpose.Map).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Could not track location for the packet details page");
+        }
+    }
+
     /// <inheritdoc />
     public void OnRetiredFromOverlay()
     {
         _retired = true;
-        locationTrackingService.LocationUpdated -= OnLocationUpdated;
+        locationCoordinator.LocationChanged -= OnLocationUpdated;
+        locationCoordinator.Release(LocationPurpose.Map);
         compassService.HeadingUpdated -= OnHeadingUpdated;
         compassService.StopListening();
     }
 
-    private void OnLocationUpdated(object? sender, LocationData location) => UpdateDistanceAndBearing();
+    private void OnLocationUpdated(object? sender, LocationSnapshot snapshot) => UpdateDistanceAndBearing();
 
     private void OnHeadingUpdated(object? sender, double heading) => UpdateDistanceAndBearing();
 
@@ -208,7 +225,7 @@ public partial class PacketDetailsViewModel(
 
     private void UpdateDistanceAndBearing()
     {
-        LocationData? userLocation = locationTrackingService.CurrentLocation;
+        LocationData? userLocation = locationCoordinator.Current?.Location;
         PositionDataRecord? latestPosition = Packets.FirstOrDefault(p => p.Position != null)?.Position;
 
         if (userLocation is null || latestPosition is null)

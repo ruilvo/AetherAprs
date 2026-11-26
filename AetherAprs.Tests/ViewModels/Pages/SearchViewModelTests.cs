@@ -233,7 +233,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
             Substitute.For<IPacketQueryService>(),
             Substitute.For<INavigationService>(),
             Substitute.For<IConversationViewModelFactory>(),
-            Substitute.For<ILocationTrackingService>(),
+            Substitute.For<ILocationCoordinator>(),
             Substitute.For<ICompassService>(),
             NullLogger<PacketDetailsViewModel>.Instance);
 

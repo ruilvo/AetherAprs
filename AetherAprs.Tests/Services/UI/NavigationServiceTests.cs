@@ -120,6 +120,7 @@ public sealed class NavigationServiceTests
 
         // Register services that replaced ViewModels
         services.AddSingleton(Substitute.For<ILocationTrackingService>());
+        services.AddSingleton(Substitute.For<ILocationCoordinator>());
         services.AddSingleton(Substitute.For<IBeaconTransmissionService>());
         services.AddSingleton(Substitute.For<IReceivedBeaconsMapLayerService>());
         services.AddSingleton(Substitute.For<IUserLocationLayerService>());

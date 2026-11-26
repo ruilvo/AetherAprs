@@ -130,7 +130,7 @@ public sealed class MainViewModelTests
 
         // Use services instead of ViewModels
         IReceivedBeaconsMapLayerService receivedBeaconsMapLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
-        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        ILocationCoordinator locationCoordinator = Substitute.For<ILocationCoordinator>();
         IBeaconTransmissionService beaconTransmission = Substitute.For<IBeaconTransmissionService>();
         IUserLocationLayerService userLocationLayer = Substitute.For<IUserLocationLayerService>();
 
@@ -144,7 +144,7 @@ public sealed class MainViewModelTests
         mapTileSource.CreateBaseMapLayer().Returns(Substitute.For<ILayer>());
 
         HomeViewModel home = new(
-            locationTracking,
+            locationCoordinator,
             beaconTransmission,
             userLocationLayer,
             receivedBeaconsMapLayer,

@@ -29,7 +29,7 @@ namespace AetherAprs.ViewModels.Pages;
 /// </summary>
 public partial class HomeViewModel : ViewModelBase, IDisposable
 {
-    private readonly ILocationTrackingService _locationTrackingService;
+    private readonly ILocationCoordinator _locationCoordinator;
     private readonly IBeaconTransmissionService _beaconTransmissionService;
     private readonly IUserLocationLayerService _userLocationLayerService;
     private readonly IReceivedBeaconsMapLayerService _receivedBeaconsLayerService;
@@ -46,6 +46,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _initialBeaconLock = new(1, 1);
     private bool _disposed;
     private bool _hasReceivedFirstLocation;
+    private bool _isTrackingRequested;
+    private bool _beaconPurposeHeld;
 
     [ObservableProperty]
     public partial MapViewModel Map { get; set; }
@@ -87,7 +89,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public ILayer BaseMapLayer { get; }
 
     public HomeViewModel(
-        ILocationTrackingService locationTrackingService,
+        ILocationCoordinator locationCoordinator,
         IBeaconTransmissionService beaconTransmissionService,
         IUserLocationLayerService userLocationLayerService,
         IReceivedBeaconsMapLayerService receivedBeaconsLayerService,
@@ -102,7 +104,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         IPermissionService permissionService,
         ILogger<HomeViewModel> logger)
     {
-        _locationTrackingService = locationTrackingService;
+        _locationCoordinator = locationCoordinator;
         _beaconTransmissionService = beaconTransmissionService;
         _userLocationLayerService = userLocationLayerService;
         _receivedBeaconsLayerService = receivedBeaconsLayerService;
@@ -120,7 +122,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         // Subscribe to events
         _portService.PortsChanged += OnPortsChanged;
-        _locationTrackingService.LocationUpdated += OnLocationUpdated;
+        _locationCoordinator.LocationChanged += OnLocationUpdated;
         _beaconTransmissionService.BeaconStatusChanged += OnBeaconStatusChanged;
         _permissionAttention.Changed += OnPermissionAttentionChanged;
 
@@ -204,13 +206,15 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void OnLocationUpdated(object? sender, LocationData currentLocation) =>
-        // LocationTrackingService polls on a threadpool thread; marshal all map/UI
-        // mutation onto the UI thread.
+    private void OnLocationUpdated(object? sender, LocationSnapshot snapshot) =>
+        // The coordinator delivers fixes from the tracking worker's thread; marshal
+        // all map/UI mutation onto the UI thread.
         _uiDispatcher.Post(() =>
         {
             try
             {
+                LocationData currentLocation = snapshot.Location;
+
                 // Update map with new location
                 _userLocationLayerService.UpdateLocation(currentLocation);
 
@@ -254,7 +258,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private async Task ReconcileInitialBeaconsAsync()
     {
-        LocationData? location = _locationTrackingService.CurrentLocation;
+        LocationData? location = _locationCoordinator.Current?.Location;
         if (location is null)
         {
             return;
@@ -294,16 +298,61 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    public async Task StartLocationTrackingAsync() =>
+    public async Task StartLocationTrackingAsync()
+    {
         // Permission belongs to the feature: the prompt appears when the operator
-        // starts tracking, not on every launch.
-        await _locationTrackingService.RequestPermissionAndStartTrackingAsync();
+        // starts tracking, not on every launch. The coordinator keeps one worker for
+        // every page that needs fixes.
+        await _locationCoordinator.AcquireAsync(LocationPurpose.Map, requestPermission: true);
+        _isTrackingRequested = true;
+        await UpdateBeaconPurposeAsync();
+    }
 
     [RelayCommand]
-    public void StopLocationTracking() => _locationTrackingService.StopTracking();
+    public void StopLocationTracking()
+    {
+        _isTrackingRequested = false;
+        _beaconPurposeHeld = false;
+        _locationCoordinator.Release(LocationPurpose.Beacon);
+        _locationCoordinator.Release(LocationPurpose.Map);
+    }
+
+    partial void OnIsDynamicBeaconingEnabledChanged(bool value) => _ = UpdateBeaconPurposeAsync();
+
+    /// <summary>
+    /// Holds the beacon purpose only while tracking is requested and dynamic
+    /// beaconing is enabled, so disabling beaconing lets the worker stop when the map
+    /// no longer needs it.
+    /// </summary>
+    private async Task UpdateBeaconPurposeAsync()
+    {
+        bool shouldHold = _isTrackingRequested && IsDynamicBeaconingEnabled;
+        if (shouldHold == _beaconPurposeHeld)
+        {
+            return;
+        }
+
+        if (shouldHold)
+        {
+            try
+            {
+                await _locationCoordinator.AcquireAsync(LocationPurpose.Beacon);
+                _beaconPurposeHeld = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not start location tracking for beaconing");
+            }
+
+            return;
+        }
+
+        _beaconPurposeHeld = false;
+        _locationCoordinator.Release(LocationPurpose.Beacon);
+    }
 
     [RelayCommand]
-    public async Task SendManualBeaconAsync() => await _beaconTransmissionService.SendManualBeaconAsync(_locationTrackingService.CurrentLocation);
+    public async Task SendManualBeaconAsync() => await _beaconTransmissionService.SendManualBeaconAsync(_locationCoordinator.Current?.Location);
 
     /// <summary>
     /// Forwards viewport resolution changes to the beacons layer service so it can
@@ -351,8 +400,12 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         _disposed = true;
 
+        // Leaving the page releases only the purposes this page holds; another page
+        // may still need the worker.
+        StopLocationTracking();
+
         _portService.PortsChanged -= OnPortsChanged;
-        _locationTrackingService.LocationUpdated -= OnLocationUpdated;
+        _locationCoordinator.LocationChanged -= OnLocationUpdated;
         _beaconTransmissionService.BeaconStatusChanged -= OnBeaconStatusChanged;
         _permissionAttention.Changed -= OnPermissionAttentionChanged;
         _initialBeaconLock.Dispose();

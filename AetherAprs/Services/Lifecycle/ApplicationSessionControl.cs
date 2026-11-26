@@ -68,7 +68,7 @@ public sealed class ApplicationSessionControl : IApplicationSessionControl, IDis
 {
     private readonly SessionCoordinator _coordinator;
     private readonly IPortService _portService;
-    private readonly ILocationTrackingService _locationTrackingService;
+    private readonly ILocationCoordinator _locationCoordinator;
     private readonly IKeepAliveService _keepAliveService;
     private readonly ILogger<ApplicationSessionControl> _logger;
     private readonly SemaphoreSlim _stopGate = new(1, 1);
@@ -79,25 +79,25 @@ public sealed class ApplicationSessionControl : IApplicationSessionControl, IDis
     /// </summary>
     /// <param name="coordinator">The session supervisor that owns the intent.</param>
     /// <param name="portService">The compatibility façade over running sessions.</param>
-    /// <param name="locationTrackingService">The location worker.</param>
+    /// <param name="locationCoordinator">The owner of the location worker and its purposes.</param>
     /// <param name="keepAliveService">The serialized foreground-service hold.</param>
     /// <param name="logger">The logger for stop failures.</param>
     public ApplicationSessionControl(
         SessionCoordinator coordinator,
         IPortService portService,
-        ILocationTrackingService locationTrackingService,
+        ILocationCoordinator locationCoordinator,
         IKeepAliveService keepAliveService,
         ILogger<ApplicationSessionControl> logger)
     {
         ArgumentNullException.ThrowIfNull(coordinator);
         ArgumentNullException.ThrowIfNull(portService);
-        ArgumentNullException.ThrowIfNull(locationTrackingService);
+        ArgumentNullException.ThrowIfNull(locationCoordinator);
         ArgumentNullException.ThrowIfNull(keepAliveService);
         ArgumentNullException.ThrowIfNull(logger);
 
         _coordinator = coordinator;
         _portService = portService;
-        _locationTrackingService = locationTrackingService;
+        _locationCoordinator = locationCoordinator;
         _keepAliveService = keepAliveService;
         _logger = logger;
     }
@@ -125,12 +125,13 @@ public sealed class ApplicationSessionControl : IApplicationSessionControl, IDis
             await RunStepAsync("ports", _portService.StopAllPortsAsync, failures).ConfigureAwait(false);
 
             // Location tracking is the other long-lived worker that holds the
-            // foreground service.
+            // foreground service. The session stop ends every purpose, not just the
+            // page that is visible.
             await RunStepAsync(
                 "location",
                 () =>
                 {
-                    _locationTrackingService.StopTracking();
+                    _locationCoordinator.StopAll();
                     return Task.CompletedTask;
                 },
                 failures).ConfigureAwait(false);

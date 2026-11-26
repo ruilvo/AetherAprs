@@ -120,7 +120,9 @@ public static class DesignData
         services.AddSingleton<IOfflineTilePackageDownloader, OfflineTilePackageDownloader>();
 
         // Register location and transmission services
+        services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
+        services.AddSingleton<ILocationCoordinator, LocationCoordinator>();
         services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
 
         // Register factories
