@@ -71,6 +71,7 @@ public static class DesignData
 
         // Design-time UI dispatcher runs actions synchronously (no Avalonia UI thread in designer)
         services.AddSingleton<IUiDispatcher>(AvaloniaUiDispatcher.Instance);
+        services.AddSingleton<IThemeService>(AvaloniaThemeService.Instance);
         services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
         services.AddSingleton<ICompassService, DesignTimeCompassService>();

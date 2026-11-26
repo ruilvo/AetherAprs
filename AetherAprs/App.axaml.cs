@@ -22,7 +22,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data;
-using Avalonia.Styling;
 
 namespace AetherAprs;
 
@@ -208,28 +207,7 @@ public partial class App : Application, IDisposable
     private void ApplyRequestedThemeVariant()
     {
         ThemeMode themeMode = ServiceProvider.GetRequiredService<IConfigurationService>().Current.Theme;
-        ApplyThemeMode(themeMode);
-    }
-
-    /// <summary>
-    /// Sets the application's requested theme variant for the given mode. The
-    /// MaterialTheme (BaseTheme="Inherit") reacts to the resulting actual theme
-    /// variant and re-applies its light/dark palette. Also used by the Settings
-    /// page when the user changes the theme.
-    /// </summary>
-    public static void ApplyThemeMode(ThemeMode mode)
-    {
-        if (Current is null)
-        {
-            return;
-        }
-
-        Current.RequestedThemeVariant = mode switch
-        {
-            ThemeMode.Light => ThemeVariant.Light,
-            ThemeMode.Dark => ThemeVariant.Dark,
-            _ => ThemeVariant.Default
-        };
+        ServiceProvider.GetRequiredService<IThemeService>().Apply(themeMode);
     }
 
     private void OnAppDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e)

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
@@ -184,11 +185,35 @@ public sealed class SettingsViewModelTests
         Assert.Equal(typeof(MessageTemplatesViewModel), navigation.LastNavigatedType);
     }
 
+    [Fact]
+    public async Task ChangingTheme_AppliesThemeAndPersistsTheChoice()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        RecordingThemeService themeService = new();
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation), themeService);
+
+        viewModel.Theme = ThemeMode.Dark;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ThemeMode.Dark, Assert.Single(themeService.Applied));
+        Assert.Equal(ThemeMode.Dark, configuration.Current.Theme);
+    }
+
     private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation) => new(
             Substitute.For<IMessageTemplateService>(),
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
+
+    private sealed class RecordingThemeService : IThemeService
+    {
+        public List<ThemeMode> Applied { get; } = [];
+
+        public void Apply(ThemeMode mode) => Applied.Add(mode);
+    }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
     {

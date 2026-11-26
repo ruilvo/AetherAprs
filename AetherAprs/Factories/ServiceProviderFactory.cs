@@ -168,6 +168,7 @@ public static class ServiceProviderFactory
 
         // Register UI thread dispatcher (marshals work onto the Avalonia UI thread)
         services.AddSingleton<IUiDispatcher>(AvaloniaUiDispatcher.Instance);
+        services.AddSingleton<IThemeService>(AvaloniaThemeService.Instance);
 
         // Register confirmation dialog service (shows dialogs through the main DialogHost)
         services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();

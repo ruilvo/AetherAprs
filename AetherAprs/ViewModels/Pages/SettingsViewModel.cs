@@ -34,6 +34,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly IConfigurationService _configurationService;
     private readonly INavigationService _navigationService;
     private readonly MessageTemplatesViewModel _messageTemplatesViewModel;
+    private readonly IThemeService? _themeService;
     private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
     private readonly bool _isInitializing = true;
@@ -145,11 +146,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         INavigationService navigationService,
         AprsSymbolPickerViewModel aprsSymbolPicker,
         MessageTemplatesViewModel messageTemplatesViewModel,
+        IThemeService? themeService = null,
         ILogger<SettingsViewModel>? logger = null)
     {
         _configurationService = configurationService;
         _navigationService = navigationService;
         _logger = logger;
+        _themeService = themeService;
         _messageTemplatesViewModel = messageTemplatesViewModel;
         SymbolPicker = aprsSymbolPicker;
 
@@ -300,7 +303,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnThemeChanged(Configuration.ThemeMode value)
     {
-        App.ApplyThemeMode(value);
+        // Apply immediately so the palette follows the operator's choice while the
+        // save is still in flight; the persisted value is the source of truth on restart.
+        _themeService?.Apply(value);
         SaveSettings(settings => settings with { Theme = value });
     }
 
