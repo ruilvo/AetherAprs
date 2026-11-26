@@ -185,6 +185,8 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
                 PermissionKind.Location =>
                     IsGranted(activity, global::Android.Manifest.Permission.AccessFineLocation) ||
                     IsGranted(activity, global::Android.Manifest.Permission.AccessCoarseLocation),
+                PermissionKind.BackgroundLocation =>
+                    IsGranted(activity, global::Android.Manifest.Permission.AccessBackgroundLocation),
                 PermissionKind.Audio => IsGranted(activity, global::Android.Manifest.Permission.RecordAudio),
                 _ => false
             };
@@ -240,9 +242,18 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
         PermissionKind.Notifications => activity.RequestNotificationPermissionAsync(),
         PermissionKind.Bluetooth => activity.RequestBluetoothPermissionAsync(),
         PermissionKind.Location => RequestLocationAsync(activity),
+        PermissionKind.BackgroundLocation => RequestBackgroundLocationAsync(activity),
         PermissionKind.Audio => activity.RequestAudioPermissionAsync(),
         _ => Task.FromResult(PermissionPromptResult.Abandoned),
     };
+
+    private static async Task<PermissionPromptResult> RequestBackgroundLocationAsync(MainActivity activity)
+    {
+        // Background location keeps its own request code: the system answers it
+        // through a settings page on Android 11 and later, outside our queue.
+        var granted = await activity.RequestBackgroundLocationPermissionAsync().ConfigureAwait(false);
+        return granted ? PermissionPromptResult.Granted : PermissionPromptResult.Denied;
+    }
 
     private static async Task<PermissionPromptResult> RequestLocationAsync(MainActivity activity)
     {

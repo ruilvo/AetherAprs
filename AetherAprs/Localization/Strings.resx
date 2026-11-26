@@ -209,6 +209,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PermissionKindBluetooth" xml:space="preserve"><value>Bluetooth</value></data>
   <data name="PermissionKindAudio" xml:space="preserve"><value>Microphone</value></data>
   <data name="PermissionKindBatteryOptimization" xml:space="preserve"><value>Battery optimization</value></data>
+  <data name="PermissionKindBackgroundLocation" xml:space="preserve"><value>Background location</value></data>
+  <data name="PermissionWarningBackgroundLocation" xml:space="preserve"><value>{0}: background tracking is limited. Tracking continues while the application is open; allow "all the time" location in the application settings to keep tracking with the screen off.</value></data>
   <data name="PermissionWarningDenied" xml:space="preserve"><value>{0} permission is denied. Features that depend on it will not work until it is allowed.</value></data>
   <data name="PermissionWarningPermanentlyDenied" xml:space="preserve"><value>{0} permission is blocked. Allow it in the application settings to restore the features that depend on it.</value></data>
   <data name="PermissionOpenSettingsAction" xml:space="preserve"><value>Open settings</value></data>

@@ -258,6 +258,29 @@ public sealed class HomeViewModelTests : TestFixtureBase
     }
 
     [Fact]
+    public void PermissionWarning_WhenBackgroundTrackingIsRefused_ExplainsTheLimitAndOffersSettings()
+    {
+        var attention = new PermissionAttentionService();
+        using var viewModel = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: false, isTx: false)),
+            new TestBeaconService(),
+            permissionAttention: attention);
+
+        // A plain denial: background location is only reachable from the settings
+        // screen, so the shortcut must be offered even without a "permanent" answer.
+        attention.Report(PermissionRequestResult.Denied(PermissionKind.BackgroundLocation));
+
+        Assert.True(viewModel.HasPermissionWarning);
+        Assert.True(viewModel.CanOpenPermissionSettings);
+        Assert.Contains("Background location", viewModel.PermissionWarningText, StringComparison.Ordinal);
+        Assert.Contains(
+            "Tracking continues while the application is open",
+            viewModel.PermissionWarningText,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("denied", viewModel.PermissionWarningText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void PermissionWarning_WhenThePermissionIsGrantedAgain_HidesTheNotice()
     {
         var attention = new PermissionAttentionService();

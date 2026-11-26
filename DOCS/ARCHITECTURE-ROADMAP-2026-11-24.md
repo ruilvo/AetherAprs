@@ -909,8 +909,8 @@ Exit: application services can run in a plain test host with no Avalonia applica
   user interaction.
 
 > **Status: distinct permission states, a single queued prompt, a non-prompting
-> resume recheck, and an operator-visible permission banner with a settings shortcut
-> implemented (2026-11-26); background-location explanation and native acceptance
+> resume recheck, an operator-visible permission banner with a settings shortcut, and
+> the background-location explanation implemented (2026-11-26); native acceptance
 > still open.**
 > `IPermissionService` no longer answers with a `bool`. `RequestAsync(PermissionKind)`
 > returns a `PermissionRequestResult` carrying one of `Granted`, `Denied`,
@@ -994,7 +994,22 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > calling the service exactly once, and the banner hiding after the permission is
 > granted again.
 >
-> Still open for this item: the background-location explanation, and the
+> Background location is explained rather than merely requested. It is a permission
+> with a different shape from the others: on Android 11 and later only the settings
+> screen can grant it, and refusing it does not stop tracking while the application
+> is open. `PermissionKind.BackgroundLocation` therefore reads and reports through
+> the same service and banner, and the initial burst reports its outcome to
+> `IPermissionAttentionReporter`. The banner gives it its own sentence - tracking
+> continues while the application is open, and "all the time" access in the settings
+> keeps it with the screen off - and always offers the settings shortcut, because no
+> dialog can change it. Nothing promises continuous tracking, and a refusal leaves
+> the foreground session fully usable.
+>
+> Tests: `HomeViewModelTests` refuses background tracking with a plain denial and
+> asserts the dedicated sentence, the settings shortcut being offered anyway, and the
+> generic "denied" wording being absent.
+>
+> Still open for this item: the
 > clean-install/denial/revoke/settings-return/recreation/slow-interaction acceptance
 > runs on a device. The banner is driven by startup requests and resume rechecks, so
 > a location permission answered through the location service's own dialog does not
@@ -1503,7 +1518,7 @@ report is valid or open. Historical locations and details are in the [audit].
 >
 > Still open here: the remaining T items, and the process-wide culture that
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
-| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, one queued prompt with request-id matching replaces the per-kind completion sources, a resumed activity re-reads every grant without prompting, and the Home page shows a banner with a settings shortcut for permissions that need attention; a repeated on-demand prompt and the background-location explanation remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
+| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, one queued prompt with request-id matching replaces the per-kind completion sources, a resumed activity re-reads every grant without prompting, and the Home page shows a banner with a settings shortcut for permissions that need attention, including a dedicated background-location explanation; a repeated on-demand prompt remains. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start rolls back its hold and releases the lease. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
 | P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded, owned and filtered by advertised service, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |

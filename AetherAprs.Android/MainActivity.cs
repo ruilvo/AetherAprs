@@ -437,6 +437,7 @@ public class MainActivity : AvaloniaMainActivity
             // Request background location (non-fatal when denied; Android 11+
             // routes this to the app settings page)
             var backgroundLocationGranted = await RequestBackgroundLocationPermissionAsync();
+            ReportBackgroundLocation(backgroundLocationGranted);
 
             // One bounded summary instead of a line per step: the individual
             // methods already report their own status at debug level.
@@ -529,6 +530,34 @@ public class MainActivity : AvaloniaMainActivity
             _logger.LogWarning(ex, "Requesting the location permissions failed");
             OnPermissionResult -= OnPermissionResultHandler;
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Tells the permission banner whether background tracking is limited. A refusal
+    /// is reported as permanent because only the application settings can grant it.
+    /// </summary>
+    private static void ReportBackgroundLocation(bool granted)
+    {
+        try
+        {
+            if (Avalonia.Application.Current is not AetherAprs.App app)
+            {
+                return;
+            }
+
+            if (app.ServiceProvider.GetService<IPermissionAttentionReporter>() is not { } reporter)
+            {
+                return;
+            }
+
+            reporter.Report(granted
+                ? PermissionRequestResult.Granted(PermissionKind.BackgroundLocation)
+                : PermissionRequestResult.PermanentlyDenied(PermissionKind.BackgroundLocation));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Reporting the background location outcome failed");
         }
     }
 

@@ -155,11 +155,21 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         var names = string.Join(", ", outstanding.Select(attention => PermissionName(attention.Kind)));
         var requiresSettings = outstanding.Any(attention => attention.RequiresApplicationSettings);
+        var limitsBackgroundTracking = outstanding.Any(attention =>
+            attention.Kind == PermissionKind.BackgroundLocation);
 
         HasPermissionWarning = true;
-        CanOpenPermissionSettings = requiresSettings;
+
+        // Background location can only be changed in the application settings, and a
+        // refusal limits tracking rather than breaking it, so it gets its own wording
+        // instead of the generic denial sentence.
+        CanOpenPermissionSettings = requiresSettings || limitsBackgroundTracking;
         PermissionWarningText = Strings.Format(
-            requiresSettings ? "PermissionWarningPermanentlyDenied" : "PermissionWarningDenied",
+            limitsBackgroundTracking
+                ? "PermissionWarningBackgroundLocation"
+                : requiresSettings
+                    ? "PermissionWarningPermanentlyDenied"
+                    : "PermissionWarningDenied",
             names);
     }
 
@@ -168,6 +178,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         PermissionKind.Notifications => Strings.Get("PermissionKindNotifications"),
         PermissionKind.Bluetooth => Strings.Get("PermissionKindBluetooth"),
         PermissionKind.Location => Strings.Get("Location"),
+        PermissionKind.BackgroundLocation => Strings.Get("PermissionKindBackgroundLocation"),
         PermissionKind.Audio => Strings.Get("PermissionKindAudio"),
         PermissionKind.BatteryOptimization => Strings.Get("PermissionKindBatteryOptimization"),
         _ => kind.ToString()

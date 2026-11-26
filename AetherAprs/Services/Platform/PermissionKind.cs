@@ -18,6 +18,13 @@ public enum PermissionKind
     /// <summary>Permission to read the device location.</summary>
     Location,
 
+    /// <summary>
+    /// Permission to keep receiving location updates while the application is not in
+    /// the foreground. On Android 11 and later only the application settings can grant
+    /// it, so a refusal is a settings problem rather than something to re-ask.
+    /// </summary>
+    BackgroundLocation,
+
     /// <summary>Permission to record audio for AFSK decoding and transmission.</summary>
     Audio,
 
