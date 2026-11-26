@@ -80,67 +80,67 @@ SPDX-License-Identifier: GPL-3.0-or-later
              MinHeight="48" />
 
     <!-- Content -->
-    <ScrollViewer Grid.Row="3" Classes="PageContent" x:Name="PacketsScroll">
-      <StackPanel Classes="PageContainer">
-        <!-- Loading indicator -->
-        <ProgressBar IsIndeterminate="True"
-                     IsVisible="{Binding IsLoading}"
-                     Margin="0,8" />
+    <Grid Grid.Row="3" Margin="0,0,0,80">
+      <!-- Loading indicator -->
+      <ProgressBar IsIndeterminate="True"
+                   IsVisible="{Binding IsLoading}"
+                   Margin="16,8"
+                   VerticalAlignment="Top" />
 
-        <!-- Packet cards -->
-        <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Spacing="8" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:PacketSummary">
-              <controls:Card Classes="ClickableCard">
-                <Button Command="{Binding $parent[UserControl].((vm:PacketsViewModel)DataContext).OpenPacketDetailsCommand}"
-                        CommandParameter="{Binding}">
-                  <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
-                    <!-- Callsign / object name -->
-                    <TextBlock Grid.Row="0" Grid.Column="0"
-                               Text="{Binding Source}"
-                               Classes="Subtitle1"
-                               FontWeight="Bold" />
+      <!-- Packet cards: a ListBox virtualizes its items, so the page only
+           realizes the cards that are on screen. -->
+      <ListBox x:Name="PacketsList"
+               Classes="PacketCardList"
+               ItemsSource="{Binding Packets}"
+               ScrollViewer.ScrollChanged="OnPacketsScrollChanged">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:PacketSummary">
+            <controls:Card Classes="ClickableCard">
+              <Button Command="{Binding $parent[UserControl].((vm:PacketsViewModel)DataContext).OpenPacketDetailsCommand}"
+                      CommandParameter="{Binding}">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                  <!-- Callsign / object name -->
+                  <TextBlock Grid.Row="0" Grid.Column="0"
+                             Text="{Binding Source}"
+                             Classes="Subtitle1"
+                             FontWeight="Bold" />
 
-                    <!-- Packet type badge -->
-                    <Border Grid.Row="0" Grid.Column="1" Classes="TypeBadge">
-                      <TextBlock Text="{Binding PacketType}" />
-                    </Border>
+                  <!-- Packet type badge -->
+                  <Border Grid.Row="0" Grid.Column="1" Classes="TypeBadge">
+                    <TextBlock Text="{Binding PacketType}" />
+                  </Border>
 
-                    <!-- Preview -->
-                    <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                               Text="{Binding Preview}"
-                               Classes="Body2"
-                               TextWrapping="Wrap"
-                               Margin="0,4,0,0"
-                               Opacity="0.7" />
+                  <!-- Preview -->
+                  <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                             Text="{Binding Preview}"
+                             Classes="Body2"
+                             TextWrapping="Wrap"
+                             Margin="0,4,0,0"
+                             Opacity="0.7" />
 
-                    <!-- Timestamp -->
-                    <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-                               Text="{Binding ReceivedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
-                               Classes="Caption"
-                               Margin="0,4,0,0"
-                               Opacity="0.5" />
-                  </Grid>
-                </Button>
-              </controls:Card>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                  <!-- Timestamp -->
+                  <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                             Text="{Binding ReceivedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}"
+                             Classes="Caption"
+                             Margin="0,4,0,0"
+                             Opacity="0.5" />
+                </Grid>
+              </Button>
+            </controls:Card>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
 
-        <!-- Empty states -->
-        <TextBlock Text="{loc:Loc NoPacketsReceivedYet}"
-                   Classes="EmptyState"
-                   IsVisible="{Binding !HasAnyPackets}" />
-        <TextBlock Text="{loc:Loc NoPacketsFound}"
-                   Classes="EmptyState"
-                   IsVisible="{Binding HasNoVisiblePackets}" />
-      </StackPanel>
-    </ScrollViewer>
+      <!-- Empty states -->
+      <TextBlock Text="{loc:Loc NoPacketsReceivedYet}"
+                 Classes="EmptyState"
+                 VerticalAlignment="Top"
+                 IsVisible="{Binding !HasAnyPackets}" />
+      <TextBlock Text="{loc:Loc NoPacketsFound}"
+                 Classes="EmptyState"
+                 VerticalAlignment="Top"
+                 IsVisible="{Binding HasNoVisiblePackets}" />
+    </Grid>
   </Grid>
 
 </UserControl>

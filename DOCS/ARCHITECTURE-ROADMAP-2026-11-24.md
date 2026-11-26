@@ -224,18 +224,6 @@ authoring expansion, historical telemetry graphs/alerts, export/import/backup, c
 sync, extra distributions, USB serial, and additional radio accessories. Preserve
 existing functionality unless a documented safety decision changes it.
 
-### R6.9 Small fixes that can ship independently
-
-Pick these by behaviour, not by audit severity. Reproduce the symptom on the current
-branch first; if it no longer reproduces, record the test or source reason and close
-the item without refactoring unrelated code.
-
-| Work | Change and regression |
-|---|---|
-| Map lifetime and cache | Keep private runtime map tiles apart from explicit offline downloads, dispose page-owned layers once and stop subscriptions on detach; retain shared provider ownership at application lifetime. Attach/detach/reopen and show that old callbacks do not update a disposed layer. |
-| Map lifetime and cache | Keep private runtime map tiles apart from explicit offline downloads, dispose page-owned layers once and stop subscriptions on detach; retain shared provider ownership at application lifetime. Attach/detach/reopen and show that old callbacks do not update a disposed layer. |
-| Display and binding | Virtualize long packet collections without nesting a scrolling container that defeats virtualization; correct localized fallback actions. Verify the actual large-list and dialog paths before deleting shared styles. |
-
 ### R7 Build and distribution maintenance
 
 1. Use one pinned build-tools version for build and APK verification; emit one

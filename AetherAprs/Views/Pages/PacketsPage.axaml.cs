@@ -14,17 +14,21 @@ public partial class PacketsPage : UserControl
     public PacketsPage()
     {
         InitializeComponent();
-        PacketsScroll.ScrollChanged += OnScrollChanged;
     }
 
-    private void OnScrollChanged(object? sender, ScrollChangedEventArgs e)
+    private void OnPacketsScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         if (DataContext is not PacketsViewModel viewModel || !viewModel.HasMore)
         {
             return;
         }
 
-        ScrollViewer scrollViewer = PacketsScroll;
+        // The ListBox owns its scroll viewer; the attached event reports it as the source.
+        if (e.Source is not ScrollViewer scrollViewer)
+        {
+            return;
+        }
+
         double distanceToBottom = scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y;
         if (distanceToBottom <= LoadMoreThreshold)
         {

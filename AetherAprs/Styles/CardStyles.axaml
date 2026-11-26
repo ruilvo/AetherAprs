@@ -32,6 +32,27 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <Setter Property="Spacing" Value="8" />
   </Style>
 
+  <!-- Virtualized card list: the container must not add its own chrome or
+       selection visuals so each item looks like the plain card it wraps. -->
+  <Style Selector="ListBox.PacketCardList">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="16,0" />
+  </Style>
+
+  <Style Selector="ListBox.PacketCardList > ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+
+  <!-- The cards act as buttons; the list container must not paint a selected
+       or hover background over them. -->
+  <Style Selector="ListBox.PacketCardList > ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
   <!-- Badge style for type indicators -->
   <Style Selector="Border.TypeBadge">
     <Setter Property="Background" Value="{DynamicResource MaterialPrimaryLightBrush}" />
