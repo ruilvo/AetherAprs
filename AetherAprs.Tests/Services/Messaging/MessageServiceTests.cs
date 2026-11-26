@@ -221,6 +221,32 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
+    public void PacketReceived_ReportsTheMessageWithoutItsText()
+    {
+        FakePortService portService = new();
+        RecordingLogger<MessageService> logger = new();
+        _ = CreateMessageService(portService, logger: logger);
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = new Callsign("K0PEER", 1),
+                Destination = new Callsign("APRS"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
+                Text = "PRIVATE-BODY-4321"
+            }
+        });
+
+        Assert.Contains(logger.Entries, entry =>
+            entry.Message.Contains("K0PEER-1", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, entry =>
+            entry.Message.Contains("PRIVATE-BODY-4321", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Entries, entry =>
+            entry.Exception?.ToString().Contains("PRIVATE-BODY-4321", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
     public async Task PacketReceived_NotViewingConversation_PostsNotification()
     {
         FakePortService portService = new();
@@ -896,7 +922,8 @@ public sealed class MessageServiceTests
         FakePortService portService,
         IDbContextFactory<AppDbContext>? dbContextFactory = null,
         IPacketStorageService? packetStorageService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ILogger<MessageService>? logger = null)
     {
         IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
@@ -916,7 +943,7 @@ public sealed class MessageServiceTests
             configuration,
             resolver,
             new TestPacketFactory(),
-            NullLogger<MessageService>.Instance,
+            logger ?? NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance,
             dbContextFactory is null
                 ? null

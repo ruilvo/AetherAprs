@@ -384,10 +384,9 @@ internal static class PacketRecordMapper
         {
             logger?.LogWarning(
                 ex,
-                "Failed to convert PacketRecord to AprsPacket: source {Source}, type {Type}, rawInfo {RawInfo}",
+                "Failed to convert PacketRecord to AprsPacket: source {Source}, type {Type}",
                 $"{record.SourceBase}-{record.SourceSsid}",
-                record.PacketType,
-                record.RawInfo
+                record.PacketType
             );
             return null;
         }

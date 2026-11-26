@@ -97,8 +97,7 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
 
         _layer.DataHasChanged();
 
-        _logger.LogDebug("User location updated on map: {Lat}, {Lon}, Bearing: {Bearing}",
-            location.Location.Latitude, location.Location.Longitude, location.Bearing);
+        _logger.LogDebug("User location updated on map.");
     }
 
     private static GeometryFeature CreateDirectionArrow(MPoint center, double bearingDegrees)

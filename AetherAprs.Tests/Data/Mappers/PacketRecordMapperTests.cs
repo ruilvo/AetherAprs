@@ -7,6 +7,7 @@ using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Tests.Helpers;
 using Geo;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -193,18 +194,16 @@ public sealed class PacketRecordMapperTests
     {
         PacketRecord record = CreateRecord("Status");
         record.SourceBase = "BAD!";
+        record.RawInfo = "PRIVATE-PAYLOAD-9876";
         record.Status = new StatusDataRecord { Text = "x" };
-        ILogger logger = Substitute.For<ILogger>();
+        RecordingLogger<PacketRecordMapperTests> logger = new();
 
         AprsPacket? packet = PacketRecordMapper.MapToPacket(record, logger);
 
         Assert.Null(packet);
-        logger.Received().Log(
-            LogLevel.Warning,
-            Arg.Any<EventId>(),
-            Arg.Any<object>(),
-            Arg.Any<Exception>(),
-            Arg.Any<Func<object, Exception?, string>>());
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.DoesNotContain(logger.Entries, entry =>
+            entry.Message.Contains("PRIVATE-PAYLOAD-9876", StringComparison.Ordinal));
     }
 
     [Fact]

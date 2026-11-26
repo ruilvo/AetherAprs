@@ -384,10 +384,10 @@ public sealed class MessageService : IMessageService, IDisposable
         };
 
         _logger.LogInformation(
-            "Received APRS message from {Peer} on port {PortId}: {Text}",
+            "Received APRS message from {Peer} on port {PortId} with number {MessageNumber}",
             peer,
             portId,
-            message.Text);
+            message.MessageNumber);
 
         RunOnUi(() =>
         {

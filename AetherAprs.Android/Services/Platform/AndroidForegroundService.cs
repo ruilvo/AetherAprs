@@ -246,9 +246,9 @@ public class AetherAprsForegroundService : Service
         NotificationCompat.Builder builder = new(this, ChannelId);
         builder.SetContentTitle(Strings.Get("ForegroundServiceNotificationTitle"));
         builder.SetContentText(Strings.Get("ForegroundServiceNotificationText"));
-        builder.SetSmallIcon(Resource.Drawable.icon_400px);
+        builder.SetSmallIcon(Resource.Drawable.ic_notification);
         builder.SetContentIntent(pendingIntent);
-        builder.AddAction(Resource.Drawable.icon_400px, Strings.Get("ForegroundServiceCloseAction"), stopPendingIntent);
+        builder.AddAction(Resource.Drawable.ic_notification, Strings.Get("ForegroundServiceCloseAction"), stopPendingIntent);
         builder.SetOngoing(true);
         Notification? notification = builder.Build();
 
@@ -416,7 +416,7 @@ public class AetherAprsForegroundService : Service
         NotificationCompat.Builder builder = new(this, AlertChannelId);
         builder.SetContentTitle(Strings.Get("ForegroundServiceTimeoutTitle"));
         builder.SetContentText(Strings.Get("ForegroundServiceTimeoutText"));
-        builder.SetSmallIcon(Resource.Drawable.icon_400px);
+        builder.SetSmallIcon(Resource.Drawable.ic_notification);
         builder.SetContentIntent(pendingIntent);
         builder.SetAutoCancel(true);
 

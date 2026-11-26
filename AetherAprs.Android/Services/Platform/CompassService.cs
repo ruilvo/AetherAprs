@@ -32,6 +32,7 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
     private readonly Sensor? _magnetometer;
     private bool _hasGravity;
     private bool _hasGeomagnetic;
+    private bool _listening;
     private bool _disposed;
 
     public CompassService(ILogger<CompassService>? logger = null)
@@ -64,6 +65,16 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
             return;
         }
 
+        lock (_lock)
+        {
+            if (_listening)
+            {
+                return;
+            }
+
+            _listening = true;
+        }
+
         _sensorManager.RegisterListener(this, _accelerometer, SensorDelay.Ui);
         _sensorManager.RegisterListener(this, _magnetometer, SensorDelay.Ui);
         _logger?.LogInformation("Compass service started");
@@ -75,6 +86,16 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
         if (_disposed)
         {
             return;
+        }
+
+        lock (_lock)
+        {
+            if (!_listening)
+            {
+                return;
+            }
+
+            _listening = false;
         }
 
         _sensorManager.UnregisterListener(this);

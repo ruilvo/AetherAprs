@@ -62,7 +62,7 @@ public sealed class AndroidNotificationService : INotificationService
             PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
         NotificationCompat.Builder builder = new(_context, ChannelId);
-        builder.SetSmallIcon(Resource.Drawable.icon_400px);
+        builder.SetSmallIcon(Resource.Drawable.ic_notification);
         builder.SetContentTitle(callsign);
         builder.SetContentText(text);
         builder.SetStyle(new NotificationCompat.BigTextStyle().BigText(text));

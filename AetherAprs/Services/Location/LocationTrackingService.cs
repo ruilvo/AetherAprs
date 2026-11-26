@@ -265,7 +265,7 @@ public sealed class LocationTrackingService(
                     _currentLocation = location;
                     LocationUpdated?.Invoke(this, location);
 
-                    _logger.LogInformation("Location updated: {Lat}, {Lon}", location.Location.Latitude, location.Location.Longitude);
+                    _logger.LogDebug("Location update applied.");
 
                     await Task.Delay(TimeSpan.FromSeconds(PollingIntervalSeconds), cancellationToken);
                 }

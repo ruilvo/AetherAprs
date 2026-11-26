@@ -25,7 +25,9 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
     private const string OsmUserAgent =
         "AetherAprs/1.0 (+https://github.com/ruilvo/AetherAprs)";
 
-    private readonly WritableLayer _selectionLayer;
+    private WritableLayer? _selectionLayer;
+    private ILayer? _tileLayer;
+    private bool _mapLayersInitialized;
     private DownloadOfflineMapViewModel? _currentViewModel;
     private MPoint? _pendingCenter;
     private bool _drawing;
@@ -35,43 +37,124 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
     public DownloadOfflineMapPage()
     {
         InitializeComponent();
-        _selectionLayer = new WritableLayer { Name = "Download selection", Style = null };
-        InitializeMap();
         KeyDown += OnKeyDown;
         DataContextChanged += OnDataContextChanged;
-        Loaded += (_, _) => TryApplyPendingCenter();
-        SizeChanged += (_, _) => TryApplyPendingCenter();
+    }
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        InitializeMap();
+        BindViewModel(DataContext as DownloadOfflineMapViewModel);
+        TryApplyPendingCenter();
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        // The tile source, the selection layer and the map belong to this page.
+        // Release them so a re-opened page starts clean and the old one is collectable.
+        ReleaseMap();
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void InitializeMap()
     {
+        if (_mapLayersInitialized)
+        {
+            return;
+        }
+
+        _mapLayersInitialized = true;
+
+        WritableLayer selectionLayer = new() { Name = "Download selection", Style = null };
+        ILayer tileLayer = OpenStreetMap.CreateTileLayer(OsmUserAgent);
+
         SelectionMap.Map = new Map();
-        SelectionMap.Map.Layers.Add(OpenStreetMap.CreateTileLayer(OsmUserAgent), group: -1);
-        SelectionMap.Map.Layers.Add(_selectionLayer, group: 10);
+        SelectionMap.Map.Layers.Add(tileLayer, group: -1);
+        SelectionMap.Map.Layers.Add(selectionLayer, group: 10);
         SelectionMap.MapPointerPressed += OnMapPointerPressed;
         SelectionMap.MapPointerMoved += OnMapPointerMoved;
         SelectionMap.MapPointerReleased += OnMapPointerReleased;
+
+        _selectionLayer = selectionLayer;
+        _tileLayer = tileLayer;
     }
 
-    private void OnDataContextChanged(object? sender, EventArgs e)
+    private void ReleaseMap()
     {
-        _currentViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
+        UnbindViewModel();
 
-        _currentViewModel = DataContext as DownloadOfflineMapViewModel;
+        if (!_mapLayersInitialized)
+        {
+            return;
+        }
+
+        _mapLayersInitialized = false;
+
+        SelectionMap.MapPointerPressed -= OnMapPointerPressed;
+        SelectionMap.MapPointerMoved -= OnMapPointerMoved;
+        SelectionMap.MapPointerReleased -= OnMapPointerReleased;
+
+        _drawing = false;
+        _drawStartWorld = null;
+        _pendingCenter = null;
+
+        SelectionMap.Map.Layers.Clear();
+        SelectionMap.Map = new Map();
+
+        if (_selectionLayer is IDisposable selectionLayer)
+        {
+            selectionLayer.Dispose();
+        }
+
+        _selectionLayer = null;
+
+        if (_tileLayer is IDisposable tileLayer)
+        {
+            tileLayer.Dispose();
+        }
+
+        _tileLayer = null;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e) =>
+        BindViewModel(DataContext as DownloadOfflineMapViewModel);
+
+    private void BindViewModel(DownloadOfflineMapViewModel? viewModel)
+    {
+        if (ReferenceEquals(_currentViewModel, viewModel))
+        {
+            return;
+        }
+
+        UnbindViewModel();
+        _currentViewModel = viewModel;
+
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        SetPanLock(viewModel.IsDrawMode);
+
+        if (viewModel.InitialLatitude is double latitude &&
+            viewModel.InitialLongitude is double longitude)
+        {
+            (double x, double y) = SphericalMercator.FromLonLat(longitude, latitude);
+            _pendingCenter = new MPoint(x, y);
+        }
+    }
+
+    private void UnbindViewModel()
+    {
         if (_currentViewModel is null)
         {
             return;
         }
 
-        _currentViewModel.PropertyChanged += OnViewModelPropertyChanged;
-        SetPanLock(_currentViewModel.IsDrawMode);
-
-        if (_currentViewModel.InitialLatitude is double latitude &&
-            _currentViewModel.InitialLongitude is double longitude)
-        {
-            (double x, double y) = SphericalMercator.FromLonLat(longitude, latitude);
-            _pendingCenter = new MPoint(x, y);
-        }
+        _currentViewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        _currentViewModel = null;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -161,6 +244,11 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
 
     private void DrawRectangle(MPoint start, MPoint end)
     {
+        if (_selectionLayer is not { } selectionLayer)
+        {
+            return;
+        }
+
         double minX = Math.Min(start.X, end.X);
         double minY = Math.Min(start.Y, end.Y);
         double maxX = Math.Max(start.X, end.X);
@@ -186,15 +274,20 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
             Outline = new Pen(Color.FromArgb(220, 0, 122, 255), 2),
         });
 
-        _selectionLayer.Clear();
-        _selectionLayer.Add(feature);
-        _selectionLayer.DataHasChanged();
+        selectionLayer.Clear();
+        selectionLayer.Add(feature);
+        selectionLayer.DataHasChanged();
     }
 
     private void ClearSelectionLayer()
     {
-        _selectionLayer.Clear();
-        _selectionLayer.DataHasChanged();
+        if (_selectionLayer is not { } selectionLayer)
+        {
+            return;
+        }
+
+        selectionLayer.Clear();
+        selectionLayer.DataHasChanged();
     }
 
     private void TryApplyPendingCenter()
@@ -244,14 +337,8 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
 
         _disposed = true;
         GC.SuppressFinalize(this);
-        _currentViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
-        _currentViewModel = null;
-
-        SelectionMap.MapPointerPressed -= OnMapPointerPressed;
-        SelectionMap.MapPointerMoved -= OnMapPointerMoved;
-        SelectionMap.MapPointerReleased -= OnMapPointerReleased;
+        DataContextChanged -= OnDataContextChanged;
         KeyDown -= OnKeyDown;
-
-        _selectionLayer.Dispose();
+        ReleaseMap();
     }
 }

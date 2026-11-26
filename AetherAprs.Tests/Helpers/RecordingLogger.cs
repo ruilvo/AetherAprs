@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 
-namespace AetherAprs.Tests.Services.Configuration;
+namespace AetherAprs.Tests.Helpers;
 
 /// <summary>
 /// Captures log entries so tests can assert what was reported.

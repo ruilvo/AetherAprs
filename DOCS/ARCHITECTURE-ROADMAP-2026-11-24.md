@@ -235,8 +235,8 @@ the item without refactoring unrelated code.
 | Work | Change and regression |
 |---|---|
 | Map lifetime and cache | Keep private runtime map tiles apart from explicit offline downloads, dispose page-owned layers once and stop subscriptions on detach; retain shared provider ownership at application lifetime. Attach/detach/reopen and show that old callbacks do not update a disposed layer. |
+| Map lifetime and cache | Keep private runtime map tiles apart from explicit offline downloads, dispose page-owned layers once and stop subscriptions on detach; retain shared provider ownership at application lifetime. Attach/detach/reopen and show that old callbacks do not update a disposed layer. |
 | Display and binding | Virtualize long packet collections without nesting a scrolling container that defeats virtualization; fix lost binding types with typed projections and correct localized fallback actions. Verify the actual large-list and dialog paths before deleting shared styles. |
-| Diagnostics and Android affordances | Remove payload-bearing hot logs, use structured safe fields, make compass start/stop idempotent, use a monochrome notification small icon, and validate external navigation targets. Handle a malformed intent without switching context or performing an action. |
 
 ### R7 Build and distribution maintenance
 

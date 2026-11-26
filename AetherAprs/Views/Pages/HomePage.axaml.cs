@@ -22,22 +22,156 @@ public partial class HomePage : UserControl
 {
     private HomeViewModel? _currentViewModel;
     private MPoint? _pendingCenterPoint;
+    private bool _mapEventsWired;
 
     public HomePage()
     {
         InitializeComponent();
         InitializeMap();
         DataContextChanged += OnDataContextChanged;
-        MapControl.MapTapped += OnMapTapped;
-        MapControl.PointerPressed += OnMapPointerPressed;
-        Loaded += (_, _) => TryApplyPendingCenter();
-        SizeChanged += (_, _) => TryApplyPendingCenter();
     }
 
     private void InitializeMap()
     {
         MapControl.Map = new Map();
-        MapControl.Map.Navigator.ViewportChanged += OnViewportChanged;
+    }
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        WireMapEvents();
+        BindViewModel(DataContext as HomeViewModel);
+        TryApplyPendingCenter();
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        // The page is discarded when the user navigates away, but the layers and the
+        // map projection belong to application-lifetime services. Drop every handler
+        // and layer reference this page took, then leave the services untouched.
+        UnbindViewModel();
+        UnwireMapEvents();
+        _pendingCenterPoint = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void WireMapEvents()
+    {
+        if (_mapEventsWired)
+        {
+            return;
+        }
+
+        _mapEventsWired = true;
+        MapControl.MapTapped += OnMapTapped;
+        MapControl.PointerPressed += OnMapPointerPressed;
+        Loaded += OnLayoutChanged;
+        SizeChanged += OnLayoutChanged;
+
+        if (MapControl.Map is { } map)
+        {
+            map.Navigator.ViewportChanged += OnViewportChanged;
+        }
+    }
+
+    private void UnwireMapEvents()
+    {
+        if (!_mapEventsWired)
+        {
+            return;
+        }
+
+        _mapEventsWired = false;
+        MapControl.MapTapped -= OnMapTapped;
+        MapControl.PointerPressed -= OnMapPointerPressed;
+        Loaded -= OnLayoutChanged;
+        SizeChanged -= OnLayoutChanged;
+
+        if (MapControl.Map is { } map)
+        {
+            map.Navigator.ViewportChanged -= OnViewportChanged;
+            map.Layers.Clear();
+        }
+    }
+
+    private void OnLayoutChanged(object? sender, EventArgs e) => TryApplyPendingCenter();
+
+    private void BindViewModel(HomeViewModel? viewModel)
+    {
+        if (ReferenceEquals(_currentViewModel, viewModel))
+        {
+            return;
+        }
+
+        UnbindViewModel();
+        _currentViewModel = viewModel;
+
+        if (viewModel is null || MapControl.Map is not { } map)
+        {
+            return;
+        }
+
+        // Register the map layers owned by services injected into the ViewModel.
+        if (!map.Layers.Contains(viewModel.BaseMapLayer))
+        {
+            map.Layers.Add(viewModel.BaseMapLayer, group: -1);
+        }
+
+        if (!map.Layers.Contains(viewModel.UserLocationLayer))
+        {
+            map.Layers.Add(viewModel.UserLocationLayer, group: 1);
+        }
+
+        if (!map.Layers.Contains(viewModel.BeaconTrailsLayer))
+        {
+            map.Layers.Add(viewModel.BeaconTrailsLayer, group: 0);
+        }
+
+        if (!map.Layers.Contains(viewModel.BeaconsLayer))
+        {
+            map.Layers.Add(viewModel.BeaconsLayer, group: 1);
+        }
+
+        // Subscribe to map centering/zoom/rotation requests
+        if (viewModel.Map is { } mapModel)
+        {
+            mapModel.CenterOnPointRequested += OnCenterOnPointRequested;
+            mapModel.RotateToNorthRequested += OnRotateToNorthRequested;
+            mapModel.ZoomInRequested += OnZoomInRequested;
+            mapModel.ZoomOutRequested += OnZoomOutRequested;
+
+            // The first location fix can arrive before this view is created (tracking
+            // starts at app startup and the fused provider returns almost instantly),
+            // in which case the auto-center event fires with no subscriber attached.
+            // Re-issue the request; this is a no-op while no location is known yet.
+            mapModel.CenterOnUser();
+        }
+    }
+
+    private void UnbindViewModel()
+    {
+        if (_currentViewModel is null)
+        {
+            return;
+        }
+
+        if (MapControl.Map is { } map)
+        {
+            map.Layers.Remove(_currentViewModel.BaseMapLayer);
+            map.Layers.Remove(_currentViewModel.UserLocationLayer);
+            map.Layers.Remove(_currentViewModel.BeaconTrailsLayer);
+            map.Layers.Remove(_currentViewModel.BeaconsLayer);
+        }
+
+        if (_currentViewModel.Map is { } mapModel)
+        {
+            mapModel.CenterOnPointRequested -= OnCenterOnPointRequested;
+            mapModel.RotateToNorthRequested -= OnRotateToNorthRequested;
+            mapModel.ZoomInRequested -= OnZoomInRequested;
+            mapModel.ZoomOutRequested -= OnZoomOutRequested;
+        }
+
+        _currentViewModel = null;
     }
 
     private void OnViewportChanged(object? sender, ViewportChangedEventArgs e) =>
@@ -48,65 +182,8 @@ public partial class HomePage : UserControl
         // User is interacting with the map - disable follow mode
         _currentViewModel?.Map?.OnUserInteraction();
 
-    private void OnDataContextChanged(object? sender, EventArgs e)
-    {
-        // Unsubscribe from old ViewModel to prevent memory leak
-        if (_currentViewModel?.Map != null)
-        {
-            _currentViewModel.Map.CenterOnPointRequested -= OnCenterOnPointRequested;
-            _currentViewModel.Map.RotateToNorthRequested -= OnRotateToNorthRequested;
-            _currentViewModel.Map.ZoomInRequested -= OnZoomInRequested;
-            _currentViewModel.Map.ZoomOutRequested -= OnZoomOutRequested;
-        }
-
-        if (DataContext is not HomeViewModel viewModel)
-        {
-            _currentViewModel = null;
-            return;
-        }
-
-        _currentViewModel = viewModel;
-
-        // Register the map layers owned by services injected into the ViewModel
-        if (MapControl.Map != null)
-        {
-            if (!MapControl.Map.Layers.Contains(viewModel.BaseMapLayer))
-            {
-                MapControl.Map.Layers.Add(viewModel.BaseMapLayer, group: -1);
-            }
-
-            if (!MapControl.Map.Layers.Contains(viewModel.UserLocationLayer))
-            {
-                MapControl.Map.Layers.Add(viewModel.UserLocationLayer, group: 1);
-            }
-
-            if (!MapControl.Map.Layers.Contains(viewModel.BeaconTrailsLayer))
-            {
-                MapControl.Map.Layers.Add(viewModel.BeaconTrailsLayer, group: 0);
-            }
-
-            if (!MapControl.Map.Layers.Contains(viewModel.BeaconsLayer))
-            {
-                MapControl.Map.Layers.Add(viewModel.BeaconsLayer, group: 1);
-            }
-        }
-
-        // Subscribe to map centering/zoom/rotation requests
-        if (viewModel.Map != null)
-        {
-            viewModel.Map.CenterOnPointRequested += OnCenterOnPointRequested;
-            viewModel.Map.RotateToNorthRequested += OnRotateToNorthRequested;
-            viewModel.Map.ZoomInRequested += OnZoomInRequested;
-            viewModel.Map.ZoomOutRequested += OnZoomOutRequested;
-
-            // The first location fix can arrive before this view is created (tracking
-            // starts at app startup and the fused provider returns almost instantly),
-            // in which case the auto-center event fires with no subscriber attached.
-            // Re-issue the request; this is a no-op while no location is known yet.
-            viewModel.Map.CenterOnUser();
-        }
-
-    }
+    private void OnDataContextChanged(object? sender, EventArgs e) =>
+        BindViewModel(DataContext as HomeViewModel);
 
     private void OnCenterOnPointRequested(object? sender, MPoint mapPoint)
     {

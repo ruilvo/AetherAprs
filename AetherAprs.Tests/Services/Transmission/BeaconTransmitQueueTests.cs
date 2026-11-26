@@ -4,7 +4,7 @@
 
 using AetherAprs.Models;
 using AetherAprs.Services.Transmission;
-using AetherAprs.Tests.Services.Configuration;
+using AetherAprs.Tests.Helpers;
 using Geo;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

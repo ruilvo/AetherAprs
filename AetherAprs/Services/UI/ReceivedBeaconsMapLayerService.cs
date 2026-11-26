@@ -221,11 +221,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 if (record.Position != null)
                 {
                     string callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
-                    _logger.LogDebug(
-                        "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
-                        callsign,
-                        record.Position.Location.Latitude,
-                        record.Position.Location.Longitude);
+                    _logger.LogDebug("Adding map beacon for {Callsign}", callsign);
 
                     markers.Add(CreateMarkerFromRecord(record));
                 }
