@@ -91,7 +91,15 @@ public class AndroidPermissionService : IPermissionService
         }
 
         var requestedBefore = _promptedKinds.ContainsKey(kind);
-        var granted = await PromptAsync(activity, kind).ConfigureAwait(false);
+        var prompt = await PromptAsync(activity, kind, cancellationToken).ConfigureAwait(false);
+        if (prompt == PermissionPromptResult.Abandoned)
+        {
+            // No dialog answered: a teardown, an activity that is gone, or the
+            // operator walking away. Recording a denial would be wrong.
+            return PermissionRequestResult.Unavailable(kind);
+        }
+
+        var granted = prompt == PermissionPromptResult.Granted;
         if (!granted)
         {
             _promptedKinds[kind] = true;
@@ -139,14 +147,25 @@ public class AndroidPermissionService : IPermissionService
         _ => true
     };
 
-    private static Task<bool> PromptAsync(MainActivity activity, PermissionKind kind) => kind switch
+    private static Task<PermissionPromptResult> PromptAsync(
+        MainActivity activity,
+        PermissionKind kind,
+        CancellationToken cancellationToken) => kind switch
     {
         PermissionKind.Notifications => activity.RequestNotificationPermissionAsync(),
         PermissionKind.Bluetooth => activity.RequestBluetoothPermissionAsync(),
-        PermissionKind.Location => activity.RequestLocationPermissionsAsync(),
+        PermissionKind.Location => RequestLocationAsync(activity),
         PermissionKind.Audio => activity.RequestAudioPermissionAsync(),
-        _ => Task.FromResult(false)
+        _ => Task.FromResult(PermissionPromptResult.Abandoned),
     };
+
+    private static async Task<PermissionPromptResult> RequestLocationAsync(MainActivity activity)
+    {
+        // Location has its own prompt pair and result codes, so it keeps its
+        // existing path instead of joining the queue.
+        var granted = await activity.RequestLocationPermissionsAsync().ConfigureAwait(false);
+        return granted ? PermissionPromptResult.Granted : PermissionPromptResult.Denied;
+    }
 
     private static bool HasRationale(MainActivity activity, PermissionKind kind) => kind switch
     {

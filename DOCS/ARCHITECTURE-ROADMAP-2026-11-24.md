@@ -908,7 +908,7 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Test clean install, denial, revoke, settings return, activity recreation, and slow
   user interaction.
 
-> **Status: distinct permission states implemented (2026-11-26); broker queue, rationale UI and native acceptance still open.**
+> **Status: distinct permission states and a single queued prompt implemented (2026-11-26); resume recheck, rationale UI and native acceptance still open.**
 > `IPermissionService` no longer answers with a `bool`. `RequestAsync(PermissionKind)`
 > returns a `PermissionRequestResult` carrying one of `Granted`, `Denied`,
 > `PermanentlyDenied` or `Unavailable`, so callers can tell "ask again" from "the
@@ -932,12 +932,28 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > unmet `Bluetooth` case as a theory over `Denied`, `PermanentlyDenied` and
 > `Unavailable` and proves the audio prompt still follows.
 >
-> Still open for this item: one queued OS request at a time with request-ID matching
-> instead of the activity's per-kind completion sources, cancelling a pending
-> request on activity teardown, rechecking grants on resume, rationale UI and the
-> settings action wired to an operator-visible control, background-location
-> explanation, and the clean-install/denial/revoke/settings-return/recreation/
-> slow-interaction acceptance runs on a device.
+> The prompts themselves are serialized by `PermissionRequestQueue`. It holds one
+> pending request, hands the host a numeric id, and accepts an answer only for that
+> id: a late result for an earlier request is logged and ignored instead of settling
+> whatever is waiting now. `Abandoned` is deliberately not `Denied` - the host went
+> away, the wait timed out, or the queue closed - so nothing is recorded about the
+> operator's choice when no dialog answered. Closing the queue on activity teardown
+> abandons the waiter, and a request that arrives after close returns `Abandoned`
+> without prompting, because an activity that is going away cannot host a dialog.
+> `MainActivity` now owns one queue instead of three per-kind completion sources and
+> maps the result through `AndroidPermissionService`, which reports `Abandoned` as
+> `Unavailable` rather than as a denial.
+>
+> Tests: `PermissionRequestQueueTests` answers one request and ignores a late answer
+> for an earlier id while the newer one stays pending, shows one prompt at a time,
+> abandons on close (and refuses to prompt afterwards), ignores an id that was never
+> issued, throws on cancellation without leaving a pending request, reports
+> `Abandoned` when the host throws, and throws after dispose.
+>
+> Still open for this item: rechecking grants on resume, rationale UI and the settings
+> action wired to an operator-visible control, the background-location explanation,
+> and the clean-install/denial/revoke/settings-return/recreation/slow-interaction
+> acceptance runs on a device.
 
 **R5.2 Foreground service**
 
@@ -1385,7 +1401,7 @@ report is valid or open. Historical locations and details are in the [audit].
 >
 > Still open here: the remaining T items, and the process-wide culture that
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
-| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable, with a settings-recovery call; the queued request broker, rationale UI and repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. Rejected FGS can look successful; fix bounded permission/wake ownership. |
+| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, and one queued prompt with request-id matching replaces the per-kind completion sources; resume recheck, rationale UI and repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
 | P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: bounded BLE scan, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |

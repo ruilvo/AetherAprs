@@ -20,6 +20,7 @@ using Avalonia.Android;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -68,12 +69,10 @@ public class MainActivity : AvaloniaMainActivity
     private bool _initialPermissionBurstStarted;
     private AprsAddress? pendingConversationPeer;
 
-    private const int NotificationPermissionRequestCode = 1000;
-    private const int BluetoothPermissionRequestCode = 1100;
-    private const int AudioPermissionRequestCode = 1200;
-    private TaskCompletionSource<bool>? _notificationPermissionTcs;
-    private TaskCompletionSource<bool>? _bluetoothPermissionTcs;
-    private TaskCompletionSource<bool>? _audioPermissionTcs;
+    // The queue owns the waiters, so a prompt answered after this activity was
+    // re-created or destroyed cannot settle a request the new activity started.
+    private ActivityPromptHost? _promptHost;
+    private PermissionRequestQueue? _permissionRequests;
 
     /// <summary>
     /// Gets the current MainActivity instance for permission requests.
@@ -90,11 +89,11 @@ public class MainActivity : AvaloniaMainActivity
     /// <summary>
     /// Requests notification permission and waits for user response.
     /// </summary>
-    public async Task<bool> RequestNotificationPermissionAsync()
+    public async Task<PermissionPromptResult> RequestNotificationPermissionAsync()
     {
         if (_destroyed)
         {
-            return false;
+            return PermissionPromptResult.Abandoned;
         }
 
         // Android 13+ only (SupportedOSPlatformVersion = 33)
@@ -104,7 +103,7 @@ public class MainActivity : AvaloniaMainActivity
         if (currentStatus == Permission.Granted)
         {
             _logger.LogDebug("Notification permission already granted");
-            return true;
+            return PermissionPromptResult.Granted;
         }
 
         // Check if we should show rationale
@@ -113,36 +112,18 @@ public class MainActivity : AvaloniaMainActivity
             _logger.LogDebug("Notification permission rationale is suggested");
         }
 
-        // Request permission and wait for result
         _logger.LogDebug("Requesting the notification permission");
-        _notificationPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var notificationTcs = _notificationPermissionTcs;
-        using var notificationTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var notificationRegistration = notificationTimeoutCts.Token.Register(
-            () => notificationTcs.TrySetCanceled(notificationTimeoutCts.Token));
-        
-        try
-        {
-            RequestPermissions(new[] { global::Android.Manifest.Permission.PostNotifications }, NotificationPermissionRequestCode);
-            var result = await notificationTcs.Task.ConfigureAwait(false);
-            _logger.LogDebug("Notification permission result: {Granted}", result);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Requesting the notification permission failed");
-            return false;
-        }
+        return await PromptForAsync(PermissionKind.Notifications);
     }
 
     /// <summary>
     /// Requests Bluetooth permissions and waits for user response.
     /// </summary>
-    public async Task<bool> RequestBluetoothPermissionAsync()
+    public async Task<PermissionPromptResult> RequestBluetoothPermissionAsync()
     {
         if (_destroyed)
         {
-            return false;
+            return PermissionPromptResult.Abandoned;
         }
 
         // Android 13+ only (SupportedOSPlatformVersion = 33, includes S/12 permissions)
@@ -156,7 +137,7 @@ public class MainActivity : AvaloniaMainActivity
         if (bluetoothScanStatus == Permission.Granted && bluetoothConnectStatus == Permission.Granted)
         {
             _logger.LogDebug("Bluetooth permissions already granted");
-            return true;
+            return PermissionPromptResult.Granted;
         }
 
         // Check if we should show rationale
@@ -166,40 +147,18 @@ public class MainActivity : AvaloniaMainActivity
             _logger.LogDebug("Bluetooth permission rationale is suggested");
         }
 
-        // Request permissions and wait for result
         _logger.LogDebug("Requesting the Bluetooth permissions");
-        _bluetoothPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var bluetoothTcs = _bluetoothPermissionTcs;
-        using var bluetoothTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var bluetoothRegistration = bluetoothTimeoutCts.Token.Register(
-            () => bluetoothTcs.TrySetCanceled(bluetoothTimeoutCts.Token));
-        
-        try
-        {
-            RequestPermissions(new[] 
-            { 
-                global::Android.Manifest.Permission.BluetoothScan,
-                global::Android.Manifest.Permission.BluetoothConnect
-            }, BluetoothPermissionRequestCode);
-            var result = await bluetoothTcs.Task.ConfigureAwait(false);
-            _logger.LogDebug("Bluetooth permission result: {Granted}", result);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Requesting the Bluetooth permissions failed");
-            return false;
-        }
+        return await PromptForAsync(PermissionKind.Bluetooth);
     }
 
     /// <summary>
     /// Requests microphone (audio recording) permission and waits for user response.
     /// </summary>
-    public async Task<bool> RequestAudioPermissionAsync()
+    public async Task<PermissionPromptResult> RequestAudioPermissionAsync()
     {
         if (_destroyed)
         {
-            return false;
+            return PermissionPromptResult.Abandoned;
         }
 
         var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio);
@@ -208,27 +167,34 @@ public class MainActivity : AvaloniaMainActivity
         if (currentStatus == Permission.Granted)
         {
             _logger.LogDebug("Audio permission already granted");
-            return true;
+            return PermissionPromptResult.Granted;
         }
 
         _logger.LogDebug("Requesting the audio permission");
-        _audioPermissionTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var audioTcs = _audioPermissionTcs;
-        using var audioTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var audioRegistration = audioTimeoutCts.Token.Register(
-            () => audioTcs.TrySetCanceled(audioTimeoutCts.Token));
+        return await PromptForAsync(PermissionKind.Audio);
+    }
 
+    private async Task<PermissionPromptResult> PromptForAsync(PermissionKind kind)
+    {
+        var queue = _permissionRequests;
+        if (queue is null)
+        {
+            return PermissionPromptResult.Abandoned;
+        }
+
+        // A dialog the operator walks away from must not hold the startup burst
+        // forever; an abandoned request is not a denial.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         try
         {
-            RequestPermissions(new[] { global::Android.Manifest.Permission.RecordAudio }, AudioPermissionRequestCode);
-            var result = await audioTcs.Task.ConfigureAwait(false);
-            _logger.LogDebug("Audio permission result: {Granted}", result);
+            var result = await queue.RequestAsync(kind, timeout.Token);
+            _logger.LogDebug("The {Permission} prompt finished with {Outcome}", kind, result);
             return result;
         }
-        catch (Exception ex)
+        catch (System.OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Requesting the audio permission failed");
-            return false;
+            _logger.LogDebug("Waiting for the {Permission} prompt timed out", kind);
+            return PermissionPromptResult.Abandoned;
         }
     }
 
@@ -244,6 +210,14 @@ public class MainActivity : AvaloniaMainActivity
 
         // Store instance for permission requests
         Instance = this;
+
+        // One queue per activity: the request ids it hands out are the request
+        // codes Android echoes back, so a result can only settle the prompt that
+        // produced it, and tearing the activity down abandons the waiters.
+        _promptHost = new ActivityPromptHost(this);
+        _permissionRequests = new PermissionRequestQueue(
+            _promptHost,
+            ApplicationLog.For<PermissionRequestQueue>());
 
         // Setup the modern back handling for Android 13+
         backInvokedCallback = new BackInvokedCallback(HandleBackPressed);
@@ -418,10 +392,10 @@ public class MainActivity : AvaloniaMainActivity
         {
             _logger.LogDebug("Requesting the initial permission burst");
 
-            var notificationGranted = await RequestNotificationPermissionAsync();
-            var bluetoothGranted = await RequestBluetoothPermissionAsync();
+            var notificationResult = await RequestNotificationPermissionAsync();
+            var bluetoothResult = await RequestBluetoothPermissionAsync();
             var locationGranted = await RequestLocationPermissionsAsync();
-            var audioGranted = await RequestAudioPermissionAsync();
+            var audioResult = await RequestAudioPermissionAsync();
 
             // Request background location (non-fatal when denied; Android 11+
             // routes this to the app settings page)
@@ -431,10 +405,10 @@ public class MainActivity : AvaloniaMainActivity
             // methods already report their own status at debug level.
             _logger.LogDebug(
                 "Initial permission burst finished: notifications {Notifications}, Bluetooth {Bluetooth}, location {Location}, audio {Audio}, background location {BackgroundLocation}",
-                notificationGranted,
-                bluetoothGranted,
+                notificationResult,
+                bluetoothResult,
                 locationGranted,
-                audioGranted,
+                audioResult,
                 backgroundLocationGranted);
         }
         catch (Exception ex)
@@ -755,52 +729,29 @@ public class MainActivity : AvaloniaMainActivity
 
     private void CompletePendingPermissionRequests()
     {
-        // A destroyed activity never receives OnRequestPermissionsResult, so
-        // complete the waiters now rather than leaving the startup burst to its
-        // 30 s timeout. A denial is the correct outcome: no permission was granted.
-        _notificationPermissionTcs?.TrySetResult(false);
-        _notificationPermissionTcs = null;
-        _bluetoothPermissionTcs?.TrySetResult(false);
-        _bluetoothPermissionTcs = null;
-        _audioPermissionTcs?.TrySetResult(false);
-        _audioPermissionTcs = null;
+        // A destroyed activity never receives OnRequestPermissionsResult, so the
+        // waiter is abandoned now rather than left to its timeout. Abandoned is
+        // not a denial: nothing is recorded about the operator's choice.
+        _permissionRequests?.Dispose();
+        _permissionRequests = null;
+        _promptHost = null;
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        // Handle notification permission result
-        if (requestCode == NotificationPermissionRequestCode && _notificationPermissionTcs != null)
+        // The request code is the queue's request id, so the kind the prompt was
+        // shown for comes from the host rather than from a fixed code per kind.
+        if (_promptHost is { } host && host.TryTakeKind(requestCode, out var kind))
         {
-            var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
-            AndroidLifecycleTelemetry.State.PermissionResult(
-                AetherAprs.Services.Platform.AndroidPermission.Notifications,
-                granted);
-            _notificationPermissionTcs.TrySetResult(granted);
-            _notificationPermissionTcs = null;
-        }
+            var granted = grantResults.Length > 0 &&
+                (kind == PermissionKind.Bluetooth
+                    ? grantResults.All(result => result == Permission.Granted)
+                    : grantResults[0] == Permission.Granted);
 
-        // Handle Bluetooth permission result
-        if (requestCode == BluetoothPermissionRequestCode && _bluetoothPermissionTcs != null)
-        {
-            var granted = grantResults.Length > 0 && grantResults.All(r => r == Permission.Granted);
-            AndroidLifecycleTelemetry.State.PermissionResult(
-                AetherAprs.Services.Platform.AndroidPermission.Bluetooth,
-                granted);
-            _bluetoothPermissionTcs.TrySetResult(granted);
-            _bluetoothPermissionTcs = null;
-        }
-
-        // Handle audio (microphone) permission result
-        if (requestCode == AudioPermissionRequestCode && _audioPermissionTcs != null)
-        {
-            var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
-            AndroidLifecycleTelemetry.State.PermissionResult(
-                AetherAprs.Services.Platform.AndroidPermission.Audio,
-                granted);
-            _audioPermissionTcs.TrySetResult(granted);
-            _audioPermissionTcs = null;
+            AndroidLifecycleTelemetry.State.PermissionResult(ToAndroidPermission(kind), granted);
+            _permissionRequests?.Complete(requestCode, granted);
         }
 
         // Notify any listeners about permission results
@@ -818,6 +769,40 @@ public class MainActivity : AvaloniaMainActivity
                 AetherAprs.Services.Platform.AndroidPermission.BackgroundLocation,
                 grantResults.Length > 0 && grantResults[0] == Permission.Granted);
         }
+    }
+
+    private static AetherAprs.Services.Platform.AndroidPermission ToAndroidPermission(PermissionKind kind) => kind switch
+    {
+        PermissionKind.Notifications => AetherAprs.Services.Platform.AndroidPermission.Notifications,
+        PermissionKind.Bluetooth => AetherAprs.Services.Platform.AndroidPermission.Bluetooth,
+        PermissionKind.Audio => AetherAprs.Services.Platform.AndroidPermission.Audio,
+        PermissionKind.Location => AetherAprs.Services.Platform.AndroidPermission.Location,
+        _ => AetherAprs.Services.Platform.AndroidPermission.BackgroundLocation,
+    };
+
+    private sealed class ActivityPromptHost(MainActivity activity) : IPermissionPromptHost
+    {
+        private readonly Dictionary<int, PermissionKind> _kinds = [];
+
+        public void Show(PermissionKind kind, int requestId)
+        {
+            var permissions = kind switch
+            {
+                PermissionKind.Notifications => new[] { global::Android.Manifest.Permission.PostNotifications },
+                PermissionKind.Bluetooth => new[]
+                {
+                    global::Android.Manifest.Permission.BluetoothScan,
+                    global::Android.Manifest.Permission.BluetoothConnect,
+                },
+                PermissionKind.Audio => new[] { global::Android.Manifest.Permission.RecordAudio },
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "This permission has no prompt."),
+            };
+
+            _kinds[requestId] = kind;
+            activity.RequestPermissions(permissions, requestId);
+        }
+
+        public bool TryTakeKind(int requestId, out PermissionKind kind) => _kinds.Remove(requestId, out kind);
     }
 
     private sealed class BackInvokedCallback(Action onBackInvoked) : Java.Lang.Object, IOnBackInvokedCallback
