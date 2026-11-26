@@ -50,7 +50,11 @@ public sealed class AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider) :
         };
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Releases the converter's own caches. The bitmap provider is injected and
+    /// owned by the composition root, so it stays usable for the other consumers
+    /// (symbol pickers, page-level layers) for the whole application lifetime.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed)
@@ -60,7 +64,6 @@ public sealed class AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider) :
 
         _disposed = true;
         _base64Cache.Clear();
-        provider.Dispose();
     }
 
     private static string EncodeToBase64Uri(SKBitmap bitmap)

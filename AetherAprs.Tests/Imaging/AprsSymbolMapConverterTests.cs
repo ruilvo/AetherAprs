@@ -138,13 +138,11 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     }
 
     [Fact]
-    public void Dispose_DisposesUnderlyingBitmapProvider()
+    public void Dispose_DoesNotDisposeTheInjectedProvider()
     {
-        // Act
         _converter.Dispose();
 
-        // Assert
-        _bitmapProvider.Received(1).Dispose();
+        _bitmapProvider.DidNotReceive().Dispose();
     }
 
     [Fact]
@@ -154,8 +152,8 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
         _converter.Dispose();
         _converter.Dispose();
 
-        // Assert - no exception, and Dispose only called once on provider
-        _bitmapProvider.Received(1).Dispose();
+        // Assert - no exception, and the shared provider is never disposed
+        _bitmapProvider.DidNotReceive().Dispose();
     }
 
     [Fact]

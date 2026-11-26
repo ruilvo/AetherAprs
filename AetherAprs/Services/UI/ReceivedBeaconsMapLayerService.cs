@@ -85,7 +85,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         IPacketStorageService packetStorageService,
         IConfigurationService configurationService,
         IPacketViewFilterService filterService,
-        IAprsSymbolBitmapProvider symbolBitmapProvider,
+        AprsSymbolMapConverter symbolConverter,
         IUiDispatcher uiDispatcher,
         ILogger<ReceivedBeaconsMapLayerService> logger)
     {
@@ -94,8 +94,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         _packetStorageService = packetStorageService ?? throw new ArgumentNullException(nameof(packetStorageService));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         _filterService = filterService ?? throw new ArgumentNullException(nameof(filterService));
-        _symbolConverter = new AprsSymbolMapConverter(
-            symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider)));
+        _symbolConverter = symbolConverter ?? throw new ArgumentNullException(nameof(symbolConverter));
         _uiDispatcher = uiDispatcher ?? throw new ArgumentNullException(nameof(uiDispatcher));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -628,6 +627,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         _symbolStyleCache.Clear();
         _trailFeatures.Clear();
         _clusteredCallsigns.Clear();
-        _symbolConverter.Dispose();
+        // The converter is a shared application-lifetime singleton; it is not
+        // disposed here.
     }
 }
