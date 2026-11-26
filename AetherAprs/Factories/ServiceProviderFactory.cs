@@ -148,6 +148,10 @@ public static class ServiceProviderFactory
         services.AddSingleton<IKissStreamConnector, TcpKissStreamConnector>();
         services.AddSingleton<IKissStreamFactory, KissStreamFactory>();
 
+        // Register modem construction. PortService depends on the factory, never
+        // on audio, PTT or transport connectors directly.
+        services.AddSingleton<IModemFactory, ModemFactory>();
+
         // Register port service
 
         // Register digipeater service

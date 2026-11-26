@@ -50,6 +50,15 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Behaviors/ScrollToFocusedControlBehavior.cs"
     };
 
+    /// <summary>
+    /// Files permitted to construct a modem. Transport selection belongs to the
+    /// modem factory, so no session or feature code may pick a transport itself.
+    /// </summary>
+    private static readonly HashSet<string> ModemConstructionOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Services/Ports/ModemFactory.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -71,7 +80,13 @@ internal static class ArchitectureBoundaryScanner
             "A003",
             "Production code must log structured events through ILogger, not Debug.WriteLine.",
             ["Debug.WriteLine"],
-            new HashSet<string>(StringComparer.Ordinal))
+            new HashSet<string>(StringComparer.Ordinal)),
+
+        new ArchitectureRule(
+            "A004",
+            "Transport selection belongs to IModemFactory; session and feature code must not construct a modem.",
+            ["new AprsIsModem", "new AprsRfModem", "new KissModem", "new AfskModem"],
+            ModemConstructionOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>

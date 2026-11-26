@@ -79,6 +79,14 @@ public static class DesignData
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothClassicKissStreamConnector>();
         services.AddSingleton<IKissStreamConnector, UnsupportedBluetoothLeKissStreamConnector>();
         services.AddSingleton<IKissStreamFactory, KissStreamFactory>();
+
+        // Design-time audio and PTT are no-ops: the designer must never open a
+        // microphone or key a transmitter.
+        services.AddSingleton<IAudioStreamService, NoOpAudioStreamService>();
+        services.AddSingleton<IAudioPlaybackService, NoOpAudioPlaybackService>();
+        services.AddSingleton<IPttService, NoOpPttService>();
+        services.AddSingleton<IModemFactory, ModemFactory>();
+
         services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
         services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
         services.AddSingleton<IPortService, PortService>();

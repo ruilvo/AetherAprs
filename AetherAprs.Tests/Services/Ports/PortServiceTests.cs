@@ -9,13 +9,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Extensions;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
@@ -24,7 +22,6 @@ using AetherAprs.Tests.Helpers;
 using AetherAprs.Transports.Kiss;
 using Geo;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -374,23 +371,17 @@ public sealed class PortServiceTests
         TempAppDatabase db,
         IKissStreamFactory? kissStreamFactory = null)
     {
-        var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = new MockPacketStorageService();
         var mockKeepAliveService = Substitute.For<IKeepAliveService>();
         var mockDigipeaterService = new MockDigipeaterService();
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            new TestConfigurationService(),
-            services.GetRequiredService<ILoggerFactory>(),
+            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
             NullLogger<PortService>.Instance,
-            kissStreamFactory,
             mockPacketStorage,
             mockKeepAliveService,
-            mockDigipeaterService,
-            Substitute.For<IAudioStreamService>(),
-            Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>());
+            mockDigipeaterService);
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(
@@ -470,21 +461,4 @@ public sealed class PortServiceTests
         }
     }
 
-    private sealed class TestConfigurationService : IConfigurationService
-    {
-#pragma warning disable CS0067 // Event is never used in this test double
-        public event EventHandler? SettingsChanged;
-#pragma warning restore CS0067
-        public AppSettings Settings { get; } = new();
-
-        public Task SaveSettingsAsync() => Task.CompletedTask;
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
-        {
-            updateAction(Settings);
-            return Task.CompletedTask;
-        }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
-    }
 }

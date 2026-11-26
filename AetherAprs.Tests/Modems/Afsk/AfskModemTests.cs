@@ -69,6 +69,19 @@ public sealed class AfskModemTests
     }
 
     [Fact]
+    public async Task DisposeAsync_DoesNotDisposeTheSharedAudioStream()
+    {
+        var audioStream = CreateAudioStream();
+        var modem = CreateModem(new AfskSettings(), audioStream: audioStream);
+
+        await modem.DisposeAsync();
+
+        // The audio capture service is a shared application resource. A modem that
+        // disposed it would break every later session that reuses it.
+        audioStream.DidNotReceive().Dispose();
+    }
+
+    [Fact]
     public async Task SendAsync_PttModeNone_DoesNotKeyPtt()
     {
         var ptt = Substitute.For<IPttService>();

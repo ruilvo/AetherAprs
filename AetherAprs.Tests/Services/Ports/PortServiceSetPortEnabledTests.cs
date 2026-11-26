@@ -8,16 +8,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.Configuration.Settings;
 using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.Transports.Kiss;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -64,7 +61,6 @@ public sealed class PortServiceSetPortEnabledTests
         TempAppDatabase db,
         IKissStreamFactory? kissStreamFactory = null)
     {
-        var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
         var mockPacketStorage = Substitute.For<IPacketStorageService>();
         var mockKeepAliveService = Substitute.For<IKeepAliveService>();
@@ -78,16 +74,11 @@ public sealed class PortServiceSetPortEnabledTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            new TestConfigurationService(),
-            services.GetRequiredService<ILoggerFactory>(),
+            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
             NullLogger<PortService>.Instance,
-            kissStreamFactory,
             mockPacketStorage,
             mockKeepAliveService,
-            mockDigipeater,
-            Substitute.For<IAudioStreamService>(),
-            Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>());
+            mockDigipeater);
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(
@@ -150,21 +141,4 @@ public sealed class PortServiceSetPortEnabledTests
         }
     }
 
-    private sealed class TestConfigurationService : IConfigurationService
-    {
-#pragma warning disable CS0067 // Event is never used in this test double
-        public event EventHandler? SettingsChanged;
-#pragma warning restore CS0067
-        public AppSettings Settings { get; } = new();
-
-        public Task SaveSettingsAsync() => Task.CompletedTask;
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
-        {
-            updateAction(Settings);
-            return Task.CompletedTask;
-        }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
-    }
 }

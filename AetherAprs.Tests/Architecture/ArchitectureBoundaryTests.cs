@@ -84,6 +84,29 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticModemConstructionInSessionCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [
+                Source("AetherAprs/Services/Ports/PortService.cs",
+                    "var modem = new KissModem(stream, loggerFactory);"),
+                Source("AetherAprs/Services/Ports/PortService.cs",
+                    "var modem = new AprsIsModem(host, port, callsign, passcode);")
+            ]);
+
+        Assert.Equal(2, violations.Count(violation => violation.RuleId == "A004"));
+    }
+
+    [Fact]
+    public void Scan_ModemFactory_MayConstructModems()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source("AetherAprs/Services/Ports/ModemFactory.cs", "var modem = new AfskModem(a, b, c, settings);")]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

@@ -10,12 +10,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
-using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Kiss;
-using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Packets;
@@ -25,7 +23,6 @@ using AetherAprs.Tests.Helpers;
 using AetherAprs.Transports.Kiss;
 using Geo;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -465,22 +462,14 @@ public sealed class PortServiceReceivePipelineTests
         int packetQueueCapacity = 1024,
         int digipeatQueueCapacity = 256)
     {
-        var services = new ServiceCollection()
-            .AddLogging()
-            .BuildServiceProvider();
         var kissStreamFactory = new ScriptedKissStreamFactory(scriptedPortSettings, injectedKissBuffer, targetWriteTcs);
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            new TestConfigurationService(),
-            services.GetRequiredService<ILoggerFactory>(),
+            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
             NullLogger<PortService>.Instance,
-            kissStreamFactory,
             storage,
             Substitute.For<IKeepAliveService>(),
             digipeater,
-            Substitute.For<IAudioStreamService>(),
-            Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>(),
             diagnosticSink: diagnosticSink,
             packetQueueCapacity: packetQueueCapacity,
             digipeatQueueCapacity: digipeatQueueCapacity);
@@ -824,21 +813,4 @@ public sealed class PortServiceReceivePipelineTests
         public override void SetLength(long value) => throw new NotSupportedException();
     }
 
-    private sealed class TestConfigurationService : IConfigurationService
-    {
-#pragma warning disable CS0067 // Event is never used in this test double
-        public event EventHandler? SettingsChanged;
-#pragma warning restore CS0067
-        public AppSettings Settings { get; } = new();
-
-        public Task SaveSettingsAsync() => Task.CompletedTask;
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
-        {
-            updateAction(Settings);
-            return Task.CompletedTask;
-        }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
-    }
 }

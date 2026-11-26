@@ -214,6 +214,11 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The audio capture source is supplied by the caller and shared with the rest
+    /// of the application, so this modem stops capture but never disposes it. Only
+    /// the resources this type created belong to it.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -223,6 +228,5 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
 
         _disposed = true;
         await StopAsync().ConfigureAwait(false);
-        _audioStream.Dispose();
     }
 }

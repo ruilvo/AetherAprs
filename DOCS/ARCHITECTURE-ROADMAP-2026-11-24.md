@@ -350,8 +350,9 @@ explicit "Check architecture boundaries" step in `build-test.yml`.
   violations and remove baseline entries when the corresponding migration lands.
 
 Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
-`A003` (`Debug.WriteLine`). The baseline in `ArchitectureBaseline.cs` records the
-remaining `PortService`, `BeaconService` (`R1.3`) violations. `MessageService` and
+`A003` (`Debug.WriteLine`), and `A004` (modem construction, added with `R2.1`). The
+baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
+`BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
 were removed rather than re-baselined. Payload redaction assertions remain open and
 belong to the owning log paths (`R5.4`, `R6.7`).
@@ -485,6 +486,28 @@ idempotent-start rule.
 - Move transport selection from `PortService` to `IModemFactory`.
 - Add a factory test for every configured transport and unsupported transport.
 - Propagate cancellation into every connector.
+
+Status: implemented. `AetherAprs/Services/Ports/IModemFactory.cs` declares
+`IModemFactory` and `IPortModem`; `AetherAprs/Services/Ports/ModemFactory.cs`
+implements both. `ModemFactory` is now the only place that maps
+`IPortTypeSettings` onto a concrete modem, and it owns the whole resource graph
+for a session: an APRS-IS modem, an AFSK modem, or a KISS modem plus the `KissModem`
+and stream beneath it. `OwnedPortModem` presents that graph as one
+`IPortModem`, so `PortService` disposes exactly one object and no longer knows that
+a KISS session keeps its own transport wrapper alive. `PortService` lost seven
+constructor dependencies (`IConfigurationService`, `ILoggerFactory`,
+`IKissStreamFactory`, `IAudioStreamService`, `IAudioPlaybackService`,
+`IPttService`, `ILocationTrackingService`) and its `ActivePortSession` lost the
+`KissModem` member. Modem ownership is now explicit: `AfskModem.DisposeAsync` stops
+capture but no longer disposes the shared `IAudioStreamService`, and the factory
+disposes the stream it opened when the modem cannot be built on top of it.
+Cancellation reaches every connector because `CreateAsync` takes the caller's token
+and forwards it to `IKissStreamFactory.OpenAsync`. A004 in the architecture scan
+forbids `new AprsIsModem`, `new AprsRfModem`, `new KissModem`, and `new AfskModem`
+outside the factory. `ModemFactoryTests` covers each transport, missing type
+settings, an unregistered settings type, KISS without transport settings, an
+unregistered KISS transport, token forwarding, and stream disposal;
+`PortServiceTransportFaultTests` covers fault attribution and session disposal.
 
 **R2.2 Extract session manager**
 

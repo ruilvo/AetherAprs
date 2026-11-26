@@ -3,18 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
-using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Modems.Afsk;
-using AetherAprs.Modems.Aprs;
-using AetherAprs.Modems.Kiss;
-using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Diagnostics;
-using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
-using AetherAprs.Transports.Kiss;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using System;
@@ -30,17 +23,11 @@ namespace AetherAprs.Services.Ports;
 public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRuntime, IAsyncDisposable
 {
     private readonly IPortRegistry _portRegistry;
-    private readonly IConfigurationService _configurationService;
-    private readonly ILoggerFactory _loggerFactory;
+    private readonly IModemFactory _modemFactory;
     private readonly ILogger<PortService> _logger;
-    private readonly IKissStreamFactory _kissStreamFactory;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IKeepAliveService _keepAliveService;
     private readonly IDigipeaterService _digipeaterService;
-    private readonly IAudioStreamService _audioStreamService;
-    private readonly IAudioPlaybackService _audioPlaybackService;
-    private readonly IPttService _pttService;
-    private readonly ILocationTrackingService? _locationTrackingService;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
     private readonly Lock _stateLock = new();
@@ -84,35 +71,24 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     public PortService(
         IPortRegistry portRegistry,
-        IConfigurationService configurationService,
-        ILoggerFactory loggerFactory,
+        IModemFactory modemFactory,
         ILogger<PortService> logger,
-        IKissStreamFactory kissStreamFactory,
         IPacketStorageService packetStorageService,
         IKeepAliveService keepAliveService,
         IDigipeaterService digipeaterService,
-        IAudioStreamService audioStreamService,
-        IAudioPlaybackService audioPlaybackService,
-        IPttService pttService,
-        ILocationTrackingService? locationTrackingService = null,
         IDiagnosticEventSink? diagnosticSink = null,
         int packetQueueCapacity = DefaultPacketQueueCapacity,
         int digipeatQueueCapacity = DefaultDigipeatQueueCapacity)
     {
         ArgumentNullException.ThrowIfNull(portRegistry);
+        ArgumentNullException.ThrowIfNull(modemFactory);
 
         _portRegistry = portRegistry;
-        _configurationService = configurationService;
-        _loggerFactory = loggerFactory;
+        _modemFactory = modemFactory;
         _logger = logger;
-        _kissStreamFactory = kissStreamFactory;
         _packetStorageService = packetStorageService;
         _keepAliveService = keepAliveService;
         _digipeaterService = digipeaterService;
-        _audioStreamService = audioStreamService;
-        _audioPlaybackService = audioPlaybackService;
-        _pttService = pttService;
-        _locationTrackingService = locationTrackingService;
         _diagnosticSink = diagnosticSink;
 
         // Bound the queue so a burst cannot grow it unboundedly; the single consumer
@@ -557,113 +533,46 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            switch (port.TypeSettings)
+            var modem = await _modemFactory
+                .CreateAsync(port, cancellationToken)
+                .ConfigureAwait(false);
+
+            EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
+            EventHandler<Exception> errorHandler = (_, exception) => OnModemReceiveError(port.Id, exception);
+
+            modem.PacketReceived += packetHandler;
+            modem.ReceiveError += errorHandler;
+
+            try
             {
-                case AprsIsSettings aprsIsSettings:
-                    {
-                        var settings = _configurationService.GetSettingsSnapshot();
-                        var callsign = settings.Aprs.Callsign;
-                        var ssid = (int)settings.Aprs.Ssid;
-                        var fullCallsign = new Callsign(
-                            callsign,
-                            ssid > 0 ? ssid : null);
-
-                        // Resolve runtime-dependent filter directives (drop a
-                        // no-op all-types t/, and turn m/ into a fixed r/ range
-                        // around the current position) just before connecting.
-                        var location = _locationTrackingService?.CurrentLocation;
-                        var filter = AprsIsFilter.NormalizeForConnection(
-                            aprsIsSettings.Filter,
-                            location?.Location.Latitude,
-                            location?.Location.Longitude);
-
-                        var modem = new AprsIsModem(
-                            aprsIsSettings.Server,
-                            aprsIsSettings.ServerPort,
-                            fullCallsign,
-                            aprsIsSettings.Passcode,
-                            filter,
-                            _loggerFactory.CreateLogger<AprsIsModem>());
-
-                        EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                        modem.PacketReceived += packetHandler;
-                        modem.ReceiveError += OnModemReceiveError;
-                        modem.Start();
-
-                        lock (_stateLock)
-                        {
-                            _activeSessions[port.Id] = new ActivePortSession
-                            {
-                                PortId = port.Id,
-                                Modem = modem,
-                                PacketHandler = packetHandler
-                            };
-                        }
-
-                        _logger.LogInformation("Started modem for port {PortName} ({PortId}).", port.Name, port.Id);
-                        break;
-                    }
-                case KissSettings kiss:
-                    {
-                        var stream = await _kissStreamFactory
-                            .OpenAsync(kiss, cancellationToken)
-                            .ConfigureAwait(false);
-                        var kissModem = new KissModem(stream, _loggerFactory);
-                        var modem = new AprsRfModem(kissModem, _loggerFactory);
-
-                        EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                        modem.PacketReceived += packetHandler;
-                        modem.ReceiveError += OnModemReceiveError;
-                        modem.Start();
-
-                        lock (_stateLock)
-                        {
-                            _activeSessions[port.Id] = new ActivePortSession
-                            {
-                                PortId = port.Id,
-                                Modem = modem,
-                                KissModem = kissModem,
-                                PacketHandler = packetHandler
-                            };
-                        }
-
-                        _logger.LogInformation("Started KISS modem for port {PortName} ({PortId}).", port.Name, port.Id);
-                        break;
-                    }
-                case AfskSettings afsk:
-                    {
-                        var modem = new AfskModem(
-                            _audioStreamService,
-                            _audioPlaybackService,
-                            _pttService,
-                            afsk,
-                            _loggerFactory);
-
-                        EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-                        modem.PacketReceived += packetHandler;
-                        modem.ReceiveError += OnModemReceiveError;
-                        modem.Start();
-
-                        lock (_stateLock)
-                        {
-                            _activeSessions[port.Id] = new ActivePortSession
-                            {
-                                PortId = port.Id,
-                                Modem = modem,
-                                PacketHandler = packetHandler
-                            };
-                        }
-
-                        _logger.LogInformation("Started AFSK modem for port {PortName} ({PortId}).", port.Name, port.Id);
-                        break;
-                    }
-                default:
-                    _logger.LogWarning(
-                        "Failed to start modem for port {PortName} ({PortId}): unknown or missing TypeSettings.",
-                        port.Name,
-                        port.Id);
-                    return false;
+                modem.Start();
             }
+            catch
+            {
+                // The factory created the modem's resources, so a failed start must
+                // release them here instead of leaking a socket or audio capture.
+                modem.PacketReceived -= packetHandler;
+                modem.ReceiveError -= errorHandler;
+                await modem.DisposeAsync().ConfigureAwait(false);
+                throw;
+            }
+
+            lock (_stateLock)
+            {
+                _activeSessions[port.Id] = new ActivePortSession
+                {
+                    PortId = port.Id,
+                    Modem = modem,
+                    PacketHandler = packetHandler,
+                    ReceiveErrorHandler = errorHandler
+                };
+            }
+
+            _logger.LogInformation(
+                "Started {TransportName} modem for port {PortName} ({PortId}).",
+                modem.TransportName,
+                port.Name,
+                port.Id);
 
             return true;
         }
@@ -739,20 +648,14 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         try
         {
             session.Modem.PacketReceived -= session.PacketHandler;
-            session.Modem.ReceiveError -= OnModemReceiveError;
+            session.Modem.ReceiveError -= session.ReceiveErrorHandler;
             await session.Modem.StopAsync().ConfigureAwait(false);
         }
         finally
         {
-            if (session.Modem is IAsyncDisposable modemDisposable)
-            {
-                await modemDisposable.DisposeAsync().ConfigureAwait(false);
-            }
-
-            if (session.KissModem is not null)
-            {
-                await session.KissModem.DisposeAsync().ConfigureAwait(false);
-            }
+            // The modem owns every resource the factory built for it, including
+            // the KISS stream, so one disposal closes the whole graph.
+            await session.Modem.DisposeAsync().ConfigureAwait(false);
         }
 
         _logger.LogInformation("Stopped modem for port {PortId}.", session.PortId);
@@ -1066,28 +969,10 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         }
     }
 
-    private void OnModemReceiveError(object? sender, Exception exception)
+    private void OnModemReceiveError(Guid portId, Exception exception)
     {
-        Guid? portId = null;
-        lock (_stateLock)
-        {
-            if (sender is not null)
-            {
-                portId = _activeSessions.Values
-                    .FirstOrDefault(session => ReferenceEquals(session.Modem, sender))
-                    ?.PortId;
-            }
-        }
-
-        if (portId is Guid identifiedPortId)
-        {
-            _logger.LogWarning(exception, "Receive error on port {PortId}.", identifiedPortId);
-            TransportFaulted?.Invoke(this, new PortTransportFaultEventArgs(identifiedPortId, exception));
-        }
-        else
-        {
-            _logger.LogWarning(exception, "Receive error on an unknown modem.");
-        }
+        _logger.LogWarning(exception, "Receive error on port {PortId}.", portId);
+        TransportFaulted?.Invoke(this, new PortTransportFaultEventArgs(portId, exception));
     }
 
     public async ValueTask DisposeAsync()
@@ -1138,13 +1023,13 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         public required Guid PortId { get; init; }
 
-        public required IAprsModem Modem { get; init; }
-
         /// <summary>
-        /// Owned KISS modem when the session wraps an <see cref="AprsRfModem"/>.
+        /// The modem and every transport resource built for this session.
         /// </summary>
-        public KissModem? KissModem { get; init; }
+        public required IPortModem Modem { get; init; }
 
         public required EventHandler<AprsPacket> PacketHandler { get; init; }
+
+        public required EventHandler<Exception> ReceiveErrorHandler { get; init; }
     }
 }
