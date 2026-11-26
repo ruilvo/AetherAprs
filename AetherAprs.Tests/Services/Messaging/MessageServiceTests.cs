@@ -543,6 +543,44 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
+    public void PacketReceived_OnTwoPorts_FoldsTheCopyAndKeepsTheRouteCount()
+    {
+        FakePortService portService = new();
+        MessageService service = TestMessageService.Create(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            CreateConfiguration("N0CALL"),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance);
+
+        Guid firstPort = Guid.NewGuid();
+        Guid secondPort = Guid.NewGuid();
+        MessagePacket packet = new()
+        {
+            Source = new Callsign("K0PEER", 1),
+            Destination = new Callsign("APRS"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
+            Text = "Ping",
+            MessageNumber = 7
+        };
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs { PortId = firstPort, Packet = packet });
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs { PortId = secondPort, Packet = packet });
+
+        // One conversation item, but both routes stay visible.
+        ConversationThread thread = Assert.Single(service.Conversations);
+        StoredMessage stored = Assert.Single(thread.Messages);
+        Assert.Equal(2, stored.ReceivedPortCount);
+        Assert.Contains(firstPort, stored.ReceivedPortIds);
+        Assert.Contains(secondPort, stored.ReceivedPortIds);
+        Assert.Equal(
+            Localization.Strings.Format("MessageDetailHeardOn", 2),
+            stored.DeliveryDetailText);
+    }
+
+    [Fact]
     public void PacketReceived_IgnoresMessagesNotAddressedToUs()
     {
         FakePortService portService = new();
@@ -710,6 +748,16 @@ public sealed class MessageServiceTests
         ConversationThread thread = Assert.Single(service.Conversations);
         StoredMessage stored = Assert.Single(thread.Messages);
         Assert.NotNull(stored.MessageNumber);
+        Assert.Equal(port.Name, stored.RouteName);
+        Assert.Equal(0, stored.RetryCount);
+        Assert.Equal(3, stored.MaxRetries);
+        Assert.Equal(
+            Localization.Strings.Format("MessageDetailAttempts", 1, 4)
+                + " · " + Localization.Strings.Format("MessageDetailRoute", port.Name),
+            stored.DeliveryDetailText);
+
+        int threadUpdates = 0;
+        thread.MessagesChanged += (_, _) => threadUpdates++;
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -724,6 +772,10 @@ public sealed class MessageServiceTests
         });
 
         Assert.Equal(MessageDeliveryStatus.Acknowledged, stored.DeliveryStatus);
+        Assert.True(threadUpdates > 0, "the owning thread must refresh so the view shows the ACK");
+        Assert.Equal(
+            Localization.Strings.Format("MessageDetailRoute", port.Name),
+            stored.DeliveryDetailText);
     }
 
     [Fact]
@@ -887,6 +939,9 @@ public sealed class MessageServiceTests
         Assert.Equal(stored.MessageNumber, resent.MessageNumber);
         Assert.Equal(1, stored.RetryCount);
         Assert.Equal(clock.UtcNow.AddSeconds(RetryTimeoutSeconds), stored.NextRetryTime);
+        Assert.Equal(
+            Localization.Strings.Format("MessageDetailAttempts", 2, MaxRetries + 1),
+            stored.DeliveryDetailText.Split(" · ")[0]);
         Assert.Equal(1, service.PendingOutboundCount);
     }
 

@@ -224,6 +224,7 @@ public sealed class MessageService : IMessageService, IDisposable
             MessageNumber = enqueued.MessageNumber,
             DeliveryStatus = enqueued.Status,
             RetryCount = 0,
+            MaxRetries = settings.MessageMaxRetries,
             NextRetryTime = enqueued.NextAttemptAt
         };
 
@@ -295,50 +296,63 @@ public sealed class MessageService : IMessageService, IDisposable
             nextRetryTime = message.NextRetryTime;
         }
 
-        foreach (PortConfig port in txPorts)
+        MarkTransmitting(message);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
+            foreach (PortConfig port in txPorts)
             {
-                string callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
-
-                MessagePacket packet = _packetFactory.CreateMessagePacket(
-                    callsignString,
-                    message.Peer,
-                    message.Text,
-                    message.MessageNumber);
-
-                // One history row per logical message: persist on the first
-                // attempt, then only update it from the retry/status path.
-                if (!persisted)
+                cancellationToken.ThrowIfCancellationRequested();
+                try
                 {
-                    await _packetStorageService
-                        .EnsureOutboundMessageAsync(
-                            packet,
-                            port.Id,
-                            retryCount,
-                            nextRetryTime,
-                            message.LogicalId,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    persisted = true;
+                    string callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
+
+                    MessagePacket packet = _packetFactory.CreateMessagePacket(
+                        callsignString,
+                        message.Peer,
+                        message.Text,
+                        message.MessageNumber);
+
+                    // One history row per logical message: persist on the first
+                    // attempt, then only update it from the retry/status path.
+                    if (!persisted)
+                    {
+                        await _packetStorageService
+                            .EnsureOutboundMessageAsync(
+                                packet,
+                                port.Id,
+                                retryCount,
+                                nextRetryTime,
+                                message.LogicalId,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        persisted = true;
+                    }
+
+                    await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
+
+                    sent++;
+                    lock (_gate)
+                    {
+                        message.RouteName = port.Name;
+                    }
+
+                    _logger.LogInformation(
+                        "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, attempt {Attempt})",
+                        message.Peer,
+                        port.Name,
+                        message.MessageNumber,
+                        retryCount + 1);
                 }
-
-                await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
-
-                sent++;
-                _logger.LogInformation(
-                    "Sent APRS message to {Addressee} on port {PortName} (msg#{MessageNumber}, attempt {Attempt})",
-                    message.Peer,
-                    port.Name,
-                    message.MessageNumber,
-                    retryCount + 1);
+                catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+                {
+                    lastError = ex;
+                    _logger.LogError(ex, "Failed to send APRS message on port {PortName}", port.Name);
+                }
             }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                lastError = ex;
-                _logger.LogError(ex, "Failed to send APRS message on port {PortName}", port.Name);
-            }
+        }
+        finally
+        {
+            ClearTransmitting(message);
         }
 
         if (!persisted && lastError is not null)
@@ -350,6 +364,36 @@ public sealed class MessageService : IMessageService, IDisposable
         {
             _logger.LogError(lastError, "Failed to send APRS message to {Addressee}", message.Peer);
         }
+    }
+
+    /// <summary>
+    /// Shows the in-flight attempt while the port writes, without touching the
+    /// durable status: the outbox row stays pending until an outcome arrives.
+    /// </summary>
+    private void MarkTransmitting(StoredMessage message)
+    {
+        lock (_gate)
+        {
+            if (message.DeliveryStatus == MessageDeliveryStatus.Pending)
+            {
+                message.DeliveryStatus = MessageDeliveryStatus.Sending;
+            }
+        }
+
+        NotifyConversationUpdated(message.Peer);
+    }
+
+    private void ClearTransmitting(StoredMessage message)
+    {
+        lock (_gate)
+        {
+            if (message.DeliveryStatus == MessageDeliveryStatus.Sending)
+            {
+                message.DeliveryStatus = MessageDeliveryStatus.Pending;
+            }
+        }
+
+        NotifyConversationUpdated(message.Peer);
     }
 
     /// <summary>
@@ -461,10 +505,16 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private void HandleIncomingMessage(MessagePacket message, Guid portId)
     {
+        // For incoming messages, the peer is the source station (converted to AprsAddress)
+        AprsAddress peer = AprsAddress.FromCallsign(message.Source);
+
         // Deduplicate messages: RF/APRS-IS gating means the same message may arrive
         // on multiple ports within seconds. Track recently seen (source, number) pairs.
         if (message.MessageNumber.HasValue && IsDuplicateMessage(message.Source, message.MessageNumber.Value))
         {
+            // The copy is folded into the existing message so the port count keeps
+            // showing every route that carried it.
+            RecordDuplicateRoute(peer, message.MessageNumber.Value, portId);
             _logger.LogDebug(
                 "Suppressing duplicate message #{MessageNumber} from {Source} on port {PortId}",
                 message.MessageNumber.Value,
@@ -473,8 +523,6 @@ public sealed class MessageService : IMessageService, IDisposable
             return;
         }
 
-        // For incoming messages, the peer is the source station (converted to AprsAddress)
-        AprsAddress peer = AprsAddress.FromCallsign(message.Source);
         StoredMessage stored = new()
         {
             Peer = peer,
@@ -484,6 +532,7 @@ public sealed class MessageService : IMessageService, IDisposable
             MessageNumber = message.MessageNumber,
             PortId = portId
         };
+        stored.ReceivedPortIds.Add(portId);
 
         _logger.LogInformation(
             "Received APRS message from {Peer} on port {PortId} with number {MessageNumber}",
@@ -588,7 +637,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 PersistMessageStatusInBackground(message);
             }
 
-            NotifyConversationsChanged();
+            NotifyConversationUpdated(peer);
         }
         catch (Exception ex)
         {
@@ -714,12 +763,8 @@ public sealed class MessageService : IMessageService, IDisposable
                 message.DeliveryStatus = MessageDeliveryStatus.Expired;
                 message.NextRetryTime = null;
                 PersistMessageStatusInBackground(message);
+                NotifyConversationUpdated(message.Peer);
             }
-        }
-
-        if (expired.Count > 0)
-        {
-            NotifyConversationsChanged();
         }
     }
 
@@ -783,7 +828,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         PersistMessageStatusInBackground(message);
-        NotifyConversationsChanged();
+        NotifyConversationUpdated(message.Peer);
     }
 
     /// <summary>
@@ -884,6 +929,24 @@ public sealed class MessageService : IMessageService, IDisposable
     private void NotifyConversationsChanged() =>
         RunOnUi(() => ConversationsChanged?.Invoke(this, EventArgs.Empty));
 
+    /// <summary>
+    /// Tells the owning thread that one of its messages changed in place, so a
+    /// visible conversation re-reads the delivery state instead of only the list.
+    /// </summary>
+    private void NotifyConversationUpdated(AprsAddress peer)
+    {
+        RunOnUi(() =>
+        {
+            lock (_gate)
+            {
+                ConversationThread? thread = _conversationList.FirstOrDefault(c => c.Peer.Equals(peer));
+                thread?.NotifyMessageUpdated();
+            }
+        });
+
+        NotifyConversationsChanged();
+    }
+
     private void RunOnUi(Action action) => _uiDispatcher.Post(action);
 
     private async Task ShowMessageNotificationAsync(AprsAddress peer, string text)
@@ -904,6 +967,31 @@ public sealed class MessageService : IMessageService, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to post message notification for {Peer}", peer);
+        }
+    }
+
+    /// <summary>
+    /// Folds a duplicate copy into the message that already exists so the port
+    /// count reflects every route that carried it.
+    /// </summary>
+    private void RecordDuplicateRoute(AprsAddress peer, int messageNumber, Guid portId)
+    {
+        bool changed = false;
+        lock (_gate)
+        {
+            ConversationThread? thread = _conversationList.FirstOrDefault(c => c.Peer.Equals(peer));
+            StoredMessage? existing = thread?.Messages.LastOrDefault(
+                message => !message.IsOutbound && message.MessageNumber == messageNumber);
+            if (existing is not null && !existing.ReceivedPortIds.Contains(portId))
+            {
+                existing.ReceivedPortIds.Add(portId);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            NotifyConversationUpdated(peer);
         }
     }
 
@@ -987,6 +1075,8 @@ public sealed class MessageService : IMessageService, IDisposable
         List<StoredMessage> legacyExpired = [];
         List<StoredMessage> staleHistory = [];
 
+        AprsSettings settings = _configurationService.Current.Aprs;
+
         foreach (PacketRecord? record in records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id))
         {
             if (record.Message == null)
@@ -1039,8 +1129,12 @@ public sealed class MessageService : IMessageService, IDisposable
                 IsOutbound = record.IsOutbound,
                 MessageNumber = record.Message.Number,
                 PortId = record.PortId,
+                RouteName = record.IsOutbound && record.PortId is { } routeId
+                    ? _portService.Ports.FirstOrDefault(p => p.Id == routeId)?.Name
+                    : null,
                 DeliveryStatus = status,
                 RetryCount = retryCount,
+                MaxRetries = settings.MessageMaxRetries,
                 NextRetryTime = nextRetryTime
             };
 
@@ -1091,8 +1185,12 @@ public sealed class MessageService : IMessageService, IDisposable
                 IsOutbound = true,
                 MessageNumber = snapshot.MessageNumber,
                 PortId = snapshot.PortId,
+                RouteName = snapshot.PortId is { } openRouteId
+                    ? _portService.Ports.FirstOrDefault(p => p.Id == openRouteId)?.Name
+                    : null,
                 DeliveryStatus = snapshot.Status,
                 RetryCount = Math.Max(0, snapshot.AttemptCount - 1),
+                MaxRetries = settings.MessageMaxRetries,
                 NextRetryTime = snapshot.NextAttemptAt
             };
 

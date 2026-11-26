@@ -263,6 +263,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Timeout" xml:space="preserve"><value>Timeout</value></data>
   <data name="Failed" xml:space="preserve"><value>Falhou</value></data>
   <data name="Queued" xml:space="preserve"><value>Em fila</value></data>
+  <data name="Sending" xml:space="preserve"><value>A enviar</value></data>
+  <data name="MessageDetailAttempts" xml:space="preserve"><value>Tentativa {0} de {1}</value></data>
+  <data name="MessageDetailRoute" xml:space="preserve"><value>via {0}</value></data>
+  <data name="MessageDetailQueued" xml:space="preserve"><value>A aguardar um número de mensagem livre</value></data>
+  <data name="MessageDetailHeardOn" xml:space="preserve"><value>Recebida em {0} portas</value></data>
   <data name="Expired" xml:space="preserve"><value>Expirada</value></data>
   <data name="DisplaySettings" xml:space="preserve"><value>Definições de Visualização</value></data>
   <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configurar que intervalo de tempo de pacotes mostrar na lista e no mapa.</value></data>

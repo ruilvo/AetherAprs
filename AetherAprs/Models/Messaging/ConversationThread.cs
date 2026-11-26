@@ -82,6 +82,17 @@ public sealed class ConversationThread : INotifyPropertyChanged
         MessagesChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Raises change notifications after a message's status or detail changed in
+    /// place, so views re-read the snapshot and show the new delivery state.
+    /// </summary>
+    public void NotifyMessageUpdated()
+    {
+        OnPropertyChanged(nameof(Preview));
+        OnPropertyChanged(nameof(LastTimestamp));
+        MessagesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

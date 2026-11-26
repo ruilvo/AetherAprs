@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs;
 using System;
+using System.Collections.Generic;
 
 namespace AetherAprs.Models.Messaging;
 
@@ -45,6 +46,72 @@ public sealed class StoredMessage
     public DateTimeOffset? NextRetryTime { get; set; }
 
     /// <summary>
+    /// Retries allowed after the initial attempt, captured when the message is
+    /// created so the detail text stays stable if settings change later.
+    /// </summary>
+    public int MaxRetries { get; set; }
+
+    /// <summary>
+    /// Name of the port that last carried the message, when known.
+    /// </summary>
+    public string? RouteName { get; set; }
+
+    /// <summary>
+    /// Ports that carried the same inbound message. A duplicate heard on another
+    /// port is folded into the existing message instead of being dropped, so the
+    /// route count survives deduplication.
+    /// </summary>
+    public List<Guid> ReceivedPortIds { get; } = [];
+
+    public int ReceivedPortCount => ReceivedPortIds.Count;
+
+    /// <summary>
+    /// Route and attempt detail for outbound messages: how many attempts were
+    /// made, and which port carried them. Empty for inbound messages.
+    /// </summary>
+    public string DeliveryDetailText
+    {
+        get
+        {
+            if (!IsOutbound)
+            {
+                return ReceivedPortCount > 1
+                    ? Localization.Strings.Format("MessageDetailHeardOn", ReceivedPortCount)
+                    : string.Empty;
+            }
+
+            if (!DeliveryStatus.HasValue)
+            {
+                return string.Empty;
+            }
+
+            List<string> parts = [];
+            switch (DeliveryStatus.Value)
+            {
+                case MessageDeliveryStatus.Queued:
+                    parts.Add(Localization.Strings.Get("MessageDetailQueued"));
+                    break;
+                case MessageDeliveryStatus.Sending:
+                case MessageDeliveryStatus.Pending:
+                    parts.Add(Localization.Strings.Format(
+                        "MessageDetailAttempts",
+                        RetryCount + 1,
+                        MaxRetries + 1));
+                    break;
+                default:
+                    break;
+            }
+
+            if (!string.IsNullOrEmpty(RouteName))
+            {
+                parts.Add(Localization.Strings.Format("MessageDetailRoute", RouteName));
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>
     /// Gets the delivery status text for display. Empty for inbound messages or when no status is available.
     /// </summary>
     public string DeliveryStatusText
@@ -59,6 +126,7 @@ public sealed class StoredMessage
             return DeliveryStatus.Value switch
             {
                 MessageDeliveryStatus.Queued => $"⏱ {Localization.Strings.Get("Queued")}",
+                MessageDeliveryStatus.Sending => $"↑ {Localization.Strings.Get("Sending")}",
                 MessageDeliveryStatus.Pending => $"⏱ {Localization.Strings.Get("Pending")}",
                 MessageDeliveryStatus.Acknowledged => $"✓ {Localization.Strings.Get("Acknowledged")}",
                 MessageDeliveryStatus.Rejected => $"✗ {Localization.Strings.Get("Rejected")}",

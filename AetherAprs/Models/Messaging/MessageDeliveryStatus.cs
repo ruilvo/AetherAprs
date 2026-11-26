@@ -47,4 +47,10 @@ public enum MessageDeliveryStatus
     /// Message expired before it was delivered.
     /// </summary>
     Expired = 6,
+
+    /// <summary>
+    /// A transmission attempt is in flight. Transient: it is never persisted and
+    /// the durable record stays <see cref="Pending"/> while the wire is used.
+    /// </summary>
+    Sending = 7,
 }
