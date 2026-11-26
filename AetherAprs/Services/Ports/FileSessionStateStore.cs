@@ -13,14 +13,9 @@ namespace AetherAprs.Services.Ports;
 /// <summary>
 /// Atomically persists session state in the caller-selected private app directory.
 /// </summary>
-public sealed class FileSessionStateStore : ISessionStateStore
+public sealed class FileSessionStateStore(string path) : ISessionStateStore
 {
-    private readonly string _path;
-
-    public FileSessionStateStore(string path)
-    {
-        _path = path;
-    }
+    private readonly string _path = path;
 
     public async Task<SessionSnapshot?> LoadAsync(CancellationToken cancellationToken)
     {
@@ -29,7 +24,7 @@ public sealed class FileSessionStateStore : ISessionStateStore
             return null;
         }
 
-        await using var stream = File.OpenRead(_path);
+        await using FileStream stream = File.OpenRead(_path);
         return await JsonSerializer.DeserializeAsync(
             stream,
             SessionStateJsonContext.Default.SessionSnapshot,
@@ -38,16 +33,16 @@ public sealed class FileSessionStateStore : ISessionStateStore
 
     public async Task SaveAsync(SessionSnapshot snapshot, CancellationToken cancellationToken)
     {
-        var directory = Path.GetDirectoryName(_path);
+        string? directory = Path.GetDirectoryName(_path);
         if (!string.IsNullOrEmpty(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        var temporaryPath = $"{_path}.{Guid.NewGuid():N}.tmp";
+        string temporaryPath = $"{_path}.{Guid.NewGuid():N}.tmp";
         try
         {
-            await using (var stream = File.Create(temporaryPath))
+            await using (FileStream stream = File.Create(temporaryPath))
             {
                 await JsonSerializer.SerializeAsync(
                     stream,

@@ -22,14 +22,14 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
 
     public async Task<bool> ShowConfirmationAsync(string title, string message)
     {
-        var content = BuildContent(title, message);
-        var result = await DialogHost.Show(content, MainDialogHostIdentifier);
+        Control content = BuildContent(title, message);
+        object? result = await DialogHost.Show(content, MainDialogHostIdentifier);
         return result is true;
     }
 
     private static Control BuildContent(string title, string message)
     {
-        var titleBlock = new TextBlock
+        TextBlock titleBlock = new()
         {
             Text = title,
             Margin = new Thickness(24, 24, 24, 8),
@@ -37,7 +37,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         };
         titleBlock.Classes.Add("Headline6");
 
-        var messageBlock = new TextBlock
+        TextBlock messageBlock = new()
         {
             Text = message,
             Margin = new Thickness(24, 0, 24, 16),
@@ -45,7 +45,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         };
         messageBlock.Classes.Add("Body2");
 
-        var cancelButton = new Button
+        Button cancelButton = new()
         {
             Content = Strings.Get("Cancel"),
             MinWidth = 88,
@@ -55,7 +55,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         };
         cancelButton.Click += (_, _) => DialogHost.Close(MainDialogHostIdentifier, false);
 
-        var confirmButton = new Button
+        Button confirmButton = new()
         {
             Content = Strings.Get("Confirm"),
             MinWidth = 88,
@@ -65,7 +65,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         };
         confirmButton.Click += (_, _) => DialogHost.Close(MainDialogHostIdentifier, true);
 
-        var buttonPanel = new StackPanel
+        StackPanel buttonPanel = new()
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -75,7 +75,7 @@ public sealed class DialogHostConfirmationService : IConfirmationDialogService
         buttonPanel.Children.Add(cancelButton);
         buttonPanel.Children.Add(confirmButton);
 
-        var panel = new StackPanel
+        StackPanel panel = new()
         {
             MaxWidth = 400
         };

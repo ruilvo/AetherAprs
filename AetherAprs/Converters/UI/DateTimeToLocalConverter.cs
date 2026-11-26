@@ -13,28 +13,23 @@ namespace AetherAprs.Converters.UI;
 /// </summary>
 public class DateTimeToLocalConverter : IValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        return value switch
+        // SQLite round-trips DateTime as DateTimeKind.Unspecified, so packet
+        // timestamps from the data layer arrive here without a Kind. The data
+        // layer stores UTC exclusively (AGENTS.md), so an Unspecified value is
+        // UTC and must be localised rather than shown verbatim.
+        DateTime dt => dt.Kind switch
         {
-            // SQLite round-trips DateTime as DateTimeKind.Unspecified, so packet
-            // timestamps from the data layer arrive here without a Kind. The data
-            // layer stores UTC exclusively (AGENTS.md), so an Unspecified value is
-            // UTC and must be localised rather than shown verbatim.
-            DateTime dt => dt.Kind switch
-            {
-                DateTimeKind.Utc => dt.ToLocalTime(),
-                DateTimeKind.Unspecified => DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToLocalTime(),
-                _ => dt
-            },
-            DateTimeOffset dto => dto.ToLocalTime(),
-            _ => value
-        };
-    }
+            DateTimeKind.Utc => dt.ToLocalTime(),
+            DateTimeKind.Unspecified => DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToLocalTime(),
+            _ => dt
+        },
+        DateTimeOffset dto => dto.ToLocalTime(),
+        _ => value
+    };
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         // Not needed for display-only binding
         throw new NotSupportedException("DateTimeToLocalConverter only supports one-way binding.");
-    }
 }

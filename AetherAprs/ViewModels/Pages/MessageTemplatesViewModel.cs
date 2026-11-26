@@ -23,12 +23,16 @@ namespace AetherAprs.ViewModels.Pages;
 /// to open the edit dialog, creates the edit dialog view model and closes the
 /// page via the navigation service.
 /// </summary>
-public sealed partial class MessageTemplatesViewModel : ViewModelBase
+public sealed partial class MessageTemplatesViewModel(
+    IMessageTemplateService templateService,
+    IConfirmationDialogService confirmationDialogService,
+    INavigationService navigationService,
+    IMessageTemplateEditViewModelFactory editViewModelFactory) : ViewModelBase
 {
-    private readonly IMessageTemplateService _templateService;
-    private readonly IConfirmationDialogService _confirmationDialogService;
-    private readonly INavigationService _navigationService;
-    private readonly IMessageTemplateEditViewModelFactory _editViewModelFactory;
+    private readonly IMessageTemplateService _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
+    private readonly IConfirmationDialogService _confirmationDialogService = confirmationDialogService ?? throw new ArgumentNullException(nameof(confirmationDialogService));
+    private readonly INavigationService _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    private readonly IMessageTemplateEditViewModelFactory _editViewModelFactory = editViewModelFactory ?? throw new ArgumentNullException(nameof(editViewModelFactory));
 
     /// <summary>
     /// Gets the templates currently shown on the page.
@@ -59,25 +63,13 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
     /// </summary>
     public event EventHandler<MessageTemplate>? EditRequested;
 
-    public MessageTemplatesViewModel(
-        IMessageTemplateService templateService,
-        IConfirmationDialogService confirmationDialogService,
-        INavigationService navigationService,
-        IMessageTemplateEditViewModelFactory editViewModelFactory)
-    {
-        _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
-        _confirmationDialogService = confirmationDialogService ?? throw new ArgumentNullException(nameof(confirmationDialogService));
-        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-        _editViewModelFactory = editViewModelFactory ?? throw new ArgumentNullException(nameof(editViewModelFactory));
-    }
-
     /// <summary>
     /// Reloads the template list from the template service.
     /// </summary>
     public void Refresh()
     {
         Templates.Clear();
-        foreach (var template in _templateService.Templates)
+        foreach (MessageTemplate template in _templateService.Templates)
         {
             Templates.Add(template);
         }
@@ -87,10 +79,7 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Add()
-    {
-        AddRequested?.Invoke(this, null);
-    }
+    private void Add() => AddRequested?.Invoke(this, null);
 
     /// <summary>
     /// Creates the edit dialog view model for adding (null original) or
@@ -99,9 +88,9 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
     /// </summary>
     public MessageTemplateEditViewModel CreateEditViewModel(MessageTemplate? original)
     {
-        var originalName = original?.Name;
-        var existingNames = new List<string>();
-        foreach (var template in _templateService.Templates)
+        string? originalName = original?.Name;
+        List<string> existingNames = [];
+        foreach (MessageTemplate template in _templateService.Templates)
         {
             if (!string.Equals(template.Name, originalName, StringComparison.OrdinalIgnoreCase))
             {
@@ -113,15 +102,12 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Edit(MessageTemplate template)
-    {
-        EditRequested?.Invoke(this, template);
-    }
+    private void Edit(MessageTemplate template) => EditRequested?.Invoke(this, template);
 
     [RelayCommand]
     private async Task DeleteAsync(MessageTemplate template)
     {
-        var confirmed = await _confirmationDialogService.ShowConfirmationAsync(
+        bool confirmed = await _confirmationDialogService.ShowConfirmationAsync(
             Strings.Get("DeleteTemplateConfirmationTitle"),
             Strings.Format("DeleteTemplateConfirmationMessage", template.Name));
 
@@ -135,10 +121,7 @@ public sealed partial class MessageTemplatesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Close()
-    {
-        _navigationService.GoBack();
-    }
+    private void Close() => _navigationService.GoBack();
 
     /// <summary>
     /// Persists a newly created template and refreshes the list.

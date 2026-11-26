@@ -22,10 +22,10 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     {
         _bitmapProvider = Substitute.For<IAprsSymbolBitmapProvider>();
         _testBitmap = new SKBitmap(64, 64);
-        
+
         // Setup bitmap provider to return test bitmap
         _bitmapProvider.GetSymbolBitmap(Arg.Any<Symbol>()).Returns(_testBitmap);
-        
+
         _converter = new AprsSymbolMapConverter(_bitmapProvider);
     }
 
@@ -33,19 +33,19 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_ReturnsImageStyleWithBase64Uri()
     {
         // Arrange
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
 
         // Act
-        var imageStyle = _converter.CreateImageStyle(symbol);
+        ImageStyle imageStyle = _converter.CreateImageStyle(symbol);
 
         // Assert
         Assert.NotNull(imageStyle);
         Assert.NotNull(imageStyle.Image);
-        
+
         // Image property is of type Mapsui.Styles.Image which has a Source property
-        var image = imageStyle.Image;
+        Image image = imageStyle.Image;
         Assert.NotNull(image);
-        
+
         // The image should have been created from bitmap provider
         _bitmapProvider.Received(1).GetSymbolBitmap(symbol);
     }
@@ -54,11 +54,11 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_WithCustomScale_AppliesScale()
     {
         // Arrange
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
-        var scale = 0.75;
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        double scale = 0.75;
 
         // Act
-        var imageStyle = _converter.CreateImageStyle(symbol, scale);
+        ImageStyle imageStyle = _converter.CreateImageStyle(symbol, scale);
 
         // Assert
         Assert.Equal(scale, imageStyle.SymbolScale);
@@ -68,10 +68,10 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_DefaultScale_Is0Point5()
     {
         // Arrange
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
 
         // Act
-        var imageStyle = _converter.CreateImageStyle(symbol);
+        ImageStyle imageStyle = _converter.CreateImageStyle(symbol);
 
         // Assert
         Assert.Equal(0.5, imageStyle.SymbolScale);
@@ -81,11 +81,11 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_SameSymbol_UsesCachedResult()
     {
         // Arrange
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
 
         // Act
-        var style1 = _converter.CreateImageStyle(symbol);
-        var style2 = _converter.CreateImageStyle(symbol);
+        ImageStyle style1 = _converter.CreateImageStyle(symbol);
+        ImageStyle style2 = _converter.CreateImageStyle(symbol);
 
         // Assert - The Image.Source (base64 string) should be the same
         Assert.Equal(style1.Image?.Source, style2.Image?.Source);
@@ -96,12 +96,12 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_DifferentSymbols_CreatesDifferentStyles()
     {
         // Arrange
-        var symbol1 = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
-        var symbol2 = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol symbol1 = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol2 = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
 
         // Act
-        var style1 = _converter.CreateImageStyle(symbol1);
-        var style2 = _converter.CreateImageStyle(symbol2);
+        ImageStyle style1 = _converter.CreateImageStyle(symbol1);
+        ImageStyle style2 = _converter.CreateImageStyle(symbol2);
 
         // Assert
         Assert.NotSame(style1.Image, style2.Image);
@@ -113,12 +113,12 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_DifferentTables_CreatesDifferentStyles()
     {
         // Arrange
-        var symbol1 = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
-        var symbol2 = new Symbol(SymbolTable.Alternate, SymbolCode.HyphenMinus);
+        Symbol symbol1 = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol2 = new(SymbolTable.Alternate, SymbolCode.HyphenMinus);
 
         // Act
-        var style1 = _converter.CreateImageStyle(symbol1);
-        var style2 = _converter.CreateImageStyle(symbol2);
+        ImageStyle style1 = _converter.CreateImageStyle(symbol1);
+        ImageStyle style2 = _converter.CreateImageStyle(symbol2);
 
         // Assert
         Assert.NotSame(style1.Image, style2.Image);
@@ -130,7 +130,7 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_AfterDispose_ThrowsObjectDisposedException()
     {
         // Arrange
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
         _converter.Dispose();
 
         // Act & Assert
@@ -162,14 +162,14 @@ public sealed class AprsSymbolMapConverterTests : IDisposable
     public void CreateImageStyle_CreatesValidImageObject()
     {
         // Arrange
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.HyphenMinus);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.HyphenMinus);
 
         // Act
-        var imageStyle = _converter.CreateImageStyle(symbol);
+        ImageStyle imageStyle = _converter.CreateImageStyle(symbol);
 
         // Assert
         Assert.NotNull(imageStyle.Image);
-        
+
         // Verify bitmap provider was called
         _bitmapProvider.Received(1).GetSymbolBitmap(symbol);
     }

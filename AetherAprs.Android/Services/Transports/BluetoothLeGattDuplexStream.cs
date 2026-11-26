@@ -10,6 +10,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using Java.Util.Concurrent;
+using Android.Content;
+using System.Collections.Generic;
 
 namespace AetherAprs.Android.Services.Transports;
 
@@ -49,7 +52,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     private readonly BluetoothGattCharacteristic _rxCharacteristic;
     private readonly Channel<byte> _rxChannel;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
-    private readonly object _sync = new();
+    private readonly Lock _sync = new();
     private readonly BluetoothLeFrameWriter _frameWriter;
 
     private TaskCompletionSource<GattStatus>? _writeCompletion;
@@ -94,17 +97,11 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     {
         if (OperatingSystem.IsAndroidVersionAtLeast(37))
         {
-            var settings = new BluetoothGattConnectionSettings.Builder()
+            BluetoothGattConnectionSettings settings = new BluetoothGattConnectionSettings.Builder()
                 .SetAutoConnectEnabled(false)
                 .SetTransport((int)BluetoothTransports.Le)
-                .Build();
-
-            if (settings is null)
-            {
-                throw new InvalidOperationException("The BLE connection settings could not be built.");
-            }
-
-            var executor = context.MainExecutor
+                .Build() ?? throw new InvalidOperationException("The BLE connection settings could not be built.");
+            IExecutor executor = context.MainExecutor
                 ?? throw new InvalidOperationException("The Android context has no main executor.");
 
             return device.ConnectGatt(settings, executor, callback);
@@ -127,23 +124,23 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     {
         ArgumentNullException.ThrowIfNull(device);
 
-        var context = global::Android.App.Application.Context;
-        var rxChannel = Channel.CreateUnbounded<byte>(new UnboundedChannelOptions
+        Context context = global::Android.App.Application.Context;
+        Channel<byte> rxChannel = Channel.CreateUnbounded<byte>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = false,
             AllowSynchronousContinuations = false
         });
 
-        var readyTcs = new TaskCompletionSource<BluetoothLeGattDuplexStream>(
+        TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var callback = new GattCallback(
+        GattCallback callback = new(
             serviceUuid,
             rxCharacteristicUuid,
             txCharacteristicUuid,
             rxChannel,
             readyTcs);
-        var gatt = StartGattConnection(device, context, callback)
+        BluetoothGatt gatt = StartGattConnection(device, context, callback)
             ?? throw new InvalidOperationException("Failed to start BLE GATT connection.");
         await using (cancellationToken.Register(() =>
         {
@@ -185,13 +182,10 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     {
     }
 
-    public override int Read(byte[] buffer, int offset, int count)
-    {
-        return ReadAsync(buffer.AsMemory(offset, count), CancellationToken.None)
+    public override int Read(byte[] buffer, int offset, int count) => ReadAsync(buffer.AsMemory(offset, count), CancellationToken.None)
             .AsTask()
             .GetAwaiter()
             .GetResult();
-    }
 
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
@@ -202,7 +196,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             return 0;
         }
 
-        var written = 0;
+        int written = 0;
 
         while (written < buffer.Length)
         {
@@ -243,13 +237,10 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         return written;
     }
 
-    public override void Write(byte[] buffer, int offset, int count)
-    {
-        WriteAsync(buffer.AsMemory(offset, count), CancellationToken.None)
+    public override void Write(byte[] buffer, int offset, int count) => WriteAsync(buffer.AsMemory(offset, count), CancellationToken.None)
             .AsTask()
             .GetAwaiter()
             .GetResult();
-    }
 
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
@@ -261,7 +252,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         }
 
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        var abandoned = false;
+        bool abandoned = false;
         try
         {
             await _frameWriter.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
@@ -297,17 +288,17 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         bool withoutResponse,
         CancellationToken cancellationToken)
     {
-        var writeType = withoutResponse ? GattWriteType.NoResponse : GattWriteType.Default;
+        GattWriteType writeType = withoutResponse ? GattWriteType.NoResponse : GattWriteType.Default;
 
         if (writeType == GattWriteType.Default)
         {
-            var writeTcs = new TaskCompletionSource<GattStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<GattStatus> writeTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (_sync)
             {
                 _writeCompletion = writeTcs;
             }
 
-            var startStatus = _gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType);
+            int startStatus = _gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType);
             if (startStatus != (int)GattStatus.Success)
             {
                 lock (_sync)
@@ -382,7 +373,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             _mtuReported = true;
         }
 
-        var payloadSize = mtu > AttHeaderSize
+        int payloadSize = mtu > AttHeaderSize
             ? Math.Min(mtu - AttHeaderSize, MaxPayloadSize)
             : DefaultPayloadSize;
         Volatile.Write(ref _payloadSize, payloadSize);
@@ -415,7 +406,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     internal void CompleteWrite(GattStatus status)
     {
         TaskCompletionSource<GattStatus>? writeTcs;
-        var releaseGate = false;
+        bool releaseGate = false;
         lock (_sync)
         {
             writeTcs = _writeCompletion;
@@ -442,7 +433,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
     internal void OnRemoteClosed()
     {
-        var exception = new IOException("BLE GATT connection closed by the remote device.");
+        IOException exception = new("BLE GATT connection closed by the remote device.");
         _rxChannel.Writer.TryComplete(exception);
 
         lock (_sync)
@@ -495,31 +486,22 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         base.Dispose(disposing);
     }
 
-    private sealed class GattCallback : BluetoothGattCallback
+    private sealed class GattCallback(
+        Guid serviceUuid,
+        Guid rxCharacteristicUuid,
+        Guid txCharacteristicUuid,
+        Channel<byte> rxChannel,
+        TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs) : BluetoothGattCallback
     {
-        private readonly Guid _serviceUuid;
-        private readonly Guid _rxCharacteristicUuid;
-        private readonly Guid _txCharacteristicUuid;
-        private readonly Channel<byte> _rxChannel;
-        private readonly TaskCompletionSource<BluetoothLeGattDuplexStream> _readyTcs;
+        private readonly Guid _serviceUuid = serviceUuid;
+        private readonly Guid _rxCharacteristicUuid = rxCharacteristicUuid;
+        private readonly Guid _txCharacteristicUuid = txCharacteristicUuid;
+        private readonly Channel<byte> _rxChannel = rxChannel;
+        private readonly TaskCompletionSource<BluetoothLeGattDuplexStream> _readyTcs = readyTcs;
 
         private BluetoothLeGattDuplexStream? _stream;
         private BluetoothGattCharacteristic? _txCharacteristic;
         private int _aborted;
-
-        public GattCallback(
-            Guid serviceUuid,
-            Guid rxCharacteristicUuid,
-            Guid txCharacteristicUuid,
-            Channel<byte> rxChannel,
-            TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs)
-        {
-            _serviceUuid = serviceUuid;
-            _rxCharacteristicUuid = rxCharacteristicUuid;
-            _txCharacteristicUuid = txCharacteristicUuid;
-            _rxChannel = rxChannel;
-            _readyTcs = readyTcs;
-        }
 
         public override void OnConnectionStateChange(BluetoothGatt? gatt, GattStatus status, ProfileState newState)
         {
@@ -528,7 +510,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 return;
             }
 
-            var action = GattConnectionPolicy.Classify(
+            GattConnectionAction action = GattConnectionPolicy.Classify(
                 (int)status,
                 newState == ProfileState.Connected,
                 newState == ProfileState.Disconnected);
@@ -574,17 +556,17 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
             try
             {
-                var service = gatt.GetService(ToJavaUuid(_serviceUuid))
+                BluetoothGattService service = gatt.GetService(ToJavaUuid(_serviceUuid))
                     ?? throw new InvalidOperationException($"BLE service {_serviceUuid} was not found.");
 
-                var rx = service.GetCharacteristic(ToJavaUuid(_rxCharacteristicUuid))
+                BluetoothGattCharacteristic rx = service.GetCharacteristic(ToJavaUuid(_rxCharacteristicUuid))
                     ?? throw new InvalidOperationException($"BLE RX characteristic {_rxCharacteristicUuid} was not found.");
 
-                var tx = service.GetCharacteristic(ToJavaUuid(_txCharacteristicUuid))
+                BluetoothGattCharacteristic tx = service.GetCharacteristic(ToJavaUuid(_txCharacteristicUuid))
                     ?? throw new InvalidOperationException($"BLE TX characteristic {_txCharacteristicUuid} was not found.");
 
                 _txCharacteristic = tx;
-                var stream = new BluetoothLeGattDuplexStream(gatt, rx, _rxChannel);
+                BluetoothLeGattDuplexStream stream = new(gatt, rx, _rxChannel);
                 _stream = stream;
 
                 if (!gatt.SetCharacteristicNotification(tx, enable: true))
@@ -592,17 +574,17 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                     throw new IOException("Failed to enable BLE TX characteristic notifications.");
                 }
 
-                var cccd = tx.GetDescriptor(CccdUuid)
+                BluetoothGattDescriptor cccd = tx.GetDescriptor(CccdUuid)
                     ?? throw new InvalidOperationException("BLE TX CCCD descriptor was not found.");
 
                 byte[] enableValue = [0x01, 0x00];
-                var enableNotificationValue = BluetoothGattDescriptor.EnableNotificationValue;
+                IList<byte>? enableNotificationValue = BluetoothGattDescriptor.EnableNotificationValue;
                 if (enableNotificationValue is not null && enableNotificationValue.Count >= 2)
                 {
                     enableValue = [enableNotificationValue[0], enableNotificationValue[1]];
                 }
 
-                var descriptorStatus = gatt.WriteDescriptor(cccd, enableValue);
+                int descriptorStatus = gatt.WriteDescriptor(cccd, enableValue);
                 if (descriptorStatus != (int)GattStatus.Success)
                 {
                     throw new IOException($"Failed to write BLE CCCD to enable notifications (status {descriptorStatus}).");
@@ -717,10 +699,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         public override void OnCharacteristicWrite(
             BluetoothGatt? gatt,
             BluetoothGattCharacteristic? characteristic,
-            GattStatus status)
-        {
-            _stream?.CompleteWrite(status);
-        }
+            GattStatus status) => _stream?.CompleteWrite(status);
 
         private void PublishValue(byte[]? value)
         {
@@ -729,7 +708,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 return;
             }
 
-            foreach (var b in value)
+            foreach (byte b in value)
             {
                 if (!_rxChannel.Writer.TryWrite(b))
                 {

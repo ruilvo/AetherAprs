@@ -8,6 +8,7 @@ using AetherAprs.Services.UI;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -42,10 +43,10 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
         // Documented exception to the child-ViewModel-injection rule: BeaconConfigurationItemViewModel
         // is a stateless presentation wrapper over a BeaconConfig record with no service dependencies,
         // so a factory would only delegate to `new`. See AGENTS.md "Child ViewModel Injection".
-        var configs = beaconService.AllConfigurations;
-        foreach (var config in configs)
+        IReadOnlyList<BeaconConfig> configs = beaconService.AllConfigurations;
+        foreach (BeaconConfig config in configs)
         {
-            var itemVm = new BeaconConfigurationItemViewModel(config);
+            BeaconConfigurationItemViewModel itemVm = new(config);
             switch (config.Mode)
             {
                 case DynamicBeaconMode.Walk:
@@ -82,7 +83,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
             return;
         }
 
-        var previous = ActiveMode;
+        DynamicBeaconMode previous = ActiveMode;
         ActiveMode = mode;
         try
         {
@@ -123,7 +124,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     [RelayCommand]
     public void ResetWalkToDefault()
     {
-        var defaultWalk = BeaconConfig.CreateWalkPreset();
+        BeaconConfig defaultWalk = BeaconConfig.CreateWalkPreset();
         // Documented exception to child-ViewModel injection (stateless config wrapper, no services) — see AGENTS.md.
         WalkConfiguration = new BeaconConfigurationItemViewModel(defaultWalk);
     }
@@ -131,7 +132,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     [RelayCommand]
     public void ResetDriveToDefault()
     {
-        var defaultDrive = BeaconConfig.CreateDrivePreset();
+        BeaconConfig defaultDrive = BeaconConfig.CreateDrivePreset();
         // Documented exception to child-ViewModel injection (stateless config wrapper, no services) — see AGENTS.md.
         DriveConfiguration = new BeaconConfigurationItemViewModel(defaultDrive);
     }
@@ -139,7 +140,7 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
     [RelayCommand]
     public void ResetCustomToDefault()
     {
-        var defaultCustom = BeaconConfig.CreateCustomPreset();
+        BeaconConfig defaultCustom = BeaconConfig.CreateCustomPreset();
         // Documented exception to child-ViewModel injection (stateless config wrapper, no services) — see AGENTS.md.
         CustomConfiguration = new BeaconConfigurationItemViewModel(defaultCustom);
     }
@@ -148,51 +149,37 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
 /// <summary>
 /// ViewModel for a single beacon configuration that can be edited.
 /// </summary>
-public partial class BeaconConfigurationItemViewModel : ViewModelBase
+public partial class BeaconConfigurationItemViewModel(BeaconConfig configuration) : ViewModelBase
 {
     [ObservableProperty]
-    public partial BeaconConfig Configuration { get; set; }
+    public partial BeaconConfig Configuration { get; set; } = configuration;
 
     [ObservableProperty]
-    public partial string DisplayName { get; set; } = string.Empty;
+    public partial string DisplayName { get; set; } = configuration.GetLocalizedDisplayName();
 
     [ObservableProperty]
-    public partial int SlowIntervalSeconds { get; set; }
+    public partial int SlowIntervalSeconds { get; set; } = configuration.SlowIntervalSeconds;
 
     [ObservableProperty]
-    public partial int NormalIntervalSeconds { get; set; }
+    public partial int NormalIntervalSeconds { get; set; } = configuration.NormalIntervalSeconds;
 
     [ObservableProperty]
-    public partial int FastIntervalSeconds { get; set; }
+    public partial int FastIntervalSeconds { get; set; } = configuration.FastIntervalSeconds;
 
     [ObservableProperty]
-    public partial double FastSpeedThresholdKmh { get; set; }
+    public partial double FastSpeedThresholdKmh { get; set; } = configuration.FastSpeedThresholdKmh;
 
     [ObservableProperty]
-    public partial double SlowSpeedThresholdKmh { get; set; }
+    public partial double SlowSpeedThresholdKmh { get; set; } = configuration.SlowSpeedThresholdKmh;
 
     [ObservableProperty]
-    public partial int CourseChangeThresholdDegrees { get; set; }
+    public partial int CourseChangeThresholdDegrees { get; set; } = configuration.CourseChangeThresholdDegrees;
 
     [ObservableProperty]
-    public partial int MinimumDistanceMeters { get; set; }
+    public partial int MinimumDistanceMeters { get; set; } = configuration.MinimumDistanceMeters;
 
     [ObservableProperty]
-    public partial string BeaconComment { get; set; } = string.Empty;
-
-    public BeaconConfigurationItemViewModel(BeaconConfig configuration)
-    {
-        Configuration = configuration;
-        DisplayName = configuration.GetLocalizedDisplayName();
-        SlowIntervalSeconds = configuration.SlowIntervalSeconds;
-        NormalIntervalSeconds = configuration.NormalIntervalSeconds;
-        FastIntervalSeconds = configuration.FastIntervalSeconds;
-        FastSpeedThresholdKmh = configuration.FastSpeedThresholdKmh;
-        SlowSpeedThresholdKmh = configuration.SlowSpeedThresholdKmh;
-        CourseChangeThresholdDegrees = configuration.CourseChangeThresholdDegrees;
-        MinimumDistanceMeters = configuration.MinimumDistanceMeters;
-        BeaconComment = configuration.BeaconComment ?? string.Empty;
-    }
+    public partial string BeaconComment { get; set; } = configuration.BeaconComment ?? string.Empty;
 
     partial void OnDisplayNameChanged(string value) => UpdateConfiguration();
     partial void OnSlowIntervalSecondsChanged(int value) => UpdateConfiguration();
@@ -204,19 +191,16 @@ public partial class BeaconConfigurationItemViewModel : ViewModelBase
     partial void OnMinimumDistanceMetersChanged(int value) => UpdateConfiguration();
     partial void OnBeaconCommentChanged(string value) => UpdateConfiguration();
 
-    private void UpdateConfiguration()
+    private void UpdateConfiguration() => Configuration = Configuration with
     {
-        Configuration = Configuration with
-        {
-            DisplayName = DisplayName,
-            SlowIntervalSeconds = SlowIntervalSeconds,
-            NormalIntervalSeconds = NormalIntervalSeconds,
-            FastIntervalSeconds = FastIntervalSeconds,
-            FastSpeedThresholdKmh = FastSpeedThresholdKmh,
-            SlowSpeedThresholdKmh = SlowSpeedThresholdKmh,
-            CourseChangeThresholdDegrees = CourseChangeThresholdDegrees,
-            MinimumDistanceMeters = MinimumDistanceMeters,
-            BeaconComment = string.IsNullOrWhiteSpace(BeaconComment) ? null : BeaconComment
-        };
-    }
+        DisplayName = DisplayName,
+        SlowIntervalSeconds = SlowIntervalSeconds,
+        NormalIntervalSeconds = NormalIntervalSeconds,
+        FastIntervalSeconds = FastIntervalSeconds,
+        FastSpeedThresholdKmh = FastSpeedThresholdKmh,
+        SlowSpeedThresholdKmh = SlowSpeedThresholdKmh,
+        CourseChangeThresholdDegrees = CourseChangeThresholdDegrees,
+        MinimumDistanceMeters = MinimumDistanceMeters,
+        BeaconComment = string.IsNullOrWhiteSpace(BeaconComment) ? null : BeaconComment
+    };
 }

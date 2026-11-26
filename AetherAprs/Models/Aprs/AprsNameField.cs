@@ -29,7 +29,7 @@ public static class AprsNameField
             return false;
         }
 
-        foreach (var character in name)
+        foreach (char character in name)
         {
             if (char.IsControl(character))
             {

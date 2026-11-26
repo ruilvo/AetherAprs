@@ -14,17 +14,11 @@ namespace AetherAprs.Android.Services.Platform;
 /// transmitter by toggling the speaker-mic (voice transmit) audio routing via
 /// <see cref="AudioManager"/>.
 /// </summary>
-public sealed class PttService : IPttService
+public sealed class PttService(ILogger<PttService>? logger = null) : IPttService
 {
-    private readonly AudioManager _audioManager;
-    private readonly ILogger<PttService>? _logger;
-
-    public PttService(ILogger<PttService>? logger = null)
-    {
-        _logger = logger;
-        _audioManager = (AudioManager)global::Android.App.Application.Context
+    private readonly AudioManager _audioManager = (AudioManager)global::Android.App.Application.Context
             .GetSystemService(global::Android.Content.Context.AudioService)!;
-    }
+    private readonly ILogger<PttService>? _logger = logger;
 
     /// <inheritdoc/>
     public void Engage()

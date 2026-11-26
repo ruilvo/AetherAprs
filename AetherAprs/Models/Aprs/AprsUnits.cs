@@ -91,7 +91,7 @@ public static class AprsUnits
                 nameof(feet), feet, "Compressed position altitude must be a positive number of feet.");
         }
 
-        var combined = (int)Math.Round(
+        int combined = (int)Math.Round(
             Math.Log(feet) / Math.Log(CompressedAltitudeBase),
             MidpointRounding.AwayFromZero);
         return (combined / 91, combined % 91);

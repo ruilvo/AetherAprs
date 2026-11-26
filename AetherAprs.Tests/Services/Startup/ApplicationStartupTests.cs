@@ -20,14 +20,14 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_RunsStepsInDeclarationOrder()
     {
-        var order = new List<string>();
-        var startup = Create(
+        List<string> order = [];
+        ApplicationStartup startup = Create(
             RecordStep("database", order),
             RecordStep("settings", order),
             RecordStep("ports", order),
             RecordStep("sessions", order));
 
-        var report = await startup.RunAsync(TestContext.Current.CancellationToken);
+        StartupReport report = await startup.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(new[] { "database", "settings", "ports", "sessions" }, order);
         Assert.True(report.Succeeded);
@@ -37,37 +37,36 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_RequiredFailure_StopsTheRunAndSkipsLaterSteps()
     {
-        var ran = new List<string>();
-        var startup = Create(
+        List<string> ran = [];
+        ApplicationStartup startup = Create(
             Step("database", () => throw new InvalidOperationException("schema"), isRequired: true),
             RecordStep("settings", ran),
             RecordStep("sessions", ran));
 
-        var report = await startup.RunAsync(TestContext.Current.CancellationToken);
+        StartupReport report = await startup.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.False(report.Succeeded);
         Assert.False(report.WasCancelled);
         Assert.Equal("database", report.Failure?.Name);
         Assert.Empty(ran);
         Assert.Equal(
-            new[]
-            {
+            [
                 StartupStepOutcome.Failed,
                 StartupStepOutcome.Skipped,
                 StartupStepOutcome.Skipped
-            },
+            ],
             report.Steps.Select(step => step.Outcome).ToArray());
     }
 
     [Fact]
     public async Task RunAsync_OptionalFailure_IsRecordedAndTheRunContinues()
     {
-        var ran = new List<string>();
-        var startup = Create(
+        List<string> ran = [];
+        ApplicationStartup startup = Create(
             Step("permissions", () => throw new InvalidOperationException("denied"), isRequired: false),
             RecordStep("sessions", ran));
 
-        var report = await startup.RunAsync(TestContext.Current.CancellationToken);
+        StartupReport report = await startup.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.False(report.Succeeded);
         Assert.Equal("permissions", report.Failure?.Name);
@@ -77,11 +76,11 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_SecondCall_ReturnsTheFirstReportWithoutRunningAgain()
     {
-        var runs = 0;
-        var startup = Create(Step("database", () => runs++));
+        int runs = 0;
+        ApplicationStartup startup = Create(Step("database", () => runs++));
 
-        var first = await startup.RunAsync(TestContext.Current.CancellationToken);
-        var second = await startup.RunAsync(TestContext.Current.CancellationToken);
+        StartupReport first = await startup.RunAsync(TestContext.Current.CancellationToken);
+        StartupReport second = await startup.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Same(first, second);
         Assert.Equal(1, runs);
@@ -92,19 +91,19 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_ConcurrentCalls_ShareOneRun()
     {
-        var runs = 0;
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var startup = Create(new StartupStep("database", async _ =>
+        int runs = 0;
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        ApplicationStartup startup = Create(new StartupStep("database", async _ =>
         {
             runs++;
             await gate.Task;
         }));
 
-        var first = startup.RunAsync(TestContext.Current.CancellationToken);
-        var second = startup.RunAsync(TestContext.Current.CancellationToken);
+        Task<StartupReport> first = startup.RunAsync(TestContext.Current.CancellationToken);
+        Task<StartupReport> second = startup.RunAsync(TestContext.Current.CancellationToken);
         gate.SetResult();
 
-        var reports = await Task.WhenAll(first, second).WaitAsync(
+        StartupReport[] reports = await Task.WhenAll(first, second).WaitAsync(
             TimeSpan.FromSeconds(5),
             TestContext.Current.CancellationToken);
 
@@ -115,12 +114,12 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_AlreadyCancelledToken_SkipsEveryStep()
     {
-        var ran = false;
-        var startup = Create(Step("database", () => ran = true));
-        using var cancellation = new CancellationTokenSource();
+        bool ran = false;
+        ApplicationStartup startup = Create(Step("database", () => ran = true));
+        using CancellationTokenSource cancellation = new();
         await cancellation.CancelAsync();
 
-        var report = await startup.RunAsync(cancellation.Token);
+        StartupReport report = await startup.RunAsync(cancellation.Token);
 
         Assert.False(ran);
         Assert.True(report.WasCancelled);
@@ -131,9 +130,9 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_CancellationInsideAStep_StopsTheRun()
     {
-        var ran = false;
-        using var cancellation = new CancellationTokenSource();
-        var startup = Create(
+        bool ran = false;
+        using CancellationTokenSource cancellation = new();
+        ApplicationStartup startup = Create(
             new StartupStep("sessions", async token =>
             {
                 await cancellation.CancelAsync();
@@ -141,7 +140,7 @@ public sealed class ApplicationStartupTests
             }),
             Step("maintenance", () => ran = true));
 
-        var report = await startup.RunAsync(cancellation.Token);
+        StartupReport report = await startup.RunAsync(cancellation.Token);
 
         Assert.False(ran);
         Assert.True(report.WasCancelled);
@@ -151,8 +150,8 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_Failure_IsRecordedInDiagnostics()
     {
-        var diagnostics = Substitute.For<IDiagnosticEventSink>();
-        var startup = new ApplicationStartup(
+        IDiagnosticEventSink diagnostics = Substitute.For<IDiagnosticEventSink>();
+        ApplicationStartup startup = new(
             [Step("database", () => throw new InvalidOperationException("schema"))],
             NullLogger<ApplicationStartup>.Instance,
             diagnostics);
@@ -170,10 +169,10 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_StepObserverFailure_DoesNotFailTheStep()
     {
-        var startup = Create(Step("database", () => { }));
+        ApplicationStartup startup = Create(Step("database", () => { }));
         startup.StepCompleted += (_, _) => throw new InvalidOperationException("observer");
 
-        var report = await startup.RunAsync(TestContext.Current.CancellationToken);
+        StartupReport report = await startup.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.True(report.Succeeded);
     }
@@ -181,8 +180,8 @@ public sealed class ApplicationStartupTests
     [Fact]
     public async Task RunAsync_RaisesStepCompletedForEachStep()
     {
-        var observed = new List<string>();
-        var startup = Create(Step("database", () => { }), Step("sessions", () => { }));
+        List<string> observed = [];
+        ApplicationStartup startup = Create(Step("database", () => { }), Step("sessions", () => { }));
         startup.StepCompleted += (_, args) => observed.Add(args.Result.Name);
 
         await startup.RunAsync(TestContext.Current.CancellationToken);
@@ -193,7 +192,7 @@ public sealed class ApplicationStartupTests
     [Fact]
     public void HasRun_IsFalseBeforeTheSequenceFinishes()
     {
-        var startup = Create(Step("database", () => { }));
+        ApplicationStartup startup = Create(Step("database", () => { }));
 
         Assert.False(startup.HasRun);
         Assert.Null(startup.LastReport);

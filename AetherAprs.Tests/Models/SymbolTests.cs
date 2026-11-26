@@ -13,7 +13,7 @@ public class SymbolTests
     [Fact]
     public void Constructor_SetsTableAndCode()
     {
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
         Assert.Equal(SymbolTable.Primary, symbol.Table);
         Assert.Equal(SymbolCode.GreaterThanSign, symbol.Code);
     }
@@ -21,7 +21,7 @@ public class SymbolTests
     [Fact]
     public void Constructor_WithOverlay_SetsOverlay()
     {
-        var symbol = new Symbol(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
+        Symbol symbol = new(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
         Assert.Equal(SymbolTable.Alternate, symbol.Table);
         Assert.Equal(SymbolCode.Exclamation, symbol.Code);
         Assert.Equal('L', symbol.Overlay);
@@ -30,7 +30,7 @@ public class SymbolTests
     [Fact]
     public void Constructor_WithoutOverlay_OverlayIsNull()
     {
-        var symbol = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol symbol = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
         Assert.Null(symbol.Overlay);
     }
 
@@ -51,47 +51,47 @@ public class SymbolTests
     [Fact]
     public void Equality_SameTableAndCode_AreEqual()
     {
-        var a = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
-        var b = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol a = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol b = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
         Assert.Equal(a, b);
     }
 
     [Fact]
     public void Equality_SameTableCodeAndOverlay_AreEqual()
     {
-        var a = new Symbol(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
-        var b = new Symbol(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
+        Symbol a = new(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
+        Symbol b = new(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
         Assert.Equal(a, b);
     }
 
     [Fact]
     public void Equality_DifferentTable_AreNotEqual()
     {
-        var a = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
-        var b = new Symbol(SymbolTable.Alternate, SymbolCode.GreaterThanSign);
+        Symbol a = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol b = new(SymbolTable.Alternate, SymbolCode.GreaterThanSign);
         Assert.NotEqual(a, b);
     }
 
     [Fact]
     public void Equality_DifferentCode_AreNotEqual()
     {
-        var a = new Symbol(SymbolTable.Primary, SymbolCode.GreaterThanSign);
-        var b = new Symbol(SymbolTable.Primary, SymbolCode.LessThanSign);
+        Symbol a = new(SymbolTable.Primary, SymbolCode.GreaterThanSign);
+        Symbol b = new(SymbolTable.Primary, SymbolCode.LessThanSign);
         Assert.NotEqual(a, b);
     }
 
     [Fact]
     public void Equality_DifferentOverlay_AreNotEqual()
     {
-        var a = new Symbol(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
-        var b = new Symbol(SymbolTable.Alternate, SymbolCode.Exclamation, 'R');
+        Symbol a = new(SymbolTable.Alternate, SymbolCode.Exclamation, 'L');
+        Symbol b = new(SymbolTable.Alternate, SymbolCode.Exclamation, 'R');
         Assert.NotEqual(a, b);
     }
 
     [Fact]
     public void AlternateTable_Works()
     {
-        var symbol = new Symbol(SymbolTable.Alternate, SymbolCode.Exclamation);
+        Symbol symbol = new(SymbolTable.Alternate, SymbolCode.Exclamation);
         Assert.Equal(SymbolTable.Alternate, symbol.Table);
         Assert.Equal(SymbolCode.Exclamation, symbol.Code);
         Assert.Equal('\\', symbol.TableChar);

@@ -48,10 +48,7 @@ public class ScrollToFocusedControlBehavior : Behavior<ScrollViewer>
             }
 
             // Wait for layout to complete before scrolling
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-            {
-                BringIntoView(focusedControl);
-            }, Avalonia.Threading.DispatcherPriority.Loaded);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => BringIntoView(focusedControl), Avalonia.Threading.DispatcherPriority.Loaded);
         }
         catch
         {
@@ -67,22 +64,22 @@ public class ScrollToFocusedControlBehavior : Behavior<ScrollViewer>
         }
 
         // Get the bounds of the focused control relative to the ScrollViewer
-        var transform = control.TransformToVisual(AssociatedObject);
+        Matrix? transform = control.TransformToVisual(AssociatedObject);
         if (transform == null)
         {
             return;
         }
 
-        var controlBounds = new Rect(control.Bounds.Size);
-        var transformedBounds = controlBounds.TransformToAABB(transform.Value);
+        Rect controlBounds = new(control.Bounds.Size);
+        Rect transformedBounds = controlBounds.TransformToAABB(transform.Value);
 
         // Get current scroll position
-        var currentOffset = AssociatedObject.Offset;
-        var viewportHeight = AssociatedObject.Viewport.Height;
+        Vector currentOffset = AssociatedObject.Offset;
+        double viewportHeight = AssociatedObject.Viewport.Height;
 
         // Calculate if we need to scroll
-        var controlTop = transformedBounds.Top;
-        var controlBottom = transformedBounds.Bottom;
+        double controlTop = transformedBounds.Top;
+        double controlBottom = transformedBounds.Bottom;
 
         // Add some padding (48 pixels) to ensure control isn't right at the edge
         const double padding = 48;
@@ -101,7 +98,7 @@ public class ScrollToFocusedControlBehavior : Behavior<ScrollViewer>
         }
 
         // Ensure we don't scroll beyond bounds
-        var maxOffset = AssociatedObject.Extent.Height - viewportHeight;
+        double maxOffset = AssociatedObject.Extent.Height - viewportHeight;
         newOffsetY = Math.Max(0, Math.Min(newOffsetY, maxOffset));
 
         // Only scroll if needed

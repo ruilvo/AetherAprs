@@ -19,8 +19,8 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public async Task StartAsync_RunsTheFirstSweepWhenTheDelayIsZero()
     {
-        var storage = Substitute.For<IPacketStorageService>();
-        var swept = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        TaskCompletionSource swept = new(TaskCreationOptions.RunContinuationsAsynchronously);
         storage.CleanupOldPacketsAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -28,7 +28,7 @@ public sealed class DatabaseMaintenanceWorkerTests
                 return Task.CompletedTask;
             });
 
-        await using var worker = CreateWorker(
+        await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
             interval: TimeSpan.FromHours(1),
             initialDelay: TimeSpan.Zero);
@@ -43,9 +43,9 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public async Task StartAsync_DoesNotSweepBeforeTheInitialDelay()
     {
-        var storage = Substitute.For<IPacketStorageService>();
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
 
-        await using var worker = CreateWorker(
+        await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
             interval: TimeSpan.FromHours(1),
             initialDelay: TimeSpan.FromHours(1));
@@ -60,9 +60,9 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public async Task StartAsync_Twice_KeepsOneLoop()
     {
-        var storage = Substitute.For<IPacketStorageService>();
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
 
-        await using var worker = CreateWorker(
+        await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
             interval: TimeSpan.FromHours(1),
             initialDelay: TimeSpan.Zero);
@@ -78,9 +78,9 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public async Task FailedSweep_DoesNotStopTheWorker()
     {
-        var storage = Substitute.For<IPacketStorageService>();
-        var sweeps = 0;
-        var secondSweep = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        int sweeps = 0;
+        TaskCompletionSource secondSweep = new(TaskCreationOptions.RunContinuationsAsynchronously);
         storage.CleanupOldPacketsAsync(Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -93,7 +93,7 @@ public sealed class DatabaseMaintenanceWorkerTests
                 return Task.CompletedTask;
             });
 
-        await using var worker = CreateWorker(
+        await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
             interval: TimeSpan.FromMilliseconds(25),
             initialDelay: TimeSpan.Zero);
@@ -107,8 +107,8 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public async Task DisposeAsync_StopsTheLoop()
     {
-        var storage = Substitute.For<IPacketStorageService>();
-        var worker = CreateWorker(
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
             interval: TimeSpan.FromSeconds(1),
             initialDelay: TimeSpan.FromHours(1));
@@ -124,7 +124,7 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public async Task StartAsync_AfterDispose_Throws()
     {
-        var worker = CreateWorker(
+        DatabaseMaintenanceWorker worker = CreateWorker(
             Substitute.For<IPacketStorageService>(),
             interval: TimeSpan.FromHours(1),
             initialDelay: TimeSpan.FromHours(1));
@@ -138,8 +138,8 @@ public sealed class DatabaseMaintenanceWorkerTests
     [Fact]
     public void Constructor_RejectsAnInvalidSchedule()
     {
-        var storage = Substitute.For<IPacketStorageService>();
-        var logger = NullLogger<DatabaseMaintenanceWorker>.Instance;
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        NullLogger<DatabaseMaintenanceWorker> logger = NullLogger<DatabaseMaintenanceWorker>.Instance;
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new DatabaseMaintenanceWorker(storage, logger, interval: TimeSpan.Zero));
@@ -156,7 +156,7 @@ public sealed class DatabaseMaintenanceWorkerTests
 
     private static async Task EventuallyAsync(Func<bool> condition)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
         while (!condition())
         {
             if (DateTime.UtcNow > deadline)

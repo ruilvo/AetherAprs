@@ -6,10 +6,9 @@ using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
-using AetherAprs.Tests.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace AetherAprs.Tests;
+namespace AetherAprs.Tests.Helpers;
 
 /// <summary>
 /// Builds the real port runtime over a temporary database: configuration owner,
@@ -23,16 +22,16 @@ internal static class TestPortService
         IPortSessionManager sessionManager,
         PortServiceCollaborators collaborators)
     {
-        var configuration = StoreFactory.CreatePortConfigurationService(
+        IPortConfigurationService configuration = StoreFactory.CreatePortConfigurationService(
             database,
             collaborators.SecretProtector);
 
-        var ingest = new PacketIngestPipeline(
+        PacketIngestPipeline ingest = new(
             collaborators.PacketStorageService,
             NullLogger<PacketIngestPipeline>.Instance,
             collaborators.DiagnosticSink,
             collaborators.IngestOptions);
-        var digipeat = new DigipeatRouter(
+        DigipeatRouter digipeat = new(
             configuration,
             sessionManager,
             collaborators.DigipeaterService,

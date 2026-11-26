@@ -14,7 +14,7 @@ public sealed class ProcessLifetimeFlagTests
     [Fact]
     public void TrySet_ReportsOnlyTheFirstCaller()
     {
-        var flag = new ProcessLifetimeFlag();
+        ProcessLifetimeFlag flag = new();
 
         Assert.False(flag.IsSet);
         Assert.True(flag.TrySet());
@@ -25,8 +25,8 @@ public sealed class ProcessLifetimeFlagTests
     [Fact]
     public void TrySet_IsAtomicUnderConcurrentCallers()
     {
-        var flag = new ProcessLifetimeFlag();
-        var winners = 0;
+        ProcessLifetimeFlag flag = new();
+        int winners = 0;
 
         Parallel.For(0, 64, _ =>
         {

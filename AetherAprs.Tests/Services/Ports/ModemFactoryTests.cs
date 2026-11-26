@@ -23,9 +23,9 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_AprsIsPort_BuildsAprsIsModem()
     {
-        var factory = TestModemFactory.Create();
+        ModemFactory factory = TestModemFactory.Create();
 
-        await using var modem = await factory.CreateAsync(
+        await using IPortModem modem = await factory.CreateAsync(
             CreatePort(new AprsIsSettings()),
             TestContext.Current.CancellationToken);
 
@@ -35,10 +35,10 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_KissPort_BuildsKissModem()
     {
-        var factory = TestModemFactory.Create(
+        ModemFactory factory = TestModemFactory.Create(
             kissStreamFactory: new StubKissStreamFactory(new MemoryStream()));
 
-        await using var modem = await factory.CreateAsync(
+        await using IPortModem modem = await factory.CreateAsync(
             CreatePort(new KissSettings
             {
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
@@ -51,9 +51,9 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_AfskPort_BuildsAfskModem()
     {
-        var factory = TestModemFactory.Create();
+        ModemFactory factory = TestModemFactory.Create();
 
-        await using var modem = await factory.CreateAsync(
+        await using IPortModem modem = await factory.CreateAsync(
             CreatePort(new AfskSettings()),
             TestContext.Current.CancellationToken);
 
@@ -63,9 +63,9 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_MissingTypeSettings_IsRejected()
     {
-        var factory = TestModemFactory.Create();
+        ModemFactory factory = TestModemFactory.Create();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => factory.CreateAsync(
                 CreatePort(null),
                 TestContext.Current.CancellationToken));
@@ -76,9 +76,9 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_UnknownSettingsType_IsRejected()
     {
-        var factory = TestModemFactory.Create();
+        ModemFactory factory = TestModemFactory.Create();
 
-        var exception = await Assert.ThrowsAsync<NotSupportedException>(
+        NotSupportedException exception = await Assert.ThrowsAsync<NotSupportedException>(
             () => factory.CreateAsync(
                 CreatePort(new UnregisteredPortTypeSettings()),
                 TestContext.Current.CancellationToken));
@@ -92,7 +92,7 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_KissPortWithoutTransport_IsRejected()
     {
-        var factory = TestModemFactory.Create(
+        ModemFactory factory = TestModemFactory.Create(
             kissStreamFactory: new KissStreamFactory([new TcpKissStreamConnector()]));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -104,7 +104,7 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_KissPortWithUnregisteredTransport_IsRejected()
     {
-        var factory = TestModemFactory.Create(
+        ModemFactory factory = TestModemFactory.Create(
             kissStreamFactory: new KissStreamFactory([new TcpKissStreamConnector()]));
 
         await Assert.ThrowsAsync<NotSupportedException>(
@@ -119,12 +119,12 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task CreateAsync_ForwardsCancellationToTheConnector()
     {
-        var connector = new RecordingConnector();
-        var factory = TestModemFactory.Create(
+        RecordingConnector connector = new();
+        ModemFactory factory = TestModemFactory.Create(
             kissStreamFactory: new KissStreamFactory([connector]));
 
-        using var cts = new CancellationTokenSource();
-        var modem = await factory.CreateAsync(
+        using CancellationTokenSource cts = new();
+        IPortModem modem = await factory.CreateAsync(
             CreatePort(new KissSettings
             {
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
@@ -139,11 +139,11 @@ public sealed class ModemFactoryTests
     [Fact]
     public async Task DisposeAsync_ClosesTheKissStreamItOpened()
     {
-        var stream = new TrackingStream();
-        var factory = TestModemFactory.Create(
+        TrackingStream stream = new();
+        ModemFactory factory = TestModemFactory.Create(
             kissStreamFactory: new StubKissStreamFactory(stream));
 
-        var modem = await factory.CreateAsync(
+        IPortModem modem = await factory.CreateAsync(
             CreatePort(new KissSettings
             {
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }

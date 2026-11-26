@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -108,19 +108,13 @@ public partial class AprsSymbolPickerComponent : UserControl
                 return;
             }
 
-            var selectorViewModel = viewModel.SymbolSelectorViewModel;
-            var view = new SymbolSelectorComponent { DataContext = selectorViewModel };
+            SymbolSelectorViewModel selectorViewModel = viewModel.SymbolSelectorViewModel;
+            SymbolSelectorComponent view = new() { DataContext = selectorViewModel };
 
             // Subscribe to symbol selected event to close dialog
-            static void OnSymbolSelected(object? s, EventArgs args)
-            {
-                DialogHost.Close("MainDialogHost");
-            }
+            static void OnSymbolSelected(object? s, EventArgs args) => DialogHost.Close("MainDialogHost");
 
-            static void OnCancelRequested(object? s, EventArgs args)
-            {
-                DialogHost.Close("MainDialogHost", false);
-            }
+            static void OnCancelRequested(object? s, EventArgs args) => DialogHost.Close("MainDialogHost", false);
 
             selectorViewModel.SymbolSelected += OnSymbolSelected;
             view.CancelRequested += OnCancelRequested;
@@ -158,19 +152,13 @@ public partial class AprsSymbolPickerComponent : UserControl
                 return;
             }
 
-            var selectorViewModel = viewModel.OverlaySelectorViewModel;
-            var view = new SymbolSelectorComponent { DataContext = selectorViewModel };
+            SymbolSelectorViewModel selectorViewModel = viewModel.OverlaySelectorViewModel;
+            SymbolSelectorComponent view = new() { DataContext = selectorViewModel };
 
             // Subscribe to symbol selected event to close dialog
-            static void OnSymbolSelected(object? s, EventArgs args)
-            {
-                DialogHost.Close("MainDialogHost");
-            }
+            static void OnSymbolSelected(object? s, EventArgs args) => DialogHost.Close("MainDialogHost");
 
-            static void OnCancelRequested(object? s, EventArgs args)
-            {
-                DialogHost.Close("MainDialogHost", false);
-            }
+            static void OnCancelRequested(object? s, EventArgs args) => DialogHost.Close("MainDialogHost", false);
 
             selectorViewModel.SymbolSelected += OnSymbolSelected;
             view.CancelRequested += OnCancelRequested;

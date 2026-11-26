@@ -13,18 +13,13 @@ namespace AetherAprs.Factories.ViewModels;
 /// <summary>
 /// Factory implementation for creating and initializing MessageTemplateDialogViewModel instances.
 /// </summary>
-public class MessageTemplateDialogViewModelFactory : IMessageTemplateDialogViewModelFactory
+public class MessageTemplateDialogViewModelFactory(IServiceProvider serviceProvider) : IMessageTemplateDialogViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public MessageTemplateDialogViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider;
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
 
     public MessageTemplateDialogViewModel Create(IReadOnlyList<MessageTemplate> templates, string? destination)
     {
-        var viewModel = _serviceProvider.GetRequiredService<MessageTemplateDialogViewModel>();
+        MessageTemplateDialogViewModel viewModel = _serviceProvider.GetRequiredService<MessageTemplateDialogViewModel>();
         viewModel.Initialize(templates, destination);
         return viewModel;
     }

@@ -23,7 +23,8 @@ public sealed class LegacySymbolKeyNormalizerTests
     [InlineData("\\", SymbolTable.Alternate)]
     public void Normalize_ConvertsSingleCharacterTable(string raw, SymbolTable expected)
     {
-        var values = new Dictionary<string, string?> { ["Aprs:SymbolTableCharacter"] = raw };
+        Dictionary<string, string?> values = new()
+        { ["Aprs:SymbolTableCharacter"] = raw };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
@@ -34,7 +35,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_ConvertsDefaultPrefixedTableKey()
     {
-        var values = new Dictionary<string, string?>
+        Dictionary<string, string?> values = new()
         {
             ["Aprs:DefaultSymbolTableCharacter"] = "\\",
         };
@@ -48,7 +49,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_AcceptsAlreadyNormalizedTableEnumName()
     {
-        var values = new Dictionary<string, string?>
+        Dictionary<string, string?> values = new()
         {
             ["Aprs:SymbolTableCharacter"] = SymbolTable.Alternate.ToString(),
         };
@@ -61,7 +62,8 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_DropsInvalidTableValueAndKeepsDefault()
     {
-        var values = new Dictionary<string, string?> { ["Aprs:SymbolTableCharacter"] = "X" };
+        Dictionary<string, string?> values = new()
+        { ["Aprs:SymbolTableCharacter"] = "X" };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
@@ -72,7 +74,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_PrefersExistingTypedValueOverLegacyKey()
     {
-        var values = new Dictionary<string, string?>
+        Dictionary<string, string?> values = new()
         {
             ["Aprs:SymbolTable"] = SymbolTable.Primary.ToString(),
             ["Aprs:SymbolTableCharacter"] = "\\",
@@ -87,7 +89,8 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_ConvertsSingleCharacterSymbolCode()
     {
-        var values = new Dictionary<string, string?> { ["Aprs:SymbolCodeCharacter"] = ">" };
+        Dictionary<string, string?> values = new()
+        { ["Aprs:SymbolCodeCharacter"] = ">" };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
@@ -98,7 +101,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_ConvertsDefaultPrefixedSymbolCodeKey()
     {
-        var values = new Dictionary<string, string?>
+        Dictionary<string, string?> values = new()
         {
             ["Aprs:DefaultSymbolCodeCharacter"] = "[",
         };
@@ -112,8 +115,9 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_AcceptsAlreadyNormalizedSymbolCodeEnumName()
     {
-        var enumName = SymbolCode.GreaterThanSign.ToString();
-        var values = new Dictionary<string, string?> { ["Aprs:SymbolCodeCharacter"] = enumName };
+        string enumName = SymbolCode.GreaterThanSign.ToString();
+        Dictionary<string, string?> values = new()
+        { ["Aprs:SymbolCodeCharacter"] = enumName };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
@@ -123,7 +127,8 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_ConvertsOverlayCharacter()
     {
-        var values = new Dictionary<string, string?> { ["Aprs:SymbolOverlayCharacter"] = "S" };
+        Dictionary<string, string?> values = new()
+        { ["Aprs:SymbolOverlayCharacter"] = "S" };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
@@ -134,7 +139,8 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_DropsMultiCharacterSymbolCode()
     {
-        var values = new Dictionary<string, string?> { ["Aprs:SymbolCodeCharacter"] = ">>" };
+        Dictionary<string, string?> values = new()
+        { ["Aprs:SymbolCodeCharacter"] = ">>" };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
@@ -145,7 +151,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_LeavesUnrelatedKeysUntouched()
     {
-        var values = new Dictionary<string, string?>
+        Dictionary<string, string?> values = new()
         {
             ["Aprs:Callsign"] = "CT7ALW",
             ["Theme"] = "Dark",
@@ -161,7 +167,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_IsIdempotent()
     {
-        var values = new Dictionary<string, string?>
+        Dictionary<string, string?> values = new()
         {
             ["Aprs:SymbolTableCharacter"] = "\\",
             ["Aprs:SymbolCodeCharacter"] = ">",
@@ -169,11 +175,11 @@ public sealed class LegacySymbolKeyNormalizerTests
         };
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
-        var afterFirst = new Dictionary<string, string?>(values);
+        Dictionary<string, string?> afterFirst = [with(values)];
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 
         Assert.Equal(afterFirst.Count, values.Count);
-        foreach (var pair in afterFirst)
+        foreach (KeyValuePair<string, string?> pair in afterFirst)
         {
             Assert.Equal(pair.Value, values[pair.Key]);
         }
@@ -182,7 +188,7 @@ public sealed class LegacySymbolKeyNormalizerTests
     [Fact]
     public void Normalize_HandlesEmptyDictionary()
     {
-        var values = new Dictionary<string, string?>();
+        Dictionary<string, string?> values = [];
 
         LegacySymbolKeyNormalizer.Normalize(values, NullLogger.Instance);
 

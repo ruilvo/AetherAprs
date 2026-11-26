@@ -28,7 +28,7 @@ public sealed record ApplicationSessionStopFailure(string Step, string Message);
 public sealed record ApplicationSessionStopResult(IReadOnlyList<ApplicationSessionStopFailure> Failures)
 {
     /// <summary>Gets a result with no failures.</summary>
-    public static ApplicationSessionStopResult Success { get; } = new(Array.Empty<ApplicationSessionStopFailure>());
+    public static ApplicationSessionStopResult Success { get; } = new([]);
 
     /// <summary>Gets whether every stop step completed.</summary>
     public bool Succeeded => Failures.Count == 0;
@@ -107,7 +107,7 @@ public sealed class ApplicationSessionControl : IApplicationSessionControl, IDis
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var failures = new List<ApplicationSessionStopFailure>();
+        List<ApplicationSessionStopFailure> failures = [];
 
         // A notification action and an in-app exit can arrive together. Serializing
         // the stop keeps the two disconnects and keep-alive releases from

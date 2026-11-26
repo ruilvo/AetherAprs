@@ -25,23 +25,23 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     [Fact]
     public void Conversations_ExposesMessageServiceCollection()
     {
-        var messageService = new FakeMessageService();
-        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
+        FakeMessageService messageService = new();
+        AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         messageService.GetOrCreateConversation(peer);
 
-        var vm = CreateViewModel(messageService, Substitute.For<INavigationService>());
+        MessagesViewModel vm = CreateViewModel(messageService, Substitute.For<INavigationService>());
 
         Assert.Same(messageService.Conversations, vm.Conversations);
-        Assert.Single(vm.Conversations);
-        Assert.Equal(peer, vm.Conversations[0].Peer);
+        ConversationThread item = Assert.Single(vm.Conversations);
+        Assert.Equal(peer, item.Peer);
     }
 
     [Fact]
     public void ConversationChangesUpdateEmptyState()
     {
-        var service = new FakeMessageService();
-        using var vm = CreateViewModel(service, Substitute.For<INavigationService>());
-        var changes = 0;
+        FakeMessageService service = new();
+        using MessagesViewModel vm = CreateViewModel(service, Substitute.For<INavigationService>());
+        int changes = 0;
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MessagesViewModel.HasConversations))
@@ -59,15 +59,15 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     [Fact]
     public void NewMessage_NavigatesToInitializedConversation()
     {
-        var navigation = Substitute.For<INavigationService>();
+        INavigationService navigation = Substitute.For<INavigationService>();
         ViewModelBase? navigated = null;
         navigation.When(n => n.NavigateTo(Arg.Any<ViewModelBase>()))
             .Do(ci => navigated = ci.Arg<ViewModelBase>());
 
-        var vm = CreateViewModel(new FakeMessageService(), navigation);
+        MessagesViewModel vm = CreateViewModel(new FakeMessageService(), navigation);
         vm.NewMessageCommand.Execute(null);
 
-        var conversation = Assert.IsType<ConversationViewModel>(navigated);
+        ConversationViewModel conversation = Assert.IsType<ConversationViewModel>(navigated);
         Assert.True(conversation.IsDestinationEditable);
         Assert.Equal("New Message", conversation.Title);
     }
@@ -75,8 +75,8 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     [Fact]
     public void OpenConversation_Null_DoesNothing()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(new FakeMessageService(), navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        MessagesViewModel vm = CreateViewModel(new FakeMessageService(), navigation);
 
         vm.OpenConversationCommand.Execute(null);
 
@@ -86,17 +86,17 @@ public sealed class MessagesViewModelTests : TestFixtureBase
     [Fact]
     public void OpenConversation_NavigatesWithPeerInitialized()
     {
-        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
-        var thread = new ConversationThread(peer);
-        var navigation = Substitute.For<INavigationService>();
+        AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
+        ConversationThread thread = new(peer);
+        INavigationService navigation = Substitute.For<INavigationService>();
         ViewModelBase? navigated = null;
         navigation.When(n => n.NavigateTo(Arg.Any<ViewModelBase>()))
             .Do(ci => navigated = ci.Arg<ViewModelBase>());
 
-        var vm = CreateViewModel(new FakeMessageService(), navigation);
+        MessagesViewModel vm = CreateViewModel(new FakeMessageService(), navigation);
         vm.OpenConversationCommand.Execute(thread);
 
-        var conversation = Assert.IsType<ConversationViewModel>(navigated);
+        ConversationViewModel conversation = Assert.IsType<ConversationViewModel>(navigated);
         Assert.False(conversation.IsDestinationEditable);
         Assert.Equal("K0PEER-1", conversation.Title);
         Assert.Equal("K0PEER-1", conversation.DestinationAddress);
@@ -106,7 +106,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         IMessageService messageService,
         INavigationService navigation)
     {
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         services.AddSingleton(messageService);
         services.AddSingleton(navigation);
         services.AddLogging();
@@ -114,9 +114,9 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         services.AddSingleton(Substitute.For<IMessageTemplateDialogViewModelFactory>());
         services.AddTransient<ConversationViewModel>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
-        var provider = services.BuildServiceProvider();
-        var factory = provider.GetRequiredService<IConversationViewModelFactory>();
-        var bulletinsViewModel = new BulletinsViewModel(
+        ServiceProvider provider = services.BuildServiceProvider();
+        IConversationViewModelFactory factory = provider.GetRequiredService<IConversationViewModelFactory>();
+        BulletinsViewModel bulletinsViewModel = new(
             Substitute.For<IBulletinService>(),
             navigation);
         return new MessagesViewModel(messageService, navigation, factory, bulletinsViewModel);
@@ -124,19 +124,19 @@ public sealed class MessagesViewModelTests : TestFixtureBase
 
     private sealed class FakeMessageService : IMessageService
     {
-        private readonly ObservableCollection<ConversationThread> _conversations = new();
+        private readonly ObservableCollection<ConversationThread> _conversations = [];
 
         public ObservableCollection<ConversationThread> Conversations => _conversations;
 
         public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
-            foreach (var existing in _conversations)
+            foreach (ConversationThread existing in _conversations)
             {
                 if (existing.Peer.Equals(peer))
                     return existing;
             }
 
-            var thread = new ConversationThread(peer);
+            ConversationThread thread = new(peer);
             _conversations.Add(thread);
             return thread;
         }

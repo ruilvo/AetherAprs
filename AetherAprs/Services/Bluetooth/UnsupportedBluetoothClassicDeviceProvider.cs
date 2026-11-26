@@ -16,13 +16,7 @@ public sealed class UnsupportedBluetoothClassicDeviceProvider : IBluetoothClassi
 {
     public bool IsSupported => false;
 
-    public Task EnsurePermissionAsync(CancellationToken cancellationToken = default)
-    {
-        throw new PlatformNotSupportedException("Bluetooth Classic device discovery is not supported on this platform.");
-    }
+    public Task EnsurePermissionAsync(CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth Classic device discovery is not supported on this platform.");
 
-    public Task<IReadOnlyList<BluetoothClassicDevice>> GetBondedDevicesAsync(CancellationToken cancellationToken = default)
-    {
-        throw new PlatformNotSupportedException("Bluetooth Classic device discovery is not supported on this platform.");
-    }
+    public Task<IReadOnlyList<BluetoothClassicDevice>> GetBondedDevicesAsync(CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth Classic device discovery is not supported on this platform.");
 }

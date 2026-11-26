@@ -19,8 +19,8 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void GetCutoffTime_UsesDisplayTimeRange_WhenLoadHistoryOnStartupEnabled()
     {
-        var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
+        AppSettings settings = new()
         {
             Aprs = new AprsSettings
             {
@@ -30,9 +30,9 @@ public sealed class PacketViewFilterServiceTests
         };
         configuration.Current.Returns(settings);
 
-        using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
+        using PacketViewFilterService service = new(configuration, Substitute.For<IPortService>());
 
-        var cutoff = service.GetCutoffTime();
+        DateTimeOffset? cutoff = service.GetCutoffTime();
 
         Assert.NotNull(cutoff);
         Assert.InRange(cutoff!.Value, DateTimeOffset.UtcNow.AddDays(-7).AddMinutes(-1), DateTimeOffset.UtcNow.AddDays(-7).AddMinutes(1));
@@ -41,8 +41,8 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void GetCutoffTime_ReturnsNull_WhenTimeRangeIsAllAndHistoryEnabled()
     {
-        var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
+        AppSettings settings = new()
         {
             Aprs = new AprsSettings
             {
@@ -52,7 +52,7 @@ public sealed class PacketViewFilterServiceTests
         };
         configuration.Current.Returns(settings);
 
-        using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
+        using PacketViewFilterService service = new(configuration, Substitute.For<IPortService>());
 
         Assert.Null(service.GetCutoffTime());
     }
@@ -60,8 +60,8 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void GetCutoffTime_ReturnsSessionStart_WhenLoadHistoryOnStartupDisabled()
     {
-        var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
+        AppSettings settings = new()
         {
             Aprs = new AprsSettings
             {
@@ -71,9 +71,9 @@ public sealed class PacketViewFilterServiceTests
         };
         configuration.Current.Returns(settings);
 
-        var before = DateTimeOffset.UtcNow;
-        using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
-        var cutoff = service.GetCutoffTime();
+        DateTimeOffset before = DateTimeOffset.UtcNow;
+        using PacketViewFilterService service = new(configuration, Substitute.For<IPortService>());
+        DateTimeOffset? cutoff = service.GetCutoffTime();
 
         Assert.NotNull(cutoff);
         Assert.InRange(cutoff!.Value, before.AddSeconds(-1), DateTimeOffset.UtcNow.AddSeconds(1));
@@ -82,8 +82,8 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void GetCutoffTime_ReturnsSessionStart_WhenSessionStartIsMoreRecentThanRange()
     {
-        var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
+        AppSettings settings = new()
         {
             Aprs = new AprsSettings
             {
@@ -93,9 +93,9 @@ public sealed class PacketViewFilterServiceTests
         };
         configuration.Current.Returns(settings);
 
-        var before = DateTimeOffset.UtcNow;
-        using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
-        var cutoff = service.GetCutoffTime();
+        DateTimeOffset before = DateTimeOffset.UtcNow;
+        using PacketViewFilterService service = new(configuration, Substitute.For<IPortService>());
+        DateTimeOffset? cutoff = service.GetCutoffTime();
 
         Assert.NotNull(cutoff);
         Assert.InRange(cutoff!.Value, before.AddSeconds(-1), DateTimeOffset.UtcNow.AddSeconds(1));
@@ -104,21 +104,21 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void GetVisiblePortIds_ReturnsOnlyPortsShownOnMap()
     {
-        var portA = Guid.NewGuid();
-        var portB = Guid.NewGuid();
+        Guid portA = Guid.NewGuid();
+        Guid portB = Guid.NewGuid();
 
-        var portService = Substitute.For<IPortService>();
+        IPortService portService = Substitute.For<IPortService>();
         portService.Ports.Returns(
         [
             new PortConfig { Id = portA, ShowOnMap = true },
             new PortConfig { Id = portB, ShowOnMap = false }
         ]);
 
-        using var service = new PacketViewFilterService(
+        using PacketViewFilterService service = new(
             Substitute.For<IConfigurationService>(),
             portService);
 
-        var visible = service.GetVisiblePortIds();
+        HashSet<Guid> visible = service.GetVisiblePortIds();
 
         Assert.Contains(portA, visible);
         Assert.DoesNotContain(portB, visible);
@@ -127,11 +127,11 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void SettingsChanged_RaisesFiltersChanged()
     {
-        var configuration = Substitute.For<IConfigurationService>();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings());
-        using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
+        using PacketViewFilterService service = new(configuration, Substitute.For<IPortService>());
 
-        var raised = 0;
+        int raised = 0;
         service.FiltersChanged += (_, _) => raised++;
 
         configuration.SettingsChanged += Raise.Event<EventHandler>(configuration, EventArgs.Empty);
@@ -142,10 +142,10 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void PortsChanged_RaisesFiltersChanged()
     {
-        var portService = Substitute.For<IPortService>();
-        using var service = new PacketViewFilterService(Substitute.For<IConfigurationService>(), portService);
+        IPortService portService = Substitute.For<IPortService>();
+        using PacketViewFilterService service = new(Substitute.For<IConfigurationService>(), portService);
 
-        var raised = 0;
+        int raised = 0;
         service.FiltersChanged += (_, _) => raised++;
 
         portService.PortsChanged += Raise.Event<EventHandler>(portService, EventArgs.Empty);
@@ -156,11 +156,11 @@ public sealed class PacketViewFilterServiceTests
     [Fact]
     public void Dispose_UnsubscribesFromSources()
     {
-        var configuration = Substitute.For<IConfigurationService>();
-        var portService = Substitute.For<IPortService>();
-        var service = new PacketViewFilterService(configuration, portService);
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
+        IPortService portService = Substitute.For<IPortService>();
+        PacketViewFilterService service = new(configuration, portService);
 
-        var raised = 0;
+        int raised = 0;
         service.FiltersChanged += (_, _) => raised++;
 
         service.Dispose();

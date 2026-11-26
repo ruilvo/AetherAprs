@@ -15,14 +15,9 @@ namespace AetherAprs.Android.Services.Platform;
 /// Android implementation of <see cref="IAudioPlaybackService"/> that plays
 /// mono PCM float samples through <see cref="AudioTrack"/> as 16-bit PCM.
 /// </summary>
-public sealed class AudioPlaybackService : IAudioPlaybackService
+public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger = null) : IAudioPlaybackService
 {
-    private readonly ILogger<AudioPlaybackService>? _logger;
-
-    public AudioPlaybackService(ILogger<AudioPlaybackService>? logger = null)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<AudioPlaybackService>? _logger = logger;
 
     /// <inheritdoc/>
     public int SampleRate => 44100;
@@ -35,7 +30,7 @@ public sealed class AudioPlaybackService : IAudioPlaybackService
             return;
         }
 
-        var shorts = ToPcm16(samples.Span);
+        short[] shorts = ToPcm16(samples.Span);
         int bufferSize = Math.Max(
             AudioTrack.GetMinBufferSize(SampleRate, ChannelOut.Mono, Encoding.Pcm16bit),
             shorts.Length * sizeof(short));
@@ -43,7 +38,7 @@ public sealed class AudioPlaybackService : IAudioPlaybackService
         // MODE_STATIC plays the whole buffer exactly once, which matches a
         // burst of modulated AFSK audio.
 #pragma warning disable CA1422 // Legacy ctor is the simplest way to request a static, mono PCM16 track.
-        using var track = new AudioTrack(
+        using AudioTrack track = new(
             Stream.Music,
             SampleRate,
             ChannelOut.Mono,
@@ -83,7 +78,7 @@ public sealed class AudioPlaybackService : IAudioPlaybackService
 
     private static short[] ToPcm16(ReadOnlySpan<float> samples)
     {
-        var shorts = new short[samples.Length];
+        short[] shorts = new short[samples.Length];
         for (int i = 0; i < samples.Length; i++)
         {
             float clamped = Math.Clamp(samples[i], -1f, 1f);

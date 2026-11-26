@@ -55,10 +55,7 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        if (_currentViewModel is not null)
-        {
-            _currentViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        }
+        _currentViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
 
         _currentViewModel = DataContext as DownloadOfflineMapViewModel;
         if (_currentViewModel is null)
@@ -72,7 +69,7 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
         if (_currentViewModel.InitialLatitude is double latitude &&
             _currentViewModel.InitialLongitude is double longitude)
         {
-            var (x, y) = SphericalMercator.FromLonLat(longitude, latitude);
+            (double x, double y) = SphericalMercator.FromLonLat(longitude, latitude);
             _pendingCenter = new MPoint(x, y);
         }
     }
@@ -137,11 +134,11 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
         _drawing = false;
         _drawStartWorld = null;
 
-        var end = e.WorldPosition;
-        var minX = Math.Min(start.X, end.X);
-        var minY = Math.Min(start.Y, end.Y);
-        var maxX = Math.Max(start.X, end.X);
-        var maxY = Math.Max(start.Y, end.Y);
+        MPoint end = e.WorldPosition;
+        double minX = Math.Min(start.X, end.X);
+        double minY = Math.Min(start.Y, end.Y);
+        double maxX = Math.Max(start.X, end.X);
+        double maxY = Math.Max(start.Y, end.Y);
 
         // A tap (no drag distance) is not a selection; clear any stale rectangle.
         if (maxX - minX <= double.Epsilon || maxY - minY <= double.Epsilon)
@@ -150,8 +147,8 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
             return;
         }
 
-        var (minLongitude, minLatitude) = SphericalMercator.ToLonLat(minX, minY);
-        var (maxLongitude, maxLatitude) = SphericalMercator.ToLonLat(maxX, maxY);
+        (double minLongitude, double minLatitude) = SphericalMercator.ToLonLat(minX, minY);
+        (double maxLongitude, double maxLatitude) = SphericalMercator.ToLonLat(maxX, maxY);
 
         _currentViewModel!.SetSelection(minLongitude, minLatitude, maxLongitude, maxLatitude);
 
@@ -164,22 +161,22 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
 
     private void DrawRectangle(MPoint start, MPoint end)
     {
-        var minX = Math.Min(start.X, end.X);
-        var minY = Math.Min(start.Y, end.Y);
-        var maxX = Math.Max(start.X, end.X);
-        var maxY = Math.Max(start.Y, end.Y);
+        double minX = Math.Min(start.X, end.X);
+        double minY = Math.Min(start.Y, end.Y);
+        double maxX = Math.Max(start.X, end.X);
+        double maxY = Math.Max(start.Y, end.Y);
 
-        var coordinates = new[]
-        {
+        Coordinate[] coordinates =
+        [
             new Coordinate(minX, minY),
             new Coordinate(maxX, minY),
             new Coordinate(maxX, maxY),
             new Coordinate(minX, maxY),
             new Coordinate(minX, minY),
-        };
-        var ring = new LinearRing(coordinates);
+        ];
+        LinearRing ring = new(coordinates);
 
-        var feature = new GeometryFeature
+        GeometryFeature feature = new()
         {
             Geometry = new Polygon(ring),
         };
@@ -207,7 +204,7 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
             return;
         }
 
-        var navigator = SelectionMap.Map?.Navigator;
+        Navigator? navigator = SelectionMap.Map?.Navigator;
         if (navigator is null || navigator.Viewport.Width <= 0 || navigator.Viewport.Height <= 0)
         {
             return;
@@ -247,12 +244,8 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
 
         _disposed = true;
         GC.SuppressFinalize(this);
-
-        if (_currentViewModel is not null)
-        {
-            _currentViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-            _currentViewModel = null;
-        }
+        _currentViewModel?.PropertyChanged -= OnViewModelPropertyChanged;
+        _currentViewModel = null;
 
         SelectionMap.MapPointerPressed -= OnMapPointerPressed;
         SelectionMap.MapPointerMoved -= OnMapPointerMoved;

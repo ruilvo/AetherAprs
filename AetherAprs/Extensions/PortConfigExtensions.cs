@@ -15,10 +15,7 @@ public static class PortConfigExtensions
     /// <summary>
     /// Gets the APRS-IS settings for this port, or null if not an APRS-IS port.
     /// </summary>
-    public static AprsIsSettings? GetAprsIsSettings(this PortConfig port)
-    {
-        return port.TypeSettings as AprsIsSettings;
-    }
+    public static AprsIsSettings? GetAprsIsSettings(this PortConfig port) => port.TypeSettings as AprsIsSettings;
 
     /// <summary>
     /// Gets the APRS-IS settings for this port, throwing if not an APRS-IS port.
@@ -48,10 +45,7 @@ public static class PortConfigExtensions
     /// <summary>
     /// Gets the KISS settings for this port, or null if not a KISS port.
     /// </summary>
-    public static KissSettings? GetKissSettings(this PortConfig port)
-    {
-        return port.TypeSettings as KissSettings;
-    }
+    public static KissSettings? GetKissSettings(this PortConfig port) => port.TypeSettings as KissSettings;
 
     /// <summary>
     /// Gets the KISS settings for this port, throwing if not a KISS port.

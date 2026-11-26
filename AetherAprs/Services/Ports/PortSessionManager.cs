@@ -70,7 +70,7 @@ internal sealed class PortSessionManager : IPortSessionManager
     {
         lock (_stateLock)
         {
-            return _slots.TryGetValue(portId, out var slot) && slot.Session is not null;
+            return _slots.TryGetValue(portId, out SessionSlot? slot) && slot.Session is not null;
         }
     }
 
@@ -99,13 +99,13 @@ internal sealed class PortSessionManager : IPortSessionManager
         // The caller's token (session supervision) and disposal both abort a
         // transport that is still opening. BLE/RFCOMM connects can block for many
         // seconds, so the token must reach IKissStreamConnector.ConnectAsync.
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+        using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
             _disposalCts.Token);
-        var startToken = linkedCts.Token;
+        CancellationToken startToken = linkedCts.Token;
 
-        var slot = AcquireSlot(port.Id);
-        var gateHeld = false;
+        SessionSlot slot = AcquireSlot(port.Id);
+        bool gateHeld = false;
         try
         {
             await slot.Gate.WaitAsync(startToken).ConfigureAwait(false);
@@ -156,8 +156,8 @@ internal sealed class PortSessionManager : IPortSessionManager
 
         // One attempt per session: a port that refuses to stop must not leave the
         // remaining ports running, and the caller still learns which ones failed.
-        var results = new List<PortSessionStopResult>(portIds.Length);
-        foreach (var portId in portIds)
+        List<PortSessionStopResult> results = [with(portIds.Length)];
+        foreach (Guid portId in portIds)
         {
             try
             {
@@ -185,7 +185,7 @@ internal sealed class PortSessionManager : IPortSessionManager
         SessionSlot slot;
         lock (_stateLock)
         {
-            if (!_slots.TryGetValue(portId, out var found) || found.Session is null || found.Closing)
+            if (!_slots.TryGetValue(portId, out SessionSlot? found) || found.Session is null || found.Closing)
             {
                 return PortSessionSendStatus.NotRunning;
             }
@@ -235,7 +235,7 @@ internal sealed class PortSessionManager : IPortSessionManager
             _disposed = true;
         }
 
-        foreach (var slot in slots)
+        foreach (SessionSlot slot in slots)
         {
             slot.Gate.Dispose();
         }
@@ -252,10 +252,10 @@ internal sealed class PortSessionManager : IPortSessionManager
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var modem = await _modemFactory.CreateAsync(port, cancellationToken).ConfigureAwait(false);
+            IPortModem modem = await _modemFactory.CreateAsync(port, cancellationToken).ConfigureAwait(false);
 
-            EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-            EventHandler<Exception> errorHandler = (_, exception) => RaiseTransportFault(port.Id, exception);
+            void packetHandler(object? _, AprsPacket packet) => RaisePacketReceived(port.Id, packet);
+            void errorHandler(object? _, Exception exception) => RaiseTransportFault(port.Id, exception);
 
             modem.PacketReceived += packetHandler;
             modem.ReceiveError += errorHandler;
@@ -320,8 +320,8 @@ internal sealed class PortSessionManager : IPortSessionManager
         bool retireSlot,
         CancellationToken cancellationToken)
     {
-        var slot = AcquireSlot(portId);
-        var gateHeld = false;
+        SessionSlot slot = AcquireSlot(portId);
+        bool gateHeld = false;
         try
         {
             await slot.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -353,10 +353,10 @@ internal sealed class PortSessionManager : IPortSessionManager
                 return PortSessionStopResult.NotRunning(portId);
             }
 
-            var drainTimedOut = drained is not null &&
+            bool drainTimedOut = drained is not null &&
                 !await WaitForSendsAsync(portId, drained, sendDrainTimeout, cancellationToken).ConfigureAwait(false);
 
-            var error = await TearDownAsync(portId, session, cancellationToken).ConfigureAwait(false);
+            Exception? error = await TearDownAsync(portId, session, cancellationToken).ConfigureAwait(false);
 
             lock (_stateLock)
             {
@@ -394,7 +394,7 @@ internal sealed class PortSessionManager : IPortSessionManager
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
 
         try
@@ -509,7 +509,7 @@ internal sealed class PortSessionManager : IPortSessionManager
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (!_slots.TryGetValue(portId, out var slot))
+            if (!_slots.TryGetValue(portId, out SessionSlot? slot))
             {
                 slot = new SessionSlot(portId);
                 _slots[portId] = slot;
@@ -533,7 +533,7 @@ internal sealed class PortSessionManager : IPortSessionManager
     {
         lock (_stateLock)
         {
-            if (_slots.TryGetValue(portId, out var slot))
+            if (_slots.TryGetValue(portId, out SessionSlot? slot))
             {
                 slot.Retired = true;
                 CollectIfUnusedLocked(slot);

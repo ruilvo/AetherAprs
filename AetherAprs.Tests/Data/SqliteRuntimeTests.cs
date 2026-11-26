@@ -24,20 +24,20 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task Registration_BootstrapsBeforeRuntimeAndReturnsSingletons()
     {
-        using var database = TempAppDatabase.CreateEmpty();
-        var services = new ServiceCollection();
+        using TempAppDatabase database = TempAppDatabase.CreateEmpty();
+        ServiceCollection services = new();
         services.AddLogging();
         services.AddSingleton(database.Factory);
         services.AddSingleton<AppSavedDataInitializer>();
         services.AddSqliteRuntime();
-        using var provider = services.BuildServiceProvider();
+        using ServiceProvider provider = services.BuildServiceProvider();
 
-        var reader = provider.GetRequiredService<SqliteRuntimeReader>();
-        var writer = provider.GetRequiredService<SqliteRuntimeWriter>();
+        SqliteRuntimeReader reader = provider.GetRequiredService<SqliteRuntimeReader>();
+        SqliteRuntimeWriter writer = provider.GetRequiredService<SqliteRuntimeWriter>();
 
         Assert.Same(reader, provider.GetRequiredService<SqliteRuntimeReader>());
         Assert.Same(writer, provider.GetRequiredService<SqliteRuntimeWriter>());
-        var cancellationToken = TestContext.Current.CancellationToken;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         Assert.Equal(3, await reader.QueryAsync((context, ct) => context.BeaconConfigs.CountAsync(ct), cancellationToken));
         Assert.True(await writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0ONE", ct), cancellationToken) > 0);
     }
@@ -45,30 +45,30 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task WritesCommitInAdmissionOrder_QueriesDoNotWaitForUncommittedWriteOrEachOther()
     {
-        using var database = TempAppDatabase.Create();
-        await using var writer = new SqliteRuntimeWriter(database.Factory);
-        var reader = new SqliteRuntimeReader(database.Factory);
-        using var activeWrite = new Gate();
-        using var activeRead = new Gate();
-        var cancellationToken = TestContext.Current.CancellationToken;
+        using TempAppDatabase database = TempAppDatabase.Create();
+        await using SqliteRuntimeWriter writer = new(database.Factory);
+        SqliteRuntimeReader reader = new(database.Factory);
+        using Gate activeWrite = new();
+        using Gate activeRead = new();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        var first = writer.EnqueueAsync("test.insert", async (context, ct) =>
+        Task<long> first = writer.EnqueueAsync("test.insert", async (context, ct) =>
         {
-            var id = await InsertAsync(context, "N0ONE", ct);
+            long id = await InsertAsync(context, "N0ONE", ct);
             await activeWrite.EnterAsync(ct);
             return id;
         }, cancellationToken);
         await activeWrite.WaitForEntryAsync(cancellationToken);
-        var heldRead = reader.QueryAsync(async (context, ct) =>
+        Task<int> heldRead = reader.QueryAsync(async (context, ct) =>
         {
-            var rows = await context.Packets.CountAsync(ct);
+            int rows = await context.Packets.CountAsync(ct);
             await activeRead.EnterAsync(ct);
             return rows;
         }, cancellationToken);
         await activeRead.WaitForEntryAsync(cancellationToken);
 
         Assert.Empty(await ReadSourcesAsync(reader, cancellationToken).WaitAsync(TestTimeouts.TestTimeout, cancellationToken));
-        var second = writer.EnqueueAsync("test.insert", async (context, ct) =>
+        Task<long> second = writer.EnqueueAsync("test.insert", async (context, ct) =>
         {
             Assert.Equal("N0ONE", await context.Packets.Select(packet => packet.SourceBase).SingleAsync(ct));
             return await InsertAsync(context, "N0TWO", ct);
@@ -76,7 +76,7 @@ public sealed class SqliteRuntimeTests
         Assert.False(second.IsCompleted);
 
         activeWrite.Release();
-        var ids = await Task.WhenAll(first, second).WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
+        long[] ids = await Task.WhenAll(first, second).WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
         Assert.True(ids[0] < ids[1]);
         Assert.Equal(["N0ONE", "N0TWO"], await ReadSourcesAsync(reader, cancellationToken));
         activeRead.Release();
@@ -86,22 +86,22 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task FullQueueRejectsAndStopDrainsAdmittedWork()
     {
-        using var database = TempAppDatabase.Create();
-        await using var writer = new SqliteRuntimeWriter(database.Factory, capacity: 1);
-        using var activeWrite = new Gate();
-        var cancellationToken = TestContext.Current.CancellationToken;
+        using TempAppDatabase database = TempAppDatabase.Create();
+        await using SqliteRuntimeWriter writer = new(database.Factory, capacity: 1);
+        using Gate activeWrite = new();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        var first = writer.EnqueueAsync("test.insert", async (context, ct) =>
+        Task<long> first = writer.EnqueueAsync("test.insert", async (context, ct) =>
         {
             await activeWrite.EnterAsync(ct);
             return await InsertAsync(context, "N0ONE", ct);
         }, cancellationToken);
         await activeWrite.WaitForEntryAsync(cancellationToken);
-        var second = writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0TWO", ct), cancellationToken);
+        Task<long> second = writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0TWO", ct), cancellationToken);
 
         await Assert.ThrowsAsync<SqliteWriteQueueFullException>(() => writer.EnqueueAsync("test.insert",
             (context, ct) => InsertAsync(context, "N0FULL", ct), cancellationToken));
-        var stopped = writer.StopAsync();
+        Task stopped = writer.StopAsync();
         Assert.False(stopped.IsCompleted);
         await Assert.ThrowsAsync<ObjectDisposedException>(() => writer.EnqueueAsync("test.insert",
             (context, ct) => InsertAsync(context, "N0STOP", ct), cancellationToken));
@@ -116,23 +116,23 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task CancellationSkipsQueuedCommandsAndRollsBackUncommittedWrites()
     {
-        using var database = TempAppDatabase.Create();
-        await using var writer = new SqliteRuntimeWriter(database.Factory);
-        using var activeWrite = new Gate();
-        var cancellationToken = TestContext.Current.CancellationToken;
-        using var activeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        using var queuedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using TempAppDatabase database = TempAppDatabase.Create();
+        await using SqliteRuntimeWriter writer = new(database.Factory);
+        using Gate activeWrite = new();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using CancellationTokenSource activeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using CancellationTokenSource queuedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        var first = writer.EnqueueAsync("test.insert", async (context, ct) =>
+        Task<long> first = writer.EnqueueAsync("test.insert", async (context, ct) =>
         {
-            var id = await InsertAsync(context, "N0ONE", ct);
+            long id = await InsertAsync(context, "N0ONE", ct);
             await activeWrite.EnterAsync(ct);
             return id;
         }, activeCancellation.Token);
         await activeWrite.WaitForEntryAsync(cancellationToken);
-        var second = writer.EnqueueAsync<long>("test.insert",
+        Task<long> second = writer.EnqueueAsync<long>("test.insert",
             (_, _) => throw new InvalidOperationException("A cancelled command ran."), queuedCancellation.Token);
-        var third = writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0THREE", ct), cancellationToken);
+        Task<long> third = writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0THREE", ct), cancellationToken);
 
         await queuedCancellation.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => second.WaitAsync(TestTimeouts.TestTimeout, cancellationToken));
@@ -146,14 +146,14 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task CancellationDuringCommitReturnsCommittedResult()
     {
-        using var database = TempAppDatabase.Create();
-        using var committing = new Gate();
-        var interceptor = new TestTransactionInterceptor { OnCommitting = committing.EnterAsync };
-        await using var writer = new SqliteRuntimeWriter(CreateFactory(database, interceptor));
-        var cancellationToken = TestContext.Current.CancellationToken;
-        using var callerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using TempAppDatabase database = TempAppDatabase.Create();
+        using Gate committing = new();
+        TestTransactionInterceptor interceptor = new() { OnCommitting = committing.EnterAsync };
+        await using SqliteRuntimeWriter writer = new(CreateFactory(database, interceptor));
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        using CancellationTokenSource callerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        var command = writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0ONE", ct), callerCancellation.Token);
+        Task<long> command = writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0ONE", ct), callerCancellation.Token);
         await committing.WaitForEntryAsync(cancellationToken);
         await callerCancellation.CancelAsync();
         committing.Release();
@@ -165,25 +165,25 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task RollbackAndIndeterminateCommit_DoNotPoisonNextCommandOrReplay()
     {
-        using var database = TempAppDatabase.Create();
-        var failed = new InvalidOperationException("Synthetic command failure.");
-        var commitError = new SqliteException("Synthetic lost commit acknowledgement.", 5);
-        var commitAttempts = 0;
-        var interceptor = new TestTransactionInterceptor
+        using TempAppDatabase database = TempAppDatabase.Create();
+        InvalidOperationException failed = new("Synthetic command failure.");
+        SqliteException commitError = new("Synthetic lost commit acknowledgement.", 5);
+        int commitAttempts = 0;
+        TestTransactionInterceptor interceptor = new()
         {
             OnCommitted = () => ++commitAttempts == 1 ? Task.FromException(commitError) : Task.CompletedTask
         };
-        await using var writer = new SqliteRuntimeWriter(CreateFactory(database, interceptor));
-        var cancellationToken = TestContext.Current.CancellationToken;
+        await using SqliteRuntimeWriter writer = new(CreateFactory(database, interceptor));
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        var rollback = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.EnqueueAsync<long>("test.rollback",
+        InvalidOperationException rollback = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.EnqueueAsync<long>("test.rollback",
             async (context, ct) =>
             {
                 await InsertAsync(context, "N0FAIL", ct);
                 throw failed;
             }, cancellationToken));
         Assert.Same(failed, rollback);
-        var unknown = await Assert.ThrowsAsync<SqliteCommitOutcomeUnknownException>(() => writer.EnqueueAsync("test.insert",
+        SqliteCommitOutcomeUnknownException unknown = await Assert.ThrowsAsync<SqliteCommitOutcomeUnknownException>(() => writer.EnqueueAsync("test.insert",
             (context, ct) => InsertAsync(context, "N0MAYBE", ct), cancellationToken));
         Assert.Same(commitError, unknown.InnerException);
         Assert.Equal(1, commitAttempts);
@@ -195,20 +195,20 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task BusyOnBeginUsesFreshContextsAndStopsAtRetryLimit()
     {
-        using var database = TempAppDatabase.Create();
-        var attempts = 0;
-        var interceptor = new TestTransactionInterceptor
+        using TempAppDatabase database = TempAppDatabase.Create();
+        int attempts = 0;
+        TestTransactionInterceptor interceptor = new()
         {
             OnStarting = () => attempts++
         };
-        var factory = CreateFactory(database, interceptor);
-        await using var writer = new SqliteRuntimeWriter(factory);
-        var cancellationToken = TestContext.Current.CancellationToken;
+        InterceptedContextFactory factory = CreateFactory(database, interceptor);
+        await using SqliteRuntimeWriter writer = new(factory);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        await using (var contendingContext = database.CreateContext())
+        await using (AppDbContext contendingContext = database.CreateContext())
         await using (await contendingContext.Database.BeginTransactionAsync(cancellationToken))
         {
-            var error = await Assert.ThrowsAsync<SqliteException>(() => writer.EnqueueAsync<long>("test.busy",
+            SqliteException error = await Assert.ThrowsAsync<SqliteException>(() => writer.EnqueueAsync<long>("test.busy",
                     (_, _) => throw new InvalidOperationException("Command ran without a transaction."), cancellationToken)
                 .WaitAsync(TestTimeouts.TestTimeout, cancellationToken));
             Assert.Equal(5, error.SqliteErrorCode); // SQLITE_BUSY
@@ -224,15 +224,15 @@ public sealed class SqliteRuntimeTests
     [Fact]
     public async Task ReaderRejectsDeferredResultsAndCannotMutateTheDatabase()
     {
-        using var database = TempAppDatabase.Create();
-        await using var writer = new SqliteRuntimeWriter(database.Factory);
-        var reader = new SqliteRuntimeReader(database.Factory);
-        var cancellationToken = TestContext.Current.CancellationToken;
+        using TempAppDatabase database = TempAppDatabase.Create();
+        await using SqliteRuntimeWriter writer = new(database.Factory);
+        SqliteRuntimeReader reader = new(database.Factory);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         await writer.EnqueueAsync("test.insert", (context, ct) => InsertAsync(context, "N0ONE", ct), cancellationToken);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => reader.QueryAsync(
             (context, _) => Task.FromResult(context.Packets.Where(packet => packet.Id > 0)), cancellationToken));
-        var failure = await Assert.ThrowsAsync<SqliteException>(() => reader.QueryAsync(
+        SqliteException failure = await Assert.ThrowsAsync<SqliteException>(() => reader.QueryAsync(
             (context, ct) => context.Packets.ExecuteDeleteAsync(ct), cancellationToken));
         Assert.Equal(8, failure.SqliteErrorCode); // SQLITE_READONLY
         Assert.Equal(["N0ONE"], await ReadSourcesAsync(reader, cancellationToken));
@@ -240,7 +240,7 @@ public sealed class SqliteRuntimeTests
 
     private static async Task<long> InsertAsync(AppDbContext context, string source, CancellationToken cancellationToken)
     {
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             SourceBase = source,
             DestinationBase = "APRS",

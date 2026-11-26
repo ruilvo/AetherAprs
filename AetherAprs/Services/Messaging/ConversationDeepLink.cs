@@ -43,7 +43,7 @@ public static class ConversationDeepLink
         // Only the characters an address is made of. Trimming would make
         // "N0CALL\r\n" acceptable, and an extra from another application should not
         // be repaired into a valid address.
-        foreach (var character in value)
+        foreach (char character in value)
         {
             if (character is not (>= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '-'))
             {
@@ -51,7 +51,7 @@ public static class ConversationDeepLink
             }
         }
 
-        if (!AprsAddress.TryParse(value, out var address))
+        if (!AprsAddress.TryParse(value, out AprsAddress address))
         {
             return false;
         }

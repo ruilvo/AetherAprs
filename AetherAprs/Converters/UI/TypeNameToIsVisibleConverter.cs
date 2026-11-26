@@ -10,14 +10,9 @@ namespace AetherAprs.Converters.UI;
 
 public class TypeNameToIsVisibleConverter : IValueConverter
 {
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        return value is Type t && parameter is string name && t.Name == name;
-    }
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is Type t && parameter is string name && t.Name == name;
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         // Visibility is derived from the selected type; it is not a source value.
-        return Avalonia.Data.BindingOperations.DoNothing;
-    }
+        Avalonia.Data.BindingOperations.DoNothing;
 }

@@ -16,7 +16,7 @@ public class MicEParsingTests
     {
         // From database ID 50: CT7AXO -> APU25N
         // Destination encodes latitude
-        var result = AprsInfoFieldParser.ParseInfoField(
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             "`~B3l ^\\\x00-/`APRS by CT7AXO@gmail.com_%",
             new Callsign("CT7AXO"),
             new Callsign("APU25N"));
@@ -30,7 +30,7 @@ public class MicEParsingTests
     {
         // Example with known valid Mic-E destination encoding
         // Destination "T4SQZZ" encodes latitude
-        var result = AprsInfoFieldParser.ParseInfoField(
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             "`(_fn\"Oj/`\"4)}_%",
             new Callsign("TEST"),
             new Callsign("T4SQZZ"));
@@ -45,12 +45,12 @@ public class MicEParsingTests
     {
         // From database ID 130: [ binary data ]
         // Not yet implemented - should return UnknownPacket
-        var result = AprsInfoFieldParser.ParseInfoField(
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             "[ binary data ]",
             new Callsign("EA1CHG", 10),
             new Callsign("APU25N"));
 
-        var unknown = Assert.IsType<UnknownPacket>(result);
+        UnknownPacket unknown = Assert.IsType<UnknownPacket>(result);
         Assert.Equal("[ binary data ]", unknown.Raw);
     }
 }

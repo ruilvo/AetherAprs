@@ -51,10 +51,7 @@ public sealed class SymbolTableJsonConverter : JsonConverter<SymbolTable>
     public override void Write(
         Utf8JsonWriter writer,
         SymbolTable value,
-        JsonSerializerOptions options)
-    {
-        writer.WriteStringValue(value.ToChar().ToString());
-    }
+        JsonSerializerOptions options) => writer.WriteStringValue(value.ToChar().ToString());
 }
 
 /// <summary>

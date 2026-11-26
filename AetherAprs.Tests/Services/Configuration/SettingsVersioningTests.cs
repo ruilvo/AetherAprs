@@ -28,14 +28,14 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void UnversionedFile_LoadsAsLegacyVersion()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
         Assert.Equal(
             SettingsSchema.LegacyUnversionedVersion,
             fixture.ReadInputDocumentVersion());
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
     }
@@ -43,10 +43,10 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void UnversionedFile_IsUpgradedToCurrentVersionInMemory()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
     }
@@ -54,9 +54,9 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task Save_WritesCurrentSchemaVersion()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         await service.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
 
@@ -69,9 +69,9 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task SaveThenReload_PreservesAllSettings()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         await service.UpdateAsync(settings => settings with
         {
@@ -89,7 +89,7 @@ public sealed class SettingsVersioningTests
             Map = settings.Map with { TileSource = TileSourceType.MbTilesOffline },
         }, TestContext.Current.CancellationToken);
 
-        var reloaded = fixture.CreateService();
+        ConfigurationService reloaded = fixture.CreateService();
 
         Assert.Equal(SettingsSchema.CurrentVersion, reloaded.Current.SchemaVersion);
         Assert.Equal("CT7ALW", reloaded.Current.Aprs.Callsign);
@@ -106,14 +106,14 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void MigratingUnversionedFile_CreatesBackupOfOriginal()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         const string legacyJson = "{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}";
         fixture.Write(legacyJson);
 
         fixture.CreateService();
 
-        var backups = fixture.GetBackupFiles();
-        var backup = Assert.Single(backups);
+        string[] backups = fixture.GetBackupFiles();
+        string backup = Assert.Single(backups);
         Assert.Contains(".v0.", backup);
         Assert.Equal(legacyJson, File.ReadAllText(backup));
     }
@@ -121,14 +121,14 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task ReloadingCurrentVersionFile_DoesNotAccumulateBackups()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
-        var first = fixture.CreateService();
+        ConfigurationService first = fixture.CreateService();
         await first.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
 
         // The unversioned base file produces exactly one pre-migration backup;
         // later loads must not add more.
-        for (var i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++)
         {
             fixture.CreateService();
         }
@@ -139,13 +139,13 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void LegacySymbolKeys_AreMigratedOnLoad()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write(
             "{\"Aprs\":{\"Callsign\":\"CT7ALW\","
             + "\"SymbolTableCharacter\":\"\\\\\","
             + "\"SymbolCodeCharacter\":\">\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal(SymbolTable.Alternate, service.Current.Aprs.SymbolTable);
         Assert.Equal(SymbolCode.GreaterThanSign, service.Current.Aprs.SymbolCode);
@@ -154,15 +154,15 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task LegacySymbolKeys_SurviveRoundTripAfterMigration()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write(
             "{\"Aprs\":{\"Callsign\":\"CT7ALW\","
             + "\"SymbolTableCharacter\":\"\\\\\","
             + "\"SymbolCodeCharacter\":\">\"}}");
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         await service.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
-        var reloaded = fixture.CreateService();
+        ConfigurationService reloaded = fixture.CreateService();
 
         Assert.Equal(SymbolTable.Alternate, reloaded.Current.Aprs.SymbolTable);
         Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Current.Aprs.SymbolCode);
@@ -171,11 +171,11 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void InvalidSymbolValue_DoesNotPreventStartup()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write(
             "{\"Aprs\":{\"Callsign\":\"CT7ALW\",\"SymbolTableCharacter\":\"?\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
         Assert.Equal(SymbolTable.Primary, service.Current.Aprs.SymbolTable);
@@ -184,12 +184,12 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void NewerVersionedFile_IsLoadedReadOnly()
     {
-        using var fixture = new SettingsDirectoryFixture();
-        var futureVersion = SettingsSchema.CurrentVersion + 5;
+        using SettingsDirectoryFixture fixture = new();
+        int futureVersion = SettingsSchema.CurrentVersion + 5;
         fixture.Write(
             "{\"SchemaVersion\":" + futureVersion + ",\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         // Values still load for use, but the document version is preserved and
         // the service refuses to write it back in the older format.
@@ -202,20 +202,20 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task NewerVersionedFile_RefusesEveryWriteAndLeavesFileUnchanged()
     {
-        using var fixture = new SettingsDirectoryFixture();
-        var futureVersion = SettingsSchema.CurrentVersion + 4;
-        var json = "{\"SchemaVersion\":" + futureVersion
+        using SettingsDirectoryFixture fixture = new();
+        int futureVersion = SettingsSchema.CurrentVersion + 4;
+        string json = "{\"SchemaVersion\":" + futureVersion
             + ",\"Aprs\":{\"Callsign\":\"CT7ALW\"}}";
         fixture.Write(json);
 
-        var logger = new RecordingLogger<ConfigurationService>();
-        var service = fixture.CreateService(logger);
-        var settingsChangedCount = 0;
+        RecordingLogger<ConfigurationService> logger = new();
+        ConfigurationService service = fixture.CreateService(logger);
+        int settingsChangedCount = 0;
         service.SettingsChanged += (_, _) => settingsChangedCount++;
 
-        var inputBefore = File.ReadAllBytes(fixture.InputPath);
-        var savedPath = fixture.SavedPath;
-        var savedBefore = File.Exists(savedPath)
+        byte[] inputBefore = File.ReadAllBytes(fixture.InputPath);
+        string savedPath = fixture.SavedPath;
+        byte[]? savedBefore = File.Exists(savedPath)
             ? File.ReadAllBytes(savedPath)
             : null;
 
@@ -249,13 +249,13 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void NewerVersionedFile_IsBackedUpAndLeftUntouched()
     {
-        using var fixture = new SettingsDirectoryFixture();
-        var futureVersion = SettingsSchema.CurrentVersion + 3;
-        var json = "{\"SchemaVersion\":" + futureVersion + "}";
+        using SettingsDirectoryFixture fixture = new();
+        int futureVersion = SettingsSchema.CurrentVersion + 3;
+        string json = "{\"SchemaVersion\":" + futureVersion + "}";
         fixture.Write(json);
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
-        var backup = Assert.Single(fixture.GetBackupFiles());
+        string backup = Assert.Single(fixture.GetBackupFiles());
         Assert.Contains($".v{futureVersion}.", backup);
         Assert.True(service.IsReadOnly);
         Assert.Equal(futureVersion, service.Current.SchemaVersion);
@@ -265,11 +265,11 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void LegacyFile_IsMigratedAndPersistedImmediately()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write(
             "{\"SchemaVersion\":0,\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         // Migration succeeds; the document is rewritten before any explicit save.
         Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
@@ -281,10 +281,10 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void InvalidVersionValue_FallsBackToLegacy()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"SchemaVersion\":\"not-a-number\",\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
         Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
@@ -293,10 +293,10 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void NegativeVersionValue_FallsBackToLegacy()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"SchemaVersion\":-4,\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
         Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
@@ -305,10 +305,10 @@ public sealed class SettingsVersioningTests
     [Fact]
     public void CorruptFile_IsQuarantinedAndDefaultsUsed()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{ this is not json ");
 
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
         Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
         Assert.Equal("N0CALL", service.Current.Aprs.Callsign);
@@ -318,11 +318,11 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task LoadedSnapshot_CarriesVersionAndNewProperties()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
-        var service = fixture.CreateService();
+        ConfigurationService service = fixture.CreateService();
 
-        var snapshot = await service.UpdateAsync(settings => settings with
+        AppSettings snapshot = await service.UpdateAsync(settings => settings with
         {
             Aprs = settings.Aprs with
             {
@@ -347,12 +347,12 @@ public sealed class SettingsVersioningTests
     [Fact]
     public async Task RepeatedLoadsAndSaves_KeepVersionStable()
     {
-        using var fixture = new SettingsDirectoryFixture();
+        using SettingsDirectoryFixture fixture = new();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
 
-        for (var i = 0; i < 3; i++)
+        for (int i = 0; i < 3; i++)
         {
-            var service = fixture.CreateService();
+            ConfigurationService service = fixture.CreateService();
             Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
             await service.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
             Assert.Equal(SettingsSchema.CurrentVersion, fixture.ReadDocumentVersion());
@@ -377,44 +377,31 @@ public sealed class SettingsVersioningTests
             Directory.CreateDirectory(_directory);
         }
 
-        public void Write(string json)
-        {
-            File.WriteAllText(InputPath, json);
-        }
+        public void Write(string json) => File.WriteAllText(InputPath, json);
 
-        public ConfigurationService CreateService()
-        {
-            return CreateService(NullLogger<ConfigurationService>.Instance);
-        }
+        public ConfigurationService CreateService() => CreateService(NullLogger<ConfigurationService>.Instance);
 
         public ConfigurationService CreateService(
-            ILogger<ConfigurationService> logger)
-        {
-            return new ConfigurationService(
+            ILogger<ConfigurationService> logger) => new(
                 new TestAppDataDirProvider(_directory),
                 logger);
-        }
 
         public string InputPath =>
             Path.Combine(_directory, "appsettings.json");
 
-        public string SavedPath
-        {
-            get
-            {
+        public string SavedPath =>
 #if DEBUG
-                return Path.Combine(_directory, "appsettings.Development.json");
+                Path.Combine(_directory, "appsettings.Development.json");
 #else
                 return Path.Combine(_directory, "appsettings.json");
 #endif
-            }
-        }
+
 
         public string ReadSavedText() => File.ReadAllText(SavedPath);
 
         public int ReadDocumentVersion()
         {
-            var path = SavedPath;
+            string path = SavedPath;
             if (!File.Exists(path))
             {
                 // No save has happened yet, so inspect the input file instead.
@@ -428,10 +415,10 @@ public sealed class SettingsVersioningTests
 
         private static int ReadVersion(string path)
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
             return document.RootElement.TryGetProperty(
                 SettingsSchema.VersionPropertyName,
-                out var version)
+                out JsonElement version)
                 ? version.GetInt32()
                 : SettingsSchema.LegacyUnversionedVersion;
         }

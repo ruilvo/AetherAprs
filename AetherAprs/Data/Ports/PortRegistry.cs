@@ -26,17 +26,17 @@ internal sealed class PortRegistry(
     public Task<IReadOnlyList<PortConfig>> LoadAsync(CancellationToken cancellationToken = default) =>
         reader.QueryAsync<IReadOnlyList<PortConfig>>(async (context, token) =>
         {
-            var records = await context.Ports.AsNoTracking().ToListAsync(token).ConfigureAwait(false);
+            List<PortRecord> records = await context.Ports.AsNoTracking().ToListAsync(token).ConfigureAwait(false);
             return MapAll(records);
         }, cancellationToken);
 
     public async Task<IReadOnlyList<PortConfig>> SaveAsync(PortConfig port, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(port);
-        var protectedPasscode = ProtectPasscode(port);
-        var records = await writer.EnqueueAsync("port.save", async (context, token) =>
+        string? protectedPasscode = ProtectPasscode(port);
+        List<PortRecord> records = await writer.EnqueueAsync("port.save", async (context, token) =>
         {
-            var existing = await context.Ports.FindAsync([port.Id], token).ConfigureAwait(false);
+            PortRecord? existing = await context.Ports.FindAsync([port.Id], token).ConfigureAwait(false);
             if (existing is null)
             {
                 context.Ports.Add(PortRecordMapper.ToRecord(port, protectedPasscode));
@@ -55,9 +55,9 @@ internal sealed class PortRegistry(
 
     public async Task<IReadOnlyList<PortConfig>> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var records = await writer.EnqueueAsync("port.delete", async (context, token) =>
+        List<PortRecord> records = await writer.EnqueueAsync("port.delete", async (context, token) =>
         {
-            var existing = await context.Ports.FindAsync([id], token).ConfigureAwait(false);
+            PortRecord? existing = await context.Ports.FindAsync([id], token).ConfigureAwait(false);
             if (existing is not null)
             {
                 context.Ports.Remove(existing);
@@ -72,8 +72,8 @@ internal sealed class PortRegistry(
 
     private List<PortConfig> MapAll(List<PortRecord> records)
     {
-        var ports = new List<PortConfig>(records.Count);
-        foreach (var record in records)
+        List<PortConfig> ports = [with(records.Count)];
+        foreach (PortRecord record in records)
         {
             ports.Add(Map(record));
         }
@@ -83,7 +83,7 @@ internal sealed class PortRegistry(
 
     private PortConfig Map(PortRecord record)
     {
-        var port = PortRecordMapper.ToConfig(record);
+        PortConfig port = PortRecordMapper.ToConfig(record);
         if (port.TypeSettings is not AprsIsSettings aprsIs)
         {
             return port;

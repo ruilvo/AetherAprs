@@ -17,9 +17,9 @@ public sealed class DateTimeToLocalConverterTests
     [Fact]
     public void Convert_UtcDateTime_ConvertsToLocalTime()
     {
-        var utc = new DateTime(2026, 11, 23, 12, 30, 0, DateTimeKind.Utc);
+        DateTime utc = new(2026, 11, 23, 12, 30, 0, DateTimeKind.Utc);
 
-        var result = Assert.IsType<DateTime>(Converter.Convert(utc, typeof(DateTime), null, Culture));
+        DateTime result = Assert.IsType<DateTime>(Converter.Convert(utc, typeof(DateTime), null, Culture));
 
         Assert.Equal(DateTimeKind.Local, result.Kind);
         Assert.Equal(utc, result.ToUniversalTime());
@@ -30,9 +30,9 @@ public sealed class DateTimeToLocalConverterTests
     {
         // SQLite materialises timestamps as DateTimeKind.Unspecified; the data
         // layer stores UTC, so the converter must localise rather than pass through.
-        var storedUtc = new DateTime(2026, 11, 23, 12, 30, 0, DateTimeKind.Unspecified);
+        DateTime storedUtc = new(2026, 11, 23, 12, 30, 0, DateTimeKind.Unspecified);
 
-        var result = Assert.IsType<DateTime>(Converter.Convert(storedUtc, typeof(DateTime), null, Culture));
+        DateTime result = Assert.IsType<DateTime>(Converter.Convert(storedUtc, typeof(DateTime), null, Culture));
 
         Assert.Equal(DateTimeKind.Local, result.Kind);
         Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(storedUtc, TimeZoneInfo.Local), result);
@@ -41,9 +41,9 @@ public sealed class DateTimeToLocalConverterTests
     [Fact]
     public void Convert_LocalDateTime_ReturnsUnchanged()
     {
-        var local = new DateTime(2026, 11, 23, 12, 30, 0, DateTimeKind.Local);
+        DateTime local = new(2026, 11, 23, 12, 30, 0, DateTimeKind.Local);
 
-        var result = Assert.IsType<DateTime>(Converter.Convert(local, typeof(DateTime), null, Culture));
+        DateTime result = Assert.IsType<DateTime>(Converter.Convert(local, typeof(DateTime), null, Culture));
 
         Assert.Equal(local, result);
         Assert.Equal(DateTimeKind.Local, result.Kind);
@@ -52,9 +52,9 @@ public sealed class DateTimeToLocalConverterTests
     [Fact]
     public void Convert_DateTimeOffset_ConvertsToLocalTime()
     {
-        var offset = new DateTimeOffset(2026, 11, 23, 12, 30, 0, TimeSpan.FromHours(2));
+        DateTimeOffset offset = new(2026, 11, 23, 12, 30, 0, TimeSpan.FromHours(2));
 
-        var result = Assert.IsType<DateTimeOffset>(Converter.Convert(offset, typeof(DateTimeOffset), null, Culture));
+        DateTimeOffset result = Assert.IsType<DateTimeOffset>(Converter.Convert(offset, typeof(DateTimeOffset), null, Culture));
 
         Assert.Equal(offset.UtcDateTime, result.UtcDateTime);
         Assert.Equal(TimeZoneInfo.Local.GetUtcOffset(offset.UtcDateTime), result.Offset);
@@ -66,11 +66,11 @@ public sealed class DateTimeToLocalConverterTests
         // January and July are on opposite sides of the daylight-saving boundary in
         // zones that observe it. Each instant must take the offset in force at that
         // instant, not the current one.
-        var winter = new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
-        var summer = new DateTime(2026, 7, 15, 12, 0, 0, DateTimeKind.Utc);
+        DateTime winter = new(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc);
+        DateTime summer = new(2026, 7, 15, 12, 0, 0, DateTimeKind.Utc);
 
-        var winterResult = Assert.IsType<DateTime>(Converter.Convert(winter, typeof(DateTime), null, Culture));
-        var summerResult = Assert.IsType<DateTime>(Converter.Convert(summer, typeof(DateTime), null, Culture));
+        DateTime winterResult = Assert.IsType<DateTime>(Converter.Convert(winter, typeof(DateTime), null, Culture));
+        DateTime summerResult = Assert.IsType<DateTime>(Converter.Convert(summer, typeof(DateTime), null, Culture));
 
         Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(winter, TimeZoneInfo.Local), winterResult);
         Assert.Equal(TimeZoneInfo.ConvertTimeFromUtc(summer, TimeZoneInfo.Local), summerResult);
@@ -91,8 +91,5 @@ public sealed class DateTimeToLocalConverterTests
     }
 
     [Fact]
-    public void ConvertBack_Throws()
-    {
-        Assert.Throws<NotSupportedException>(() => Converter.ConvertBack(DateTime.UtcNow, typeof(DateTime), null, Culture));
-    }
+    public void ConvertBack_Throws() => Assert.Throws<NotSupportedException>(() => Converter.ConvertBack(DateTime.UtcNow, typeof(DateTime), null, Culture));
 }

@@ -43,16 +43,16 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task EnablingTxPortSendsInitialBeaconOnce()
     {
-        var port = CreatePort(isEnabled: false, isTx: true);
-        var portService = new TestPortService(port);
-        var beaconService = new TestBeaconService();
-        var locationTracking = new TestLocationTrackingService();
-        var viewModel = CreateViewModel(portService, beaconService, locationTracking);
+        PortConfig port = CreatePort(isEnabled: false, isTx: true);
+        TestPortService portService = new(port);
+        TestBeaconService beaconService = new();
+        TestLocationTrackingService locationTracking = new();
+        HomeViewModel viewModel = CreateViewModel(portService, beaconService, locationTracking);
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
-        var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        PositionPacket packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         portService.RaisePortsChanged();
 
         Assert.Equal(port.Id, portService.LastSentPortId);
@@ -62,22 +62,22 @@ public sealed class HomeViewModelTests : TestFixtureBase
         Assert.Equal(SymbolCode.LeftSquareBracket, packet.Symbol.Code);
         // Production uses Strings.Format("InitialBeaconSentOnPortActivation", portNames)
         // Verify the status contains the base resource text (before formatting)
-        var expectedBase = Localization.Strings.Get("InitialBeaconSentOnPortActivation").Split('(')[0].Trim();
+        string expectedBase = Localization.Strings.Get("InitialBeaconSentOnPortActivation").Split('(')[0].Trim();
         Assert.Contains(expectedBase, viewModel.BeaconStatus);
-         Assert.Equal(1, portService.SendCount);
+        Assert.Equal(1, portService.SendCount);
     }
 
     [Fact]
     public async Task StartupEnabledTxPortSendsInitialBeaconWhenLocationArrives()
     {
-        var port = CreatePort(isEnabled: true, isTx: true);
-        var portService = new TestPortService(port);
-        var locationTracking = new TestLocationTrackingService();
+        PortConfig port = CreatePort(isEnabled: true, isTx: true);
+        TestPortService portService = new(port);
+        TestLocationTrackingService locationTracking = new();
         _ = CreateViewModel(portService, new TestBeaconService(), locationTracking);
 
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
-        var packet = await portService.PacketSent.Task.WaitAsync(
+        PositionPacket packet = await portService.PacketSent.Task.WaitAsync(
             TimeSpan.FromSeconds(1),
             TestContext.Current.CancellationToken);
 
@@ -89,9 +89,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task StartupEnabledRxOnlyPortDoesNotSendWhenLocationArrives()
     {
-        var port = CreatePort(isEnabled: true, isTx: false);
-        var portService = new TestPortService(port);
-        var locationTracking = new TestLocationTrackingService();
+        PortConfig port = CreatePort(isEnabled: true, isTx: false);
+        TestPortService portService = new(port);
+        TestLocationTrackingService locationTracking = new();
         _ = CreateViewModel(portService, new TestBeaconService(), locationTracking);
 
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
@@ -103,9 +103,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task EnablingTxPortUsesGlobalDefaultSymbol()
     {
-        var port = CreatePort(isEnabled: false, isTx: true);
-        var portService = new TestPortService(port);
-        var configuration = new TestConfigurationService();
+        PortConfig port = CreatePort(isEnabled: false, isTx: true);
+        TestPortService portService = new(port);
+        TestConfigurationService configuration = new();
         configuration.Current = configuration.Current with
         {
             Aprs = configuration.Current.Aprs with
@@ -115,13 +115,13 @@ public sealed class HomeViewModelTests : TestFixtureBase
                 SymbolCode = SymbolCode.GreaterThanSign,
             },
         };
-        var locationTracking = new TestLocationTrackingService();
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking, configuration);
+        TestLocationTrackingService locationTracking = new();
+        _ = CreateViewModel(portService, new TestBeaconService(), locationTracking, configuration);
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
-        var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        PositionPacket packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
 
         Assert.Equal('\\', packet.Symbol.TableChar);
         Assert.Equal(SymbolCode.GreaterThanSign, packet.Symbol.Code);
@@ -130,9 +130,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task EnablingTxPortWithoutLocationDoesNotSend()
     {
-        var port = CreatePort(isEnabled: false, isTx: true);
-        var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), new TestLocationTrackingService());
+        PortConfig port = CreatePort(isEnabled: false, isTx: true);
+        TestPortService portService = new(port);
+        _ = CreateViewModel(portService, new TestBeaconService(), new TestLocationTrackingService());
 
         port.IsEnabled = true;
         portService.RaisePortsChanged();
@@ -144,10 +144,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task EnablingRxPortDoesNotSendInitialBeacon()
     {
-        var port = CreatePort(isEnabled: false, isTx: false);
-        var portService = new TestPortService(port);
-        var locationTracking = new TestLocationTrackingService();
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+        PortConfig port = CreatePort(isEnabled: false, isTx: false);
+        TestPortService portService = new(port);
+        TestLocationTrackingService locationTracking = new();
+        _ = CreateViewModel(portService, new TestBeaconService(), locationTracking);
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         port.IsEnabled = true;
@@ -160,9 +160,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task SendManualBeaconWithoutLocationDoesNotSend()
     {
-        var port = CreatePort(isEnabled: true, isTx: true);
-        var portService = new TestPortService(port);
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), new TestLocationTrackingService());
+        PortConfig port = CreatePort(isEnabled: true, isTx: true);
+        TestPortService portService = new(port);
+        HomeViewModel viewModel = CreateViewModel(portService, new TestBeaconService(), new TestLocationTrackingService());
 
         await viewModel.SendManualBeaconAsync();
 
@@ -173,15 +173,15 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task SendManualBeaconWithLocationSendsBeacon()
     {
-        var port = CreatePort(isEnabled: true, isTx: true);
-        var portService = new TestPortService(port);
-        var locationTracking = new TestLocationTrackingService();
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+        PortConfig port = CreatePort(isEnabled: true, isTx: true);
+        TestPortService portService = new(port);
+        TestLocationTrackingService locationTracking = new();
+        HomeViewModel viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         await viewModel.SendManualBeaconAsync();
 
-        var packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        PositionPacket packet = await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         Assert.Equal(2, portService.SendCount);
         Assert.Equal(41.41764, packet.Location.Latitude);
         Assert.Contains(Localization.Strings.Get("ManualBeaconSent"), viewModel.BeaconStatus);
@@ -190,10 +190,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task SendManualBeaconWithoutTxPortsDoesNotSend()
     {
-        var port = CreatePort(isEnabled: true, isTx: false);
-        var portService = new TestPortService(port);
-        var locationTracking = new TestLocationTrackingService();
-        var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
+        PortConfig port = CreatePort(isEnabled: true, isTx: false);
+        TestPortService portService = new(port);
+        TestLocationTrackingService locationTracking = new();
+        HomeViewModel viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking);
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
 
         await viewModel.SendManualBeaconAsync();
@@ -205,9 +205,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public void UpdateMapResolution_ForwardsToLayerService()
     {
-        var receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
-        var portService = new TestPortService(CreatePort(isEnabled: true, isTx: false));
-        var viewModel = CreateViewModel(
+        IReceivedBeaconsMapLayerService receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
+        TestPortService portService = new(CreatePort(isEnabled: true, isTx: false));
+        HomeViewModel viewModel = CreateViewModel(
             portService,
             new TestBeaconService(),
             receivedBeaconsLayer: receivedBeaconsLayer);
@@ -220,8 +220,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public void PermissionWarning_WhenAPermissionIsDenied_ExplainsWhatIsBlocked()
     {
-        var attention = new PermissionAttentionService();
-        using var viewModel = CreateViewModel(
+        PermissionAttentionService attention = new();
+        using HomeViewModel viewModel = CreateViewModel(
             new TestPortService(CreatePort(isEnabled: false, isTx: false)),
             new TestBeaconService(),
             permissionAttention: attention);
@@ -237,10 +237,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public async Task PermissionWarning_WhenAPermissionIsBlockedInSettings_OffersTheSettingsShortcut()
     {
-        var attention = new PermissionAttentionService();
-        var permissions = Substitute.For<IPermissionService>();
+        PermissionAttentionService attention = new();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.OpenApplicationSettingsAsync(Arg.Any<CancellationToken>()).Returns(true);
-        using var viewModel = CreateViewModel(
+        using HomeViewModel viewModel = CreateViewModel(
             new TestPortService(CreatePort(isEnabled: false, isTx: false)),
             new TestBeaconService(),
             permissionAttention: attention,
@@ -260,8 +260,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public void PermissionWarning_WhenBackgroundTrackingIsRefused_ExplainsTheLimitAndOffersSettings()
     {
-        var attention = new PermissionAttentionService();
-        using var viewModel = CreateViewModel(
+        PermissionAttentionService attention = new();
+        using HomeViewModel viewModel = CreateViewModel(
             new TestPortService(CreatePort(isEnabled: false, isTx: false)),
             new TestBeaconService(),
             permissionAttention: attention);
@@ -283,8 +283,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
     [Fact]
     public void PermissionWarning_WhenThePermissionIsGrantedAgain_HidesTheNotice()
     {
-        var attention = new PermissionAttentionService();
-        using var viewModel = CreateViewModel(
+        PermissionAttentionService attention = new();
+        using HomeViewModel viewModel = CreateViewModel(
             new TestPortService(CreatePort(isEnabled: false, isTx: false)),
             new TestBeaconService(),
             permissionAttention: attention);
@@ -298,7 +298,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
     }
 
     private static HomeViewModel CreateViewModel(
-        TestPortService portService, 
+        TestPortService portService,
         TestBeaconService beaconService,
         TestLocationTrackingService? locationTracking = null,
         TestConfigurationService? configuration = null,
@@ -306,10 +306,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
         IPermissionAttentionReporter? permissionAttention = null,
         IPermissionService? permissionService = null)
     {
-        var isConfigurationProvided = configuration != null;
+        bool isConfigurationProvided = configuration != null;
         configuration ??= new TestConfigurationService();
         locationTracking ??= new TestLocationTrackingService();
-        
+
         // Only set default callsign if configuration was not provided
         if (!isConfigurationProvided)
         {
@@ -318,29 +318,29 @@ public sealed class HomeViewModelTests : TestFixtureBase
                 Aprs = configuration.Current.Aprs with { Callsign = "N0CALL" },
             };
         }
-        
-        var portSettingsResolver = new AprsPortSettingsResolver(configuration);
-        var packetFactory = new TestPacketFactory();
-        
-        var beaconTransmission = new BeaconTransmissionService(
+
+        AprsPortSettingsResolver portSettingsResolver = new(configuration);
+        TestPacketFactory packetFactory = new();
+
+        BeaconTransmissionService beaconTransmission = new(
             beaconService,
             portService,
             configuration,
             portSettingsResolver,
             packetFactory,
             NullLogger<BeaconTransmissionService>.Instance);
-        
-        var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+
+        UserLocationLayerService userLocationLayer = new(NullLogger<UserLocationLayerService>.Instance);
         receivedBeaconsLayer ??= Substitute.For<IReceivedBeaconsMapLayerService>();
-        var mapTileSource = Substitute.For<IMapTileSourceService>();
+        IMapTileSourceService mapTileSource = Substitute.For<IMapTileSourceService>();
         mapTileSource.CreateBaseMapLayer().Returns(Substitute.For<ILayer>());
-        
-        var mapViewModel = new MapViewModel(userLocationLayer);
-        
-        var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
-        var objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
-        var navigationService = Substitute.For<INavigationService>();
-        
+
+        MapViewModel mapViewModel = new(userLocationLayer);
+
+        IPacketDetailsViewModelFactory packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        IObjectDetailsViewModelFactory objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
+        INavigationService navigationService = Substitute.For<INavigationService>();
+
         return new HomeViewModel(
             locationTracking,
             beaconTransmission,
@@ -358,28 +358,22 @@ public sealed class HomeViewModelTests : TestFixtureBase
             NullLogger<HomeViewModel>.Instance);
     }
 
-    private static PortConfig CreatePort(bool isEnabled, bool isTx)
+    private static PortConfig CreatePort(bool isEnabled, bool isTx) => new()
     {
-        return new PortConfig
-        {
-            Id = Guid.NewGuid(),
-            Name = "Test port",
-            IsEnabled = isEnabled,
-            IsRx = true,
-            IsTx = isTx,
-            TypeSettings = new AprsIsSettings()
-        };
-    }
+        Id = Guid.NewGuid(),
+        Name = "Test port",
+        IsEnabled = isEnabled,
+        IsRx = true,
+        IsTx = isTx,
+        TypeSettings = new AprsIsSettings()
+    };
 
-    private static LocationData CreateLocation(double latitude, double longitude)
+    private static LocationData CreateLocation(double latitude, double longitude) => new()
     {
-        return new LocationData
-        {
-            Location = new Coordinate(latitude, longitude),
-            Accuracy = 5,
-            Timestamp = DateTimeOffset.UtcNow
-        };
-    }
+        Location = new Coordinate(latitude, longitude),
+        Accuracy = 5,
+        Timestamp = DateTimeOffset.UtcNow
+    };
 
     private sealed class TestConfigurationService : IConfigurationService
     {
@@ -430,12 +424,11 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public BeaconConfig CurrentConfiguration { get; private set; } = BeaconConfig.CreateWalkPreset();
 
         public IReadOnlyList<BeaconConfig> AllConfigurations =>
-            new[]
-            {
+            [
                 BeaconConfig.CreateWalkPreset(),
                 BeaconConfig.CreateDrivePreset(),
                 BeaconConfig.CreateCustomPreset()
-            };
+            ];
 
         public double? LastCourseDegrees => null;
 
@@ -467,14 +460,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class TestPortService : IPortService
+    private sealed class TestPortService(PortConfig port) : IPortService
     {
-        public TestPortService(PortConfig port)
-        {
-            Ports = new[] { port };
-        }
-
-        public IReadOnlyList<PortConfig> Ports { get; }
+        public IReadOnlyList<PortConfig> Ports { get; } = [port];
 
         public event EventHandler? PortsChanged;
 
@@ -517,15 +505,9 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
     {
-        public SKBitmap GetSymbolBitmap(Symbol symbol)
-        {
-            return new SKBitmap(8, 8);
-        }
+        public SKBitmap GetSymbolBitmap(Symbol symbol) => new(8, 8);
 
-        public SKBitmap GetOverlayBitmap(SymbolCode overlayChar)
-        {
-            return new SKBitmap(8, 8);
-        }
+        public SKBitmap GetOverlayBitmap(SymbolCode overlayChar) => new(8, 8);
 
         public void Dispose()
         {
@@ -543,8 +525,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             double? course = null,
             string? comment = null)
         {
-            var parts = callsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = callsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -566,8 +548,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             string messageText,
             int? messageNumber = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -586,8 +568,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             AprsAddress addressee,
             int messageNumber)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -605,8 +587,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             AprsAddress addressee,
             int messageNumber)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -628,8 +610,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             bool isLive = true,
             string? comment = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -654,8 +636,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             bool isLive = true,
             string? comment = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -677,8 +659,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
             string text,
             int? messageNumber = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 

@@ -30,12 +30,12 @@ public sealed class PortsViewModelTests
     [Fact]
     public void ConstructorLoadsPortItemsAndCalculatesNextAprsIsNumber()
     {
-        var first = CreatePort(new AprsIsSettings(), "First");
-        var second = CreatePort(new KissSettings { Transport = new TcpKissTransportSettings() }, "Second");
-        var portService = new TestPortService(first, second);
-        var navService = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        PortConfig first = CreatePort(new AprsIsSettings(), "First");
+        PortConfig second = CreatePort(new KissSettings { Transport = new TcpKissTransportSettings() }, "Second");
+        TestPortService portService = new(first, second);
+        INavigationService navService = Substitute.For<INavigationService>();
+        IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
+        PortsViewModel viewModel = new(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
 
         Assert.Collection(
             viewModel.PortItems,
@@ -51,14 +51,14 @@ public sealed class PortsViewModelTests
     {
         // Names come from the localized default template, not from a hardcoded English
         // string, so the test does not depend on the culture another test left behind.
-        var kissOne = CreatePort(
+        PortConfig kissOne = CreatePort(
             new KissSettings { Transport = new TcpKissTransportSettings() },
             Strings.Format("DefaultKissPortName", 1));
-        var kissTwo = CreatePort(
+        PortConfig kissTwo = CreatePort(
             new KissSettings { Transport = new TcpKissTransportSettings() },
             Strings.Format("DefaultKissPortName", 2));
-        var portService = new TestPortService(kissOne, kissTwo);
-        using var viewModel = new PortsViewModel(
+        TestPortService portService = new(kissOne, kissTwo);
+        using PortsViewModel viewModel = new(
             portService,
             new TestConfigurationService(),
             Substitute.For<INavigationService>(),
@@ -74,14 +74,14 @@ public sealed class PortsViewModelTests
     [Fact]
     public void GetNextPortNumber_DoesNotReuseANumberAfterAPortIsDeleted()
     {
-        var kissOne = CreatePort(
+        PortConfig kissOne = CreatePort(
             new KissSettings { Transport = new TcpKissTransportSettings() },
             Strings.Format("DefaultKissPortName", 1));
-        var kissThree = CreatePort(
+        PortConfig kissThree = CreatePort(
             new KissSettings { Transport = new TcpKissTransportSettings() },
             Strings.Format("DefaultKissPortName", 3));
-        var portService = new TestPortService(kissOne, kissThree);
-        using var viewModel = new PortsViewModel(
+        TestPortService portService = new(kissOne, kissThree);
+        using PortsViewModel viewModel = new(
             portService,
             new TestConfigurationService(),
             Substitute.For<INavigationService>(),
@@ -96,28 +96,28 @@ public sealed class PortsViewModelTests
     [Fact]
     public void PortsChangedReloadsPortItems()
     {
-        var original = CreatePort(new AprsIsSettings(), "Original");
-        var replacement = CreatePort(new AprsIsSettings(), "Replacement");
-        var portService = new TestPortService(original);
-        var navService = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        PortConfig original = CreatePort(new AprsIsSettings(), "Original");
+        PortConfig replacement = CreatePort(new AprsIsSettings(), "Replacement");
+        TestPortService portService = new(original);
+        INavigationService navService = Substitute.For<INavigationService>();
+        IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
+        PortsViewModel viewModel = new(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
 
         portService.ReplacePorts(replacement);
 
-        var item = Assert.Single(viewModel.PortItems);
+        PortItemViewModel item = Assert.Single(viewModel.PortItems);
         Assert.Equal("Replacement", item.Name);
     }
 
     [Fact]
     public void PortsChangedUpdatesEmptyState()
     {
-        var portService = new TestPortService();
-        using var viewModel = new PortsViewModel(
+        TestPortService portService = new();
+        using PortsViewModel viewModel = new(
             portService, new TestConfigurationService(), Substitute.For<INavigationService>(),
             Substitute.For<IAddEditPortViewModelFactory>(), new TestConfirmationDialogService(),
             NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
-        var changes = 0;
+        int changes = 0;
         viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(PortsViewModel.HasPorts))
@@ -135,12 +135,12 @@ public sealed class PortsViewModelTests
     [Fact]
     public async Task TogglingPortForwardsEnabledState()
     {
-        var port = CreatePort(new AprsIsSettings(), "Port");
-        var portService = new TestPortService(port);
-        var navService = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
-        var item = Assert.Single(viewModel.PortItems);
+        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
+        TestPortService portService = new(port);
+        INavigationService navService = Substitute.For<INavigationService>();
+        IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
+        PortsViewModel viewModel = new(portService, new TestConfigurationService(), navService, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        PortItemViewModel item = Assert.Single(viewModel.PortItems);
 
         item.IsEnabled = true;
         await portService.LastOperation;
@@ -152,13 +152,13 @@ public sealed class PortsViewModelTests
     [Fact]
     public async Task DeletingPortWhenConfirmedRemovesPort()
     {
-        var port = CreatePort(new AprsIsSettings(), "Port");
-        var portService = new TestPortService(port);
-        var navService = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var dialogService = new TestConfirmationDialogService { Confirmed = true };
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, dialogService, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
-        var item = Assert.Single(viewModel.PortItems);
+        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
+        TestPortService portService = new(port);
+        INavigationService navService = Substitute.For<INavigationService>();
+        IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
+        TestConfirmationDialogService dialogService = new() { Confirmed = true };
+        PortsViewModel viewModel = new(portService, new TestConfigurationService(), navService, factory, dialogService, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        PortItemViewModel item = Assert.Single(viewModel.PortItems);
 
         await item.DeleteCommand.ExecuteAsync(null);
 
@@ -169,13 +169,13 @@ public sealed class PortsViewModelTests
     [Fact]
     public async Task DeletingPortWhenCancelledDoesNotRemovePort()
     {
-        var port = CreatePort(new AprsIsSettings(), "Port");
-        var portService = new TestPortService(port);
-        var navService = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var dialogService = new TestConfirmationDialogService { Confirmed = false };
-        var viewModel = new PortsViewModel(portService, new TestConfigurationService(), navService, factory, dialogService, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
-        var item = Assert.Single(viewModel.PortItems);
+        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
+        TestPortService portService = new(port);
+        INavigationService navService = Substitute.For<INavigationService>();
+        IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
+        TestConfirmationDialogService dialogService = new() { Confirmed = false };
+        PortsViewModel viewModel = new(portService, new TestConfigurationService(), navService, factory, dialogService, NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        PortItemViewModel item = Assert.Single(viewModel.PortItems);
 
         await item.DeleteCommand.ExecuteAsync(null);
 
@@ -190,12 +190,11 @@ public sealed class PortsViewModelTests
         TypeSettings = typeSettings
     };
 
-    private sealed class TestPortService : IPortService
+    private sealed class TestPortService(params PortConfig[] ports) : IPortService
     {
-        private readonly List<PortConfig> _ports;
-        private TaskCompletionSource<bool> _operation = NewOperation();
+        private readonly List<PortConfig> _ports = [.. ports];
+        private readonly TaskCompletionSource<bool> _operation = NewOperation();
 
-        public TestPortService(params PortConfig[] ports) => _ports = [.. ports];
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged;
 #pragma warning disable CS0067 // Event is never used - this is a test stub

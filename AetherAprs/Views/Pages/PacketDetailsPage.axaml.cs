@@ -8,8 +8,5 @@ namespace AetherAprs.Views.Pages;
 
 public partial class PacketDetailsPage : UserControl
 {
-    public PacketDetailsPage()
-    {
-        InitializeComponent();
-    }
+    public PacketDetailsPage() => InitializeComponent();
 }

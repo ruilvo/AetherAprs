@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace AetherAprs.Modems.Afsk;
 
@@ -136,7 +137,7 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(packet);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var frameKey = $"{packet.Source}|{packet.Destination}|{packet.Raw}";
+        string frameKey = $"{packet.Source}|{packet.Destination}|{packet.Raw}";
 
         // Holdoff: skip a frame we recently transmitted so a digipeated frame is not
         // immediately re-keyed (double-transmit suppression).
@@ -148,16 +149,16 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
 
         // Channel access: randomized slottime + persist-aloha backoff happens before
         // keying the transmitter, giving other stations a chance to use the channel.
-        var channelAccessDelay = _txTiming.ComputeChannelAccessDelay(_settings.SlotTimeMs, _settings.Persist);
+        TimeSpan channelAccessDelay = _txTiming.ComputeChannelAccessDelay(_settings.SlotTimeMs, _settings.Persist);
         if (channelAccessDelay > TimeSpan.Zero)
         {
             await Task.Delay(channelAccessDelay, cancellationToken).ConfigureAwait(false);
         }
 
         // APRS → AX.25 → HDLC → AFSK PCM.
-        var ax25Data = Ax25Serializer.Serialize(packet);
-        var bits = HdlcFramer.Encode(ax25Data);
-        var samples = AfskModulator.Modulate(bits, _audioPlayback.SampleRate, _settings.AudioLevel);
+        byte[] ax25Data = Ax25Serializer.Serialize(packet);
+        byte[] bits = HdlcFramer.Encode(ax25Data);
+        float[] samples = AfskModulator.Modulate(bits, _audioPlayback.SampleRate, _settings.AudioLevel);
 
         bool pttKeyed = _settings.PttMode != PttMode.None;
         if (pttKeyed)
@@ -199,10 +200,10 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
     {
         try
         {
-            var frames = _demodulator.Process(samples);
-            foreach (var frame in frames)
+            IReadOnlyList<byte[]> frames = _demodulator.Process(samples);
+            foreach (byte[] frame in frames)
             {
-                var packet = Ax25Parser.ParseFrame(frame);
+                AprsPacket packet = Ax25Parser.ParseFrame(frame);
                 PacketReceived?.Invoke(this, packet);
             }
         }

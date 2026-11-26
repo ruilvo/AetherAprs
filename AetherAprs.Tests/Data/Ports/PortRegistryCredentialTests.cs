@@ -7,6 +7,7 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -17,33 +18,33 @@ public sealed class PortRegistryCredentialTests
     [Fact]
     public async Task LoadAsync_WhenOneStoredCredentialIsLost_KeepsTheOtherPorts()
     {
-        var lostPort = AprsIsPort("Lost server", "12345");
-        var healthyPort = AprsIsPort("Healthy server", "54321");
-        var rfPort = new PortConfig
+        PortConfig lostPort = AprsIsPort("Lost server", "12345");
+        PortConfig healthyPort = AprsIsPort("Healthy server", "54321");
+        PortConfig rfPort = new()
         {
             Id = Guid.NewGuid(),
             Name = "RF",
             IsEnabled = true,
             TypeSettings = new KissSettings()
         };
-        using var db = TempAppDatabase.Create(lostPort, healthyPort, rfPort);
-        var registry = StoreFactory.CreatePortRegistry(db, new KeyLostFor("12345"));
+        using TempAppDatabase db = TempAppDatabase.Create(lostPort, healthyPort, rfPort);
+        IPortRegistry registry = StoreFactory.CreatePortRegistry(db, new KeyLostFor("12345"));
 
-        var ports = await registry.LoadAsync(TestContext.Current.CancellationToken);
+        IReadOnlyList<PortConfig> ports = await registry.LoadAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(3, ports.Count);
 
-        var lost = Assert.Single(ports, port => port.Id == lostPort.Id);
+        PortConfig lost = Assert.Single(ports, port => port.Id == lostPort.Id);
         Assert.True(lost.CredentialsUnavailable);
-        var lostSettings = Assert.IsType<AprsIsSettings>(lost.TypeSettings);
+        AprsIsSettings lostSettings = Assert.IsType<AprsIsSettings>(lost.TypeSettings);
         Assert.Equal(AprsIsSettings.DefaultPasscode, lostSettings.Passcode);
         Assert.Equal("Lost server", lost.Name);
 
-        var healthy = Assert.Single(ports, port => port.Id == healthyPort.Id);
+        PortConfig healthy = Assert.Single(ports, port => port.Id == healthyPort.Id);
         Assert.False(healthy.CredentialsUnavailable);
         Assert.Equal("54321", Assert.IsType<AprsIsSettings>(healthy.TypeSettings).Passcode);
 
-        var rf = Assert.Single(ports, port => port.Id == rfPort.Id);
+        PortConfig rf = Assert.Single(ports, port => port.Id == rfPort.Id);
         Assert.False(rf.CredentialsUnavailable);
         Assert.IsType<KissSettings>(rf.TypeSettings);
     }
@@ -51,11 +52,11 @@ public sealed class PortRegistryCredentialTests
     [Fact]
     public async Task LoadAsync_WhenEveryCredentialIsReadable_MarksNoPort()
     {
-        var port = AprsIsPort("Healthy server", "54321");
-        using var db = TempAppDatabase.Create(port);
-        var registry = StoreFactory.CreatePortRegistry(db, new KeyLostFor("unrelated"));
+        PortConfig port = AprsIsPort("Healthy server", "54321");
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        IPortRegistry registry = StoreFactory.CreatePortRegistry(db, new KeyLostFor("unrelated"));
 
-        var loaded = Assert.Single(await registry.LoadAsync(TestContext.Current.CancellationToken));
+        PortConfig loaded = Assert.Single(await registry.LoadAsync(TestContext.Current.CancellationToken));
 
         Assert.False(loaded.CredentialsUnavailable);
         Assert.Equal("54321", Assert.IsType<AprsIsSettings>(loaded.TypeSettings).Passcode);
@@ -64,7 +65,7 @@ public sealed class PortRegistryCredentialTests
     [Fact]
     public void Clone_PreservesTheCredentialsUnavailableMarker()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Name = "Server",
             CredentialsUnavailable = true,

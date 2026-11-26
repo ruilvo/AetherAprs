@@ -33,17 +33,14 @@ public class MaterialIconGeometryExt : MarkupExtension
 {
     public MaterialIconGeometryExt() { }
 
-    public MaterialIconGeometryExt(MaterialIconKind kind)
-    {
-        Kind = kind;
-    }
+    public MaterialIconGeometryExt(MaterialIconKind kind) => Kind = kind;
 
     [ConstructorArgument("kind")]
     public MaterialIconKind Kind { get; set; }
 
     public override object ProvideValue(IServiceProvider serviceProvider)
     {
-        var data = MaterialIconDataProvider.GetData(Kind);
+        string data = MaterialIconDataProvider.GetData(Kind);
         return StreamGeometry.Parse(data);
     }
 }

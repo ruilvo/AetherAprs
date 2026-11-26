@@ -14,6 +14,8 @@ using AetherAprs.Models.Aprs;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace AetherAprs.Tests.Services.Configuration;
 
@@ -22,14 +24,14 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public async Task SettingsRoundTripPersistsAprsSettings()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
-            var provider = new TestAppDataDirProvider(directory);
-            var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+            TestAppDataDirProvider provider = new(directory);
+            ConfigurationService service = new(provider, NullLogger<ConfigurationService>.Instance);
 
             await service.UpdateAsync(settings => settings with
             {
@@ -42,15 +44,15 @@ public sealed class ConfigurationServiceTests
             }, TestContext.Current.CancellationToken);
 
 #if DEBUG
-            var savedPath = Path.Combine(directory, "appsettings.Development.json");
+            string savedPath = Path.Combine(directory, "appsettings.Development.json");
 #else
-            var savedPath = Path.Combine(directory, "appsettings.json");
+            string savedPath = Path.Combine(directory, "appsettings.json");
 #endif
             Assert.True(File.Exists(savedPath));
             Assert.Contains(
                 "\"SymbolTableCharacter\"",
                 File.ReadAllText(savedPath));
-            var reloaded = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+            ConfigurationService reloaded = new(provider, NullLogger<ConfigurationService>.Instance);
             Assert.Equal("CT7ALW", reloaded.Current.Aprs.Callsign);
             Assert.Equal(SymbolTable.Alternate, reloaded.Current.Aprs.SymbolTable);
             Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Current.Aprs.SymbolCode);
@@ -64,13 +66,13 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public void ConstructorLoadsAprsSymbolDefaults()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
-            var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
+            ConfigurationService service = new(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
             Assert.Equal(SymbolTable.Primary, service.Current.Aprs.SymbolTable);
             Assert.Equal(SymbolCode.LeftSquareBracket, service.Current.Aprs.SymbolCode);
@@ -84,15 +86,15 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public void Constructor_ReportsEachInvalidValueAndBindsTheRemainder()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"Aprs\":{\"Callsign\":\"TOOLONGCALL\",\"Ssid\":99,"
                 + "\"PacketRetentionDays\":45,\"BeaconComment\":\"kept\"}}");
-            var logger = new RecordingLogger<ConfigurationService>();
-            var service = new ConfigurationService(
+            RecordingLogger<ConfigurationService> logger = new();
+            ConfigurationService service = new(
                 new TestAppDataDirProvider(directory),
                 logger);
 
@@ -104,12 +106,11 @@ public sealed class ConfigurationServiceTests
             Assert.Equal(45, service.Current.Aprs.PacketRetentionDays);
             Assert.Equal("kept", service.Current.Aprs.BeaconComment);
 
-            var invalidWarnings = logger.Entries
+            List<LogEntry> invalidWarnings = [.. logger.Entries
                 .Where(entry => entry.Level == LogLevel.Warning
                     && entry.Message.Contains(
                         "Ignoring invalid settings value",
-                        StringComparison.Ordinal))
-                .ToList();
+                        StringComparison.Ordinal))];
             Assert.Equal(2, invalidWarnings.Count);
             Assert.Contains(
                 invalidWarnings,
@@ -131,7 +132,7 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public void Constructor_LoadsTemplatesAndFieldDefaultsFromAppSettings()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
@@ -141,10 +142,10 @@ public sealed class ConfigurationServiceTests
                 + "\"Body\":\"{summit} {freq} {mode} {comment}\","
                 + "\"FieldDefaults\":{\"summit\":\"W7A/XX-001\",\"freq\":\"144.300\","
                 + "\"mode\":\"FM\",\"comment\":\"SOTA\"}}]}}");
-            var provider = new TestAppDataDirProvider(directory);
-            var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+            TestAppDataDirProvider provider = new(directory);
+            ConfigurationService service = new(provider, NullLogger<ConfigurationService>.Instance);
 
-            var template = Assert.Single(service.Current.MessageTemplates.Templates);
+            MessageTemplate template = Assert.Single(service.Current.MessageTemplates.Templates);
             Assert.Equal("APRS2SOTA Spot", template.Name);
             Assert.Equal("SOTA", template.Destination);
             Assert.Equal("{summit} {freq} {mode} {comment}", template.Body);
@@ -159,13 +160,13 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public void Constructor_PreservesEmptyTemplatesFromAppSettings()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"MessageTemplates\":{\"Templates\":[]}}");
-            var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
+            ConfigurationService service = new(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
             Assert.Empty(service.Current.MessageTemplates.Templates);
         }
@@ -178,7 +179,7 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public void Constructor_SanitizesInvalidTemplates()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
@@ -187,9 +188,9 @@ public sealed class ConfigurationServiceTests
                 + "{\"Name\":\"Summit\",\"Destination\":\"SOTA\",\"Body\":\"{summit} on {freq}\"},"
                 + "{\"Name\":\"Invalid\",\"Destination\":\"not valid!!\",\"Body\":\"x\"},"
                 + "{\"Name\":\"summit\",\"Destination\":\"N0CALL-1\",\"Body\":\"y\"}]}}");
-            var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
+            ConfigurationService service = new(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
-            var template = Assert.Single(service.Current.MessageTemplates.Templates);
+            MessageTemplate template = Assert.Single(service.Current.MessageTemplates.Templates);
             Assert.Equal("Summit", template.Name);
             Assert.Equal("SOTA", template.Destination);
             Assert.Equal("{summit} on {freq}", template.Body);
@@ -203,21 +204,21 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public async Task ThemeRoundTripPersistsThemeMode()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
-            var provider = new TestAppDataDirProvider(directory);
-            var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+            TestAppDataDirProvider provider = new(directory);
+            ConfigurationService service = new(provider, NullLogger<ConfigurationService>.Instance);
 
             // Default is System (follow OS).
             Assert.Equal(ThemeMode.System, service.Current.Theme);
 
             await service.UpdateAsync(settings => settings with { Theme = ThemeMode.Dark }, TestContext.Current.CancellationToken);
 
-            var reloaded = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
+            ConfigurationService reloaded = new(provider, NullLogger<ConfigurationService>.Instance);
             Assert.Equal(ThemeMode.Dark, reloaded.Current.Theme);
         }
         finally
@@ -229,17 +230,17 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public void Snapshot_IsImmutableSoCallersCannotMutateLiveSettings()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             File.WriteAllText(
                 Path.Combine(directory, "appsettings.json"),
                 "{\"MessageTemplates\":{\"Templates\":["
                 + "{\"Name\":\"Spot\",\"Destination\":\"SOTA\",\"Body\":\"hello\"}]}}");
-            var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
+            ConfigurationService service = new(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
-            var snapshot = service.Current;
-            var template = Assert.Single(snapshot.MessageTemplates.Templates);
+            AppSettings snapshot = service.Current;
+            MessageTemplate template = Assert.Single(snapshot.MessageTemplates.Templates);
             Assert.Equal("Spot", template.Name);
 
             // A replacement built from the snapshot is a new value; the live
@@ -256,7 +257,7 @@ public sealed class ConfigurationServiceTests
                 },
             };
 
-            var live = Assert.Single(service.Current.MessageTemplates.Templates);
+            MessageTemplate live = Assert.Single(service.Current.MessageTemplates.Templates);
             Assert.Equal("Spot", live.Name);
             Assert.Equal("SOTA", live.Destination);
             Assert.Equal("hello", live.Body);
@@ -270,14 +271,14 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public async Task UpdateAsync_SerializesConcurrentPartialUpdates()
     {
-        using var fixture = new ConfigurationFixture();
-        var firstEntered = new TaskCompletionSource(
+        using ConfigurationFixture fixture = new();
+        TaskCompletionSource firstEntered = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseFirst = new TaskCompletionSource(
+        TaskCompletionSource releaseFirst = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var cancellationToken = TestContext.Current.CancellationToken;
-        var first = Task.Run(() => fixture.Service.UpdateAsync(settings =>
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        Task<AppSettings> first = Task.Run(() => fixture.Service.UpdateAsync(settings =>
         {
             firstEntered.SetResult();
             releaseFirst.Task.WaitAsync(TestTimeouts.TestTimeout, cancellationToken)
@@ -302,7 +303,7 @@ public sealed class ConfigurationServiceTests
             await Task.WhenAll(first, second).WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
         }
 
-        using var reloaded = fixture.Reload();
+        using ConfigurationService reloaded = fixture.Reload();
         Assert.Equal("FIRST", reloaded.Current.Aprs.Callsign);
         Assert.Equal(ThemeMode.Dark, reloaded.Current.Theme);
     }
@@ -310,17 +311,14 @@ public sealed class ConfigurationServiceTests
     [Fact]
     public async Task UpdateAsync_WhenTransformThrows_LeavesCommittedSettingsUnchanged()
     {
-        using var fixture = new ConfigurationFixture();
-        var changes = 0;
+        using ConfigurationFixture fixture = new();
+        int changes = 0;
         fixture.Service.SettingsChanged += (_, _) => changes++;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            fixture.Service.UpdateAsync(settings =>
-            {
-                throw new InvalidOperationException("Patch failed.");
-            }, TestContext.Current.CancellationToken).WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
+            fixture.Service.UpdateAsync(settings => throw new InvalidOperationException("Patch failed."), TestContext.Current.CancellationToken).WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
 
-        using var reloaded = fixture.Reload();
+        using ConfigurationService reloaded = fixture.Reload();
         Assert.Equal(ThemeMode.System, fixture.Service.Current.Theme);
         Assert.Equal(ThemeMode.System, reloaded.Current.Theme);
         Assert.Equal(0, changes);
@@ -352,7 +350,7 @@ public sealed class ConfigurationServiceTests
 
     private static string CreateTemporaryDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         return directory;
     }

@@ -19,10 +19,10 @@ public sealed class BlockingConnectTimeoutTests
     [Fact]
     public async Task RunAsync_ConnectBlocksPastTimeout_ThrowsTimeoutException()
     {
-        using var release = new ManualResetEventSlim();
+        using ManualResetEventSlim release = new();
         try
         {
-            var connect = BlockingConnectTimeout.RunAsync(
+            Task connect = BlockingConnectTimeout.RunAsync(
                 () => release.Wait(TimeSpan.FromSeconds(30)),
                 TimeSpan.FromMilliseconds(100),
                 TestContext.Current.CancellationToken);
@@ -39,11 +39,11 @@ public sealed class BlockingConnectTimeoutTests
     [Fact]
     public async Task RunAsync_CancelledBeforeTimeout_ThrowsOperationCanceledException()
     {
-        using var release = new ManualResetEventSlim();
-        using var cts = new CancellationTokenSource();
+        using ManualResetEventSlim release = new();
+        using CancellationTokenSource cts = new();
         try
         {
-            var connect = BlockingConnectTimeout.RunAsync(
+            Task connect = BlockingConnectTimeout.RunAsync(
                 () => release.Wait(TimeSpan.FromSeconds(30)),
                 TimeSpan.FromSeconds(30),
                 cts.Token);
@@ -62,7 +62,7 @@ public sealed class BlockingConnectTimeoutTests
     [Fact]
     public async Task RunAsync_ConnectCompletes_ReturnsWithoutError()
     {
-        var completed = false;
+        bool completed = false;
 
         await BlockingConnectTimeout.RunAsync(
             () => completed = true,

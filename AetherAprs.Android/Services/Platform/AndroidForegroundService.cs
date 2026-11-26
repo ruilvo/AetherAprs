@@ -74,10 +74,7 @@ public class AetherAprsForegroundService : Service
     private PowerManager.WakeLock? _wakeLock;
     private bool _batteryOptimizationReported;
 
-    public override IBinder? OnBind(Intent? intent)
-    {
-        return null;
-    }
+    public override IBinder? OnBind(Intent? intent) => null;
 
     public override void OnCreate()
     {
@@ -87,7 +84,7 @@ public class AetherAprsForegroundService : Service
         // Create the lock here but do not hold it yet: the lease is armed by the
         // start command that brings work in, and it is bounded (see WakeLeasePolicy),
         // so a service nobody asks to work cannot keep the CPU awake.
-        var powerManager = GetSystemService(PowerService) as PowerManager;
+        PowerManager? powerManager = GetSystemService(PowerService) as PowerManager;
         _wakeLock = powerManager?.NewWakeLock(WakeLockFlags.Partial, WakeLockTag);
 
         RecheckBatteryOptimization();
@@ -162,8 +159,7 @@ public class AetherAprsForegroundService : Service
             return;
         }
 
-        var powerManager = GetSystemService(PowerService) as PowerManager;
-        if (powerManager is null)
+        if (GetSystemService(PowerService) is not PowerManager powerManager)
         {
             return;
         }
@@ -204,7 +200,7 @@ public class AetherAprsForegroundService : Service
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
-        var action = intent?.Action;
+        string? action = intent?.Action;
 
         if (action == ActionStop)
         {
@@ -231,34 +227,34 @@ public class AetherAprsForegroundService : Service
 
         CreateNotificationChannel();
 
-        var notificationIntent = new Intent(this, typeof(MainActivity));
-        var pendingIntent = PendingIntent.GetActivity(
-            this, 
-            0, 
-            notificationIntent, 
+        Intent notificationIntent = new(this, typeof(MainActivity));
+        PendingIntent? pendingIntent = PendingIntent.GetActivity(
+            this,
+            0,
+            notificationIntent,
             PendingIntentFlags.Immutable);
 
         // Explicit service delivery: no runtime activity receiver is required.
-        var stopAllIntent = new Intent(this, typeof(AetherAprsForegroundService));
+        Intent stopAllIntent = new(this, typeof(AetherAprsForegroundService));
         stopAllIntent.SetAction(ActionStopAll);
-        var stopPendingIntent = PendingIntent.GetService(
-            this, 
-            1, 
-            stopAllIntent, 
+        PendingIntent? stopPendingIntent = PendingIntent.GetService(
+            this,
+            1,
+            stopAllIntent,
             PendingIntentFlags.Immutable);
 
-        var builder = new NotificationCompat.Builder(this, ChannelId);
+        NotificationCompat.Builder builder = new(this, ChannelId);
         builder.SetContentTitle(Strings.Get("ForegroundServiceNotificationTitle"));
         builder.SetContentText(Strings.Get("ForegroundServiceNotificationText"));
         builder.SetSmallIcon(Resource.Drawable.icon_400px);
         builder.SetContentIntent(pendingIntent);
         builder.AddAction(Resource.Drawable.icon_400px, Strings.Get("ForegroundServiceCloseAction"), stopPendingIntent);
         builder.SetOngoing(true);
-        var notification = builder.Build();
+        Notification? notification = builder.Build();
 
         if (notification != null)
         {
-            var requiredTypes = ToAndroidServiceType(GetRequiredTypes(intent));
+            ForegroundService requiredTypes = ToAndroidServiceType(GetRequiredTypes(intent));
 
             try
             {
@@ -300,7 +296,7 @@ public class AetherAprsForegroundService : Service
     /// </param>
     private async Task StopApplicationAsync(bool closeApplication)
     {
-        var sessionControl = ResolveSessionControl();
+        IApplicationSessionControl? sessionControl = ResolveSessionControl();
         if (sessionControl is null)
         {
             // The container is not available, so there is nothing to disarm. Give
@@ -313,8 +309,8 @@ public class AetherAprsForegroundService : Service
         {
             try
             {
-                var result = await sessionControl.StopAsync().ConfigureAwait(false);
-                foreach (var failure in result.Failures)
+                ApplicationSessionStopResult result = await sessionControl.StopAsync().ConfigureAwait(false);
+                foreach (ApplicationSessionStopFailure failure in result.Failures)
                 {
                     Log.LogWarning(
                         "Application stop step {Step} failed: {Message}",
@@ -352,19 +348,19 @@ public class AetherAprsForegroundService : Service
     /// </summary>
     private static void CloseActivities()
     {
-        var activity = MainActivity.Instance;
+        MainActivity? activity = MainActivity.Instance;
         if (activity is null)
         {
             return;
         }
 
-        var mainLooper = Looper.MainLooper;
+        Looper? mainLooper = Looper.MainLooper;
         if (mainLooper is null)
         {
             return;
         }
 
-        var handler = new Handler(mainLooper);
+        Handler handler = new(mainLooper);
         handler.Post(() =>
         {
             try
@@ -380,7 +376,7 @@ public class AetherAprsForegroundService : Service
 
     private static KeepAliveServiceTypes GetRequiredTypes(Intent? intent)
     {
-        var rawTypes = intent?.GetIntExtra(RequiredTypesExtra, DefaultRequiredTypes)
+        int rawTypes = intent?.GetIntExtra(RequiredTypesExtra, DefaultRequiredTypes)
             ?? DefaultRequiredTypes;
 
         return (KeepAliveServiceTypes)rawTypes & SupportedTypes;
@@ -388,7 +384,7 @@ public class AetherAprsForegroundService : Service
 
     private static ForegroundService ToAndroidServiceType(KeepAliveServiceTypes requiredTypes)
     {
-        var androidTypes = ForegroundService.TypeNone;
+        ForegroundService androidTypes = ForegroundService.TypeNone;
 
         if ((requiredTypes & KeepAliveServiceTypes.ConnectedDevice) != 0)
         {
@@ -410,21 +406,21 @@ public class AetherAprsForegroundService : Service
         CreateNotificationChannel();
         CreateAlertChannel();
 
-        var notificationIntent = new Intent(this, typeof(MainActivity));
-        var pendingIntent = PendingIntent.GetActivity(
+        Intent notificationIntent = new(this, typeof(MainActivity));
+        PendingIntent? pendingIntent = PendingIntent.GetActivity(
             this,
             0,
             notificationIntent,
             PendingIntentFlags.Immutable);
 
-        var builder = new NotificationCompat.Builder(this, AlertChannelId);
+        NotificationCompat.Builder builder = new(this, AlertChannelId);
         builder.SetContentTitle(Strings.Get("ForegroundServiceTimeoutTitle"));
         builder.SetContentText(Strings.Get("ForegroundServiceTimeoutText"));
         builder.SetSmallIcon(Resource.Drawable.icon_400px);
         builder.SetContentIntent(pendingIntent);
         builder.SetAutoCancel(true);
 
-        var notification = builder.Build();
+        Notification? notification = builder.Build();
         if (notification == null)
         {
             return;
@@ -432,13 +428,13 @@ public class AetherAprsForegroundService : Service
 
         // The AndroidX compatibility helper is annotated nullable in the .NET
         // bindings; use the platform manager the channel setup already uses.
-        var notificationManager = GetSystemService(NotificationService) as NotificationManager;
+        NotificationManager? notificationManager = GetSystemService(NotificationService) as NotificationManager;
         notificationManager?.Notify(TimeoutNotificationId, notification);
     }
 
     private void PublishState(string state)
     {
-        var intent = new Intent(StateAction);
+        Intent intent = new(StateAction);
         intent.SetPackage(PackageName);
         intent.PutExtra(StateExtra, state);
         SendBroadcast(intent);
@@ -447,7 +443,7 @@ public class AetherAprsForegroundService : Service
     private void CreateNotificationChannel()
     {
         // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 26/O)
-        var channel = new NotificationChannel(
+        NotificationChannel channel = new(
             ChannelId,
             Strings.Get("ForegroundServiceNotificationChannelName"),
             NotificationImportance.Low)
@@ -455,14 +451,14 @@ public class AetherAprsForegroundService : Service
             Description = Strings.Get("ForegroundServiceNotificationChannelDescription")
         };
 
-        var notificationManager = GetSystemService(NotificationService) as NotificationManager;
+        NotificationManager? notificationManager = GetSystemService(NotificationService) as NotificationManager;
         notificationManager?.CreateNotificationChannel(channel);
     }
 
     private void CreateAlertChannel()
     {
         // Android 13+ only (SupportedOSPlatformVersion = 33, >= API 26/O)
-        var channel = new NotificationChannel(
+        NotificationChannel channel = new(
             AlertChannelId,
             Strings.Get("ForegroundServiceTimeoutChannelName"),
             NotificationImportance.Default)
@@ -470,7 +466,7 @@ public class AetherAprsForegroundService : Service
             Description = Strings.Get("ForegroundServiceTimeoutChannelDescription")
         };
 
-        var notificationManager = GetSystemService(NotificationService) as NotificationManager;
+        NotificationManager? notificationManager = GetSystemService(NotificationService) as NotificationManager;
         notificationManager?.CreateNotificationChannel(channel);
     }
 }
@@ -496,7 +492,7 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         _context = Application.Context;
         _logger = logger;
         _stateReceiver = new ForegroundServiceStateReceiver(this);
-        var filter = new IntentFilter(AetherAprsForegroundService.StateAction);
+        IntentFilter filter = new(AetherAprsForegroundService.StateAction);
         _context.RegisterReceiver(_stateReceiver, filter, ReceiverFlags.NotExported);
     }
 
@@ -504,13 +500,13 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
 
     public async Task<ForegroundServiceStartResult> StartAsync(KeepAliveServiceTypes requiredTypes)
     {
-        var types = requiredTypes == KeepAliveServiceTypes.None
+        KeepAliveServiceTypes types = requiredTypes == KeepAliveServiceTypes.None
             ? KeepAliveServiceTypes.ConnectedDevice
             : requiredTypes;
 
-        var wasRunning = _isRunning;
+        bool wasRunning = _isRunning;
 
-        var intent = new Intent(_context, typeof(AetherAprsForegroundService));
+        Intent intent = new(_context, typeof(AetherAprsForegroundService));
         intent.PutExtra(AetherAprsForegroundService.RequiredTypesExtra, (int)types);
 
         TaskCompletionSource<ForegroundServiceStartResult> confirmation;
@@ -563,7 +559,7 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
                 _startRequested = false;
             }
 
-            var rejected = ForegroundServiceStartResult.Rejected(
+            ForegroundServiceStartResult rejected = ForegroundServiceStartResult.Rejected(
                 $"The platform refused the foreground service request: {ex.Message}");
             CompletePendingStart(rejected);
             return rejected;
@@ -577,7 +573,7 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         }
         catch (TimeoutException)
         {
-            var rejected = ForegroundServiceStartResult.Rejected(
+            ForegroundServiceStartResult rejected = ForegroundServiceStartResult.Rejected(
                 $"The foreground service did not confirm startup within {StartConfirmationTimeoutSeconds} seconds.");
             _logger?.LogWarning("{Reason}", rejected.FailureReason);
             AndroidLifecycleTelemetry.State.ForegroundRejected();
@@ -609,7 +605,7 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
             return Task.CompletedTask;
         }
 
-        var intent = new Intent(_context, typeof(AetherAprsForegroundService));
+        Intent intent = new(_context, typeof(AetherAprsForegroundService));
         intent.SetAction(ActionStop);
 
         try
@@ -653,14 +649,9 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         }
     }
 
-    private sealed class ForegroundServiceStateReceiver : BroadcastReceiver
+    private sealed class ForegroundServiceStateReceiver(AndroidForegroundService owner) : BroadcastReceiver
     {
-        private readonly AndroidForegroundService _owner;
-
-        public ForegroundServiceStateReceiver(AndroidForegroundService owner)
-        {
-            _owner = owner;
-        }
+        private readonly AndroidForegroundService _owner = owner;
 
         public override void OnReceive(Context? context, Intent? intent)
         {

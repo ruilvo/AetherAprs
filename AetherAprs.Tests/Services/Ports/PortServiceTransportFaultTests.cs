@@ -27,8 +27,8 @@ public sealed class PortServiceTransportFaultTests
     [Fact]
     public async Task ReceiveError_RaisesTransportFaultForTheOwningPort()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "Scripted",
@@ -39,21 +39,21 @@ public sealed class PortServiceTransportFaultTests
             }
         };
 
-        using var db = TempAppDatabase.Create(port);
-        var modem = new ScriptedPortModem();
-        await using var service = CreateService(db, modem);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        ScriptedPortModem modem = new();
+        await using PortService service = CreateService(db, modem);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
 
-        var reported = new TaskCompletionSource<PortTransportFaultEventArgs>(
+        TaskCompletionSource<PortTransportFaultEventArgs> reported = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         service.TransportFaulted += (_, args) => reported.TrySetResult(args);
 
         await service.SetPortEnabledAsync(portId, true);
 
-        var expected = new InvalidOperationException("socket lost");
+        InvalidOperationException expected = new("socket lost");
         modem.RaiseReceiveError(expected);
 
-        var args = await reported.Task.WaitAsync(
+        PortTransportFaultEventArgs args = await reported.Task.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
 
@@ -64,8 +64,8 @@ public sealed class PortServiceTransportFaultTests
     [Fact]
     public async Task StopAllPortsAsync_DisposesTheModemItStarted()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "Scripted",
@@ -73,9 +73,9 @@ public sealed class PortServiceTransportFaultTests
             TypeSettings = new AfskSettings()
         };
 
-        using var db = TempAppDatabase.Create(port);
-        var modem = new ScriptedPortModem();
-        await using var service = CreateService(db, modem);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        ScriptedPortModem modem = new();
+        await using PortService service = CreateService(db, modem);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
 
         await service.SetPortEnabledAsync(portId, true);
@@ -87,7 +87,7 @@ public sealed class PortServiceTransportFaultTests
 
     private static PortService CreateService(TempAppDatabase db, IPortModem modem)
     {
-        var digipeater = Substitute.For<IDigipeaterService>();
+        IDigipeaterService digipeater = Substitute.For<IDigipeaterService>();
         digipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
             Arg.Any<Guid>(),

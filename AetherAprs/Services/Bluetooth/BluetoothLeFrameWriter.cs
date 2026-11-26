@@ -78,17 +78,17 @@ public sealed class BluetoothLeFrameWriter
             return;
         }
 
-        var payloadSize = _chunkWriter.PayloadSize;
+        int payloadSize = _chunkWriter.PayloadSize;
         if (payloadSize <= 0)
         {
             throw new InvalidOperationException("The characteristic reported no usable payload size.");
         }
 
-        var withoutResponse = _chunkWriter.SupportsWriteWithoutResponse;
+        bool withoutResponse = _chunkWriter.SupportsWriteWithoutResponse;
 
-        for (var offset = 0; offset < frame.Length; offset += payloadSize)
+        for (int offset = 0; offset < frame.Length; offset += payloadSize)
         {
-            var chunk = frame.Slice(offset, Math.Min(payloadSize, frame.Length - offset));
+            ReadOnlyMemory<byte> chunk = frame.Slice(offset, Math.Min(payloadSize, frame.Length - offset));
             await WriteChunkAsync(chunk, withoutResponse, cancellationToken).ConfigureAwait(false);
 
             if (withoutResponse && offset + payloadSize < frame.Length)
@@ -103,9 +103,9 @@ public sealed class BluetoothLeFrameWriter
         bool withoutResponse,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 1; ; attempt++)
+        for (int attempt = 1; ; attempt++)
         {
-            var outcome = await _chunkWriter
+            GattWriteOutcome outcome = await _chunkWriter
                 .WriteChunkAsync(chunk, withoutResponse, cancellationToken)
                 .ConfigureAwait(false);
 

@@ -22,7 +22,7 @@ public class MicESerializerTests
     public void EncodeDestination_NorthEast_EncodesPlainDigits()
     {
         // 42°30.00'N, 8°30.00'E: no offset, no W/E flag, no S flag.
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = new Callsign("APRS"),
@@ -31,7 +31,7 @@ public class MicESerializerTests
             Format = PositionFormat.MicE
         };
 
-        var destination = MicESerializer.EncodeDestination(packet);
+        Callsign destination = MicESerializer.EncodeDestination(packet);
 
         Assert.Equal("423000", destination.Base);
     }
@@ -40,7 +40,7 @@ public class MicESerializerTests
     public void EncodeDestination_SouthWestWithOffset_EncodesFlagCharacters()
     {
         // 42°30.00'S, 108°30.00'W: south flag, longitude offset (>=100), west flag.
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = new Callsign("APRS"),
@@ -49,7 +49,7 @@ public class MicESerializerTests
             Format = PositionFormat.MicE
         };
 
-        var destination = MicESerializer.EncodeDestination(packet);
+        Callsign destination = MicESerializer.EncodeDestination(packet);
 
         Assert.Equal("423PPP", destination.Base);
     }
@@ -61,7 +61,7 @@ public class MicESerializerTests
     [Fact]
     public void FormatInfoField_RoundTripsThroughParser()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = new Callsign("APRS"),
@@ -72,12 +72,12 @@ public class MicESerializerTests
             Format = PositionFormat.MicE
         };
 
-        var infoField = MicESerializer.FormatInfoField(packet);
-        var destination = MicESerializer.EncodeDestination(packet);
+        string infoField = MicESerializer.FormatInfoField(packet);
+        Callsign destination = MicESerializer.EncodeDestination(packet);
 
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, destination);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, destination);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.Equal(42.5085, pos.Location.Latitude, 3);
         Assert.Equal(-8.5085, pos.Location.Longitude, 3);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
@@ -90,7 +90,7 @@ public class MicESerializerTests
     [Fact]
     public void FormatInfoField_WithAltitude_RoundTripsAltitude()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = new Callsign("APRS"),
@@ -100,12 +100,12 @@ public class MicESerializerTests
             Format = PositionFormat.MicE
         };
 
-        var infoField = MicESerializer.FormatInfoField(packet);
-        var destination = MicESerializer.EncodeDestination(packet);
+        string infoField = MicESerializer.FormatInfoField(packet);
+        Callsign destination = MicESerializer.EncodeDestination(packet);
 
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, destination);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, destination);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.NotNull(pos.Altitude);
         Assert.Equal(500, pos.Altitude.Value, 1);
     }
@@ -117,7 +117,7 @@ public class MicESerializerTests
     [Fact]
     public void Ax25Serialize_MicE_EncodesLatitudeIntoDestination()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = new Callsign("APRS"),
@@ -126,10 +126,10 @@ public class MicESerializerTests
             Format = PositionFormat.MicE
         };
 
-        var frame = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(frame);
+        byte[] frame = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.Equal(42.5, pos.Location.Latitude, 2);
         Assert.Equal(8.5, pos.Location.Longitude, 2);
     }

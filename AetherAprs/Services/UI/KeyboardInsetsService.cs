@@ -64,11 +64,8 @@ public sealed class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger
 
     private void UnsubscribeFromPane()
     {
-        if (_inputPane is not null)
-        {
-            _inputPane.StateChanged -= OnInputPaneStateChanged;
-            _inputPane = null;
-        }
+        _inputPane?.StateChanged -= OnInputPaneStateChanged;
+        _inputPane = null;
     }
 
     private void OnInputPaneStateChanged(object? sender, InputPaneStateEventArgs e)
@@ -77,7 +74,7 @@ public sealed class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger
         {
             // When keyboard is visible, add bottom padding equal to keyboard height
             // When hidden, remove the padding
-            var keyboardHeight = e.NewState == InputPaneState.Open ? e.EndRect.Height : 0;
+            double keyboardHeight = e.NewState == InputPaneState.Open ? e.EndRect.Height : 0;
 
             CurrentInsets = new Thickness(0, 0, 0, keyboardHeight);
 

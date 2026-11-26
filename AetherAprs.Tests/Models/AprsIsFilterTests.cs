@@ -13,7 +13,7 @@ public class AprsIsFilterTests
     [Fact]
     public void ToFilterString_EmptyFilter_ReturnsEmptyString()
     {
-        var filter = new AprsIsFilter();
+        AprsIsFilter filter = new();
 
         Assert.Equal(string.Empty, filter.ToFilterString());
     }
@@ -21,7 +21,7 @@ public class AprsIsFilterTests
     [Fact]
     public void ToFilterString_RangeOnly_ProducesRangeDirective()
     {
-        var filter = new AprsIsFilter
+        AprsIsFilter filter = new()
         {
             RangeLatitude = 38.7223,
             RangeLongitude = -9.1393,
@@ -34,7 +34,7 @@ public class AprsIsFilterTests
     [Fact]
     public void ToFilterString_AllDirectives_UsesCanonicalOrder()
     {
-        var filter = new AprsIsFilter
+        AprsIsFilter filter = new()
         {
             RangeLatitude = 38.7223,
             RangeLongitude = -9.1393,
@@ -50,7 +50,7 @@ public class AprsIsFilterTests
         filter.AreaSouthLatitude = 37;
         filter.AreaEastLongitude = -6;
 
-        var result = filter.ToFilterString();
+        string result = filter.ToFilterString();
 
         Assert.Equal(
             "r/38.7223/-9.1393/50 p/CT/CU b/CT1ABC t/pmw a/40/-10/37/-6 m/25",
@@ -60,7 +60,7 @@ public class AprsIsFilterTests
     [Fact]
     public void ToFilterString_PreservesOtherDirectives_AfterKnownDirectives()
     {
-        var filter = new AprsIsFilter { MyRangeKm = 10 };
+        AprsIsFilter filter = new() { MyRangeKm = 10 };
         filter.OtherDirectives.Add("q/C");
         filter.OtherDirectives.Add("-p/K");
 
@@ -70,7 +70,7 @@ public class AprsIsFilterTests
     [Fact]
     public void ToFilterString_PacketTypes_FollowCanonicalTypeOrder()
     {
-        var filter = new AprsIsFilter
+        AprsIsFilter filter = new()
         {
             PacketTypes = AprsIsPacketType.Weather | AprsIsPacketType.Position | AprsIsPacketType.Status
         };
@@ -81,7 +81,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_EmptyString_ReturnsEmptyFilter()
     {
-        var filter = AprsIsFilter.Parse(string.Empty);
+        AprsIsFilter filter = AprsIsFilter.Parse(string.Empty);
 
         Assert.False(filter.RangeLatitude.HasValue);
         Assert.False(filter.MyRangeKm.HasValue);
@@ -92,7 +92,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_Null_ReturnsEmptyFilter()
     {
-        var filter = AprsIsFilter.Parse(null!);
+        AprsIsFilter filter = AprsIsFilter.Parse(null!);
 
         Assert.Equal(string.Empty, filter.ToFilterString());
     }
@@ -100,7 +100,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_RangeDirective_PopulatesRangeFields()
     {
-        var filter = AprsIsFilter.Parse("r/38.7223/-9.1393/50");
+        AprsIsFilter filter = AprsIsFilter.Parse("r/38.7223/-9.1393/50");
 
         Assert.Equal(38.7223, filter.RangeLatitude);
         Assert.Equal(-9.1393, filter.RangeLongitude);
@@ -110,7 +110,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_MultipleDirectives_PopulatesAllFields()
     {
-        var filter = AprsIsFilter.Parse("r/38.7/-9.1/50 p/CT/CU b/CT1ABC t/pmw a/40/-10/37/-6 m/25");
+        AprsIsFilter filter = AprsIsFilter.Parse("r/38.7/-9.1/50 p/CT/CU b/CT1ABC t/pmw a/40/-10/37/-6 m/25");
 
         Assert.Equal(38.7, filter.RangeLatitude);
         Assert.Equal(new[] { "CT", "CU" }, filter.Prefixes);
@@ -126,7 +126,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_UnknownDirective_IsPreservedVerbatim()
     {
-        var filter = AprsIsFilter.Parse("m/50 q/C -p/K");
+        AprsIsFilter filter = AprsIsFilter.Parse("m/50 q/C -p/K");
 
         Assert.Equal(50, filter.MyRangeKm);
         Assert.Equal(new[] { "q/C", "-p/K" }, filter.OtherDirectives);
@@ -137,7 +137,7 @@ public class AprsIsFilterTests
     {
         const string original = "r/38.7223/-9.1393/50 p/CT/CU b/CT1ABC t/pmw a/40/-10/37/-6 m/25";
 
-        var filter = AprsIsFilter.Parse(original);
+        AprsIsFilter filter = AprsIsFilter.Parse(original);
 
         Assert.Equal(original, filter.ToFilterString());
     }
@@ -145,7 +145,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_TypeCharacters_CaseInsensitive()
     {
-        var filter = AprsIsFilter.Parse("t/PMW");
+        AprsIsFilter filter = AprsIsFilter.Parse("t/PMW");
 
         Assert.Equal(AprsIsPacketType.Position | AprsIsPacketType.Message | AprsIsPacketType.Weather, filter.PacketTypes);
         Assert.Equal("t/pmw", filter.ToFilterString());
@@ -154,7 +154,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_MalformedRange_IsPreservedVerbatim()
     {
-        var filter = AprsIsFilter.Parse("r/38.7/-9.1");
+        AprsIsFilter filter = AprsIsFilter.Parse("r/38.7/-9.1");
 
         Assert.False(filter.RangeLatitude.HasValue);
         Assert.Equal(new[] { "r/38.7/-9.1" }, filter.OtherDirectives);
@@ -163,7 +163,7 @@ public class AprsIsFilterTests
     [Fact]
     public void Parse_MalformedType_IsPreservedVerbatim()
     {
-        var filter = AprsIsFilter.Parse("t/pzx");
+        AprsIsFilter filter = AprsIsFilter.Parse("t/pzx");
 
         Assert.Equal(AprsIsPacketType.None, filter.PacketTypes);
         Assert.Equal(new[] { "t/pzx" }, filter.OtherDirectives);
@@ -174,7 +174,7 @@ public class AprsIsFilterTests
     {
         // Legacy filter: t/ selecting every type is a no-op that would flood,
         // and m/ cannot match on a read-only connection.
-        var result = AprsIsFilter.NormalizeForConnection("t/poimqstunw m/100", 38.7223, -9.1393);
+        string result = AprsIsFilter.NormalizeForConnection("t/poimqstunw m/100", 38.7223, -9.1393);
 
         Assert.Equal("r/38.7223/-9.1393/100", result);
     }
@@ -182,7 +182,7 @@ public class AprsIsFilterTests
     [Fact]
     public void NormalizeForConnection_AllTypesWithoutLocation_StripsTypesOnly()
     {
-        var result = AprsIsFilter.NormalizeForConnection("t/poimqstunw m/100", null, null);
+        string result = AprsIsFilter.NormalizeForConnection("t/poimqstunw m/100", null, null);
 
         Assert.Equal("m/100", result);
     }
@@ -190,7 +190,7 @@ public class AprsIsFilterTests
     [Fact]
     public void NormalizeForConnection_SubsetTypesWithLocation_KeepsTypesAndResolvesMyRange()
     {
-        var result = AprsIsFilter.NormalizeForConnection("t/pmw m/50", 38.7223, -9.1393);
+        string result = AprsIsFilter.NormalizeForConnection("t/pmw m/50", 38.7223, -9.1393);
 
         Assert.Equal("r/38.7223/-9.1393/50 t/pmw", result);
     }
@@ -198,21 +198,18 @@ public class AprsIsFilterTests
     [Fact]
     public void NormalizeForConnection_FixedRangeAlreadyPresent_KeepsItAndDropsMyRange()
     {
-        var result = AprsIsFilter.NormalizeForConnection("r/1/2/30 m/50", 38.7223, -9.1393);
+        string result = AprsIsFilter.NormalizeForConnection("r/1/2/30 m/50", 38.7223, -9.1393);
 
         Assert.Equal("r/1/2/30", result);
     }
 
     [Fact]
-    public void NormalizeForConnection_EmptyFilter_ReturnsEmptyString()
-    {
-        Assert.Equal(string.Empty, AprsIsFilter.NormalizeForConnection(string.Empty, 38.7223, -9.1393));
-    }
+    public void NormalizeForConnection_EmptyFilter_ReturnsEmptyString() => Assert.Equal(string.Empty, AprsIsFilter.NormalizeForConnection(string.Empty, 38.7223, -9.1393));
 
     [Fact]
     public void NormalizeForConnection_FixedRangeOnly_IsUnchanged()
     {
-        var result = AprsIsFilter.NormalizeForConnection("r/38.7/-9.1/50", 10, 20);
+        string result = AprsIsFilter.NormalizeForConnection("r/38.7/-9.1/50", 10, 20);
 
         Assert.Equal("r/38.7/-9.1/50", result);
     }

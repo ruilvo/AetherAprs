@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -41,10 +41,7 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
         Conversations.CollectionChanged += OnConversationsChanged;
     }
 
-    private void OnConversationsChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        OnPropertyChanged(nameof(HasConversations));
-    }
+    private void OnConversationsChanged(object? sender, NotifyCollectionChangedEventArgs e) => OnPropertyChanged(nameof(HasConversations));
 
     public void Dispose()
     {
@@ -55,7 +52,7 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void NewMessage()
     {
-        var vm = _conversationFactory.CreateNew();
+        ConversationViewModel vm = _conversationFactory.CreateNew();
         _navigationService.NavigateTo(vm);
     }
 
@@ -67,13 +64,10 @@ public partial class MessagesViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var vm = _conversationFactory.Create(thread.Peer);
+        ConversationViewModel vm = _conversationFactory.Create(thread.Peer);
         _navigationService.NavigateTo(vm);
     }
 
     [RelayCommand]
-    private void OpenBulletins()
-    {
-        _navigationService.NavigateTo(_bulletinsViewModel);
-    }
+    private void OpenBulletins() => _navigationService.NavigateTo(_bulletinsViewModel);
 }

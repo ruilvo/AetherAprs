@@ -32,12 +32,12 @@ internal sealed class PacketQueryService(
         ReadAsync<IReadOnlyDictionary<string, PacketRecord>>(nameof(GetMostRecentPacketsAsync), async (context, ct) =>
         {
             // Use max IDs in a separate query to avoid EF SQLite group-projection limitations.
-            var maxIds = await context.Packets
+            List<long> maxIds = await context.Packets
                 .GroupBy(packet => new { packet.SourceBase, packet.SourceSsid })
                 .Select(group => group.Max(packet => packet.Id))
                 .ToListAsync(ct).ConfigureAwait(false);
 
-            var packets = await GetLatestByIdsAsync(context, maxIds, limit, ct).ConfigureAwait(false);
+            List<PacketRecord> packets = await GetLatestByIdsAsync(context, maxIds, limit, ct).ConfigureAwait(false);
             return ByCallsign(packets);
         }, cancellationToken);
 
@@ -46,13 +46,13 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyDictionary<string, PacketRecord>>(nameof(GetMostRecentPositionPacketsAsync), async (context, ct) =>
         {
-            var maxIds = await context.Packets
+            List<long> maxIds = await context.Packets
                 .Where(packet => packet.Position != null)
                 .GroupBy(packet => new { packet.SourceBase, packet.SourceSsid })
                 .Select(group => group.Max(packet => packet.Id))
                 .ToListAsync(ct).ConfigureAwait(false);
 
-            var packets = await GetLatestByIdsAsync(context, maxIds, limit, ct).ConfigureAwait(false);
+            List<PacketRecord> packets = await GetLatestByIdsAsync(context, maxIds, limit, ct).ConfigureAwait(false);
             return ByCallsign(packets);
         }, cancellationToken);
 
@@ -70,20 +70,20 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByCallsignAsync), async (context, ct) =>
         {
-            var baseCallsign = callsign;
+            string baseCallsign = callsign;
             AprsSsid? ssid = null;
-            var dashIndex = callsign.IndexOf('-');
+            int dashIndex = callsign.IndexOf('-');
             if (dashIndex > 0 && dashIndex < callsign.Length - 1)
             {
                 baseCallsign = callsign[..dashIndex];
-                if (int.TryParse(callsign.AsSpan(dashIndex + 1), out var parsedSsid) && parsedSsid is >= MinSsid and <= MaxSsid)
+                if (int.TryParse(callsign.AsSpan(dashIndex + 1), out int parsedSsid) && parsedSsid is >= MinSsid and <= MaxSsid)
                 {
                     ssid = (AprsSsid)parsedSsid;
                 }
                 // Invalid SSIDs still fall back to matching the base callsign.
             }
 
-            var query = context.Packets.Where(packet => packet.SourceBase == baseCallsign);
+            IQueryable<PacketRecord> query = context.Packets.Where(packet => packet.SourceBase == baseCallsign);
             if (ssid is { } sourceSsid)
             {
                 query = query.Where(packet => packet.SourceSsid == sourceSsid);
@@ -98,10 +98,10 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPositionTrailPacketsAsync), async (context, ct) =>
         {
-            var query = context.Packets.Where(packet => packet.Position != null);
+            IQueryable<PacketRecord> query = context.Packets.Where(packet => packet.Position != null);
             if (cutoffTime is { } cutoff)
             {
-                var cutoffUtc = cutoff.UtcDateTime;
+                DateTime cutoffUtc = cutoff.UtcDateTime;
                 query = query.Where(packet => packet.Timestamp >= cutoffUtc);
             }
 
@@ -113,7 +113,7 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetMostRecentObjectsAsync), async (context, ct) =>
         {
-            var maxIds = await context.Packets
+            List<long> maxIds = await context.Packets
                 .Where(packet => packet.Object != null)
                 .GroupBy(packet => packet.Object!.Name)
                 .Select(group => group.Max(packet => packet.Id))
@@ -127,7 +127,7 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetMostRecentItemsAsync), async (context, ct) =>
         {
-            var maxIds = await context.Packets
+            List<long> maxIds = await context.Packets
                 .Where(packet => packet.Item != null)
                 .GroupBy(packet => packet.Item!.Name)
                 .Select(group => group.Max(packet => packet.Id))
@@ -142,7 +142,7 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var trimmed = name?.Trim();
+        string? trimmed = name?.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
             return [];
@@ -167,9 +167,9 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetMessagePacketsAsync), async (context, ct) =>
         {
-            var messages = context.Packets
+            IQueryable<PacketRecord> messages = context.Packets
                 .Where(packet => packet.PacketType == PacketTypes.Message && packet.Message != null);
-            var recentIds = messages.OrderByDescending(packet => packet.Id).Take(limit).Select(packet => packet.Id);
+            IQueryable<long> recentIds = messages.OrderByDescending(packet => packet.Id).Take(limit).Select(packet => packet.Id);
             return await messages
                 .Where(packet => recentIds.Contains(packet.Id) ||
                     (packet.IsOutbound && packet.Message!.DeliveryStatus == MessageDeliveryStatus.Pending))
@@ -189,16 +189,16 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var trimmed = query?.Trim();
+        string? trimmed = query?.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
             return [];
         }
 
-        var normalized = trimmed.ToUpperInvariant();
+        string normalized = trimmed.ToUpperInvariant();
         return await ReadAsync<IReadOnlyList<PacketRecord>>(nameof(SearchStationsAsync), async (context, ct) =>
         {
-            var candidates = await context.Packets
+            List<PacketRecord> candidates = await context.Packets
                 .Where(packet =>
                     packet.SourceBase.StartsWith(normalized) || packet.SourceBase == normalized ||
                     (packet.Object != null &&
@@ -208,11 +208,11 @@ internal sealed class PacketQueryService(
                 .ToListAsync(ct).ConfigureAwait(false);
 
             // The first occurrence of each match is the newest report.
-            var seen = new HashSet<string>();
-            var results = new List<PacketRecord>();
-            foreach (var packet in candidates)
+            HashSet<string> seen = [];
+            List<PacketRecord> results = [];
+            foreach (PacketRecord? packet in candidates)
             {
-                var key = packet.Object != null &&
+                string key = packet.Object != null &&
                     (packet.Object.Name.StartsWith(normalized, StringComparison.Ordinal) || packet.Object.Name == normalized)
                     ? $"obj:{packet.Object.Name}"
                     : $"{packet.SourceBase}-{(int)packet.SourceSsid}";

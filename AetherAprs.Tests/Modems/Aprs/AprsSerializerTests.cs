@@ -24,7 +24,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionPacket_ProducesCorrectInfoField()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -34,7 +34,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("!3830.00N/", infoField);
         Assert.Contains("00906.00W", infoField);
@@ -44,7 +44,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionPacket_UsesAprsUncompressedMinutePrecision()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = new Callsign("CT7ALW", 7),
             Destination = new Callsign("APRS"),
@@ -54,7 +54,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("!4125.06N/00831.30W[Walking", infoField);
     }
@@ -62,7 +62,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionPacket_CarriesRoundingAcrossMinuteBoundary()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -71,7 +71,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("!4200.00N/00900.00Wa", infoField);
     }
@@ -79,7 +79,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionPacket_PreservesHemisphereAtZero()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -88,7 +88,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("!0000.60S/00000.60Ea", infoField);
     }
@@ -96,7 +96,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionPacket_WithOverlayUsesOverlayBeforeTable()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -105,7 +105,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("!3830.00NA/00906.00W#", infoField);
     }
@@ -115,12 +115,11 @@ public class AprsSerializerTests
     [InlineData(90.1, 0)]
     [InlineData(0, -180.1)]
     [InlineData(0, 180.1)]
-    public void FormatInfoField_PositionPacket_InvalidCoordinatesThrow(double latitude, double longitude)
-    {
+    public void FormatInfoField_PositionPacket_InvalidCoordinatesThrow(double latitude, double longitude) =>
         // The Coordinate constructor validates ranges and throws ArgumentOutOfRangeException
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
-            var packet = new PositionPacket
+            PositionPacket packet = new()
             {
                 Source = Source,
                 Destination = Dest,
@@ -129,14 +128,13 @@ public class AprsSerializerTests
                 Precision = 2
             };
         });
-    }
 
     [Theory]
     [InlineData(0, 1)]  // Precision 0 is clamped to 1
     [InlineData(3, 2)]  // Precision 3 is clamped to 2 (compressed positions emit 3)
     public void FormatInfoField_PositionPacket_NonStandardPrecisionIsNormalized(int precision, int expectedPrecision)
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -146,15 +144,18 @@ public class AprsSerializerTests
         };
 
         // Should not throw - precision is normalized/clamped
-        var result = AprsInfoFieldSerializer.FormatInfoField(packet);
-        
+        string result = AprsInfoFieldSerializer.FormatInfoField(packet);
+
         // Verify the result contains valid APRS position format
         Assert.NotNull(result);
         Assert.NotEmpty(result);
-        
+
         // The result should contain coordinates formatted with the normalized precision
         // For precision 1: format is DDMM.mN/S, for precision 2: DDMM.mmN/S
-        string expectedDecimalDigits = new string('0', expectedPrecision);
+        _ = new
+        // The result should contain coordinates formatted with the normalized precision
+        // For precision 1: format is DDMM.mN/S, for precision 2: DDMM.mmN/S
+        string('0', expectedPrecision);
         // Latitude format: DDMMthis.thisXXN/S where XX hasthis expectedPrecision digitsthis
         Assert.Matches(@"\d{4}\.\d{" + expectedPrecision + @"}[NS]", result);
     }
@@ -162,7 +163,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionWithComment_IncludesComment()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -172,7 +173,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Contains("Test Comment", infoField);
     }
@@ -180,7 +181,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_PositionWithSouthernLatitude_ProducesS()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -189,7 +190,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Contains('S', infoField);
     }
@@ -197,7 +198,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_CompressedPosition_StartsWithBangAndEncodesBase91()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -207,7 +208,7 @@ public class AprsSerializerTests
             Format = PositionFormat.Compressed
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         // Compressed positions begin with '!' then a symbol table char ('/' for primary)
         Assert.StartsWith("!/", infoField);
@@ -218,7 +219,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_CompressedPosition_RoundTripsThroughParser()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -231,10 +232,10 @@ public class AprsSerializerTests
             Format = PositionFormat.Compressed
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.Equal(42.2419, pos.Location.Latitude, 3);
         Assert.Equal(-8.59665, pos.Location.Longitude, 3);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
@@ -246,7 +247,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_CompressedPosition_WithAltitude_RoundTrips()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -257,10 +258,10 @@ public class AprsSerializerTests
             Format = PositionFormat.Compressed
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.NotNull(pos.Altitude);
         Assert.Equal(467.71, pos.Altitude.Value, 1);
         Assert.Null(pos.Course);
@@ -270,7 +271,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_CompressedPosition_AlternateTableAndOverlay_RoundTrips()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -280,10 +281,10 @@ public class AprsSerializerTests
             Format = PositionFormat.Compressed
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
         Assert.Equal('A', pos.Symbol.Overlay);
     }
@@ -291,7 +292,7 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_And_Parse_RoundTrip_Works()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -300,10 +301,10 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var pos = Assert.IsType<PositionPacket>(parsed);
+        PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.Equal(38.5, pos.Location.Latitude, 4);
         Assert.Equal(-9.1, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
@@ -317,7 +318,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_MessagePacket_ProducesCorrectInfoField()
     {
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -325,7 +326,7 @@ public class AprsSerializerTests
             Text = "Hello there"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith(":OTHER    :", infoField);
         Assert.EndsWith("Hello there", infoField);
@@ -334,7 +335,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_MessageWithNumber_IncludesNumber()
     {
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -343,7 +344,7 @@ public class AprsSerializerTests
             MessageNumber = 42
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal(":OTHER    :Hello{42}", infoField);
     }
@@ -351,7 +352,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_MessageWithSsid_PreservesAddresseeSsid()
     {
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -359,7 +360,7 @@ public class AprsSerializerTests
             Text = "Hello"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal(":N0CALL-1 :Hello", infoField);
     }
@@ -367,7 +368,7 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_Message_RoundTrips()
     {
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -375,10 +376,10 @@ public class AprsSerializerTests
             Text = "Hello there"
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var msg = Assert.IsType<MessagePacket>(parsed);
+        MessagePacket msg = Assert.IsType<MessagePacket>(parsed);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("OTHER")), msg.Addressee);
         Assert.Equal("Hello there", msg.Text);
         Assert.Null(msg.MessageNumber);
@@ -387,7 +388,7 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_MessageWithNumber_RoundTrips()
     {
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -396,10 +397,10 @@ public class AprsSerializerTests
             MessageNumber = 42
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var msg = Assert.IsType<MessagePacket>(parsed);
+        MessagePacket msg = Assert.IsType<MessagePacket>(parsed);
         Assert.Equal("Hello", msg.Text);
         Assert.Equal(42, msg.MessageNumber);
     }
@@ -411,14 +412,14 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_StatusPacket_ProducesCorrectInfoField()
     {
-        var packet = new StatusPacket
+        StatusPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Text = "Online via APRS"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal(">Online via APRS", infoField);
     }
@@ -426,17 +427,17 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_Status_RoundTrips()
     {
-        var packet = new StatusPacket
+        StatusPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Text = "Online via APRS"
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var status = Assert.IsType<StatusPacket>(parsed);
+        StatusPacket status = Assert.IsType<StatusPacket>(parsed);
         Assert.Equal("Online via APRS", status.Text);
     }
 
@@ -447,7 +448,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_WeatherPacket_ProducesCorrectInfoField()
     {
-        var packet = new WeatherPacket
+        WeatherPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -458,7 +459,7 @@ public class AprsSerializerTests
             Pressure = 10130
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         // Spec-conformant fixed-width fields (APRS weather format).
         Assert.StartsWith("_", infoField);
@@ -473,7 +474,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_WeatherPacket_SpecWidthsAndNegativeTemperature()
     {
-        var packet = new WeatherPacket
+        WeatherPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -482,7 +483,7 @@ public class AprsSerializerTests
             Temperature = -5
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         // Spec: wind "c005", rain "r500" (hundredths of an inch, no decimal point),
         // negative temperature encoded as 1000 - abs(temp): -5 °F → t995.
@@ -495,39 +496,39 @@ public class AprsSerializerTests
     public void ParseWeather_NegativeTemperatureEncodedPerSpec_DecodesNegative()
     {
         // FEND... weather payload with temperature t995 → -5 °F per spec.
-        var parsed = AprsInfoFieldParser.ParseInfoField("_c005s005t995", Source, Dest);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField("_c005s005t995", Source, Dest);
 
-        var w = Assert.IsType<WeatherPacket>(parsed);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(parsed);
         Assert.Equal(-5, w.Temperature);
     }
 
     [Fact]
     public void Serialize_Weather_NegativeTemperatureRoundTrips()
     {
-        var packet = new WeatherPacket
+        WeatherPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Temperature = -5
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var w = Assert.IsType<WeatherPacket>(parsed);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(parsed);
         Assert.Equal(-5, w.Temperature);
     }
 
     [Fact]
     public void FormatInfoField_WeatherEmpty_OnlyUnderscore()
     {
-        var packet = new WeatherPacket
+        WeatherPacket packet = new()
         {
             Source = Source,
             Destination = Dest
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.Equal("_", infoField);
     }
@@ -535,7 +536,7 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_Weather_RoundTrips()
     {
-        var packet = new WeatherPacket
+        WeatherPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -546,10 +547,10 @@ public class AprsSerializerTests
             Pressure = 10130
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var w = Assert.IsType<WeatherPacket>(parsed);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(parsed);
         Assert.Equal(90, w.WindDirection);
         Assert.Equal(15, w.WindSpeed);
         Assert.Equal(72, w.Temperature);
@@ -562,16 +563,16 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_WeatherEmpty_RoundTrips()
     {
-        var packet = new WeatherPacket
+        WeatherPacket packet = new()
         {
             Source = Source,
             Destination = Dest
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var w = Assert.IsType<WeatherPacket>(parsed);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(parsed);
         Assert.Null(w.WindDirection);
         Assert.Null(w.WindSpeed);
     }
@@ -583,17 +584,17 @@ public class AprsSerializerTests
     [Fact]
     public void Serialize_Unknown_RoundTrips()
     {
-        var packet = new UnknownPacket
+        UnknownPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Raw = "#SOME,WEIRD,DATA"
         };
 
-        var bytes = Ax25Serializer.Serialize(packet);
-        var parsed = Ax25Parser.ParseFrame(bytes);
+        byte[] bytes = Ax25Serializer.Serialize(packet);
+        AprsPacket parsed = Ax25Parser.ParseFrame(bytes);
 
-        var unknown = Assert.IsType<UnknownPacket>(parsed);
+        UnknownPacket unknown = Assert.IsType<UnknownPacket>(parsed);
         Assert.Equal("#SOME,WEIRD,DATA", unknown.Raw);
     }
 
@@ -604,7 +605,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_Object_RoundTripsThroughParser()
     {
-        var packet = new ObjectPacket
+        ObjectPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -617,10 +618,10 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var obj = Assert.IsType<ObjectPacket>(parsed);
+        ObjectPacket obj = Assert.IsType<ObjectPacket>(parsed);
         Assert.Equal("TESTOBJ", obj.Name);
         Assert.True(obj.IsLive);
         Assert.Equal("123456z", obj.RawTimestamp);
@@ -634,7 +635,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_KilledObject_RoundTripsThroughParser()
     {
-        var packet = new ObjectPacket
+        ObjectPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -646,17 +647,17 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var obj = Assert.IsType<ObjectPacket>(parsed);
+        ObjectPacket obj = Assert.IsType<ObjectPacket>(parsed);
         Assert.False(obj.IsLive);
     }
 
     [Fact]
     public void FormatInfoField_Item_RoundTripsThroughParser()
     {
-        var packet = new ItemPacket
+        ItemPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -668,10 +669,10 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var item = Assert.IsType<ItemPacket>(parsed);
+        ItemPacket item = Assert.IsType<ItemPacket>(parsed);
         Assert.Equal("ITEM123", item.Name);
         Assert.True(item.IsLive);
         Assert.Equal(43.45816667, item.Location.Latitude, 4);
@@ -682,7 +683,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_Bulletin_RoundTripsThroughParser()
     {
-        var packet = new BulletinPacket
+        BulletinPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -690,10 +691,10 @@ public class AprsSerializerTests
             Text = "Club meeting Friday"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var bulletin = Assert.IsType<BulletinPacket>(parsed);
+        BulletinPacket bulletin = Assert.IsType<BulletinPacket>(parsed);
         Assert.Equal("BLN0SPCL", bulletin.Name);
         Assert.Equal("Club meeting Friday", bulletin.Text);
         Assert.Null(bulletin.MessageNumber);
@@ -702,51 +703,51 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_ThirdParty_RoundTripsThroughParser()
     {
-        var packet = new ThirdPartyPacket
+        ThirdPartyPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Encapsulated = "N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var thirdParty = Assert.IsType<ThirdPartyPacket>(parsed);
+        ThirdPartyPacket thirdParty = Assert.IsType<ThirdPartyPacket>(parsed);
         Assert.Equal("N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK", thirdParty.Encapsulated);
     }
 
     [Fact]
     public void FormatInfoField_Query_RoundTripsThroughParser()
     {
-        var packet = new QueryPacket
+        QueryPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Query = "APRS?"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var query = Assert.IsType<QueryPacket>(parsed);
+        QueryPacket query = Assert.IsType<QueryPacket>(parsed);
         Assert.Equal("APRS?", query.Query);
     }
 
     [Fact]
     public void FormatInfoField_RawGps_RoundTripsThroughParser()
     {
-        var packet = new RawGpsPacket
+        RawGpsPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
             Sentence = "GPGGA,123519,4807.038,N,01131.000,E"
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        AprsPacket parsed = AprsInfoFieldParser.ParseInfoField(infoField, Source, Dest);
 
-        var rawGps = Assert.IsType<RawGpsPacket>(parsed);
+        RawGpsPacket rawGps = Assert.IsType<RawGpsPacket>(parsed);
         Assert.Equal("GPGGA,123519,4807.038,N,01131.000,E", rawGps.Sentence);
     }
 
@@ -762,7 +763,7 @@ public class AprsSerializerTests
             Precision = 2
         };
 
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
 
         Assert.StartsWith("!", infoField);
     }
@@ -770,7 +771,7 @@ public class AprsSerializerTests
     [Fact]
     public void FormatInfoField_NullPacket_ThrowsArgumentNullException()
     {
-        var ex = Assert.Throws<ArgumentNullException>(() => AprsInfoFieldSerializer.FormatInfoField(null!));
+        ArgumentNullException ex = Assert.Throws<ArgumentNullException>(() => AprsInfoFieldSerializer.FormatInfoField(null!));
         Assert.Contains("packet", ex.Message, StringComparison.Ordinal);
     }
 }

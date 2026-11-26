@@ -24,15 +24,15 @@ public sealed class ApplicationSessionControlTests
     [Fact]
     public async Task StopAsync_DisarmsIntent_AndALateFaultCannotReconnect()
     {
-        var portId = Guid.NewGuid();
-        var controller = new FakePortController { BlockConnect = true };
-        await using var coordinator = CreateCoordinator(controller);
+        Guid portId = Guid.NewGuid();
+        FakePortController controller = new() { BlockConnect = true };
+        await using SessionCoordinator coordinator = CreateCoordinator(controller);
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
         await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
         await controller.ConnectStarted.Task;
-        var control = CreateControl(coordinator);
+        ApplicationSessionControl control = CreateControl(coordinator);
 
-        var result = await control.StopAsync();
+        ApplicationSessionStopResult result = await control.StopAsync();
 
         Assert.True(result.Succeeded);
         Assert.False(coordinator.Intent.IsArmed);
@@ -56,11 +56,11 @@ public sealed class ApplicationSessionControlTests
     {
         // A send can start a modem implicitly, so the coordinator's armed set is not
         // the whole running set: the port service sweep is what closes that gap.
-        var portService = new FakePortService();
-        await using var coordinator = CreateCoordinator(new FakePortController());
-        var control = CreateControl(coordinator, portService: portService);
+        FakePortService portService = new();
+        await using SessionCoordinator coordinator = CreateCoordinator(new FakePortController());
+        ApplicationSessionControl control = CreateControl(coordinator, portService: portService);
 
-        var result = await control.StopAsync();
+        ApplicationSessionStopResult result = await control.StopAsync();
 
         Assert.True(result.Succeeded);
         Assert.Equal(1, portService.StopAllCalls);
@@ -69,12 +69,12 @@ public sealed class ApplicationSessionControlTests
     [Fact]
     public async Task StopAsync_CancelsLocationWork_AndReleasesEveryKeepAliveReason()
     {
-        var location = new FakeLocationTrackingService();
-        var keepAlive = new FakeKeepAliveService();
-        await using var coordinator = CreateCoordinator(new FakePortController());
-        var control = CreateControl(coordinator, location: location, keepAlive: keepAlive);
+        FakeLocationTrackingService location = new();
+        FakeKeepAliveService keepAlive = new();
+        await using SessionCoordinator coordinator = CreateCoordinator(new FakePortController());
+        ApplicationSessionControl control = CreateControl(coordinator, location: location, keepAlive: keepAlive);
 
-        var result = await control.StopAsync();
+        ApplicationSessionStopResult result = await control.StopAsync();
 
         Assert.True(result.Succeeded);
         Assert.True(location.StopCalled);
@@ -86,23 +86,23 @@ public sealed class ApplicationSessionControlTests
     [Fact]
     public async Task StopAsync_ReportsAFailedStep_AndStillRunsTheRest()
     {
-        var portService = new FakePortService
+        FakePortService portService = new()
         {
             StopFailure = new InvalidOperationException("simulated failure")
         };
-        var location = new FakeLocationTrackingService();
-        var keepAlive = new FakeKeepAliveService();
-        await using var coordinator = CreateCoordinator(new FakePortController());
-        var control = CreateControl(
+        FakeLocationTrackingService location = new();
+        FakeKeepAliveService keepAlive = new();
+        await using SessionCoordinator coordinator = CreateCoordinator(new FakePortController());
+        ApplicationSessionControl control = CreateControl(
             coordinator,
             portService: portService,
             location: location,
             keepAlive: keepAlive);
 
-        var result = await control.StopAsync();
+        ApplicationSessionStopResult result = await control.StopAsync();
 
         Assert.False(result.Succeeded);
-        var failure = Assert.Single(result.Failures);
+        ApplicationSessionStopFailure failure = Assert.Single(result.Failures);
         Assert.Equal("ports", failure.Step);
         Assert.Equal("simulated failure", failure.Message);
 
@@ -115,13 +115,13 @@ public sealed class ApplicationSessionControlTests
     [Fact]
     public async Task StopAsync_SerializesConcurrentStops()
     {
-        var portService = new FakePortService { BlockStop = true };
-        await using var coordinator = CreateCoordinator(new FakePortController());
-        var control = CreateControl(coordinator, portService: portService);
+        FakePortService portService = new() { BlockStop = true };
+        await using SessionCoordinator coordinator = CreateCoordinator(new FakePortController());
+        ApplicationSessionControl control = CreateControl(coordinator, portService: portService);
 
-        var first = control.StopAsync();
+        Task<ApplicationSessionStopResult> first = control.StopAsync();
         await portService.StopEntered.Task;
-        var second = control.StopAsync();
+        Task<ApplicationSessionStopResult> second = control.StopAsync();
 
         portService.ReleaseStop();
 
@@ -134,12 +134,12 @@ public sealed class ApplicationSessionControlTests
     [Fact]
     public async Task StopAsync_WhenNothingRuns_StillCompletesEveryStep()
     {
-        await using var coordinator = CreateCoordinator(new FakePortController());
-        var location = new FakeLocationTrackingService();
-        var keepAlive = new FakeKeepAliveService();
-        var control = CreateControl(coordinator, location: location, keepAlive: keepAlive);
+        await using SessionCoordinator coordinator = CreateCoordinator(new FakePortController());
+        FakeLocationTrackingService location = new();
+        FakeKeepAliveService keepAlive = new();
+        ApplicationSessionControl control = CreateControl(coordinator, location: location, keepAlive: keepAlive);
 
-        var result = await control.StopAsync();
+        ApplicationSessionStopResult result = await control.StopAsync();
 
         Assert.True(result.Succeeded);
         Assert.False(coordinator.Intent.IsArmed);
@@ -151,15 +151,12 @@ public sealed class ApplicationSessionControlTests
         SessionCoordinator coordinator,
         FakePortService? portService = null,
         FakeLocationTrackingService? location = null,
-        FakeKeepAliveService? keepAlive = null)
-    {
-        return new ApplicationSessionControl(
+        FakeKeepAliveService? keepAlive = null) => new(
             coordinator,
             portService ?? new FakePortService(),
             location ?? new FakeLocationTrackingService(),
             keepAlive ?? new FakeKeepAliveService(),
             NullLogger<ApplicationSessionControl>.Instance);
-    }
 
     private static SessionCoordinator CreateCoordinator(FakePortController controller) =>
         new(
@@ -235,7 +232,7 @@ public sealed class ApplicationSessionControlTests
         public async Task StopAllPortsAsync()
         {
             StopAllCalls++;
-            var active = Interlocked.Increment(ref _activeStops);
+            int active = Interlocked.Increment(ref _activeStops);
             MaxConcurrentStops = Math.Max(MaxConcurrentStops, active);
             StopEntered.TrySetResult();
 

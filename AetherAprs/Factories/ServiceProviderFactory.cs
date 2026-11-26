@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -64,7 +64,7 @@ public static class ServiceProviderFactory
         ArgumentNullException.ThrowIfNull(registerPlatformServices);
         ArgumentNullException.ThrowIfNull(overrideCoreServices);
 
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
 
         services.AddSingleton(appDataDirProvider);
 
@@ -97,11 +97,11 @@ public static class ServiceProviderFactory
         // The bootstrap already knows the directories. The private directory hosts
         // the database (credentials); the user-accessible directory hosts
         // configuration and caches.
-        var appDataDirectory = appDataDirProvider.GetAppDataDirectory();
-        var privateAppDataDirectory = appDataDirProvider.GetPrivateAppDataDirectory();
+        string appDataDirectory = appDataDirProvider.GetAppDataDirectory();
+        string privateAppDataDirectory = appDataDirProvider.GetPrivateAppDataDirectory();
 
         // Build configuration from files in app data directory
-        var configuration = new ConfigurationBuilder()
+        IConfigurationRoot configuration = new ConfigurationBuilder()
             .SetBasePath(appDataDirectory)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
 #if DEBUG
@@ -121,7 +121,7 @@ public static class ServiceProviderFactory
         // the database holds APRS-IS passcodes and must not live in shared storage.
         services.AddDbContextFactory<AppDbContext>(options =>
         {
-            var path = Path.Combine(privateAppDataDirectory, AppDbContext.DatabaseFileName);
+            string path = Path.Combine(privateAppDataDirectory, AppDbContext.DatabaseFileName);
             options.UseSqlite($"Data Source={path}");
         });
         services.AddSingleton<AppSavedDataInitializer>();
@@ -273,7 +273,7 @@ public static class ServiceProviderFactory
         // registration must fail here with the offending type instead of surfacing
         // later as a navigation or packet-handling failure. Scope validation also
         // catches a singleton that captures a scoped service.
-        var providerOptions = new ServiceProviderOptions
+        ServiceProviderOptions providerOptions = new()
         {
             ValidateOnBuild = true,
             ValidateScopes = true

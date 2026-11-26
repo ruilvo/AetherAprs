@@ -28,7 +28,7 @@ public class KeyboardInsetsBehavior : Behavior<Control>
         }
 
         // Get the keyboard insets service
-        var app = Application.Current as App;
+        App? app = Application.Current as App;
         _keyboardService = app?.ServiceProvider.GetService(typeof(IKeyboardInsetsService)) as IKeyboardInsetsService;
 
         if (_keyboardService == null)
@@ -56,10 +56,7 @@ public class KeyboardInsetsBehavior : Behavior<Control>
         base.OnDetaching();
     }
 
-    private void OnKeyboardInsetsChanged(object? sender, Thickness insets)
-    {
-        ApplyInsets(insets);
-    }
+    private void OnKeyboardInsetsChanged(object? sender, Thickness insets) => ApplyInsets(insets);
 
     private void ApplyInsets(Thickness insets)
     {

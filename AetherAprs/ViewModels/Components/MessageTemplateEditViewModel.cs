@@ -125,7 +125,7 @@ public sealed partial class MessageTemplateEditViewModel : ViewModelBase
 
     private void ValidateName()
     {
-        var trimmed = Name?.Trim();
+        string? trimmed = Name?.Trim();
         string? error;
         if (string.IsNullOrEmpty(trimmed))
         {
@@ -145,10 +145,10 @@ public sealed partial class MessageTemplateEditViewModel : ViewModelBase
 
     private bool IsDuplicateName(string trimmedName)
     {
-        var original = _originalName?.Trim();
-        foreach (var existing in _existingNames)
+        string? original = _originalName?.Trim();
+        foreach (string existing in _existingNames)
         {
-            var trimmedExisting = existing?.Trim();
+            string? trimmedExisting = existing?.Trim();
             if (string.Equals(trimmedExisting, trimmedName, StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(trimmedExisting, original, StringComparison.OrdinalIgnoreCase))
             {
@@ -162,7 +162,7 @@ public sealed partial class MessageTemplateEditViewModel : ViewModelBase
     private void ValidateDestination()
     {
         // The destination is optional; when present it must be a valid APRS address (callsign or tactical).
-        var trimmed = Destination?.Trim();
+        string? trimmed = Destination?.Trim();
         string? error = null;
         if (!string.IsNullOrEmpty(trimmed) && !AprsAddress.TryParse(trimmed, out _))
         {

@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -23,28 +23,28 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public async Task BleScanDoesNotReplaceRepeatedAdvertisementItems()
     {
-        var scanner = Substitute.For<IBluetoothLeScanner>();
+        IBluetoothLeScanner scanner = Substitute.For<IBluetoothLeScanner>();
         scanner.EnsurePermissionAsync(Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
         scanner.ScanAsync(Arg.Any<CancellationToken>())
             .Returns(_ => RepeatAdvertisementAsync(_.Arg<CancellationToken>()));
 
-        var viewModel = CreateViewModel(scanner);
-        var scanTask = viewModel.StartBleScanCommand.ExecuteAsync(null);
+        AddEditPortViewModel viewModel = CreateViewModel(scanner);
+        Task scanTask = viewModel.StartBleScanCommand.ExecuteAsync(null);
 
         await WaitUntilAsync(
             () => viewModel.BleDevices.Count >= 1,
             "the BLE advertisement to arrive");
 
-        var selected = viewModel.BleDevices[0];
+        BluetoothLeAdvertisement selected = viewModel.BleDevices[0];
         viewModel.SelectedBleDevice = selected;
 
         await WaitUntilAsync(
             () => viewModel.IsBleScanning,
             "BLE scanning to start");
 
-        Assert.Single(viewModel.BleDevices);
-        Assert.Same(selected, viewModel.BleDevices[0]);
+        BluetoothLeAdvertisement item = Assert.Single(viewModel.BleDevices);
+        Assert.Same(selected, item);
         Assert.Same(selected, viewModel.SelectedBleDevice);
 
         viewModel.StopBleScanCommand.Execute(null);
@@ -54,11 +54,11 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void BuildConfigUsesLoRaAprsTrackerBleProfile()
     {
-        var viewModel = CreateViewModel();
+        AddEditPortViewModel viewModel = CreateViewModel();
         viewModel.SelectedPortSettingsType = typeof(KissSettings);
         viewModel.SelectedKissTransportType = typeof(BluetoothLeKissTransportSettings);
 
-        var device = new BluetoothLeAdvertisement(
+        BluetoothLeAdvertisement device = new(
             "AA:BB:CC:DD:EE:FF",
             "LilyGO T-Echo Plus",
             -45,
@@ -66,8 +66,8 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         viewModel.BleDevices.Add(device);
         viewModel.SelectedBleDevice = device;
 
-        var settings = Assert.IsType<KissSettings>(viewModel.BuildConfig().TypeSettings);
-        var ble = Assert.IsType<BluetoothLeKissTransportSettings>(settings.Transport);
+        KissSettings settings = Assert.IsType<KissSettings>(viewModel.BuildConfig().TypeSettings);
+        BluetoothLeKissTransportSettings ble = Assert.IsType<BluetoothLeKissTransportSettings>(settings.Transport);
 
         Assert.Equal(BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid, ble.ServiceUuid);
         Assert.Equal(BluetoothLeKissTransportSettings.LoRaAprsTrackerRxCharacteristicUuid, ble.RxCharacteristicUuid);
@@ -77,18 +77,18 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void DefaultsEnableTransmit()
     {
-        var viewModel = CreateViewModel();
+        AddEditPortViewModel viewModel = CreateViewModel();
         Assert.True(viewModel.IsTx);
 
-        var config = viewModel.BuildConfig();
+        PortConfig config = viewModel.BuildConfig();
         Assert.True(config.IsTx);
     }
 
     [Fact]
     public void PopulateFromAprsIsConfig()
     {
-        var viewModel = CreateViewModel();
-        var config = new PortConfig
+        AddEditPortViewModel viewModel = CreateViewModel();
+        PortConfig config = new()
         {
             Name = "Test Port",
             TypeSettings = new AprsIsSettings
@@ -119,8 +119,8 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void PopulateFromKissTcpConfig()
     {
-        var viewModel = CreateViewModel();
-        var config = new PortConfig
+        AddEditPortViewModel viewModel = CreateViewModel();
+        PortConfig config = new()
         {
             Name = "KISS Port",
             TypeSettings = new KissSettings
@@ -145,7 +145,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void InitializeWithoutExistingConfigKeepsAddPortTitle()
     {
-        var viewModel = CreateViewModel(initialize: false);
+        AddEditPortViewModel viewModel = CreateViewModel(initialize: false);
 
         viewModel.Initialize("N0CALL", 1);
 
@@ -157,8 +157,8 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void InitializeWithExistingConfigUsesEditTitle()
     {
-        var viewModel = CreateViewModel(initialize: false);
-        var existing = new PortConfig
+        AddEditPortViewModel viewModel = CreateViewModel(initialize: false);
+        PortConfig existing = new()
         {
             Id = Guid.NewGuid(),
             Name = "Existing Port",
@@ -174,15 +174,15 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public async Task SaveFailure_ShowsGeneralError_AndKeepsBluetoothStatusClean()
     {
-        var nav = Substitute.For<INavigationService>();
-        var portService = Substitute.For<IPortService>();
+        INavigationService nav = Substitute.For<INavigationService>();
+        IPortService portService = Substitute.For<IPortService>();
         portService
             .When(service => service.AddPortAsync(Arg.Any<PortConfig>()))
             .Do(_ => throw new InvalidOperationException("storage unavailable"));
-        var viewModel = new AddEditPortViewModel(
+        AddEditPortViewModel viewModel = new(
             nav,
             portService,
-            new KissStreamFactory(new List<IKissStreamConnector>()),
+            new KissStreamFactory([]),
             Substitute.For<IBluetoothLeScanner>(),
             Substitute.For<IBluetoothClassicDeviceProvider>(),
             new AprsIsFilterBuilderViewModel());
@@ -198,12 +198,12 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public async Task SaveRetry_ClearsThePreviousError()
     {
-        var nav = Substitute.For<INavigationService>();
-        var portService = Substitute.For<IPortService>();
-        var viewModel = new AddEditPortViewModel(
+        INavigationService nav = Substitute.For<INavigationService>();
+        IPortService portService = Substitute.For<IPortService>();
+        AddEditPortViewModel viewModel = new(
             nav,
             portService,
-            new KissStreamFactory(new List<IKissStreamConnector>()),
+            new KissStreamFactory([]),
             Substitute.For<IBluetoothLeScanner>(),
             Substitute.For<IBluetoothClassicDeviceProvider>(),
             new AprsIsFilterBuilderViewModel());
@@ -219,7 +219,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void PopulateFrom_WhenStoredCredentialsAreUnavailable_ShowsTheMarkerAndClearsThePasscode()
     {
-        var viewModel = CreateViewModel();
+        AddEditPortViewModel viewModel = CreateViewModel();
 
         viewModel.PopulateFrom(UnavailableCredentialsPort());
 
@@ -231,8 +231,8 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void PopulateFrom_WhenStoredCredentialsAreReadable_HidesTheMarker()
     {
-        var viewModel = CreateViewModel();
-        var config = UnavailableCredentialsPort();
+        AddEditPortViewModel viewModel = CreateViewModel();
+        PortConfig config = UnavailableCredentialsPort();
         config.CredentialsUnavailable = false;
         ((AprsIsSettings)config.TypeSettings!).Passcode = "12345";
 
@@ -245,10 +245,10 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void BuildConfig_WhenThePasscodeWasNotReentered_KeepsThePortReceiveOnly()
     {
-        var viewModel = CreateViewModel();
+        AddEditPortViewModel viewModel = CreateViewModel();
         viewModel.PopulateFrom(UnavailableCredentialsPort());
 
-        var config = viewModel.BuildConfig();
+        PortConfig config = viewModel.BuildConfig();
 
         // The lost secret is already gone; persisting an empty passcode would look
         // configured while every login is rejected.
@@ -259,11 +259,11 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     [Fact]
     public void BuildConfig_WhenThePasscodeIsReentered_MarksThePortReadableAgain()
     {
-        var viewModel = CreateViewModel();
+        AddEditPortViewModel viewModel = CreateViewModel();
         viewModel.PopulateFrom(UnavailableCredentialsPort());
         viewModel.Passcode = "23456";
 
-        var config = viewModel.BuildConfig();
+        PortConfig config = viewModel.BuildConfig();
 
         Assert.False(config.CredentialsUnavailable);
         Assert.Equal("23456", Assert.IsType<AprsIsSettings>(config.TypeSettings).Passcode);
@@ -284,7 +284,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
 
     private static async Task WaitUntilAsync(Func<bool> condition, string description)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
         while (!condition())
         {
             if (DateTime.UtcNow >= deadline)
@@ -299,11 +299,11 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     private static async IAsyncEnumerable<BluetoothLeAdvertisement> RepeatAdvertisementAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var advertisement = new BluetoothLeAdvertisement(
+        BluetoothLeAdvertisement advertisement = new(
             "AA:BB:CC:DD:EE:FF",
             "Test BLE",
             -40,
-            Array.Empty<Guid>());
+            []);
         yield return advertisement;
         yield return advertisement with { Rssi = -60 };
         await Task.Delay(Timeout.Infinite, cancellationToken);
@@ -313,13 +313,13 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         IBluetoothLeScanner? bleScanner = null,
         bool initialize = true)
     {
-        var nav = Substitute.For<INavigationService>();
-        var portService = Substitute.For<IPortService>();
-        var kissFactory = new KissStreamFactory(new List<IKissStreamConnector>());
+        INavigationService nav = Substitute.For<INavigationService>();
+        IPortService portService = Substitute.For<IPortService>();
+        KissStreamFactory kissFactory = new([]);
         bleScanner ??= Substitute.For<IBluetoothLeScanner>();
-        var btClassic = Substitute.For<IBluetoothClassicDeviceProvider>();
-        
-        var vm = new AddEditPortViewModel(nav, portService, kissFactory, bleScanner, btClassic, new AprsIsFilterBuilderViewModel());
+        IBluetoothClassicDeviceProvider btClassic = Substitute.For<IBluetoothClassicDeviceProvider>();
+
+        AddEditPortViewModel vm = new(nav, portService, kissFactory, bleScanner, btClassic, new AprsIsFilterBuilderViewModel());
         if (initialize)
         {
             vm.Initialize("N0CALL", 1);

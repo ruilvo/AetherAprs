@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -86,12 +86,12 @@ public readonly record struct Callsign
         string callsignBase;
         int? ssid = null;
 
-        var dashIndex = value.IndexOf('-');
+        int dashIndex = value.IndexOf('-');
         if (dashIndex >= 0)
         {
             callsignBase = value[..dashIndex];
-            var ssidPart = value[(dashIndex + 1)..];
-            if (!int.TryParse(ssidPart, out var ssidValue) || ssidValue is < 0 or > 15)
+            string ssidPart = value[(dashIndex + 1)..];
+            if (!int.TryParse(ssidPart, out int ssidValue) || ssidValue is < 0 or > 15)
             {
                 return false;
             }
@@ -115,7 +115,7 @@ public readonly record struct Callsign
 
     private static bool HasOnlyBaseCharacters(string value)
     {
-        foreach (var character in value)
+        foreach (char character in value)
         {
             if (!IsBaseCharacter(character))
             {
@@ -137,8 +137,5 @@ public readonly record struct Callsign
     /// <see cref="Callsign"/> value itself, not this string, as a dictionary key or
     /// identity because those two values are not equal.
     /// </remarks>
-    public override string ToString()
-    {
-        return Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;
-    }
+    public override string ToString() => Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;
 }

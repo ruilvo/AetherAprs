@@ -27,8 +27,8 @@ public sealed class PortServiceAfskStartTests
     public async Task SetPortEnabledAsync_EnablingAfskPort_StartsAudioCapture()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "AFSK",
@@ -36,10 +36,10 @@ public sealed class PortServiceAfskStartTests
             IsTx = false, // Slice A is receive-only
             TypeSettings = new AfskSettings()
         };
-        using var db = TempAppDatabase.Create(port);
-        var audioStream = Substitute.For<IAudioStreamService>();
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        IAudioStreamService audioStream = Substitute.For<IAudioStreamService>();
         audioStream.SampleRate.Returns(48000);
-        var service = await CreateAndInitializeServiceAsync(db, audioStream);
+        PortService service = await CreateAndInitializeServiceAsync(db, audioStream);
 
         // Act
         await service.SetPortEnabledAsync(portId, true);
@@ -56,8 +56,8 @@ public sealed class PortServiceAfskStartTests
     public async Task SetPortEnabledAsync_DisablingAfskPort_StopsAudioCapture()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "AFSK",
@@ -65,10 +65,10 @@ public sealed class PortServiceAfskStartTests
             IsTx = false,
             TypeSettings = new AfskSettings()
         };
-        using var db = TempAppDatabase.Create(port);
-        var audioStream = Substitute.For<IAudioStreamService>();
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        IAudioStreamService audioStream = Substitute.For<IAudioStreamService>();
         audioStream.SampleRate.Returns(48000);
-        var service = await CreateAndInitializeServiceAsync(db, audioStream);
+        PortService service = await CreateAndInitializeServiceAsync(db, audioStream);
 
         // Start the port first so an active session exists.
         await service.SetPortEnabledAsync(portId, true);
@@ -86,30 +86,30 @@ public sealed class PortServiceAfskStartTests
     public async Task InitializeAsync_AfskPort_RoundTripsTypeSettings()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "AFSK",
             TypeSettings = new AfskSettings()
         };
-        using var db = TempAppDatabase.Create(port);
-        var audioStream = Substitute.For<IAudioStreamService>();
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        IAudioStreamService audioStream = Substitute.For<IAudioStreamService>();
         audioStream.SampleRate.Returns(48000);
 
         // Act
-        var service = await CreateAndInitializeServiceAsync(db, audioStream);
+        PortService service = await CreateAndInitializeServiceAsync(db, audioStream);
 
         // Assert - the AFSK type settings survive the DB round-trip.
-        var persisted = Assert.Single(service.Ports);
+        PortConfig persisted = Assert.Single(service.Ports);
         Assert.IsType<AfskSettings>(persisted.TypeSettings);
     }
 
     private static PortService CreateService(TempAppDatabase db, IAudioStreamService audioStream)
     {
-        var mockPacketStorage = Substitute.For<IPacketStorageService>();
-        var mockKeepAliveService = Substitute.For<IKeepAliveService>();
-        var mockDigipeater = Substitute.For<IDigipeaterService>();
+        IPacketStorageService mockPacketStorage = Substitute.For<IPacketStorageService>();
+        IKeepAliveService mockKeepAliveService = Substitute.For<IKeepAliveService>();
+        IDigipeaterService mockDigipeater = Substitute.For<IDigipeaterService>();
         mockDigipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
             Arg.Any<Guid>(),
@@ -132,7 +132,7 @@ public sealed class PortServiceAfskStartTests
         TempAppDatabase db,
         IAudioStreamService audioStream)
     {
-        var service = CreateService(db, audioStream);
+        PortService service = CreateService(db, audioStream);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
         return service;
     }

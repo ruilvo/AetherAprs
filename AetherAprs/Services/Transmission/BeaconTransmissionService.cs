@@ -2,15 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Localization;
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -69,7 +72,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     private bool _disposed;
 
     public BeaconTransmitDecision? LastBeaconDecision { get; private set; }
-    
+
     public string BeaconStatus
     {
         get => _beaconStatus;
@@ -109,7 +112,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     {
         _beaconService.ProcessLocationUpdate(currentLocation);
 
-        var decision = _beaconService.CurrentDecision;
+        BeaconTransmitDecision? decision = _beaconService.CurrentDecision;
         LastBeaconDecision = decision;
 
         if (decision is not null && !decision.ShouldTransmit)
@@ -134,7 +137,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
     private async Task TransmitBeaconAsync(LocationData location, BeaconTransmitDecision decision)
     {
-        var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+        List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
             QueueWithoutRoute(location);
@@ -143,7 +146,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
-        var callsign = _configurationService.Current.Aprs.Callsign;
+        string callsign = _configurationService.Current.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
         {
             BeaconStatus = Strings.Get("CallsignNotConfigured");
@@ -152,17 +155,17 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         }
 
         await DrainPendingAsync(callsign).ConfigureAwait(false);
-        var packet = CreateBeaconPacket(location, callsign);
+        PositionPacket packet = CreateBeaconPacket(location, callsign);
 
-        var sentPortCount = 0;
-        foreach (var port in txPorts)
+        int sentPortCount = 0;
+        foreach (PortConfig port in txPorts)
         {
             BeaconQueueItem? queued = null;
             try
             {
                 if (_queue is not null)
                 {
-                    var enqueueResult = _queue.Enqueue(port.Id, location, DateTimeOffset.UtcNow);
+                    BeaconEnqueueResult enqueueResult = _queue.Enqueue(port.Id, location, DateTimeOffset.UtcNow);
                     queued = enqueueResult.Queued;
                     LogEnqueueResult(enqueueResult, port.Name);
                 }
@@ -217,14 +220,14 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
         try
         {
-            var callsign = _configurationService.Current.Aprs.Callsign;
+            string callsign = _configurationService.Current.Aprs.Callsign;
             if (string.IsNullOrEmpty(callsign))
             {
                 BeaconStatus = Strings.Get("CallsignNotConfigured");
                 return;
             }
 
-            var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+            List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
             if (txPorts.Count == 0)
             {
                 QueueWithoutRoute(userLocation);
@@ -232,18 +235,18 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                 return;
             }
 
-            var packet = CreateBeaconPacket(userLocation, callsign);
+            PositionPacket packet = CreateBeaconPacket(userLocation, callsign);
 
             await DrainPendingAsync(callsign).ConfigureAwait(false);
-            var sentPortCount = 0;
-            foreach (var port in txPorts)
+            int sentPortCount = 0;
+            foreach (PortConfig port in txPorts)
             {
                 BeaconQueueItem? queued = null;
                 try
                 {
                     if (_queue is not null)
                     {
-                        var enqueueResult = _queue.Enqueue(port.Id, userLocation, DateTimeOffset.UtcNow);
+                        BeaconEnqueueResult enqueueResult = _queue.Enqueue(port.Id, userLocation, DateTimeOffset.UtcNow);
                         queued = enqueueResult.Queued;
                         LogEnqueueResult(enqueueResult, port.Name);
                     }
@@ -287,14 +290,14 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         if (userLocation == null || !portsJustEnabled.Any())
             return;
 
-        var callsign = _configurationService.Current.Aprs.Callsign;
+        string callsign = _configurationService.Current.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
             return;
 
-        var packet = CreateBeaconPacket(userLocation, callsign);
+        PositionPacket packet = CreateBeaconPacket(userLocation, callsign);
 
-        var sentPortNames = new System.Collections.Generic.List<string>();
-        foreach (var port in portsJustEnabled)
+        List<string> sentPortNames = [];
+        foreach (PortConfig port in portsJustEnabled)
         {
             try
             {
@@ -310,18 +313,18 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
         if (sentPortNames.Count > 0)
         {
-            var portNames = string.Join(", ", sentPortNames);
+            string portNames = string.Join(", ", sentPortNames);
             BeaconStatus = Strings.Format("InitialBeaconSentOnPortActivation", portNames);
         }
     }
 
     private PositionPacket CreateBeaconPacket(LocationData location, string callsign)
     {
-        var sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
-        var symbolTable = _portSettingsResolver.GetSymbolTable();
-        var symbolCode = _portSettingsResolver.GetSymbolCode();
-        var course = _beaconService.LastCourseDegrees;
-        var comment = _beaconService.CurrentConfiguration.BeaconComment;
+        string sourceCallsign = _portSettingsResolver.GetCallsign(callsign);
+        SymbolTable symbolTable = _portSettingsResolver.GetSymbolTable();
+        SymbolCode symbolCode = _portSettingsResolver.GetSymbolCode();
+        double? course = _beaconService.LastCourseDegrees;
+        string? comment = _beaconService.CurrentConfiguration.BeaconComment;
 
         return _packetFactory.CreatePositionPacket(
             location,
@@ -339,14 +342,13 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
-        var activePorts = _portService.Ports
+        HashSet<Guid> activePorts = [.. _portService.Ports
             .Where(port => port.IsEnabled && port.IsTx)
-            .Select(port => port.Id)
-            .ToHashSet();
+            .Select(port => port.Id)];
 
-        foreach (var item in _queue.Reconcile(DateTimeOffset.UtcNow))
+        foreach (BeaconQueueItem item in _queue.Reconcile(DateTimeOffset.UtcNow))
         {
-            var portId = item.PortId == Guid.Empty
+            Guid portId = item.PortId == Guid.Empty
                 ? activePorts.FirstOrDefault()
                 : item.PortId;
             if (portId == Guid.Empty)
@@ -354,13 +356,13 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                 continue;
             }
 
-            var location = new LocationData
+            LocationData location = new()
             {
                 Location = new Geo.Coordinate(item.Latitude, item.Longitude),
                 Altitude = item.Altitude,
                 Timestamp = item.CreatedUtc
             };
-            var packet = CreateBeaconPacket(location, callsign);
+            PositionPacket packet = CreateBeaconPacket(location, callsign);
             _queue.MarkSending(item.Id);
             try
             {
@@ -383,7 +385,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
-        var result = _queue.Enqueue(Guid.Empty, location, DateTimeOffset.UtcNow);
+        BeaconEnqueueResult result = _queue.Enqueue(Guid.Empty, location, DateTimeOffset.UtcNow);
         LogEnqueueResult(result, "any usable route");
         BeaconStatus = Strings.Get("NoTxPortsEnabled");
     }

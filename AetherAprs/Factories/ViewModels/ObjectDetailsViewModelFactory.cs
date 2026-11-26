@@ -11,18 +11,13 @@ namespace AetherAprs.Factories.ViewModels;
 /// <summary>
 /// Factory implementation for creating and initializing ObjectDetailsViewModel instances.
 /// </summary>
-public sealed class ObjectDetailsViewModelFactory : IObjectDetailsViewModelFactory
+public sealed class ObjectDetailsViewModelFactory(IServiceProvider serviceProvider) : IObjectDetailsViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public ObjectDetailsViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
     public ObjectDetailsViewModel Create(string name)
     {
-        var viewModel = _serviceProvider.GetRequiredService<ObjectDetailsViewModel>();
+        ObjectDetailsViewModel viewModel = _serviceProvider.GetRequiredService<ObjectDetailsViewModel>();
         viewModel.Initialize(name);
         return viewModel;
     }

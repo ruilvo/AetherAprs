@@ -13,7 +13,7 @@ public class CallsignTests
     [Fact]
     public void Constructor_SimpleCallsign_SetsBase()
     {
-        var call = new Callsign("N0CALL");
+        Callsign call = new("N0CALL");
         Assert.Equal("N0CALL", call.Base);
         Assert.Null(call.Ssid);
     }
@@ -21,7 +21,7 @@ public class CallsignTests
     [Fact]
     public void Constructor_CallsignWithSsid_SetsBaseAndSsid()
     {
-        var call = new Callsign("N0CALL", 5);
+        Callsign call = new("N0CALL", 5);
         Assert.Equal("N0CALL", call.Base);
         Assert.Equal(5, call.Ssid);
     }
@@ -29,80 +29,59 @@ public class CallsignTests
     [Fact]
     public void Constructor_ConvertsToUpper()
     {
-        var call = new Callsign("n0call");
+        Callsign call = new("n0call");
         Assert.Equal("N0CALL", call.Base);
     }
 
     [Fact]
     public void Constructor_TrimsWhitespace()
     {
-        var call = new Callsign("  N0CALL  ");
+        Callsign call = new("  N0CALL  ");
         Assert.Equal("N0CALL", call.Base);
     }
 
     [Fact]
-    public void Constructor_NullBase_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => new Callsign(null!));
-    }
+    public void Constructor_NullBase_ThrowsArgumentNullException() => Assert.Throws<ArgumentNullException>(() => new Callsign(null!));
 
     [Fact]
-    public void Constructor_EmptyBase_ThrowsArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() => new Callsign(""));
-    }
+    public void Constructor_EmptyBase_ThrowsArgumentException() => Assert.Throws<ArgumentException>(() => new Callsign(""));
 
     [Fact]
-    public void Constructor_BaseTooShort_ThrowsArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() => new Callsign("A"));
-    }
+    public void Constructor_BaseTooShort_ThrowsArgumentException() => Assert.Throws<ArgumentException>(() => new Callsign("A"));
 
     [Fact]
-    public void Constructor_BaseTooLong_ThrowsArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() => new Callsign("TOOLONG"));
-    }
+    public void Constructor_BaseTooLong_ThrowsArgumentException() => Assert.Throws<ArgumentException>(() => new Callsign("TOOLONG"));
 
     [Theory]
     [InlineData("N0 CALL")]
     [InlineData("N0@ALL")]
     [InlineData("N0CÅLL")]
-    public void Constructor_InvalidCharacters_ThrowsArgumentException(string value)
-    {
-        Assert.Throws<ArgumentException>(() => new Callsign(value));
-    }
+    public void Constructor_InvalidCharacters_ThrowsArgumentException(string value) => Assert.Throws<ArgumentException>(() => new Callsign(value));
 
     [Fact]
-    public void Constructor_SsidTooLow_ThrowsArgumentOutOfRangeException()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Callsign("N0CALL", -1));
-    }
+    public void Constructor_SsidTooLow_ThrowsArgumentOutOfRangeException() => Assert.Throws<ArgumentOutOfRangeException>(() => new Callsign("N0CALL", -1));
 
     [Fact]
-    public void Constructor_SsidTooHigh_ThrowsArgumentOutOfRangeException()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new Callsign("N0CALL", 16));
-    }
+    public void Constructor_SsidTooHigh_ThrowsArgumentOutOfRangeException() => Assert.Throws<ArgumentOutOfRangeException>(() => new Callsign("N0CALL", 16));
 
     [Fact]
     public void ToString_WithoutSsid_ReturnsBase()
     {
-        var call = new Callsign("N0CALL");
+        Callsign call = new("N0CALL");
         Assert.Equal("N0CALL", call.ToString());
     }
 
     [Fact]
     public void ToString_WithSsid_ReturnsBaseDashSsid()
     {
-        var call = new Callsign("N0CALL", 5);
+        Callsign call = new("N0CALL", 5);
         Assert.Equal("N0CALL-5", call.ToString());
     }
 
     [Fact]
     public void ToString_WithZeroSsid_ReturnsBase()
     {
-        var call = new Callsign("N0CALL", 0);
+        Callsign call = new("N0CALL", 0);
 
         Assert.Equal("N0CALL", call.ToString());
     }
@@ -110,24 +89,24 @@ public class CallsignTests
     [Fact]
     public void Equality_SameCallsign_AreEqual()
     {
-        var a = new Callsign("N0CALL", 1);
-        var b = new Callsign("N0CALL", 1);
+        Callsign a = new("N0CALL", 1);
+        Callsign b = new("N0CALL", 1);
         Assert.Equal(a, b);
     }
 
     [Fact]
     public void Equality_DifferentSsid_AreNotEqual()
     {
-        var a = new Callsign("N0CALL", 1);
-        var b = new Callsign("N0CALL", 2);
+        Callsign a = new("N0CALL", 1);
+        Callsign b = new("N0CALL", 2);
         Assert.NotEqual(a, b);
     }
 
     [Fact]
     public void Equality_DifferentBase_AreNotEqual()
     {
-        var a = new Callsign("N0CALL");
-        var b = new Callsign("N1CALL");
+        Callsign a = new("N0CALL");
+        Callsign b = new("N1CALL");
         Assert.NotEqual(a, b);
     }
 
@@ -136,8 +115,8 @@ public class CallsignTests
     {
         // Both print as "N0CALL", but SSID 0 carries AX.25 meaning (for example a
         // repeated path element). Never use ToString() as an identity key.
-        var withZeroSsid = new Callsign("N0CALL", 0);
-        var withoutSsid = new Callsign("N0CALL");
+        Callsign withZeroSsid = new("N0CALL", 0);
+        Callsign withoutSsid = new("N0CALL");
 
         Assert.NotEqual(withZeroSsid, withoutSsid);
         Assert.Equal(withZeroSsid.ToString(), withoutSsid.ToString());
@@ -146,7 +125,7 @@ public class CallsignTests
     [Fact]
     public void TryParse_ExplicitZeroSsid_PreservesZero()
     {
-        Assert.True(Callsign.TryParse("N0CALL-0", out var callsign));
+        Assert.True(Callsign.TryParse("N0CALL-0", out Callsign callsign));
 
         Assert.Equal(0, callsign.Ssid);
     }
@@ -157,7 +136,7 @@ public class CallsignTests
     [InlineData("  K0ABC-15 ", "K0ABC", 15)]
     public void TryParse_ValidCallsign_ReturnsTrue(string input, string expectedBase, int? expectedSsid)
     {
-        Assert.True(Callsign.TryParse(input, out var callsign));
+        Assert.True(Callsign.TryParse(input, out Callsign callsign));
         Assert.Equal(expectedBase, callsign.Base);
         Assert.Equal(expectedSsid, callsign.Ssid);
     }
@@ -170,8 +149,5 @@ public class CallsignTests
     [InlineData("TOOLONG")]
     [InlineData("N0CALL-99")]
     [InlineData("N0CALL-X")]
-    public void TryParse_InvalidCallsign_ReturnsFalse(string? input)
-    {
-        Assert.False(Callsign.TryParse(input, out _));
-    }
+    public void TryParse_InvalidCallsign_ReturnsFalse(string? input) => Assert.False(Callsign.TryParse(input, out _));
 }

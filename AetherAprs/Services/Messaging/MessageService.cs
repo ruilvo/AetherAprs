@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
+using AetherAprs.Data.Entities;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -46,16 +49,16 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly INotificationService? _notificationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly Lock _gate = new();
-    private readonly Dictionary<int, StoredMessage> _pendingMessages = new();
-    private readonly object _dedupLock = new();
+    private readonly Dictionary<int, StoredMessage> _pendingMessages = [];
+    private readonly Lock _dedupLock = new();
     private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
-    private readonly Dictionary<string, DateTimeOffset> _dedupTable = new();
+    private readonly Dictionary<string, DateTimeOffset> _dedupTable = [];
     private readonly Timer _retryTimer;
     private AprsAddress? _activeConversationPeer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
-    public ObservableCollection<ConversationThread> Conversations { get; } = new();
+    public ObservableCollection<ConversationThread> Conversations { get; } = [];
 
     public MessageService(
         IPortService portService,
@@ -81,10 +84,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _retryTimer = new Timer(ProcessRetries, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
-    {
-        await LoadMessagesAsync(cancellationToken).ConfigureAwait(false);
-    }
+    public async Task InitializeAsync(CancellationToken cancellationToken = default) => await LoadMessagesAsync(cancellationToken).ConfigureAwait(false);
 
     public ConversationThread GetOrCreateConversation(AprsAddress peer)
     {
@@ -126,11 +126,11 @@ public sealed class MessageService : IMessageService, IDisposable
             throw new ArgumentException("APRS message text must be 67 characters or fewer.", nameof(text));
         }
 
-        var messageNumber = Interlocked.Increment(ref _nextMessageNumber);
-        var timestamp = DateTimeOffset.UtcNow;
-        var settings = _configurationService.Current.Aprs;
+        int messageNumber = Interlocked.Increment(ref _nextMessageNumber);
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
-        var stored = new StoredMessage
+        StoredMessage stored = new()
         {
             Peer = addressee,
             Text = text,
@@ -164,7 +164,7 @@ public sealed class MessageService : IMessageService, IDisposable
         {
             lock (_gate)
             {
-                var thread = GetOrCreateConversationUnlocked(addressee);
+                ConversationThread thread = GetOrCreateConversationUnlocked(addressee);
                 thread.Messages.Add(stored);
                 MoveConversationToFront(thread);
             }
@@ -173,16 +173,16 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private async Task SendMessagePacketAsync(StoredMessage message, CancellationToken cancellationToken = default)
     {
-        var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+        List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
             throw new InvalidOperationException("No enabled TX ports available to send message.");
         }
 
-        var baseCallsign = _configurationService.Current.Aprs.Callsign;
+        string baseCallsign = _configurationService.Current.Aprs.Callsign;
         Exception? lastError = null;
-        var sent = 0;
-        var persisted = false;
+        int sent = 0;
+        bool persisted = false;
         int retryCount;
         DateTimeOffset? nextRetryTime;
         lock (_gate)
@@ -191,14 +191,14 @@ public sealed class MessageService : IMessageService, IDisposable
             nextRetryTime = message.NextRetryTime;
         }
 
-        foreach (var port in txPorts)
+        foreach (PortConfig port in txPorts)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
-                
-                var packet = _packetFactory.CreateMessagePacket(
+                string callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
+
+                MessagePacket packet = _packetFactory.CreateMessagePacket(
                     callsignString,
                     message.Peer,
                     message.Text,
@@ -250,10 +250,10 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
     {
-        var baseCallsign = _configurationService.Current.Aprs.Callsign;
-        var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
+        string baseCallsign = _configurationService.Current.Aprs.Callsign;
+        string callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
 
-        var packet = _packetFactory.CreateAckPacket(callsignString, addressee, messageNumber);
+        MessageAckPacket packet = _packetFactory.CreateAckPacket(callsignString, addressee, messageNumber);
 
         try
         {
@@ -265,8 +265,8 @@ public sealed class MessageService : IMessageService, IDisposable
             }
             else
             {
-                var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
-                foreach (var port in txPorts)
+                List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
+                foreach (PortConfig port in txPorts)
                 {
                     await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);
                     await _packetStorageService.StorePacketAsync(packet, port.Id, isOutbound: true).ConfigureAwait(false);
@@ -282,12 +282,12 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private void OnPacketReceived(object? sender, PortPacketReceivedEventArgs e)
     {
-        var ownBase = _configurationService.Current.Aprs.Callsign.Trim().ToUpperInvariant();
+        string ownBase = _configurationService.Current.Aprs.Callsign.Trim().ToUpperInvariant();
 
         if (e.Packet is MessagePacket message)
         {
-            var addressedToUs = string.Equals(message.Addressee.Base, ownBase, StringComparison.Ordinal);
-            var fromUs = string.Equals(message.Source.Base, ownBase, StringComparison.Ordinal);
+            bool addressedToUs = string.Equals(message.Addressee.Base, ownBase, StringComparison.Ordinal);
+            bool fromUs = string.Equals(message.Source.Base, ownBase, StringComparison.Ordinal);
 
             if (addressedToUs && !fromUs)
             {
@@ -296,7 +296,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
         else if (e.Packet is MessageAckPacket ack)
         {
-            var addressedToUs = string.Equals(ack.Addressee.Base, ownBase, StringComparison.Ordinal);
+            bool addressedToUs = string.Equals(ack.Addressee.Base, ownBase, StringComparison.Ordinal);
             if (addressedToUs)
             {
                 HandleAck(ack);
@@ -304,7 +304,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
         else if (e.Packet is MessageRejPacket rej)
         {
-            var addressedToUs = string.Equals(rej.Addressee.Base, ownBase, StringComparison.Ordinal);
+            bool addressedToUs = string.Equals(rej.Addressee.Base, ownBase, StringComparison.Ordinal);
             if (addressedToUs)
             {
                 HandleRej(rej);
@@ -327,8 +327,8 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         // For incoming messages, the peer is the source station (converted to AprsAddress)
-        var peer = AprsAddress.FromCallsign(message.Source);
-        var stored = new StoredMessage
+        AprsAddress peer = AprsAddress.FromCallsign(message.Source);
+        StoredMessage stored = new()
         {
             Peer = peer,
             Text = message.Text,
@@ -348,7 +348,7 @@ public sealed class MessageService : IMessageService, IDisposable
         {
             lock (_gate)
             {
-                var thread = GetOrCreateConversationUnlocked(peer);
+                ConversationThread thread = GetOrCreateConversationUnlocked(peer);
                 thread.Messages.Add(stored);
                 MoveConversationToFront(thread);
             }
@@ -390,7 +390,7 @@ public sealed class MessageService : IMessageService, IDisposable
             // Only the message's addressee may acknowledge it; small integer
             // message numbers collide easily between stations (H5).
             // Convert ack.Source (Callsign) to AprsAddress for comparison
-            var ackSource = AprsAddress.FromCallsign(ack.Source);
+            AprsAddress ackSource = AprsAddress.FromCallsign(ack.Source);
             if (!ackSource.Equals(message.Peer))
             {
                 _logger.LogWarning(
@@ -422,7 +422,7 @@ public sealed class MessageService : IMessageService, IDisposable
             }
 
             // Convert rej.Source (Callsign) to AprsAddress for comparison
-            var rejSource = AprsAddress.FromCallsign(rej.Source);
+            AprsAddress rejSource = AprsAddress.FromCallsign(rej.Source);
             if (!rejSource.Equals(message.Peer))
             {
                 _logger.LogWarning(
@@ -447,21 +447,21 @@ public sealed class MessageService : IMessageService, IDisposable
             return;
         }
 
-        var now = DateTimeOffset.UtcNow;
-        var settings = _configurationService.Current.Aprs;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AprsSettings settings = _configurationService.Current.Aprs;
         List<StoredMessage> toRetry = [];
         List<StoredMessage> timedOut = [];
 
         lock (_gate)
         {
-            foreach (var kvp in _pendingMessages.ToList())
+            foreach (KeyValuePair<int, StoredMessage> kvp in _pendingMessages.ToList())
             {
                 if (_disposed)
                 {
                     return;
                 }
 
-                var message = kvp.Value;
+                StoredMessage message = kvp.Value;
                 if (message.NextRetryTime.HasValue && message.NextRetryTime.Value <= now)
                 {
                     if (message.RetryCount >= settings.MessageMaxRetries)
@@ -477,7 +477,7 @@ public sealed class MessageService : IMessageService, IDisposable
                     {
                         // Schedule retry
                         message.RetryCount++;
-                        var backoff = settings.MessageRetryTimeoutSeconds * Math.Pow(2, message.RetryCount - 1);
+                        double backoff = settings.MessageRetryTimeoutSeconds * Math.Pow(2, message.RetryCount - 1);
                         message.NextRetryTime = now.AddSeconds(backoff);
                         toRetry.Add(message);
                     }
@@ -486,12 +486,12 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         // Persist and retry outside the lock.
-        foreach (var message in timedOut)
+        foreach (StoredMessage message in timedOut)
         {
             PersistMessageStatusInBackground(message);
         }
 
-        foreach (var message in toRetry)
+        foreach (StoredMessage message in toRetry)
         {
             _ = Task.Run(async () =>
             {
@@ -518,20 +518,17 @@ public sealed class MessageService : IMessageService, IDisposable
     /// which is safe because status transitions only move forward once removed from
     /// <see cref="_pendingMessages"/>.
     /// </summary>
-    private void PersistMessageStatusInBackground(StoredMessage message)
-    {
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await UpdateMessageStatusAsync(message).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to persist message status for {Peer}", message.Peer);
-            }
-        });
-    }
+    private void PersistMessageStatusInBackground(StoredMessage message) => _ = Task.Run(async () =>
+                                                                                 {
+                                                                                     try
+                                                                                     {
+                                                                                         await UpdateMessageStatusAsync(message).ConfigureAwait(false);
+                                                                                     }
+                                                                                     catch (Exception ex)
+                                                                                     {
+                                                                                         _logger.LogError(ex, "Failed to persist message status for {Peer}", message.Peer);
+                                                                                     }
+                                                                                 });
 
     private async Task UpdateMessageStatusAsync(StoredMessage message)
     {
@@ -550,20 +547,20 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private ConversationThread GetOrCreateConversationUnlocked(AprsAddress peer)
     {
-        var existing = Conversations.FirstOrDefault(c => c.Peer.Equals(peer));
+        ConversationThread? existing = Conversations.FirstOrDefault(c => c.Peer.Equals(peer));
         if (existing != null)
         {
             return existing;
         }
 
-        var created = new ConversationThread(peer);
+        ConversationThread created = new(peer);
         Conversations.Insert(0, created);
         return created;
     }
 
     private void MoveConversationToFront(ConversationThread thread)
     {
-        var index = Conversations.IndexOf(thread);
+        int index = Conversations.IndexOf(thread);
         if (index > 0)
         {
             Conversations.Move(index, 0);
@@ -593,12 +590,12 @@ public sealed class MessageService : IMessageService, IDisposable
     /// </summary>
     private bool IsDuplicateMessage(Callsign source, int messageNumber)
     {
-        var key = $"{source}|{messageNumber}";
-        var now = DateTimeOffset.UtcNow;
+        string key = $"{source}|{messageNumber}";
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
         lock (_dedupLock)
         {
-            if (_dedupTable.TryGetValue(key, out var seen) && now - seen < DedupRetention)
+            if (_dedupTable.TryGetValue(key, out DateTimeOffset seen) && now - seen < DedupRetention)
             {
                 // Refresh timestamp so a frequently repeated message does not cycle back in.
                 _dedupTable[key] = now;
@@ -612,8 +609,8 @@ public sealed class MessageService : IMessageService, IDisposable
             while (_dedupOrder.Count > 0
                 && (now - _dedupOrder.Peek().Seen >= DedupRetention || _dedupOrder.Count > DedupTableCapacity))
             {
-                var oldest = _dedupOrder.Dequeue();
-                _dedupTable.Remove(oldest.Key);
+                (string? evictedKey, DateTimeOffset _) = _dedupOrder.Dequeue();
+                _dedupTable.Remove(evictedKey);
             }
 
             return false;
@@ -627,28 +624,28 @@ public sealed class MessageService : IMessageService, IDisposable
             return;
         }
 
-        var records = await _packetQueryService
+        IReadOnlyList<PacketRecord> records = await _packetQueryService
             .GetMessagePacketsAsync(MaxLoadedMessages, cancellationToken)
             .ConfigureAwait(false);
 
-        var threadsByPeer = new Dictionary<string, ConversationThread>();
-        var maxMessageNumber = await _packetQueryService
+        Dictionary<string, ConversationThread> threadsByPeer = [];
+        int maxMessageNumber = await _packetQueryService
             .GetHighestOutboundMessageNumberAsync(cancellationToken).ConfigureAwait(false) ?? 1;
 
-        foreach (var record in records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id))
+        foreach (PacketRecord? record in records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id))
         {
             if (record.Message == null)
             {
                 continue;
             }
 
-            var source = AprsAddress.FromCallsign(new Callsign(record.SourceBase, (int)record.SourceSsid));
-            var addressee = AprsAddress.FromStored(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
+            AprsAddress source = AprsAddress.FromCallsign(new Callsign(record.SourceBase, (int)record.SourceSsid));
+            AprsAddress addressee = AprsAddress.FromStored(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
 
             // Determine peer (who we're talking to)
-            var peer = record.IsOutbound ? addressee : source;
+            AprsAddress peer = record.IsOutbound ? addressee : source;
 
-            var stored = new StoredMessage
+            StoredMessage stored = new()
             {
                 Peer = peer,
                 Text = record.Message.Text,
@@ -663,7 +660,7 @@ public sealed class MessageService : IMessageService, IDisposable
                     : null
             };
 
-            if (!threadsByPeer.TryGetValue(peer.ToString(), out var thread))
+            if (!threadsByPeer.TryGetValue(peer.ToString(), out ConversationThread? thread))
             {
                 thread = new ConversationThread(peer);
                 threadsByPeer[peer.ToString()] = thread;
@@ -687,7 +684,7 @@ public sealed class MessageService : IMessageService, IDisposable
             }
         }
 
-        foreach (var thread in threadsByPeer.Values.OrderByDescending(thread => thread.LastTimestamp))
+        foreach (ConversationThread? thread in threadsByPeer.Values.OrderByDescending(thread => thread.LastTimestamp))
         {
             Conversations.Add(thread);
         }

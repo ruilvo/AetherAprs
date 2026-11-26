@@ -20,7 +20,7 @@ public static class AprsPasscode
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(callsign);
 
-        var upper = callsign.ToUpperInvariant();
+        string upper = callsign.ToUpperInvariant();
         int hash = 0x73e2; // Initial value
         int i = 0;
 

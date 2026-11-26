@@ -29,8 +29,8 @@ public sealed class KissModemStopTests
     [Fact]
     public async Task StopAsync_ReadIgnoresCancellation_CompletesWithinBoundedTime()
     {
-        using var stream = new DisposalUnblockedReadStream();
-        await using var modem = new KissModem(stream);
+        using DisposalUnblockedReadStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
         await stream.ReadStarted.WaitAsync(TestTimeout, TestContext.Current.CancellationToken);
@@ -43,8 +43,8 @@ public sealed class KissModemStopTests
     [Fact]
     public async Task DisposeAsync_ReadIgnoresCancellation_CompletesWithinBoundedTime()
     {
-        using var stream = new DisposalUnblockedReadStream();
-        var modem = new KissModem(stream);
+        using DisposalUnblockedReadStream stream = new();
+        KissModem modem = new(stream);
 
         modem.Start();
         await stream.ReadStarted.WaitAsync(TestTimeout, TestContext.Current.CancellationToken);

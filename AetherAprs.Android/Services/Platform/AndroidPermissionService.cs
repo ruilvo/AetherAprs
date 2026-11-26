@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.Platform;
+using Android.Content;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -16,7 +17,7 @@ namespace AetherAprs.Android.Services.Platform;
 /// Android implementation of permission service.
 /// Waits for MainActivity to complete permission requests.
 /// </summary>
-public class AndroidPermissionService : IPermissionService, IPermissionGrantReader, IPermissionGrantRechecker
+public class AndroidPermissionService(ILogger<AndroidPermissionService> logger) : IPermissionService, IPermissionGrantReader, IPermissionGrantRechecker
 {
     private static readonly TaskCompletionSource<bool> _permissionsCompleteTcs = new();
 
@@ -28,30 +29,22 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
 
     private static readonly TimeSpan _permissionWaitTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly ILogger<AndroidPermissionService> _logger;
+    private readonly ILogger<AndroidPermissionService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     // Recheck outcomes are compared across resume cycles, so the record has to
     // outlive a single read.
     private readonly PermissionGrantTracker _grantTracker = new();
 
-    public AndroidPermissionService(ILogger<AndroidPermissionService> logger)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
-
     /// <summary>
     /// Called by MainActivity when initial permission requests are complete.
     /// </summary>
-    internal static void SignalPermissionsComplete()
-    {
-        _permissionsCompleteTcs.TrySetResult(true);
-    }
+    internal static void SignalPermissionsComplete() => _permissionsCompleteTcs.TrySetResult(true);
 
     private static async Task WaitForPermissionsAsync(CancellationToken cancellationToken)
     {
         // Wait for MainActivity to complete permission requests, with timeout
-        var timeoutTask = Task.Delay(_permissionWaitTimeout, cancellationToken);
-        var completedTask = await Task.WhenAny(_permissionsCompleteTcs.Task, timeoutTask).ConfigureAwait(false);
+        Task timeoutTask = Task.Delay(_permissionWaitTimeout, cancellationToken);
+        Task completedTask = await Task.WhenAny(_permissionsCompleteTcs.Task, timeoutTask).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (completedTask != _permissionsCompleteTcs.Task)
@@ -79,7 +72,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
             return PermissionRequestResult.Unavailable(kind);
         }
 
-        var activity = MainActivity.Instance;
+        MainActivity? activity = MainActivity.Instance;
         if (activity == null || activity.IsDestroyed)
         {
             return PermissionRequestResult.Unavailable(kind);
@@ -95,8 +88,8 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
             return RequestBatteryOptimizationExemption(activity);
         }
 
-        var requestedBefore = _promptedKinds.ContainsKey(kind);
-        var prompt = await PromptAsync(activity, kind, cancellationToken).ConfigureAwait(false);
+        bool requestedBefore = _promptedKinds.ContainsKey(kind);
+        PermissionPromptResult prompt = await PromptAsync(activity, kind).ConfigureAwait(false);
         if (prompt == PermissionPromptResult.Abandoned)
         {
             // No dialog answered: a teardown, an activity that is gone, or the
@@ -104,7 +97,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
             return PermissionRequestResult.Unavailable(kind);
         }
 
-        var granted = prompt == PermissionPromptResult.Granted;
+        bool granted = prompt == PermissionPromptResult.Granted;
 
         // The permission was asked about either way; a later read without a
         // rationale and without a grant is then a permanent denial, not a first
@@ -123,7 +116,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var activity = MainActivity.Instance;
+        MainActivity? activity = MainActivity.Instance;
         if (activity == null || activity.IsDestroyed)
         {
             return Task.FromResult(false);
@@ -131,7 +124,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
 
         try
         {
-            var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionApplicationDetailsSettings);
+            Intent intent = new(global::Android.Provider.Settings.ActionApplicationDetailsSettings);
             intent.SetData(global::Android.Net.Uri.Parse($"package:{activity.PackageName}"));
             intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
             activity.StartActivity(intent);
@@ -147,7 +140,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
     /// <inheritdoc/>
     public PermissionGrant Read(PermissionKind kind)
     {
-        var activity = MainActivity.Instance;
+        MainActivity? activity = MainActivity.Instance;
         if (activity == null || activity.IsDestroyed)
         {
             // No host means no honest answer; guessing "denied" would record an
@@ -164,9 +157,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
 
             if (kind == PermissionKind.BatteryOptimization)
             {
-                var powerManager = activity.GetSystemService(global::Android.Content.Context.PowerService)
-                    as global::Android.OS.PowerManager;
-                if (powerManager == null)
+                if (activity.GetSystemService(global::Android.Content.Context.PowerService) is not global::Android.OS.PowerManager powerManager)
                 {
                     return PermissionGrant.Unsupported;
                 }
@@ -176,7 +167,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
                     : PermissionGrant.Denied;
             }
 
-            var granted = kind switch
+            bool granted = kind switch
             {
                 PermissionKind.Notifications => IsGranted(activity, global::Android.Manifest.Permission.PostNotifications),
                 PermissionKind.Bluetooth =>
@@ -203,14 +194,14 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
     /// <inheritdoc/>
     public IReadOnlyList<PermissionGrantTransition> Recheck()
     {
-        var activity = MainActivity.Instance;
+        MainActivity? activity = MainActivity.Instance;
         if (activity == null || activity.IsDestroyed)
         {
             return [];
         }
 
-        var transitions = new List<PermissionGrantTransition>();
-        foreach (var kind in Enum.GetValues<PermissionKind>())
+        List<PermissionGrantTransition> transitions = [];
+        foreach (PermissionKind kind in Enum.GetValues<PermissionKind>())
         {
             transitions.Add(_grantTracker.Observe(
                 kind,
@@ -236,22 +227,21 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
 
     private static Task<PermissionPromptResult> PromptAsync(
         MainActivity activity,
-        PermissionKind kind,
-        CancellationToken cancellationToken) => kind switch
-    {
-        PermissionKind.Notifications => activity.RequestNotificationPermissionAsync(),
-        PermissionKind.Bluetooth => activity.RequestBluetoothPermissionAsync(),
-        PermissionKind.Location => RequestLocationAsync(activity),
-        PermissionKind.BackgroundLocation => RequestBackgroundLocationAsync(activity),
-        PermissionKind.Audio => activity.RequestAudioPermissionAsync(),
-        _ => Task.FromResult(PermissionPromptResult.Abandoned),
-    };
+        PermissionKind kind) => kind switch
+        {
+            PermissionKind.Notifications => activity.RequestNotificationPermissionAsync(),
+            PermissionKind.Bluetooth => activity.RequestBluetoothPermissionAsync(),
+            PermissionKind.Location => RequestLocationAsync(activity),
+            PermissionKind.BackgroundLocation => RequestBackgroundLocationAsync(activity),
+            PermissionKind.Audio => activity.RequestAudioPermissionAsync(),
+            _ => Task.FromResult(PermissionPromptResult.Abandoned),
+        };
 
     private static async Task<PermissionPromptResult> RequestBackgroundLocationAsync(MainActivity activity)
     {
         // Background location keeps its own request code: the system answers it
         // through a settings page on Android 11 and later, outside our queue.
-        var granted = await activity.RequestBackgroundLocationPermissionAsync().ConfigureAwait(false);
+        bool granted = await activity.RequestBackgroundLocationPermissionAsync().ConfigureAwait(false);
         return granted ? PermissionPromptResult.Granted : PermissionPromptResult.Denied;
     }
 
@@ -259,7 +249,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
     {
         // Location has its own prompt pair and result codes, so it keeps its
         // existing path instead of joining the queue.
-        var granted = await activity.RequestLocationPermissionsAsync().ConfigureAwait(false);
+        bool granted = await activity.RequestLocationPermissionsAsync().ConfigureAwait(false);
         return granted ? PermissionPromptResult.Granted : PermissionPromptResult.Denied;
     }
 
@@ -280,8 +270,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
 
     private PermissionRequestResult RequestBatteryOptimizationExemption(MainActivity activity)
     {
-        var powerManager = activity.GetSystemService(global::Android.Content.Context.PowerService) as global::Android.OS.PowerManager;
-        if (powerManager == null)
+        if (activity.GetSystemService(global::Android.Content.Context.PowerService) is not global::Android.OS.PowerManager powerManager)
         {
             return PermissionRequestResult.Unavailable(PermissionKind.BatteryOptimization);
         }
@@ -295,7 +284,7 @@ public class AndroidPermissionService : IPermissionService, IPermissionGrantRead
         {
             // The system dialog result is asynchronous and outside our control, so a
             // plain denial reports "prompt shown" and the caller may ask again.
-            var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionRequestIgnoreBatteryOptimizations);
+            Intent intent = new(global::Android.Provider.Settings.ActionRequestIgnoreBatteryOptimizations);
             intent.SetData(global::Android.Net.Uri.Parse($"package:{activity.PackageName}"));
             intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
             activity.StartActivity(intent);

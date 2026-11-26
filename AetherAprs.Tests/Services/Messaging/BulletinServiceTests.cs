@@ -33,15 +33,15 @@ public sealed class BulletinServiceTests
     [Fact]
     public async Task SendAsync_TransmitsBulletinOnTxPorts_AndStores()
     {
-        var port = CreateTxPort();
-        var portService = new FakePortService(port);
-        var storage = Substitute.For<IPacketStorageService>();
-        var service = CreateBulletinService(portService, storage);
+        PortConfig port = CreateTxPort();
+        FakePortService portService = new(port);
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        BulletinService service = CreateBulletinService(portService, storage);
 
         await service.SendAsync("BLN0SPCL", "Special event today", TestContext.Current.CancellationToken);
 
-        var sent = Assert.Single(portService.SentPackets);
-        var packet = Assert.IsType<BulletinPacket>(sent);
+        AprsPacket sent = Assert.Single(portService.SentPackets);
+        BulletinPacket packet = Assert.IsType<BulletinPacket>(sent);
         Assert.Equal("BLN0SPCL", packet.Name);
         Assert.Equal("Special event today", packet.Text);
 
@@ -55,7 +55,7 @@ public sealed class BulletinServiceTests
     [Fact]
     public async Task SendAsync_NameNotStartingWithBln_Throws()
     {
-        var service = CreateBulletinService(new FakePortService(CreateTxPort()), Substitute.For<IPacketStorageService>());
+        BulletinService service = CreateBulletinService(new FakePortService(CreateTxPort()), Substitute.For<IPacketStorageService>());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => service.SendAsync("SPCL", "text", TestContext.Current.CancellationToken));
@@ -64,7 +64,7 @@ public sealed class BulletinServiceTests
     [Fact]
     public async Task SendAsync_NameTooLong_Throws()
     {
-        var service = CreateBulletinService(new FakePortService(CreateTxPort()), Substitute.For<IPacketStorageService>());
+        BulletinService service = CreateBulletinService(new FakePortService(CreateTxPort()), Substitute.For<IPacketStorageService>());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => service.SendAsync("BLNTOOLONG", "text", TestContext.Current.CancellationToken));
@@ -73,7 +73,7 @@ public sealed class BulletinServiceTests
     [Fact]
     public async Task SendAsync_TextTooLong_Throws()
     {
-        var service = CreateBulletinService(new FakePortService(CreateTxPort()), Substitute.For<IPacketStorageService>());
+        BulletinService service = CreateBulletinService(new FakePortService(CreateTxPort()), Substitute.For<IPacketStorageService>());
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => service.SendAsync("BLN0SPCL", new string('x', 68), TestContext.Current.CancellationToken));
@@ -82,7 +82,7 @@ public sealed class BulletinServiceTests
     [Fact]
     public async Task SendAsync_NoTxPorts_Throws()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "RX-only",
@@ -91,7 +91,7 @@ public sealed class BulletinServiceTests
             IsRx = true,
             TypeSettings = new AprsIsSettings()
         };
-        var service = CreateBulletinService(new FakePortService(port), Substitute.For<IPacketStorageService>());
+        BulletinService service = CreateBulletinService(new FakePortService(port), Substitute.For<IPacketStorageService>());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SendAsync("BLN0SPCL", "text", TestContext.Current.CancellationToken));
@@ -100,7 +100,7 @@ public sealed class BulletinServiceTests
     [Fact]
     public async Task GetBulletinsAsync_ReturnsMappedPackets()
     {
-        var record = PacketRecordMapper.ToRecord(
+        PacketRecord record = PacketRecordMapper.ToRecord(
             new BulletinPacket
             {
                 Source = new Callsign("N0CALL", 1),
@@ -113,42 +113,39 @@ public sealed class BulletinServiceTests
             DateTimeOffset.UtcNow,
             isOutbound: false);
 
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetBulletinsAsync(Arg.Any<int>(), TestContext.Current.CancellationToken)
-            .Returns(new List<PacketRecord> { record });
+            .Returns([record]);
 
-        var service = CreateBulletinService(
+        BulletinService service = CreateBulletinService(
             new FakePortService(CreateTxPort()),
             Substitute.For<IPacketStorageService>(),
             query);
 
-        var bulletins = await service.GetBulletinsAsync(TestContext.Current.CancellationToken);
+        IReadOnlyList<BulletinPacket> bulletins = await service.GetBulletinsAsync(TestContext.Current.CancellationToken);
 
-        var packet = Assert.Single(bulletins);
+        BulletinPacket packet = Assert.Single(bulletins);
         Assert.Equal("BLN0SPCL", packet.Name);
         Assert.Equal("Special event", packet.Text);
         Assert.Equal(5, packet.MessageNumber);
     }
 
-    private static PortConfig CreateTxPort()
+    private static PortConfig CreateTxPort() => new()
     {
-        return new PortConfig
-        {
-            Id = Guid.NewGuid(),
-            Name = "TX",
-            IsEnabled = true,
-            IsTx = true,
-            IsRx = true,
-            TypeSettings = new AprsIsSettings()
-        };
-    }
+        Id = Guid.NewGuid(),
+        Name = "TX",
+        IsEnabled = true,
+        IsTx = true,
+        IsRx = true,
+        TypeSettings = new AprsIsSettings()
+    };
 
     private static BulletinService CreateBulletinService(
         IPortService portService,
         IPacketStorageService storage,
         IPacketQueryService? query = null)
     {
-        var configuration = Substitute.For<IConfigurationService>();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
@@ -158,7 +155,7 @@ public sealed class BulletinServiceTests
             }
         });
 
-        var resolver = Substitute.For<IAprsPortSettingsResolver>();
+        IAprsPortSettingsResolver resolver = Substitute.For<IAprsPortSettingsResolver>();
         resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
 
         return new BulletinService(
@@ -171,14 +168,9 @@ public sealed class BulletinServiceTests
             NullLogger<BulletinService>.Instance);
     }
 
-    private sealed class FakePortService : IPortService
+    private sealed class FakePortService(params PortConfig[] ports) : IPortService
     {
-        private readonly List<PortConfig> _ports;
-
-        public FakePortService(params PortConfig[] ports)
-        {
-            _ports = [.. ports];
-        }
+        private readonly List<PortConfig> _ports = [.. ports];
 
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged
@@ -216,24 +208,19 @@ public sealed class BulletinServiceTests
             SymbolTable symbolTable,
             SymbolCode symbolCode,
             double? course = null,
-            string? comment = null)
-        {
-            return new PositionPacket
+            string? comment = null) => new()
             {
                 Source = Parse(callsign),
                 Destination = new Callsign("APRS"),
                 Location = location.Location,
                 Symbol = new Symbol(symbolTable, symbolCode)
             };
-        }
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
             AprsAddress addressee,
             string messageText,
-            int? messageNumber = null)
-        {
-            return new MessagePacket
+            int? messageNumber = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -241,35 +228,28 @@ public sealed class BulletinServiceTests
                 Text = messageText,
                 MessageNumber = messageNumber
             };
-        }
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
             AprsAddress addressee,
-            int messageNumber)
-        {
-            return new MessageAckPacket
+            int messageNumber) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
                 MessageNumber = messageNumber
             };
-        }
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
             AprsAddress addressee,
-            int messageNumber)
-        {
-            return new MessageRejPacket
+            int messageNumber) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
                 MessageNumber = messageNumber
             };
-        }
 
         public ObjectPacket CreateObjectPacket(
             string sourceCallsign,
@@ -278,9 +258,7 @@ public sealed class BulletinServiceTests
             SymbolTable symbolTable,
             SymbolCode symbolCode,
             bool isLive = true,
-            string? comment = null)
-        {
-            return new ObjectPacket
+            string? comment = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -290,7 +268,6 @@ public sealed class BulletinServiceTests
                 Symbol = new Symbol(symbolTable, symbolCode),
                 Comment = comment
             };
-        }
 
         public ItemPacket CreateItemPacket(
             string sourceCallsign,
@@ -299,9 +276,7 @@ public sealed class BulletinServiceTests
             SymbolTable symbolTable,
             SymbolCode symbolCode,
             bool isLive = true,
-            string? comment = null)
-        {
-            return new ItemPacket
+            string? comment = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -311,15 +286,12 @@ public sealed class BulletinServiceTests
                 Symbol = new Symbol(symbolTable, symbolCode),
                 Comment = comment
             };
-        }
 
         public BulletinPacket CreateBulletinPacket(
             string sourceCallsign,
             string name,
             string text,
-            int? messageNumber = null)
-        {
-            return new BulletinPacket
+            int? messageNumber = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -327,11 +299,10 @@ public sealed class BulletinServiceTests
                 Text = text,
                 MessageNumber = messageNumber
             };
-        }
 
         private static Callsign Parse(string callsign)
         {
-            var parts = callsign.Split('-');
+            string[] parts = callsign.Split('-');
             return parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);

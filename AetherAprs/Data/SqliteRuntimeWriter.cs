@@ -4,6 +4,7 @@
 
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -71,7 +72,7 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
                 return Task.FromException<T>(new ObjectDisposedException(nameof(SqliteRuntimeWriter)));
             }
 
-            var command = new WriteCommand<T>(operation, execute, cancellationToken);
+            WriteCommand<T> command = new(operation, execute, cancellationToken);
             if (_commands.Writer.TryWrite(command))
             {
                 _worker ??= Task.Run(ProcessAsync, CancellationToken.None);
@@ -115,7 +116,7 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
 
     private async Task ProcessAsync()
     {
-        await foreach (var command in _commands.Reader.ReadAllAsync().ConfigureAwait(false))
+        await foreach (IWriteCommand? command in _commands.Reader.ReadAllAsync().ConfigureAwait(false))
         {
             using (command)
             {
@@ -127,20 +128,20 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
     private async Task<T> ExecuteAsync<T>(
         string operation, Func<AppDbContext, CancellationToken, Task<T>> execute, CancellationToken cancellationToken)
     {
-        for (var attempt = 1; ; attempt++)
+        for (int attempt = 1; ; attempt++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var acquiredTransaction = false;
-            var committed = false;
+            bool acquiredTransaction = false;
+            bool committed = false;
             Exception? commitError = null;
             T result = default!;
             try
             {
-                await using var context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+                await using AppDbContext context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
                 context.Database.SetCommandTimeout(CommandTimeoutSeconds);
                 // SQLite uses its connection timeout for BEGIN IMMEDIATE, separately from EF command timeouts.
                 ((SqliteConnection)context.Database.GetDbConnection()).DefaultTimeout = CommandTimeoutSeconds;
-                await using var transaction = await context.Database
+                await using IDbContextTransaction transaction = await context.Database
                     .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
                 acquiredTransaction = true;
 
@@ -253,10 +254,10 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
                 return;
             }
 
-            var started = Stopwatch.GetTimestamp();
+            long started = Stopwatch.GetTimestamp();
             try
             {
-                var result = await writer.ExecuteAsync(_operation, _execute, _cancellationToken).ConfigureAwait(false);
+                T? result = await writer.ExecuteAsync(_operation, _execute, _cancellationToken).ConfigureAwait(false);
                 _completion.TrySetResult(result);
             }
             catch (OperationCanceledException) when (_cancellationToken.IsCancellationRequested)

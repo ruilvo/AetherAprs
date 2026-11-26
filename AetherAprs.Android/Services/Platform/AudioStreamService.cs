@@ -16,19 +16,14 @@ namespace AetherAprs.Android.Services.Platform;
 /// mono 16-bit PCM from the microphone via <see cref="AudioRecord"/> and
 /// exposes it as float samples in the range roughly -1..1.
 /// </summary>
-public sealed class AudioStreamService : IAudioStreamService
+public sealed class AudioStreamService(ILogger<AudioStreamService>? logger = null) : IAudioStreamService
 {
-    private readonly ILogger<AudioStreamService>? _logger;
-    private readonly object _lock = new();
+    private readonly ILogger<AudioStreamService>? _logger = logger;
+    private readonly Lock _lock = new();
     private AudioRecord? _audioRecord;
     private CancellationTokenSource? _captureCts;
     private Task? _captureTask;
     private bool _disposed;
-
-    public AudioStreamService(ILogger<AudioStreamService>? logger = null)
-    {
-        _logger = logger;
-    }
 
     /// <inheritdoc/>
     public int SampleRate => 44100;
@@ -48,7 +43,7 @@ public sealed class AudioStreamService : IAudioStreamService
                 return;
             }
 
-            var minBufferSize = AudioRecord.GetMinBufferSize(
+            int minBufferSize = AudioRecord.GetMinBufferSize(
                 SampleRate,
                 ChannelIn.Mono,
                 Encoding.Pcm16bit);
@@ -61,9 +56,9 @@ public sealed class AudioStreamService : IAudioStreamService
 
             // Use a buffer larger than the minimum so the capture thread keeps up
             // without dropping samples on a busy UI thread.
-            var bufferSize = Math.Max(minBufferSize, SampleRate / 2);
+            int bufferSize = Math.Max(minBufferSize, SampleRate / 2);
 
-            var audioRecord = new AudioRecord(
+            AudioRecord audioRecord = new(
                 AudioSource.Mic,
                 SampleRate,
                 ChannelIn.Mono,
@@ -137,8 +132,8 @@ public sealed class AudioStreamService : IAudioStreamService
 
     private async Task CaptureLoopAsync(AudioRecord audioRecord, int bufferSize, CancellationToken cancellationToken)
     {
-        var shortBuffer = new short[bufferSize / 2];
-        var floatBuffer = new float[shortBuffer.Length];
+        short[] shortBuffer = new short[bufferSize / 2];
+        float[] floatBuffer = new float[shortBuffer.Length];
         bool recording = false;
 
         try
@@ -164,7 +159,7 @@ public sealed class AudioStreamService : IAudioStreamService
                     floatBuffer[i] = shortBuffer[i] / 32768f;
                 }
 
-                var samples = new float[shortsRead];
+                float[] samples = new float[shortsRead];
                 Array.Copy(floatBuffer, samples, shortsRead);
                 SamplesAvailable?.Invoke(this, samples);
             }

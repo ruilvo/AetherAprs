@@ -56,10 +56,10 @@ public static class AfskModulator
 
         double samplesPerBit = (double)sampleRate / BaudRate;
         int totalSamples = (int)Math.Ceiling(bits.Length * samplesPerBit);
-        var samples = new float[totalSamples];
+        float[] samples = new float[totalSamples];
 
         // Precompute the tone for each bit via NRZI: 0 toggles, 1 holds.
-        var tones = new bool[bits.Length];
+        bool[] tones = new bool[bits.Length];
         bool mark = true;
         for (int i = 0; i < bits.Length; i++)
         {

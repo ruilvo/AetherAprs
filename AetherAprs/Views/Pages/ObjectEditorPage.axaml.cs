@@ -9,8 +9,5 @@ namespace AetherAprs.Views.Pages;
 
 public partial class ObjectEditorPage : UserControl
 {
-    public ObjectEditorPage()
-    {
-        InitializeComponent();
-    }
+    public ObjectEditorPage() => InitializeComponent();
 }

@@ -15,7 +15,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void Initialize_AddMode_PrefillsEmptyAndSetsIsAddMode()
     {
-        var vm = CreateViewModel(null, ["Existing"]);
+        MessageTemplateEditViewModel vm = CreateViewModel(null, ["Existing"]);
 
         Assert.True(vm.IsAddMode);
         Assert.Equal(string.Empty, vm.Name);
@@ -26,9 +26,9 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void Initialize_EditMode_PrefillsFromOriginal()
     {
-        var original = new MessageTemplate { Name = "SOTA", Destination = "SOTA", Body = "{summit}" };
+        MessageTemplate original = new() { Name = "SOTA", Destination = "SOTA", Body = "{summit}" };
 
-        var vm = CreateViewModel(original, ["SOTA"]);
+        MessageTemplateEditViewModel vm = CreateViewModel(original, ["SOTA"]);
 
         Assert.False(vm.IsAddMode);
         Assert.Equal("SOTA", vm.Name);
@@ -39,7 +39,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void BlankName_IsInvalid()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
 
         vm.Name = "   ";
 
@@ -50,7 +50,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void DuplicateName_DifferentCase_IsInvalid()
     {
-        var vm = CreateViewModel(null, ["Alpha"]);
+        MessageTemplateEditViewModel vm = CreateViewModel(null, ["Alpha"]);
 
         vm.Name = "ALPHA";
 
@@ -61,7 +61,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void DuplicateName_TrimsBeforeComparing_IsInvalid()
     {
-        var vm = CreateViewModel(null, ["Alpha"]);
+        MessageTemplateEditViewModel vm = CreateViewModel(null, ["Alpha"]);
 
         vm.Name = " Alpha ";
 
@@ -72,9 +72,9 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void NameMatchingOriginal_IsValid()
     {
-        var original = new MessageTemplate { Name = "Alpha", Body = "Hello" };
+        MessageTemplate original = new() { Name = "Alpha", Body = "Hello" };
 
-        var vm = CreateViewModel(original, ["Alpha", "Beta"]);
+        MessageTemplateEditViewModel vm = CreateViewModel(original, ["Alpha", "Beta"]);
         vm.Name = "ALPHA";
 
         Assert.True(vm.CanSave);
@@ -84,7 +84,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void InvalidDestination_IsInvalid()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = "A";
 
         vm.Destination = "!!!";
@@ -96,7 +96,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void BlankDestination_IsValid()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = "A";
         vm.Body = "Hello";
 
@@ -109,7 +109,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void ValidDestination_IsValid()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = "A";
         vm.Body = "Hello";
 
@@ -122,7 +122,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void Body_ExactlySixtySevenCharacters_IsValid()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = "A";
 
         vm.Body = new string('A', 67);
@@ -134,7 +134,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void Body_SixtyEightCharacters_IsInvalid()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = "A";
 
         vm.Body = new string('A', 68);
@@ -146,7 +146,7 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void CanSave_WithAllFieldsValid_IsTrue()
     {
-        var vm = CreateViewModel(null, ["Other"]);
+        MessageTemplateEditViewModel vm = CreateViewModel(null, ["Other"]);
 
         vm.Name = "A";
         vm.Destination = "K0PEER-1";
@@ -158,12 +158,12 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void BuildTemplate_TrimsValues()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = " Name ";
         vm.Destination = " K0PEER-1 ";
         vm.Body = " Hello ";
 
-        var template = vm.BuildTemplate();
+        MessageTemplate template = vm.BuildTemplate();
 
         Assert.Equal("Name", template.Name);
         Assert.Equal("K0PEER-1", template.Destination);
@@ -173,11 +173,11 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void Save_WithValidInput_SetsResultAndRaisesCloseRequested()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
         vm.Name = "A";
         vm.Body = "Hello";
 
-        var raiseCount = 0;
+        int raiseCount = 0;
         object? closeSender = null;
         vm.CloseRequested += (sender, _) =>
         {
@@ -197,9 +197,9 @@ public sealed class MessageTemplateEditViewModelTests
     [Fact]
     public void Save_WithInvalidInput_DoesNotSetResultOrRaiseCloseRequested()
     {
-        var vm = CreateViewModel();
+        MessageTemplateEditViewModel vm = CreateViewModel();
 
-        var raiseCount = 0;
+        int raiseCount = 0;
         vm.CloseRequested += (_, _) => raiseCount++;
 
         vm.SaveCommand.Execute(null);
@@ -212,7 +212,7 @@ public sealed class MessageTemplateEditViewModelTests
         MessageTemplate? original = null,
         IReadOnlyList<string>? existingNames = null)
     {
-        var vm = new MessageTemplateEditViewModel();
+        MessageTemplateEditViewModel vm = new();
         vm.Initialize(original, existingNames ?? []);
         return vm;
     }

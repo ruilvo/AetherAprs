@@ -41,7 +41,7 @@ public sealed class AprsNameFieldTests
     [Fact]
     public void EnsureValid_WhenTheNameIsTooWide_Throws()
     {
-        var exception = Assert.Throws<ArgumentException>(
+        ArgumentException exception = Assert.Throws<ArgumentException>(
             () => AprsNameField.EnsureValid("TOOLONGNAME", "name"));
 
         Assert.Equal("name", exception.ParamName);

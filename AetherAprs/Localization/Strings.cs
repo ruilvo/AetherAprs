@@ -12,15 +12,9 @@ public static class Strings
     public static ResourceManager ResourceManager { get; } =
         new("AetherAprs.Localization.Strings", typeof(Strings).Assembly);
 
-    public static string Get(string name, CultureInfo? culture = null)
-    {
-        return ResourceManager.GetString(name, culture ?? CultureInfo.CurrentUICulture) ?? name;
-    }
+    public static string Get(string name, CultureInfo? culture = null) => ResourceManager.GetString(name, culture ?? CultureInfo.CurrentUICulture) ?? name;
 
-    public static string Format(string name, params object?[] args)
-    {
-        return string.Format(CultureInfo.CurrentUICulture, Get(name), args);
-    }
+    public static string Format(string name, params object?[] args) => string.Format(CultureInfo.CurrentUICulture, Get(name), args);
 
     // Validation error messages - static properties for DataAnnotations
     public static string ValidationCallsignRequired => Get(nameof(ValidationCallsignRequired));

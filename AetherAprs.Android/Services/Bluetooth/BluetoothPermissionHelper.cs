@@ -30,7 +30,7 @@ internal static class BluetoothPermissionHelper
 
     public static bool HasBluetoothPermissions()
     {
-        var context = global::Android.App.Application.Context;
+        Context context = global::Android.App.Application.Context;
         return RequiredPermissions.All(permission =>
             ContextCompat.CheckSelfPermission(context, permission) == Permission.Granted);
     }
@@ -44,10 +44,10 @@ internal static class BluetoothPermissionHelper
             return;
         }
 
-        var activity = MainActivity.Instance
+        MainActivity activity = MainActivity.Instance
             ?? throw new InvalidOperationException("MainActivity is not available to request Bluetooth permissions.");
 
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         void OnPermissionResultHandler(int requestCode, string[] permissions, Permission[] grantResults)
         {
@@ -57,11 +57,11 @@ internal static class BluetoothPermissionHelper
             }
 
             MainActivity.OnPermissionResult -= OnPermissionResultHandler;
-            var granted = grantResults.Length > 0 && grantResults.All(result => result == Permission.Granted);
+            bool granted = grantResults.Length > 0 && grantResults.All(result => result == Permission.Granted);
             tcs.TrySetResult(granted);
         }
 
-        await using var registration = cancellationToken.Register(() =>
+        await using CancellationTokenRegistration registration = cancellationToken.Register(() =>
         {
             MainActivity.OnPermissionResult -= OnPermissionResultHandler;
             tcs.TrySetCanceled(cancellationToken);
@@ -70,7 +70,7 @@ internal static class BluetoothPermissionHelper
         MainActivity.OnPermissionResult += OnPermissionResultHandler;
         ActivityCompat.RequestPermissions(activity, RequiredPermissions, BluetoothPermissionRequestCode);
 
-        var granted = await tcs.Task.ConfigureAwait(false);
+        bool granted = await tcs.Task.ConfigureAwait(false);
         if (!granted)
         {
             throw new UnauthorizedAccessException("Bluetooth permissions were not granted.");
@@ -79,7 +79,7 @@ internal static class BluetoothPermissionHelper
 
     public static BluetoothAdapter GetAdapterOrThrow()
     {
-        var context = global::Android.App.Application.Context;
+        Context context = global::Android.App.Application.Context;
         if (context.GetSystemService(Context.BluetoothService) is BluetoothManager manager
             && manager.Adapter is BluetoothAdapter adapter)
         {

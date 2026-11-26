@@ -26,7 +26,7 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        var loaded = await portRegistry.LoadAsync(cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<PortConfig> loaded = await portRegistry.LoadAsync(cancellationToken).ConfigureAwait(false);
 
         lock (_stateLock)
         {
@@ -85,7 +85,7 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
 
         lock (_stateLock)
         {
-            var stored = _ports.FirstOrDefault(candidate => candidate.Id == port.Id);
+            PortConfig? stored = _ports.FirstOrDefault(candidate => candidate.Id == port.Id);
             if (stored is null)
             {
                 return false;
@@ -111,7 +111,7 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
 
         lock (_stateLock)
         {
-            var stored = _ports.FirstOrDefault(port => port.Id == id);
+            PortConfig? stored = _ports.FirstOrDefault(port => port.Id == id);
             if (stored is not null)
             {
                 _ports.Remove(stored);
@@ -127,7 +127,7 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
         bool enabled,
         CancellationToken cancellationToken = default)
     {
-        var current = Find(id);
+        PortConfig? current = Find(id);
         if (current is null)
         {
             return null;
@@ -138,16 +138,13 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
             return current;
         }
 
-        var desired = current.WithEnabled(enabled);
+        PortConfig desired = current.WithEnabled(enabled);
         await portRegistry.SaveAsync(desired, cancellationToken).ConfigureAwait(false);
 
         lock (_stateLock)
         {
-            var stored = _ports.FirstOrDefault(port => port.Id == id);
-            if (stored is not null)
-            {
-                stored.IsEnabled = enabled;
-            }
+            PortConfig? stored = _ports.FirstOrDefault(port => port.Id == id);
+            stored?.IsEnabled = enabled;
         }
 
         RaisePortsChanged();
@@ -159,7 +156,7 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
         bool showOnMap,
         CancellationToken cancellationToken = default)
     {
-        var current = Find(id);
+        PortConfig? current = Find(id);
         if (current is null)
         {
             return null;
@@ -170,16 +167,13 @@ internal sealed class PortConfigurationService(IPortRegistry portRegistry) : IPo
             return current;
         }
 
-        var desired = current.WithShowOnMap(showOnMap);
+        PortConfig desired = current.WithShowOnMap(showOnMap);
         await portRegistry.SaveAsync(desired, cancellationToken).ConfigureAwait(false);
 
         lock (_stateLock)
         {
-            var stored = _ports.FirstOrDefault(port => port.Id == id);
-            if (stored is not null)
-            {
-                stored.ShowOnMap = showOnMap;
-            }
+            PortConfig? stored = _ports.FirstOrDefault(port => port.Id == id);
+            stored?.ShowOnMap = showOnMap;
         }
 
         RaisePortsChanged();

@@ -64,10 +64,7 @@ public static class SettingsMigrationPipeline
         IDictionary<string, string?> values,
         int fromVersion,
         int targetVersion,
-        ILogger logger)
-    {
-        return Migrate(values, fromVersion, targetVersion, Migrations, logger);
-    }
+        ILogger logger) => Migrate(values, fromVersion, targetVersion, Migrations, logger);
 
     /// <summary>
     /// Migrates <paramref name="values"/> using an explicit migration chain.
@@ -85,11 +82,11 @@ public static class SettingsMigrationPipeline
         IReadOnlyList<ISettingsMigration> migrations,
         ILogger logger)
     {
-        var version = fromVersion;
+        int version = fromVersion;
         while (version < targetVersion)
         {
             ISettingsMigration? migration = null;
-            foreach (var candidate in migrations)
+            foreach (ISettingsMigration candidate in migrations)
             {
                 if (candidate.FromVersion == version)
                 {

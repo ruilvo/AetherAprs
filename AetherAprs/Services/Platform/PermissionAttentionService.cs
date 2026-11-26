@@ -55,9 +55,7 @@ public sealed class PermissionAttentionService : IPermissionAttentionReporter
         }
 
         bool Record(PermissionRequestResult reported) =>
-            !_outstanding.TryGetValue(reported.Kind, out var previous) || previous != reported.Outcome
-                ? Set(reported)
-                : false;
+            (!_outstanding.TryGetValue(reported.Kind, out PermissionOutcome previous) || previous != reported.Outcome) && Set(reported);
 
         bool Set(PermissionRequestResult reported)
         {

@@ -102,7 +102,7 @@ internal sealed class SessionTelemetryIntake : IAsyncDisposable
     {
         while (await _observations.Reader.WaitToReadAsync().ConfigureAwait(false))
         {
-            while (_observations.Reader.TryRead(out var observation))
+            while (_observations.Reader.TryRead(out SessionTelemetryObservation observation))
             {
                 try
                 {

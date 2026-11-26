@@ -15,7 +15,7 @@ public sealed class UnsupportedBluetoothKissStreamConnectorTests
     [Fact]
     public void ClassicConnector_ReportsUnsupportedAndSettingsType()
     {
-        var connector = new UnsupportedBluetoothClassicKissStreamConnector();
+        UnsupportedBluetoothClassicKissStreamConnector connector = new();
 
         Assert.False(connector.IsSupported);
         Assert.Equal(typeof(BluetoothClassicKissTransportSettings), connector.SettingsType);
@@ -24,9 +24,9 @@ public sealed class UnsupportedBluetoothKissStreamConnectorTests
     [Fact]
     public async Task ClassicConnector_ConnectAsync_ThrowsPlatformNotSupported()
     {
-        var connector = new UnsupportedBluetoothClassicKissStreamConnector();
+        UnsupportedBluetoothClassicKissStreamConnector connector = new();
 
-        var ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
+        PlatformNotSupportedException ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
             connector.ConnectAsync(new BluetoothClassicKissTransportSettings(), TestContext.Current.CancellationToken));
 
         Assert.Contains("Bluetooth Classic KISS", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -35,7 +35,7 @@ public sealed class UnsupportedBluetoothKissStreamConnectorTests
     [Fact]
     public void LeConnector_ReportsUnsupportedAndSettingsType()
     {
-        var connector = new UnsupportedBluetoothLeKissStreamConnector();
+        UnsupportedBluetoothLeKissStreamConnector connector = new();
 
         Assert.False(connector.IsSupported);
         Assert.Equal(typeof(BluetoothLeKissTransportSettings), connector.SettingsType);
@@ -44,9 +44,9 @@ public sealed class UnsupportedBluetoothKissStreamConnectorTests
     [Fact]
     public async Task LeConnector_ConnectAsync_ThrowsPlatformNotSupported()
     {
-        var connector = new UnsupportedBluetoothLeKissStreamConnector();
+        UnsupportedBluetoothLeKissStreamConnector connector = new();
 
-        var ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
+        PlatformNotSupportedException ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
             connector.ConnectAsync(new BluetoothLeKissTransportSettings(), TestContext.Current.CancellationToken));
 
         Assert.Contains("Bluetooth LE KISS", ex.Message, StringComparison.OrdinalIgnoreCase);

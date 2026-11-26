@@ -31,8 +31,8 @@ public sealed class PortServiceStartGateTests
     [Fact]
     public async Task ConcurrentStarts_OpenOnlyOneStream()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -43,14 +43,14 @@ public sealed class PortServiceStartGateTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var factory = new BlockingKissStreamFactory();
-        await using var service = CreateService(db, factory);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        BlockingKissStreamFactory factory = new();
+        await using PortService service = CreateService(db, factory);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
 
         // Both callers race to start the same port while the transport is still opening.
-        var first = service.SetPortEnabledAsync(portId, true);
-        var second = service.SetPortEnabledAsync(portId, true);
+        Task first = service.SetPortEnabledAsync(portId, true);
+        Task second = service.SetPortEnabledAsync(portId, true);
 
         await factory.Entered.Task.WaitAsync(
             TimeSpan.FromSeconds(3),
@@ -68,7 +68,7 @@ public sealed class PortServiceStartGateTests
 
     private static PortService CreateService(TempAppDatabase db, IKissStreamFactory kissStreamFactory)
     {
-        var digipeater = Substitute.For<IDigipeaterService>();
+        IDigipeaterService digipeater = Substitute.For<IDigipeaterService>();
         digipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
             Arg.Any<Guid>(),

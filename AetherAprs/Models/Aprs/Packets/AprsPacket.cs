@@ -26,7 +26,7 @@ public abstract record AprsPacket
     /// Gets the digipeater path (list of callsigns between source and destination).
     /// Empty list means no digipeaters in path.
     /// </summary>
-    public IReadOnlyList<Callsign> Path { get; init; } = Array.Empty<Callsign>();
+    public IReadOnlyList<Callsign> Path { get; init; } = [];
 
     /// <summary>
     /// Gets the timestamp, if available from the packet.

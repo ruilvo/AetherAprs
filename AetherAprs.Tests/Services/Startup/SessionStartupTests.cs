@@ -19,13 +19,13 @@ public sealed class SessionStartupTests
     [Fact]
     public async Task StartAsync_ArmsEveryEnabledPort()
     {
-        var enabled = CreatePort("Enabled", enabled: true);
-        var disabled = CreatePort("Disabled", enabled: false);
-        var portService = CreatePortService(enabled, disabled);
+        PortConfig enabled = CreatePort("Enabled", enabled: true);
+        PortConfig disabled = CreatePort("Disabled", enabled: false);
+        IPortService portService = CreatePortService(enabled, disabled);
 
-        await using var coordinator = CreateCoordinator();
-        await using var bridge = CreateBridge(portService, coordinator);
-        var startup = new SessionStartup(
+        await using SessionCoordinator coordinator = CreateCoordinator();
+        await using SessionCoordinatorTelemetryBridge bridge = CreateBridge(portService, coordinator);
+        SessionStartup startup = new(
             portService,
             coordinator,
             bridge,
@@ -41,11 +41,11 @@ public sealed class SessionStartupTests
     [Fact]
     public async Task StartAsync_WithoutEnabledPorts_LeavesTheSessionDisarmed()
     {
-        var portService = CreatePortService(CreatePort("Disabled", enabled: false));
+        IPortService portService = CreatePortService(CreatePort("Disabled", enabled: false));
 
-        await using var coordinator = CreateCoordinator();
-        await using var bridge = CreateBridge(portService, coordinator);
-        var startup = new SessionStartup(
+        await using SessionCoordinator coordinator = CreateCoordinator();
+        await using SessionCoordinatorTelemetryBridge bridge = CreateBridge(portService, coordinator);
+        SessionStartup startup = new(
             portService,
             coordinator,
             bridge,
@@ -59,11 +59,11 @@ public sealed class SessionStartupTests
 
     private static SessionCoordinator CreateCoordinator()
     {
-        var controller = Substitute.For<ISessionPortController>();
+        ISessionPortController controller = Substitute.For<ISessionPortController>();
         controller.ConnectAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        var store = Substitute.For<ISessionStateStore>();
+        ISessionStateStore store = Substitute.For<ISessionStateStore>();
         store.LoadAsync(Arg.Any<CancellationToken>())
             .Returns((SessionSnapshot?)null);
 
@@ -83,7 +83,7 @@ public sealed class SessionStartupTests
     {
         // The telemetry bridge subscribes to transport events, so the double must
         // implement both interfaces the production PortService exposes.
-        var portService = Substitute.For<IPortService, IPortServiceTelemetry>();
+        IPortService portService = Substitute.For<IPortService, IPortServiceTelemetry>();
         ((IPortService)portService).Ports.Returns(ports);
         return portService;
     }

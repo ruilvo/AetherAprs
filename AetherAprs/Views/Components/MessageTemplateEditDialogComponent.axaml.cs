@@ -23,38 +23,23 @@ public partial class MessageTemplateEditDialogComponent : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         // Unsubscribe from old ViewModel to prevent memory leak
-        if (_currentViewModel != null)
-        {
-            _currentViewModel.CloseRequested -= OnCloseRequested;
-        }
+        _currentViewModel?.CloseRequested -= OnCloseRequested;
 
         _currentViewModel = DataContext as MessageTemplateEditViewModel;
 
-        if (_currentViewModel != null)
-        {
-            _currentViewModel.CloseRequested += OnCloseRequested;
-        }
+        _currentViewModel?.CloseRequested += OnCloseRequested;
     }
 
     protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
     {
         // Unsubscribe when the dialog is torn down to prevent memory leak
-        if (_currentViewModel != null)
-        {
-            _currentViewModel.CloseRequested -= OnCloseRequested;
-            _currentViewModel = null;
-        }
+        _currentViewModel?.CloseRequested -= OnCloseRequested;
+        _currentViewModel = null;
 
         base.OnDetachedFromVisualTree(e);
     }
 
-    private void OnCloseRequested(object? sender, EventArgs e)
-    {
-        DialogHost.Close("MainDialogHost", _currentViewModel?.Result);
-    }
+    private void OnCloseRequested(object? sender, EventArgs e) => DialogHost.Close("MainDialogHost", _currentViewModel?.Result);
 
-    private void OnCancelClick(object? sender, RoutedEventArgs e)
-    {
-        DialogHost.Close("MainDialogHost", null);
-    }
+    private void OnCancelClick(object? sender, RoutedEventArgs e) => DialogHost.Close("MainDialogHost", null);
 }

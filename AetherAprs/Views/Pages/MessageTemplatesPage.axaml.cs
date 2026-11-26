@@ -79,7 +79,7 @@ public partial class MessageTemplatesPage : UserControl
                 return;
             }
 
-            var editViewModel = _currentViewModel.CreateEditViewModel(null);
+            MessageTemplateEditViewModel editViewModel = _currentViewModel.CreateEditViewModel(null);
             await ShowEditDialogAsync(editViewModel, originalName: null);
         }
         catch (Exception)
@@ -99,8 +99,8 @@ public partial class MessageTemplatesPage : UserControl
             }
 
             // Capture the original name before the edit view model mutates the template
-            var originalName = template.Name;
-            var editViewModel = _currentViewModel.CreateEditViewModel(template);
+            string originalName = template.Name;
+            MessageTemplateEditViewModel editViewModel = _currentViewModel.CreateEditViewModel(template);
             await ShowEditDialogAsync(editViewModel, originalName);
         }
         catch (Exception)
@@ -112,7 +112,7 @@ public partial class MessageTemplatesPage : UserControl
 
     private async Task ShowEditDialogAsync(MessageTemplateEditViewModel editViewModel, string? originalName)
     {
-        var result = await DialogHost.Show(
+        object? result = await DialogHost.Show(
             new MessageTemplateEditDialogComponent { DataContext = editViewModel }, "MainDialogHost");
 
         if (_currentViewModel == null)

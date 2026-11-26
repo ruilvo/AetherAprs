@@ -23,11 +23,12 @@ public class MemoryLeakTests
     public void BeaconConfigurationItemViewModel_PropertyChanged_UpdatesConfiguration()
     {
         // Arrange
-        var config = BeaconConfig.CreateWalkPreset();
-        var viewModel = new BeaconConfigurationItemViewModel(config);
-
-        // Act
-        viewModel.SlowIntervalSeconds = 999;
+        BeaconConfig config = BeaconConfig.CreateWalkPreset();
+        BeaconConfigurationItemViewModel viewModel = new(config)
+        {
+            // Act
+            SlowIntervalSeconds = 999
+        };
 
         // Assert
         Assert.Equal(999, viewModel.Configuration.SlowIntervalSeconds);
@@ -37,14 +38,15 @@ public class MemoryLeakTests
     public void BeaconConfigurationItemViewModel_MultiplePropertyChanges_UpdatesConfiguration()
     {
         // Arrange
-        var config = BeaconConfig.CreateDrivePreset();
-        var viewModel = new BeaconConfigurationItemViewModel(config);
-
-        // Act
-        viewModel.FastIntervalSeconds = 15;
-        viewModel.NormalIntervalSeconds = 45;
-        viewModel.SlowIntervalSeconds = 90;
-        viewModel.BeaconComment = "Test Comment";
+        BeaconConfig config = BeaconConfig.CreateDrivePreset();
+        BeaconConfigurationItemViewModel viewModel = new(config)
+        {
+            // Act
+            FastIntervalSeconds = 15,
+            NormalIntervalSeconds = 45,
+            SlowIntervalSeconds = 90,
+            BeaconComment = "Test Comment"
+        };
 
         // Assert
         Assert.Equal(15, viewModel.Configuration.FastIntervalSeconds);
@@ -57,8 +59,8 @@ public class MemoryLeakTests
     public void BeaconConfigurationItemViewModel_UsesPartialMethodsNotEventSubscription()
     {
         // Arrange
-        var config = BeaconConfig.CreateWalkPreset();
-        var viewModel = new BeaconConfigurationItemViewModel(config);
+        BeaconConfig config = BeaconConfig.CreateWalkPreset();
+        BeaconConfigurationItemViewModel viewModel = new(config);
 
         int externalSubscriberCount = 0;
         viewModel.PropertyChanged += (s, e) => externalSubscriberCount++;
@@ -71,7 +73,7 @@ public class MemoryLeakTests
         // Assert - Each property change should trigger PropertyChanged
         // Configuration property also changes, so we expect more than 3 events
         Assert.True(externalSubscriberCount >= 3, $"Expected at least 3 property changed events, got {externalSubscriberCount}");
-        
+
         // Verify that updating properties also updates the Configuration
         Assert.Equal(100, viewModel.Configuration.SlowIntervalSeconds);
         Assert.Equal(60, viewModel.Configuration.NormalIntervalSeconds);
@@ -82,9 +84,9 @@ public class MemoryLeakTests
     public void MapViewModel_CenterOnUser_RaisesEventWhenLocationIsSet()
     {
         // Arrange
-        var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
-        var viewModel = new MapViewModel(userLocationLayer);
-        var location = new LocationData
+        UserLocationLayerService userLocationLayer = new(NullLogger<UserLocationLayerService>.Instance);
+        MapViewModel viewModel = new(userLocationLayer);
+        LocationData location = new()
         {
             Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
@@ -107,8 +109,8 @@ public class MemoryLeakTests
     public void MapViewModel_CenterOnUser_DoesNotRaiseEventWhenLocationNotSet()
     {
         // Arrange
-        var userLocationLayer = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
-        var viewModel = new MapViewModel(userLocationLayer);
+        UserLocationLayerService userLocationLayer = new(NullLogger<UserLocationLayerService>.Instance);
+        MapViewModel viewModel = new(userLocationLayer);
 
         bool eventRaised = false;
         viewModel.CenterOnPointRequested += (s, e) => eventRaised = true;
@@ -124,8 +126,8 @@ public class MemoryLeakTests
     public void UserLocationLayerService_UpdateLocation_UpdatesCurrentMapPoint()
     {
         // Arrange
-        var service = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
-        var location = new LocationData
+        UserLocationLayerService service = new(NullLogger<UserLocationLayerService>.Instance);
+        LocationData location = new()
         {
             Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
@@ -144,8 +146,8 @@ public class MemoryLeakTests
     public void UserLocationLayerService_Dispose_PreventsSubsequentUpdates()
     {
         // Arrange
-        var service = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
-        var location = new LocationData
+        UserLocationLayerService service = new(NullLogger<UserLocationLayerService>.Instance);
+        LocationData location = new()
         {
             Location = new Coordinate(45.0, -122.0),
             Altitude = 100.0,
@@ -167,7 +169,7 @@ public class MemoryLeakTests
     public void UserLocationLayerService_Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
-        var service = new UserLocationLayerService(NullLogger<UserLocationLayerService>.Instance);
+        UserLocationLayerService service = new(NullLogger<UserLocationLayerService>.Instance);
 
         // Act & Assert - Should not throw
         service.Dispose();

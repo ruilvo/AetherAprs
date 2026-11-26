@@ -66,9 +66,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private readonly ILogger<ReceivedBeaconsMapLayerService> _logger;
     private readonly WritableLayer _beaconsLayer;
     private readonly WritableLayer _trailsLayer;
-    private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = new();
-    private readonly Dictionary<string, GeometryFeature> _trailFeatures = new();
-    private readonly HashSet<string> _clusteredCallsigns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (Symbol symbol, ImageStyle imageStyle)> _symbolStyleCache = [];
+    private readonly Dictionary<string, GeometryFeature> _trailFeatures = [];
+    private readonly HashSet<string> _clusteredCallsigns = [with(StringComparer.OrdinalIgnoreCase)];
     private readonly Lock _rebuildLock = new();
     private bool _rebuildPending;
     private bool _rebuildRunning;
@@ -144,7 +144,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     /// </summary>
     private void ScheduleRebuild()
     {
-        var startRequested = false;
+        bool startRequested = false;
 
         lock (_rebuildLock)
         {
@@ -177,7 +177,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
         finally
         {
-            var rerun = false;
+            bool rerun = false;
             lock (_rebuildLock)
             {
                 if (_rebuildPending && !_disposed)
@@ -205,22 +205,22 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         try
         {
             // Use shared filter service for port visibility and time filtering
-            var visiblePortIds = _filterService.GetVisiblePortIds();
-            var cutoffTime = _filterService.GetCutoffTime();
+            HashSet<Guid> visiblePortIds = _filterService.GetVisiblePortIds();
+            DateTimeOffset? cutoffTime = _filterService.GetCutoffTime();
 
-            var allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
+            IReadOnlyDictionary<string, PacketRecord> allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
 
-            var filteredPackets = allPositionPackets.Values
+            IEnumerable<PacketRecord> filteredPackets = allPositionPackets.Values
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
                 .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
-            var markers = new List<BeaconMarker>();
+            List<BeaconMarker> markers = [];
 
-            foreach (var record in filteredPackets)
+            foreach (PacketRecord? record in filteredPackets)
             {
                 if (record.Position != null)
                 {
-                    var callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
+                    string callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
                     _logger.LogDebug(
                         "Adding map beacon for {Callsign} at Lat={Latitude:F5}, Lon={Longitude:F5}",
                         callsign,
@@ -232,14 +232,14 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             }
 
             // Render live objects and items as named markers (killed reports are hidden).
-            var liveObjects = (await _packetQueryService.GetMostRecentObjectsAsync())
+            IEnumerable<PacketRecord> liveObjects = (await _packetQueryService.GetMostRecentObjectsAsync())
                 .Where(r => r.Object is { IsLive: true })
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
                 .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
-            foreach (var record in liveObjects)
+            foreach (PacketRecord? record in liveObjects)
             {
-                var obj = record.Object!;
+                ObjectDataRecord obj = record.Object!;
                 markers.Add(CreateMarker(
                     obj.Location.Latitude,
                     obj.Location.Longitude,
@@ -249,14 +249,14 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     obj.Name));
             }
 
-            var liveItems = (await _packetQueryService.GetMostRecentItemsAsync())
+            IEnumerable<PacketRecord> liveItems = (await _packetQueryService.GetMostRecentItemsAsync())
                 .Where(r => r.Item is { IsLive: true })
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
                 .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
-            foreach (var record in liveItems)
+            foreach (PacketRecord? record in liveItems)
             {
-                var item = record.Item!;
+                ItemDataRecord item = record.Item!;
                 markers.Add(CreateMarker(
                     item.Location.Latitude,
                     item.Location.Longitude,
@@ -271,25 +271,24 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             // Bulk fetch all position trail packets once, then group by source client-side.
             // Note: trails intentionally NOT filtered by port (preserves existing behavior
             // where a station's trail includes packets heard on any port).
-            var allTrailPackets = await _packetQueryService.GetPositionTrailPacketsAsync(cutoffTime);
+            IReadOnlyList<PacketRecord> allTrailPackets = await _packetQueryService.GetPositionTrailPacketsAsync(cutoffTime);
 
-            var trailsBySource = allTrailPackets
+            List<List<PacketRecord>> trailsBySource = [.. allTrailPackets
                 .GroupBy(r => (r.SourceBase, r.SourceSsid))
                 .Select(g => g
                     .OrderBy(r => r.Timestamp)
                     .TakeLast(MaxTrailPointsPerStation)
                     .ToList())
-                .Where(trail => trail.Count > 1)
-                .ToList();
+                .Where(trail => trail.Count > 1)];
 
             _trailFeatures.Clear();
 
-            foreach (var trailPositions in trailsBySource)
+            foreach (List<PacketRecord> trailPositions in trailsBySource)
             {
-                var trailFeature = CreateTrailFeature(trailPositions);
+                GeometryFeature? trailFeature = CreateTrailFeature(trailPositions);
                 if (trailFeature != null)
                 {
-                    var latest = trailPositions[^1];
+                    PacketRecord latest = trailPositions[^1];
                     _trailFeatures[AprsSsidExtensions.FormatCallsign(latest.SourceBase, latest.SourceSsid)] = trailFeature;
                 }
             }
@@ -309,10 +308,10 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             return null;
         }
 
-        var recentTrail = new List<PacketRecord>();
-        for (var index = trail.Count - 1; index >= 0; index--)
+        List<PacketRecord> recentTrail = [];
+        for (int index = trail.Count - 1; index >= 0; index--)
         {
-            var packet = trail[index];
+            PacketRecord packet = trail[index];
             if (packet.Position is null)
             {
                 continue;
@@ -320,8 +319,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
             if (recentTrail.Count > 0)
             {
-                var previous = recentTrail[^1].Position!.Location;
-                var current = packet.Position.Location;
+                Geo.Coordinate previous = recentTrail[^1].Position!.Location;
+                Geo.Coordinate current = packet.Position.Location;
                 if (GetDistanceMeters(previous.Latitude, previous.Longitude, current.Latitude, current.Longitude)
                     > MaxTrailJumpMeters)
                 {
@@ -333,23 +332,22 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
 
         recentTrail.Reverse();
-        var coordinates = recentTrail
+        Coordinate[] coordinates = [.. recentTrail
             .Select(p =>
             {
-                var (x, y) = SphericalMercator.FromLonLat(
+                (double x, double y) = SphericalMercator.FromLonLat(
                     p.Position!.Location.Longitude,
                     p.Position.Location.Latitude);
                 return new Coordinate(x, y);
-            })
-            .ToArray();
+            })];
 
         if (coordinates.Length < 2)
         {
             return null;
         }
 
-        var lineString = new LineString(coordinates);
-        var feature = new GeometryFeature { Geometry = lineString };
+        LineString lineString = new(coordinates);
+        GeometryFeature feature = new() { Geometry = lineString };
 
         feature.Styles.Add(new VectorStyle
         {
@@ -362,11 +360,11 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private static double GetDistanceMeters(double latitude1, double longitude1, double latitude2, double longitude2)
     {
         const double earthRadiusMeters = 6_371_000;
-        var latitudeDelta = DegreesToRadians(latitude2 - latitude1);
-        var longitudeDelta = DegreesToRadians(longitude2 - longitude1);
-        var sineLatitude = Math.Sin(latitudeDelta / 2);
-        var sineLongitude = Math.Sin(longitudeDelta / 2);
-        var a = sineLatitude * sineLatitude
+        double latitudeDelta = DegreesToRadians(latitude2 - latitude1);
+        double longitudeDelta = DegreesToRadians(longitude2 - longitude1);
+        double sineLatitude = Math.Sin(latitudeDelta / 2);
+        double sineLongitude = Math.Sin(longitudeDelta / 2);
+        double a = sineLatitude * sineLatitude
             + Math.Cos(DegreesToRadians(latitude1))
             * Math.Cos(DegreesToRadians(latitude2))
             * sineLongitude * sineLongitude;
@@ -377,8 +375,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     private static BeaconMarker CreateMarkerFromRecord(PacketRecord record)
     {
-        var callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
-        var (x, y) = SphericalMercator.FromLonLat(
+        string callsign = AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
+        (double x, double y) = SphericalMercator.FromLonLat(
             record.Position!.Location.Longitude,
             record.Position!.Location.Latitude);
         return new BeaconMarker(
@@ -398,7 +396,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         string label,
         string? objectName = null)
     {
-        var (x, y) = SphericalMercator.FromLonLat(longitude, latitude);
+        (double x, double y) = SphericalMercator.FromLonLat(longitude, latitude);
         return new BeaconMarker(new MPoint(x, y), symbolTable, symbolCode, label, null, objectName);
     }
 
@@ -421,7 +419,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         // Before the first resolution is known, render every marker individually.
         if (double.IsNaN(_currentResolution))
         {
-            foreach (var marker in _markers)
+            foreach (BeaconMarker marker in _markers)
             {
                 _beaconsLayer.Add(CreateLabeledFeature(
                     marker.Point,
@@ -437,14 +435,14 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             return;
         }
 
-        var cellSize = 40.0 * _currentResolution;
-        var groups = MapClusterer.Cluster(_markers.Select(m => m.Point).ToList(), cellSize);
+        double cellSize = 40.0 * _currentResolution;
+        IReadOnlyList<IReadOnlyList<int>> groups = MapClusterer.Cluster([.. _markers.Select(m => m.Point)], cellSize);
 
-        foreach (var group in groups)
+        foreach (IReadOnlyList<int> group in groups)
         {
             if (group.Count == 1)
             {
-                var marker = _markers[group[0]];
+                BeaconMarker marker = _markers[group[0]];
                 _beaconsLayer.Add(CreateLabeledFeature(
                     marker.Point,
                     marker.SymbolTable,
@@ -455,7 +453,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             }
             else
             {
-                foreach (var marker in group.Select(i => _markers[i]))
+                foreach (BeaconMarker? marker in group.Select(i => _markers[i]))
                 {
                     if (marker.Callsign is not null)
                     {
@@ -463,7 +461,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     }
                 }
 
-                _beaconsLayer.Add(CreateClusterFeature(group.Select(i => _markers[i]).ToList()));
+                _beaconsLayer.Add(CreateClusterFeature([.. group.Select(i => _markers[i])]));
             }
         }
 
@@ -482,7 +480,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             return;
         }
 
-        foreach (var (callsign, feature) in _trailFeatures)
+        foreach ((string? callsign, GeometryFeature? feature) in _trailFeatures)
         {
             if (!_clusteredCallsigns.Contains(callsign))
             {
@@ -495,11 +493,11 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     private static PointFeature CreateClusterFeature(IReadOnlyList<BeaconMarker> markers)
     {
-        var centroid = new MPoint(
+        MPoint centroid = new(
             markers.Average(m => m.Point.X),
             markers.Average(m => m.Point.Y));
 
-        var symbolStyle = new SymbolStyle
+        SymbolStyle symbolStyle = new()
         {
             SymbolType = SymbolType.Ellipse,
             Fill = new Brush(new Color(25, 118, 210, 220)),
@@ -507,7 +505,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             SymbolScale = 0.7
         };
 
-        var labelStyle = new LabelStyle
+        LabelStyle labelStyle = new()
         {
             Text = markers.Count.ToString(),
             ForeColor = Color.White,
@@ -516,7 +514,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             Font = new Font { FontFamily = "Arial", Size = 14, Bold = true }
         };
 
-        var feature = new PointFeature(centroid)
+        PointFeature feature = new(centroid)
         {
             Styles = [symbolStyle, labelStyle]
         };
@@ -541,18 +539,18 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         string? callsign = null,
         string? objectName = null)
     {
-        var symbol = new Symbol(symbolTable, symbolCode);
+        Symbol symbol = new(symbolTable, symbolCode);
 
-        var symbolKey = $"{symbolTable.ToChar()}{symbolCode.ToChar()}";
-        if (!_symbolStyleCache.TryGetValue(symbolKey, out var cachedStyle) ||
+        string symbolKey = $"{symbolTable.ToChar()}{symbolCode.ToChar()}";
+        if (!_symbolStyleCache.TryGetValue(symbolKey, out (Symbol symbol, ImageStyle imageStyle) cachedStyle) ||
             cachedStyle.symbol != symbol)
         {
-            var imageStyle = _symbolConverter.CreateImageStyle(symbol, scale: 0.25);
+            ImageStyle imageStyle = _symbolConverter.CreateImageStyle(symbol, scale: 0.25);
             cachedStyle = (symbol, imageStyle);
             _symbolStyleCache[symbolKey] = cachedStyle;
         }
 
-        var labelStyle = new LabelStyle
+        LabelStyle labelStyle = new()
         {
             Text = label,
             Offset = new Offset(45, 0),
@@ -562,7 +560,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             Halo = new Pen(Color.White, 2)
         };
 
-        var feature = new PointFeature(mapPoint)
+        PointFeature feature = new(mapPoint)
         {
             Styles = [cachedStyle.imageStyle, labelStyle]
         };

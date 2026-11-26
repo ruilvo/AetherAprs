@@ -17,6 +17,7 @@ using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
@@ -39,22 +40,22 @@ public sealed class SavedDataPersistenceTests
     [Fact]
     public async Task BeaconServicePersistsActiveModeAndConfiguration()
     {
-        using var db = TempAppDatabase.Create();
-        var configuration = Substitute.For<IConfigurationService>();
+        using TempAppDatabase db = TempAppDatabase.Create();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });
-        
-        var store = StoreFactory.CreateBeaconStateStore(db);
-        await using var service = new BeaconService(store, Substitute.For<ILogger<BeaconService>>());
+
+        IBeaconStateStore store = StoreFactory.CreateBeaconStateStore(db);
+        await using BeaconService service = new(store, Substitute.For<ILogger<BeaconService>>());
         await service.UpdateConfigurationAsync(
             BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 },
             TestContext.Current.CancellationToken);
         await service.SetActiveModeAsync(DynamicBeaconMode.Drive, TestContext.Current.CancellationToken);
 
         // Writes are durable before the call returns, so a fresh service sees them.
-        var reloaded = new BeaconService(
+        BeaconService reloaded = new(
             StoreFactory.CreateBeaconStateStore(db),
             Substitute.For<ILogger<BeaconService>>());
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
@@ -65,16 +66,16 @@ public sealed class SavedDataPersistenceTests
     [Fact]
     public async Task BeaconService_FailedWrite_LeavesPreviousStateActive()
     {
-        using var db = TempAppDatabase.Create();
-        await using var service = new BeaconService(
+        using TempAppDatabase db = TempAppDatabase.Create();
+        await using BeaconService service = new(
             StoreFactory.CreateBeaconStateStore(db),
             Substitute.For<ILogger<BeaconService>>());
         await service.InitializeAsync(TestContext.Current.CancellationToken);
 
-        var walk = service.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk);
+        BeaconConfig walk = service.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk);
 
         // A destroyed schema makes the durable write fail.
-        await using (var context = await db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext context = await db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
             await context.Database.ExecuteSqlRawAsync("DROP TABLE BeaconConfigs", TestContext.Current.CancellationToken);
         }
@@ -91,16 +92,16 @@ public sealed class SavedDataPersistenceTests
     [Fact]
     public async Task MessageServicePersistsHistoryAcrossRestart()
     {
-        using var db = TempAppDatabase.Create();
-        var portService = new FakePortService();
-        var configuration = Substitute.For<IConfigurationService>();
+        using TempAppDatabase db = TempAppDatabase.Create();
+        FakePortService portService = new();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });
 
-        var portId = Guid.NewGuid();
-        var packet = new MessagePacket
+        Guid portId = Guid.NewGuid();
+        MessagePacket packet = new()
         {
             Source = new Callsign("K0PEER", 1),
             Destination = new Callsign("APRS"),
@@ -110,14 +111,14 @@ public sealed class SavedDataPersistenceTests
         };
 
         // Manually store the packet in the database (simulating what PacketStorageService would do)
-        using (var context = db.CreateContext())
+        using (AppDbContext context = db.CreateContext())
         {
-            var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: false);
+            PacketRecord record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: false);
             context.Packets.Add(record);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using (var service = new MessageService(
+        using (MessageService service = new(
                    portService,
                    Substitute.For<IPacketStorageService>(),
                    configuration,
@@ -129,15 +130,15 @@ public sealed class SavedDataPersistenceTests
         {
             await service.InitializeAsync(TestContext.Current.CancellationToken);
             // Verify the service loaded the message from database
-            var thread = Assert.Single(service.Conversations);
+            ConversationThread thread = Assert.Single(service.Conversations);
             Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), thread.Peer);
-            var stored = Assert.Single(thread.Messages);
+            StoredMessage stored = Assert.Single(thread.Messages);
             Assert.Equal("Ping", stored.Text);
             Assert.Equal(9, stored.MessageNumber);
         }
 
         // Reload and verify persistence
-        using var reloaded = new MessageService(
+        using MessageService reloaded = new(
             portService,
             Substitute.For<IPacketStorageService>(),
             configuration,
@@ -147,9 +148,9 @@ public sealed class SavedDataPersistenceTests
             SynchronousUiDispatcher.Instance,
             new PacketQueryService(new SqliteRuntimeReader(db.Factory), NullLogger<PacketQueryService>.Instance));
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
-        var threadReloaded = Assert.Single(reloaded.Conversations);
+        ConversationThread threadReloaded = Assert.Single(reloaded.Conversations);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)), threadReloaded.Peer);
-        var storedReloaded = Assert.Single(threadReloaded.Messages);
+        StoredMessage storedReloaded = Assert.Single(threadReloaded.Messages);
         Assert.Equal("Ping", storedReloaded.Text);
         Assert.Equal(9, storedReloaded.MessageNumber);
     }
@@ -188,8 +189,8 @@ public sealed class SavedDataPersistenceTests
             double? course = null,
             string? comment = null)
         {
-            var parts = callsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = callsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -211,8 +212,8 @@ public sealed class SavedDataPersistenceTests
             string messageText,
             int? messageNumber = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -231,8 +232,8 @@ public sealed class SavedDataPersistenceTests
             AprsAddress addressee,
             int messageNumber)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -250,8 +251,8 @@ public sealed class SavedDataPersistenceTests
             AprsAddress addressee,
             int messageNumber)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -273,8 +274,8 @@ public sealed class SavedDataPersistenceTests
             bool isLive = true,
             string? comment = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -299,8 +300,8 @@ public sealed class SavedDataPersistenceTests
             bool isLive = true,
             string? comment = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 
@@ -322,8 +323,8 @@ public sealed class SavedDataPersistenceTests
             string text,
             int? messageNumber = null)
         {
-            var parts = sourceCallsign.Split('-');
-            var source = parts.Length > 1
+            string[] parts = sourceCallsign.Split('-');
+            Callsign source = parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);
 

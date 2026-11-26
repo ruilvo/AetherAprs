@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace AetherAprs.Modems.Afsk;
 
@@ -17,7 +18,14 @@ namespace AetherAprs.Modems.Afsk;
 /// firmware and therefore do not need this helper; it applies only to the
 /// software AFSK modem, which has no hardware carrier-sense or TNC firmware.
 /// </remarks>
-public class TxTiming
+/// <remarks>
+/// Initializes a new instance of <see cref="TxTiming"/>.
+/// </remarks>
+/// <param name="random">
+/// Source of randomness for the channel-access backoff. Defaults to
+/// <see cref="Random.Shared"/>.
+/// </param>
+public class TxTiming(Random? random = null)
 {
     /// <summary>Maximum number of slottimes the backoff may defer transmission.</summary>
     private const int MaxChannelAccessSlots = 32;
@@ -28,22 +36,10 @@ public class TxTiming
     /// <summary>Maximum number of frames tracked for transmit holdoff.</summary>
     private const int HoldoffCapacity = 256;
 
-    private readonly Random _random;
-    private readonly object _holdoffLock = new();
+    private readonly Random _random = random ?? Random.Shared;
+    private readonly Lock _holdoffLock = new();
     private readonly Queue<(string Key, DateTimeOffset Seen)> _holdoffOrder = new();
-    private readonly Dictionary<string, DateTimeOffset> _holdoffTable = new();
-
-    /// <summary>
-    /// Initializes a new instance of <see cref="TxTiming"/>.
-    /// </summary>
-    /// <param name="random">
-    /// Source of randomness for the channel-access backoff. Defaults to
-    /// <see cref="Random.Shared"/>.
-    /// </param>
-    public TxTiming(Random? random = null)
-    {
-        _random = random ?? Random.Shared;
-    }
+    private readonly Dictionary<string, DateTimeOffset> _holdoffTable = [];
 
     /// <summary>
     /// Computes the p-persistent channel-access delay. In each slottime the modem
@@ -61,8 +57,8 @@ public class TxTiming
             return TimeSpan.Zero;
         }
 
-        var persistence = Math.Clamp(persist, 1, 255);
-        var slots = 0;
+        int persistence = Math.Clamp(persist, 1, 255);
+        int slots = 0;
 
         while (slots < MaxChannelAccessSlots && _random.Next(256) >= persistence)
         {
@@ -82,7 +78,7 @@ public class TxTiming
     {
         lock (_holdoffLock)
         {
-            return _holdoffTable.TryGetValue(frameKey, out var seen) && now - seen < HoldoffRetention;
+            return _holdoffTable.TryGetValue(frameKey, out DateTimeOffset seen) && now - seen < HoldoffRetention;
         }
     }
 
@@ -101,8 +97,8 @@ public class TxTiming
 
             while (_holdoffOrder.Count > 0)
             {
-                var oldest = _holdoffOrder.Peek();
-                var expired = now - oldest.Seen >= HoldoffRetention;
+                (string? Key, DateTimeOffset Seen) = _holdoffOrder.Peek();
+                bool expired = now - Seen >= HoldoffRetention;
                 if (!expired && _holdoffOrder.Count <= HoldoffCapacity)
                 {
                     break;
@@ -112,9 +108,9 @@ public class TxTiming
 
                 // Only remove the table entry when it is still the same transmission;
                 // a re-transmitted frame refreshes its timestamp and must not be dropped.
-                if (_holdoffTable.TryGetValue(oldest.Key, out var seen) && seen == oldest.Seen)
+                if (_holdoffTable.TryGetValue(Key, out DateTimeOffset seen) && seen == Seen)
                 {
-                    _holdoffTable.Remove(oldest.Key);
+                    _holdoffTable.Remove(Key);
                 }
             }
         }

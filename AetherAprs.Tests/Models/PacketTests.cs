@@ -19,7 +19,7 @@ public class PacketTests
     [Fact]
     public void PositionPacket_DefaultPrecisionIsZero()
     {
-        var pkt = new PositionPacket
+        PositionPacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -39,7 +39,7 @@ public class PacketTests
     [Fact]
     public void PositionPacket_WithComment_SetsComment()
     {
-        var pkt = new PositionPacket
+        PositionPacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -55,7 +55,7 @@ public class PacketTests
     [Fact]
     public void MessagePacket_SetsAddresseeAndText()
     {
-        var pkt = new MessagePacket
+        MessagePacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -73,7 +73,7 @@ public class PacketTests
     [Fact]
     public void MessagePacket_WithMessageNumber_SetsNumber()
     {
-        var pkt = new MessagePacket
+        MessagePacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -90,7 +90,7 @@ public class PacketTests
     [Fact]
     public void StatusPacket_SetsText()
     {
-        var pkt = new StatusPacket
+        StatusPacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -105,7 +105,7 @@ public class PacketTests
     [Fact]
     public void WeatherPacket_DefaultAllNull()
     {
-        var pkt = new WeatherPacket
+        WeatherPacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -123,7 +123,7 @@ public class PacketTests
     [Fact]
     public void WeatherPacket_WithValues_SetsFields()
     {
-        var pkt = new WeatherPacket
+        WeatherPacket pkt = new()
         {
             Source = Source,
             Destination = Dest,
@@ -147,7 +147,7 @@ public class PacketTests
     [Fact]
     public void UnknownPacket_ContainsRawData()
     {
-        var pkt = new UnknownPacket
+        UnknownPacket pkt = new()
         {
             Source = Source,
             Destination = Dest,

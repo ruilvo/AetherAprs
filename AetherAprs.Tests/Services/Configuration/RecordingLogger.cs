@@ -13,7 +13,7 @@ namespace AetherAprs.Tests.Services.Configuration;
 /// </summary>
 internal sealed class RecordingLogger<T> : ILogger<T>
 {
-    public List<LogEntry> Entries { get; } = new();
+    public List<LogEntry> Entries { get; } = [];
 
     public IDisposable? BeginScope<TState>(TState state)
         where TState : notnull => null;
@@ -25,10 +25,7 @@ internal sealed class RecordingLogger<T> : ILogger<T>
         EventId eventId,
         TState state,
         Exception? exception,
-        Func<TState, Exception?, string> formatter)
-    {
-        Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
-    }
+        Func<TState, Exception?, string> formatter) => Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
 }
 
 internal sealed record LogEntry(

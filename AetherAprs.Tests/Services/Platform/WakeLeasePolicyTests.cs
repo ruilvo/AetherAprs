@@ -11,26 +11,18 @@ namespace AetherAprs.Tests.Services.Platform;
 public sealed class WakeLeasePolicyTests
 {
     [Fact]
-    public void Decide_WhenWorkArrivesWithoutALease_ArmsIt()
-    {
-        Assert.Equal(WakeLeaseDecision.Arm, WakeLeasePolicy.Decide(isSessionActive: true, isLeaseHeld: false));
-    }
+    public void Decide_WhenWorkArrivesWithoutALease_ArmsIt() => Assert.Equal(WakeLeaseDecision.Arm, WakeLeasePolicy.Decide(isSessionActive: true, isLeaseHeld: false));
 
     [Fact]
-    public void Decide_WhenTheSessionEndsWithALease_ReleasesIt()
-    {
-        Assert.Equal(WakeLeaseDecision.Release, WakeLeasePolicy.Decide(isSessionActive: false, isLeaseHeld: true));
-    }
+    public void Decide_WhenTheSessionEndsWithALease_ReleasesIt() => Assert.Equal(WakeLeaseDecision.Release, WakeLeasePolicy.Decide(isSessionActive: false, isLeaseHeld: true));
 
     [Theory]
     [InlineData(true, true)]
     [InlineData(false, false)]
-    public void Decide_WhenTheLeaseAlreadyMatchesTheSession_LeavesItAlone(bool isSessionActive, bool isLeaseHeld)
-    {
+    public void Decide_WhenTheLeaseAlreadyMatchesTheSession_LeavesItAlone(bool isSessionActive, bool isLeaseHeld) =>
         // Re-acquiring a held lock would add a platform reference that the matching
         // single release cannot clear, so a held lease is never extended.
         Assert.Equal(WakeLeaseDecision.None, WakeLeasePolicy.Decide(isSessionActive, isLeaseHeld));
-    }
 
     [Fact]
     public void Lease_IsBoundedAndPositive()

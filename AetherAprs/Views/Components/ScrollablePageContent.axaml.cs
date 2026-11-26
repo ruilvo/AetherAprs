@@ -12,8 +12,5 @@ namespace AetherAprs.Views.Components;
 /// </summary>
 public partial class ScrollablePageContent : UserControl
 {
-    public ScrollablePageContent()
-    {
-        InitializeComponent();
-    }
+    public ScrollablePageContent() => InitializeComponent();
 }

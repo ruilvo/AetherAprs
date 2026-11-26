@@ -29,14 +29,15 @@ public sealed class SettingsViewModelTests
     [Fact]
     public async Task ChangingCallsignAutoSavesSettings()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(
-            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation))
+        {
+            Callsign = "CT7ALW"
+        };
 
-        viewModel.Callsign = "CT7ALW";
-        
         // Wait for async save to complete deterministically
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
@@ -48,21 +49,22 @@ public sealed class SettingsViewModelTests
     [Fact]
     public async Task ChangingMultiplePropertiesAutoSavesEachTime()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(
-            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
-
-        viewModel.Callsign = "CT7ALW";
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation))
+        {
+            Callsign = "CT7ALW"
+        };
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
-        
+
         viewModel.Ssid = AprsSsid.HumanPortable;
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
-        
+
         viewModel.SymbolTableCharacter = "\\";
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
-        
+
         viewModel.SymbolCodeCharacter = ">";
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
@@ -80,13 +82,14 @@ public sealed class SettingsViewModelTests
     [Fact]
     public async Task ChangingTileSourceAutoSavesMapSettings()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(
-            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
-
-        viewModel.TileSource = TileSourceType.MbTilesOffline;
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation))
+        {
+            TileSource = TileSourceType.MbTilesOffline
+        };
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         viewModel.MbTilesFilePath = "/data/map.mbtiles";
@@ -100,9 +103,9 @@ public sealed class SettingsViewModelTests
     [Fact]
     public async Task EditingCallsignPreservesOfflineMapSelectedAfterPageOpened()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        using var viewModel = new SettingsViewModel(
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        using SettingsViewModel viewModel = new(
             configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
             CreateMessageTemplatesViewModel(navigation));
 
@@ -126,10 +129,10 @@ public sealed class SettingsViewModelTests
     [Fact]
     public async Task ChangingPositionFormatAutoSavesSettings()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        SettingsViewModel viewModel = new(
             configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         // Defaults to the configured value
@@ -144,22 +147,22 @@ public sealed class SettingsViewModelTests
     [Fact]
     public void AvailablePositionFormatsExposesAllEncodings()
     {
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        SettingsViewModel viewModel = new(
             new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         Assert.Equal(
-            new[] { PositionFormat.Uncompressed, PositionFormat.Compressed, PositionFormat.MicE },
+            [PositionFormat.Uncompressed, PositionFormat.Compressed, PositionFormat.MicE],
             viewModel.AvailablePositionFormats);
     }
 
     [Fact]
     public void OpenBeaconingSettingsNavigatesToDynamicBeaconingViewModel()
     {
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var viewModel = new SettingsViewModel(
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        SettingsViewModel viewModel = new(
             new TestConfigurationService(), navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
 
         viewModel.OpenBeaconingSettingsCommand.Execute(null);
@@ -170,10 +173,10 @@ public sealed class SettingsViewModelTests
     [Fact]
     public void OpenMessageTemplatesNavigatesToMessageTemplatesViewModel()
     {
-        var navigation = new TestNavigationService();
-        var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
-        var messageTemplates = CreateMessageTemplatesViewModel(navigation);
-        var viewModel = new SettingsViewModel(
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        MessageTemplatesViewModel messageTemplates = CreateMessageTemplatesViewModel(navigation);
+        SettingsViewModel viewModel = new(
             new TestConfigurationService(), navigation, symbolPicker, messageTemplates);
 
         viewModel.OpenMessageTemplatesCommand.Execute(null);
@@ -181,14 +184,11 @@ public sealed class SettingsViewModelTests
         Assert.Equal(typeof(MessageTemplatesViewModel), navigation.LastNavigatedType);
     }
 
-    private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation)
-    {
-        return new MessageTemplatesViewModel(
+    private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation) => new(
             Substitute.For<IMessageTemplateService>(),
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
-    }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
     {

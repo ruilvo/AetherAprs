@@ -19,7 +19,7 @@ public sealed class PortRecordMapperTests
     [Fact]
     public void RoundTripPersistsAprsIsSettings()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "APRS-IS",
@@ -36,9 +36,9 @@ public sealed class PortRecordMapperTests
             }
         };
 
-        using var db = TempAppDatabase.Create(port);
-        using var context = db.CreateContext();
-        var loaded = PortRecordMapper.ToConfig(Assert.Single(context.Ports.AsNoTracking()));
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        using AppDbContext context = db.CreateContext();
+        PortConfig loaded = PortRecordMapper.ToConfig(Assert.Single(context.Ports.AsNoTracking()));
 
         Assert.Equal(port.Id, loaded.Id);
         Assert.Equal("APRS-IS", loaded.Name);
@@ -46,7 +46,7 @@ public sealed class PortRecordMapperTests
         Assert.True(loaded.IsRx);
         Assert.False(loaded.IsTx);
         Assert.False(loaded.ShowOnMap);
-        var aprsIs = Assert.IsType<AprsIsSettings>(loaded.TypeSettings);
+        AprsIsSettings aprsIs = Assert.IsType<AprsIsSettings>(loaded.TypeSettings);
         Assert.Equal("rotate.aprs2.net", aprsIs.Server);
         Assert.Equal(14580, aprsIs.ServerPort);
         Assert.Equal("12345", aprsIs.Passcode);
@@ -56,7 +56,7 @@ public sealed class PortRecordMapperTests
     [Fact]
     public void RoundTripPersistsKissTcpTransport()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "KISS TCP",
@@ -66,11 +66,11 @@ public sealed class PortRecordMapperTests
             }
         };
 
-        using var db = TempAppDatabase.Create(port);
-        using var context = db.CreateContext();
-        var loaded = PortRecordMapper.ToConfig(Assert.Single(context.Ports.AsNoTracking()));
-        var kiss = Assert.IsType<KissSettings>(loaded.TypeSettings);
-        var tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        using AppDbContext context = db.CreateContext();
+        PortConfig loaded = PortRecordMapper.ToConfig(Assert.Single(context.Ports.AsNoTracking()));
+        KissSettings kiss = Assert.IsType<KissSettings>(loaded.TypeSettings);
+        TcpKissTransportSettings tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
         Assert.Equal("10.0.0.5", tcp.Host);
         Assert.Equal(8001, tcp.Port);
     }
@@ -78,7 +78,7 @@ public sealed class PortRecordMapperTests
     [Fact]
     public void RoundTripPersistsBluetoothClassicAndLeTransports()
     {
-        var classicPort = new PortConfig
+        PortConfig classicPort = new()
         {
             Id = Guid.NewGuid(),
             Name = "KISS SPP",
@@ -91,10 +91,10 @@ public sealed class PortRecordMapperTests
                 }
             }
         };
-        var serviceUuid = Guid.NewGuid();
-        var rxUuid = Guid.NewGuid();
-        var txUuid = Guid.NewGuid();
-        var blePort = new PortConfig
+        Guid serviceUuid = Guid.NewGuid();
+        Guid rxUuid = Guid.NewGuid();
+        Guid txUuid = Guid.NewGuid();
+        PortConfig blePort = new()
         {
             Id = Guid.NewGuid(),
             Name = "KISS BLE",
@@ -111,17 +111,17 @@ public sealed class PortRecordMapperTests
             }
         };
 
-        using var db = TempAppDatabase.Create(classicPort, blePort);
-        using var context = db.CreateContext();
-        var loadedClassic = PortRecordMapper.ToConfig(context.Ports.AsNoTracking().Single(p => p.Id == classicPort.Id));
-        var loadedBle = PortRecordMapper.ToConfig(context.Ports.AsNoTracking().Single(p => p.Id == blePort.Id));
+        using TempAppDatabase db = TempAppDatabase.Create(classicPort, blePort);
+        using AppDbContext context = db.CreateContext();
+        PortConfig loadedClassic = PortRecordMapper.ToConfig(context.Ports.AsNoTracking().Single(p => p.Id == classicPort.Id));
+        PortConfig loadedBle = PortRecordMapper.ToConfig(context.Ports.AsNoTracking().Single(p => p.Id == blePort.Id));
 
-        var classic = Assert.IsType<BluetoothClassicKissTransportSettings>(
+        BluetoothClassicKissTransportSettings classic = Assert.IsType<BluetoothClassicKissTransportSettings>(
             Assert.IsType<KissSettings>(loadedClassic.TypeSettings).Transport);
         Assert.Equal("AA:BB:CC:DD:EE:FF", classic.DeviceAddress);
         Assert.Equal("TNC", classic.DeviceName);
 
-        var ble = Assert.IsType<BluetoothLeKissTransportSettings>(
+        BluetoothLeKissTransportSettings ble = Assert.IsType<BluetoothLeKissTransportSettings>(
             Assert.IsType<KissSettings>(loadedBle.TypeSettings).Transport);
         Assert.Equal("11:22:33:44:55:66", ble.DeviceAddress);
         Assert.Equal("BLE TNC", ble.DeviceName);

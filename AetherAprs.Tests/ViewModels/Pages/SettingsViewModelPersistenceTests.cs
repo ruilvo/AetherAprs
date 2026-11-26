@@ -29,7 +29,7 @@ public sealed class SettingsViewModelPersistenceTests
     [Fact]
     public void SettingsViewModel_LoadsAllSavedSettings_IncludingSsidAndSymbol()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             // Create initial settings file with SSID and non-default symbols
@@ -44,12 +44,12 @@ public sealed class SettingsViewModelPersistenceTests
                     }
                 }");
 
-            var configService = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
-            var navService = new TestNavigationService();
-            var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+            ConfigurationService configService = new(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
+            TestNavigationService navService = new();
+            AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
 
             // Create SettingsViewModel - this should load settings from config
-            var viewModel = new SettingsViewModel(
+            SettingsViewModel viewModel = new(
                 configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
 
             // Verify all settings were loaded correctly
@@ -71,7 +71,7 @@ public sealed class SettingsViewModelPersistenceTests
     [Fact]
     public void SettingsViewModel_LoadsDefaultSsidZero()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
             // Create settings with SSID = 0
@@ -84,11 +84,11 @@ public sealed class SettingsViewModelPersistenceTests
                     }
                 }");
 
-            var configService = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
-            var navService = new TestNavigationService();
-            var symbolPicker = new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider());
+            ConfigurationService configService = new(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
+            TestNavigationService navService = new();
+            AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
 
-            var viewModel = new SettingsViewModel(
+            SettingsViewModel viewModel = new(
                 configService, navService, symbolPicker, CreateMessageTemplatesViewModel(navService));
 
             // Verify SSID = 0 is loaded correctly
@@ -102,7 +102,7 @@ public sealed class SettingsViewModelPersistenceTests
 
     private static string CreateTemporaryDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         return directory;
     }
@@ -147,13 +147,10 @@ public sealed class SettingsViewModelPersistenceTests
         public void Dispose() { }
     }
 
-    private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation)
-    {
-        return new MessageTemplatesViewModel(
+    private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation) => new(
             Substitute.For<IMessageTemplateService>(),
             Substitute.For<IConfirmationDialogService>(),
             navigation,
             Substitute.For<IMessageTemplateEditViewModelFactory>());
-    }
 }
 

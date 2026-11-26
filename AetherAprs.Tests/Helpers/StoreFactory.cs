@@ -8,10 +8,9 @@ using AetherAprs.Data.Ports;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
-using AetherAprs.Tests.Helpers;
 using System;
 
-namespace AetherAprs.Tests;
+namespace AetherAprs.Tests.Helpers;
 
 /// <summary>
 /// Builds the real durable stores over a temporary database so tests exercise the

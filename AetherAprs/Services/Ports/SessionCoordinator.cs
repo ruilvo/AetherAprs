@@ -93,9 +93,9 @@ public sealed class SessionCoordinator : IAsyncDisposable
     private readonly TimeSpan _teardownTimeout;
     private readonly TimeSpan _diagnosticPersistInterval;
     private readonly IDiagnosticEventSink? _diagnostics;
-    private readonly object _gate = new();
-    private readonly Dictionary<Guid, PortSessionStatus> _ports = new();
-    private readonly Dictionary<Guid, Task> _reconnectTasks = new();
+    private readonly Lock _gate = new();
+    private readonly Dictionary<Guid, PortSessionStatus> _ports = [];
+    private readonly Dictionary<Guid, Task> _reconnectTasks = [];
 
     private CancellationTokenSource? _sessionCts;
     private SessionIntent _intent = SessionIntent.Disarmed;
@@ -196,14 +196,14 @@ public sealed class SessionCoordinator : IAsyncDisposable
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        var snapshot = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        SessionSnapshot? snapshot = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
 
         lock (_gate)
         {
             _ports.Clear();
             if (snapshot is not null)
             {
-                foreach (var port in snapshot.Ports)
+                foreach (PortSessionStatus port in snapshot.Ports)
                 {
                     _ports[port.PortId] = port with
                     {
@@ -252,7 +252,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
             armedPortIds = _intent.PortIds;
             _sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _state = SessionLifecycleState.Starting;
-            foreach (var portId in armedPortIds)
+            foreach (Guid portId in armedPortIds)
             {
                 _ports[portId] = new PortSessionStatus(portId, PortSessionState.Connecting);
             }
@@ -262,7 +262,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
 
         lock (_gate)
         {
-            foreach (var portId in armedPortIds)
+            foreach (Guid portId in armedPortIds)
             {
                 if (_sessionCts is null || _state is SessionLifecycleState.Stopping or SessionLifecycleState.Stopped)
                 {
@@ -349,7 +349,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
         {
             if (_sessionCts is null ||
                 _state is SessionLifecycleState.Stopping or SessionLifecycleState.Stopped ||
-                (_reconnectTasks.TryGetValue(portId, out var task) && !task.IsCompleted))
+                (_reconnectTasks.TryGetValue(portId, out Task? task) && !task.IsCompleted))
             {
                 return Task.CompletedTask;
             }
@@ -379,7 +379,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
             _sessionCts?.Cancel();
         }
 
-        using var teardown = new CancellationTokenSource(_teardownTimeout);
+        using CancellationTokenSource teardown = new(_teardownTimeout);
 
         try
         {
@@ -399,7 +399,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
                 $"A reconnect loop ended with an error: {exception.Message}");
         }
 
-        foreach (var portId in ports)
+        foreach (Guid portId in ports)
         {
             try
             {
@@ -426,7 +426,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
 
         lock (_gate)
         {
-            foreach (var portId in ports)
+            foreach (Guid portId in ports)
             {
                 _ports[portId] = _ports[portId] with
                 {
@@ -460,11 +460,11 @@ public sealed class SessionCoordinator : IAsyncDisposable
 
     private async Task ReconnectLoopAsync(Guid portId, CancellationToken cancellationToken)
     {
-        var retryCount = 0;
+        int retryCount = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            var now = _timeProvider.GetUtcNow();
+            DateTimeOffset now = _timeProvider.GetUtcNow();
             ApplyPortUpdate(
                 portId,
                 status => status with
@@ -496,7 +496,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
             catch (Exception ex)
             {
                 retryCount++;
-                var delay = CalculateBackoff(retryCount);
+                TimeSpan delay = CalculateBackoff(retryCount);
                 ApplyPortUpdate(
                     portId,
                     status => status with
@@ -514,10 +514,10 @@ public sealed class SessionCoordinator : IAsyncDisposable
 
     private TimeSpan CalculateBackoff(int retryCount)
     {
-        var exponentialSeconds = Math.Min(
+        double exponentialSeconds = Math.Min(
             _maximumBackoff.TotalSeconds,
             _initialBackoff.TotalSeconds * Math.Pow(2, retryCount - 1));
-        var jitterFactor = 0.5 + Math.Clamp(_jitter(), 0, 1) * 0.5;
+        double jitterFactor = 0.5 + Math.Clamp(_jitter(), 0, 1) * 0.5;
         return TimeSpan.FromSeconds(Math.Min(
             _maximumBackoff.TotalSeconds,
             exponentialSeconds * jitterFactor));
@@ -527,19 +527,19 @@ public sealed class SessionCoordinator : IAsyncDisposable
         Guid portId,
         Func<PortSessionStatus, PortSessionStatus> update)
     {
-        var changed = false;
+        bool changed;
         lock (_gate)
         {
-            if (!_ports.TryGetValue(portId, out var current))
+            if (!_ports.TryGetValue(portId, out PortSessionStatus? current))
             {
                 current = new PortSessionStatus(portId, PortSessionState.Stopped);
             }
 
-            var updated = update(current);
-            var portStateChanged = updated.State != current.State;
+            PortSessionStatus updated = update(current);
+            bool portStateChanged = updated.State != current.State;
             _ports[portId] = updated;
 
-            var previousAggregateState = _state;
+            SessionLifecycleState previousAggregateState = _state;
             UpdateAggregateStateLocked();
             changed = portStateChanged || _state != previousAggregateState;
         }
@@ -651,10 +651,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
             _ => DiagnosticSeverity.Information
         };
 
-    private void ThrowIfDisposed()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-    }
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
     public async ValueTask DisposeAsync()
     {

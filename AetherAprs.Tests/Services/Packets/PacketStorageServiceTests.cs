@@ -20,6 +20,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -40,7 +41,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public PacketStorageServiceTests()
     {
         _db = TempAppDatabase.CreateEmpty();
-        using (var db = _db.CreateContext())
+        using (AppDbContext db = _db.CreateContext())
         {
             db.Database.EnsureCreated();
         }
@@ -67,8 +68,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_PositionPacket_SavesWithAllFields()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var packet = new PositionPacket
+        Guid portId = Guid.NewGuid();
+        PositionPacket packet = new()
         {
             Source = new Callsign("K0OTH", 1),
             Destination = new Callsign("APRS", 0),
@@ -86,8 +87,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId, isOutbound: false, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets
             .Include(p => p.Position)
             .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
@@ -115,8 +116,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_MessagePacket_SavesWithDeliveryStatus()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var packet = new MessagePacket
+        Guid portId = Guid.NewGuid();
+        MessagePacket packet = new()
         {
             Source = new Callsign("CT7ALW", 0),
             Destination = new Callsign("APRS", 0),
@@ -130,8 +131,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId, isOutbound: true, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets
             .Include(p => p.Message)
             .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
@@ -152,17 +153,17 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     [Fact]
     public async Task EnsureOutboundMessageAsync_ConcurrentWritersStoreOneLogicalMessage()
     {
-        var packet = CreateOutboundMessage();
-        var cancellationToken = TestContext.Current.CancellationToken;
-        await using var secondWriter = new SqliteRuntimeWriter(_db.Factory);
-        var secondStore = new PacketStorageService(secondWriter, _configurationService, _logger);
-        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var first = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
+        MessagePacket packet = CreateOutboundMessage();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await using SqliteRuntimeWriter secondWriter = new(_db.Factory);
+        PacketStorageService secondStore = new(secondWriter, _configurationService, _logger);
+        TaskCompletionSource start = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task[] first = [.. Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
         {
             await start.Task;
             await _service.EnsureOutboundMessageAsync(packet, Guid.NewGuid(), cancellationToken: cancellationToken);
-        }, cancellationToken)).ToArray();
-        var second = Task.Run(async () =>
+        }, cancellationToken))];
+        Task second = Task.Run(async () =>
         {
             await start.Task;
             await secondStore.StorePacketAsync(packet, Guid.NewGuid(), isOutbound: true, cancellationToken);
@@ -170,8 +171,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         start.SetResult();
         await Task.WhenAll(first.Append(second));
 
-        await using var context = _db.CreateContext();
-        var row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));
+        await using AppDbContext context = _db.CreateContext();
+        PacketRecord row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));
         Assert.Equal(packet.MessageNumber, row.Message!.Number);
         Assert.Equal(MessageDeliveryStatus.Pending, row.Message.DeliveryStatus);
     }
@@ -179,14 +180,14 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     [Fact]
     public async Task EnsureOutboundMessageAsync_FailedInsertCanBeRetriedWithDurableRetryState()
     {
-        var packet = CreateOutboundMessage();
-        var cancellationToken = TestContext.Current.CancellationToken;
-        await using var context = _db.CreateContext();
+        MessagePacket packet = CreateOutboundMessage();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await using AppDbContext context = _db.CreateContext();
         await context.Database.ExecuteSqlRawAsync("""
             CREATE TRIGGER RejectPacketInsert BEFORE INSERT ON Packets
                 BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END;
             """, cancellationToken);
-        var notifications = 0;
+        int notifications = 0;
         _service.PacketStored += (_, _) => notifications++;
 
         await Assert.ThrowsAsync<DbUpdateException>(
@@ -195,11 +196,11 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         Assert.Equal(0, notifications);
 
         await context.Database.ExecuteSqlRawAsync("DROP TRIGGER RejectPacketInsert;", cancellationToken);
-        var nextRetry = DateTimeOffset.UtcNow.AddMinutes(1);
+        DateTimeOffset nextRetry = DateTimeOffset.UtcNow.AddMinutes(1);
         await _service.EnsureOutboundMessageAsync(packet, null, 1, nextRetry, cancellationToken);
         await _service.EnsureOutboundMessageAsync(packet, null, cancellationToken: cancellationToken);
 
-        var row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));
+        PacketRecord row = Assert.Single(await context.Packets.ToListAsync(cancellationToken));
         Assert.Equal(1, row.Message!.RetryCount);
         Assert.Equal(nextRetry.UtcDateTime, row.Message.NextRetryTime);
         Assert.Equal(1, notifications);
@@ -208,19 +209,19 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     [Fact]
     public async Task MessageQueries_RecoverOldPendingRowsAndHighestOutboundNumberBeyondHistoryLimit()
     {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        var pending = CreateOutboundMessage();
-        var terminal = CreateOutboundMessage(100);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        MessagePacket pending = CreateOutboundMessage();
+        MessagePacket terminal = CreateOutboundMessage(100);
         await _service.EnsureOutboundMessageAsync(pending, null, cancellationToken: cancellationToken);
         await _service.EnsureOutboundMessageAsync(terminal, null, cancellationToken: cancellationToken);
         await _service.UpdateOutboundMessageStatusAsync(terminal.Addressee, 100,
             MessageDeliveryStatus.Acknowledged, 0, null, cancellationToken);
         await _service.StorePacketAsync(CreateOutboundMessage(1), null, cancellationToken: cancellationToken);
-        using var query = new PacketQueryService(new SqliteRuntimeReader(_db.Factory), NullLogger<PacketQueryService>.Instance);
+        using PacketQueryService query = new(new SqliteRuntimeReader(_db.Factory), NullLogger<PacketQueryService>.Instance);
 
-        var messages = await query.GetMessagePacketsAsync(1, cancellationToken);
+        IReadOnlyList<PacketRecord> messages = await query.GetMessagePacketsAsync(1, cancellationToken);
 
-        Assert.Equal(new int?[] { 1, 42 }, messages.Select(packet => packet.Message!.Number));
+        Assert.Equal([1, 42], messages.Select(packet => packet.Message!.Number));
         Assert.Equal(100, await query.GetHighestOutboundMessageNumberAsync(cancellationToken));
     }
 
@@ -237,8 +238,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_MessagePacketInbound_NoDeliveryStatus()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var packet = new MessagePacket
+        Guid portId = Guid.NewGuid();
+        MessagePacket packet = new()
         {
             Source = new Callsign("K0OTH", 1),
             Destination = new Callsign("APRS", 0),
@@ -252,8 +253,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId, isOutbound: false, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets
             .Include(p => p.Message)
             .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
@@ -269,8 +270,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_StatusPacket_SavesCorrectly()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var packet = new StatusPacket
+        Guid portId = Guid.NewGuid();
+        StatusPacket packet = new()
         {
             Source = new Callsign("CT7ALW", 9),
             Destination = new Callsign("APRS", 0),
@@ -282,8 +283,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId, isOutbound: false, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets
             .Include(p => p.Status)
             .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
@@ -297,8 +298,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_WeatherPacket_SavesAllFields()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var packet = new WeatherPacket
+        Guid portId = Guid.NewGuid();
+        WeatherPacket packet = new()
         {
             Source = new Callsign("WX0TST", 0),
             Destination = new Callsign("APWX", 0),
@@ -316,8 +317,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId, isOutbound: false, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets
             .Include(p => p.Weather)
             .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
@@ -337,8 +338,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_UnknownPacket_SavesAsUnknown()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var packet = new UnknownPacket
+        Guid portId = Guid.NewGuid();
+        UnknownPacket packet = new()
         {
             Source = new Callsign("TEST", 0),
             Destination = new Callsign("APRS", 0),
@@ -349,8 +350,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId, isOutbound: false, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(stored);
         Assert.Equal(PacketTypes.Unknown, stored.PacketType);
@@ -362,7 +363,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_NullPortId_SavesSuccessfully()
     {
         // Arrange
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = new Callsign("K0OTH", 1),
             Destination = new Callsign("APRS", 0),
@@ -375,8 +376,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.StorePacketAsync(packet, portId: null, isOutbound: false, TestContext.Current.CancellationToken);
 
         // Assert
-        await using var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
-        var stored = await db.Packets.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+        await using AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken);
+        PacketRecord? stored = await db.Packets.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
         Assert.NotNull(stored);
         Assert.Null(stored.PortId);
@@ -386,10 +387,10 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_RaisesPacketStoredEvent()
     {
         // Arrange
-        var eventRaised = false;
+        bool eventRaised = false;
         _service.PacketStored += (sender, e) => eventRaised = true;
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = new Callsign("K0OTH", 1),
             Destination = new Callsign("APRS", 0),
@@ -408,8 +409,8 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     [Fact]
     public async Task StorePacketAsync_ThrowingObserver_LeavesCommittedPacketVisibleToLaterObserver()
     {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        var packet = new UnknownPacket
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        UnknownPacket packet = new()
         {
             Source = new Callsign("TEST", 0),
             Destination = new Callsign("APRS", 0),
@@ -419,14 +420,14 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         _service.PacketStored += (_, _) => throw new InvalidOperationException("Observer failed.");
         _service.PacketStored += (_, _) =>
         {
-            using var reader = _db.Factory.CreateDbContext();
+            using AppDbContext reader = _db.Factory.CreateDbContext();
             observedRaw = reader.Packets.Select(record => record.RawInfo).Single();
         };
 
         await _service.StorePacketAsync(packet, portId: null, cancellationToken: cancellationToken);
 
         Assert.Equal(packet.Raw, observedRaw);
-        await using var context = await _db.Factory.CreateDbContextAsync(cancellationToken);
+        await using AppDbContext context = await _db.Factory.CreateDbContextAsync(cancellationToken);
         Assert.Equal(1, await context.Packets.CountAsync(cancellationToken));
     }
 
@@ -434,15 +435,15 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task StorePacketAsync_OnDatabaseError_ThrowsException()
     {
         // Arrange - use invalid path to force error
-        var invalidPath = Path.Combine(Path.GetTempPath(), $"ReadOnlyDir-{Guid.NewGuid():N}", "invalid.db");
-        var invalidFactory = new TestDbContextFactory(invalidPath);
-        
-        await using var writer = new SqliteRuntimeWriter(invalidFactory);
-        var service = new PacketStorageService(writer, _configurationService, _logger);
-        var notified = false;
+        string invalidPath = Path.Combine(Path.GetTempPath(), $"ReadOnlyDir-{Guid.NewGuid():N}", "invalid.db");
+        TestDbContextFactory invalidFactory = new(invalidPath);
+
+        await using SqliteRuntimeWriter writer = new(invalidFactory);
+        PacketStorageService service = new(writer, _configurationService, _logger);
+        bool notified = false;
         service.PacketStored += (_, _) => notified = true;
-        
-        var packet = new PositionPacket
+
+        PositionPacket packet = new()
         {
             Source = new Callsign("K0OTH", 1),
             Destination = new Callsign("APRS", 0),
@@ -469,9 +470,9 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task CleanupOldPacketsAsync_RemovesPacketsOlderThanRetention()
     {
         // Arrange - insert 3 packets: 2 old, 1 recent
-        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
-            var oldPacket1 = new PacketRecord
+            PacketRecord oldPacket1 = new()
             {
                 SourceBase = "OLD1",
                 SourceSsid = AprsSsid.PrimaryStation,
@@ -482,7 +483,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
                 RawInfo = "OLD1>APRS:test"
             };
 
-            var oldPacket2 = new PacketRecord
+            PacketRecord oldPacket2 = new()
             {
                 SourceBase = "OLD2",
                 SourceSsid = AprsSsid.PrimaryStation,
@@ -493,7 +494,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
                 RawInfo = "OLD2>APRS:test"
             };
 
-            var recentPacket = new PacketRecord
+            PacketRecord recentPacket = new()
             {
                 SourceBase = "RECENT",
                 SourceSsid = AprsSsid.PrimaryStation,
@@ -512,11 +513,11 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.CleanupOldPacketsAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
-            var remaining = await db.Packets.ToListAsync(TestContext.Current.CancellationToken);
-            Assert.Single(remaining);
-            Assert.Equal("RECENT", remaining[0].SourceBase);
+            List<PacketRecord> remaining = await db.Packets.ToListAsync(TestContext.Current.CancellationToken);
+            PacketRecord item = Assert.Single(remaining);
+            Assert.Equal("RECENT", item.SourceBase);
         }
     }
 
@@ -524,9 +525,9 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task CleanupOldPacketsAsync_NoOldPackets_DoesNothing()
     {
         // Arrange - insert only recent packets
-        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
-            var recentPacket = new PacketRecord
+            PacketRecord recentPacket = new()
             {
                 SourceBase = "RECENT",
                 SourceSsid = AprsSsid.PrimaryStation,
@@ -545,9 +546,9 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         await _service.CleanupOldPacketsAsync(TestContext.Current.CancellationToken);
 
         // Assert
-        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
-            var remaining = await db.Packets.ToListAsync(TestContext.Current.CancellationToken);
+            List<PacketRecord> remaining = await db.Packets.ToListAsync(TestContext.Current.CancellationToken);
             Assert.Single(remaining);
         }
     }
@@ -559,7 +560,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         {
             Aprs = _appSettings.Aprs with { PacketRetentionMaxRows = 2 },
         };
-        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
             db.Packets.AddRange(
                 CreatePacketRecord("BOUND1", DateTime.UtcNow.AddMinutes(-4)),
@@ -586,13 +587,13 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
 
         await _service.CleanupOldPacketsAsync(TestContext.Current.CancellationToken);
 
-        await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
+        await using (AppDbContext db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
-            var remaining = await db.Packets
+            List<PacketRecord> remaining = await db.Packets
                 .Include(packet => packet.Message)
                 .ToListAsync(TestContext.Current.CancellationToken);
             Assert.Equal(2, remaining.Count);
-            var pending = Assert.Single(remaining, packet => packet.SourceBase == "PENDING");
+            PacketRecord pending = Assert.Single(remaining, packet => packet.SourceBase == "PENDING");
             Assert.Equal(MessageDeliveryStatus.Pending, pending.Message!.DeliveryStatus);
         }
     }
@@ -601,11 +602,11 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     public async Task CleanupOldPacketsAsync_OnDatabaseError_DoesNotThrow()
     {
         // Arrange - use invalid path to force error
-        var invalidPath = Path.Combine(Path.GetTempPath(), $"ReadOnlyDir-{Guid.NewGuid():N}", "invalid.db");
-        var invalidFactory = new TestDbContextFactory(invalidPath);
-        
-        await using var writer = new SqliteRuntimeWriter(invalidFactory);
-        var service = new PacketStorageService(writer, _configurationService, _logger);
+        string invalidPath = Path.Combine(Path.GetTempPath(), $"ReadOnlyDir-{Guid.NewGuid():N}", "invalid.db");
+        TestDbContextFactory invalidFactory = new(invalidPath);
+
+        await using SqliteRuntimeWriter writer = new(invalidFactory);
+        PacketStorageService service = new(writer, _configurationService, _logger);
 
         // Act - should not throw, error is logged
         await service.CleanupOldPacketsAsync(TestContext.Current.CancellationToken);

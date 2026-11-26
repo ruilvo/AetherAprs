@@ -6,28 +6,27 @@ using System;
 using Avalonia;
 using Avalonia.Threading;
 
-namespace AetherAprs.Services.UI
+namespace AetherAprs.Services.UI;
+
+/// <summary>
+/// Avalonia-backed <see cref="IUiDispatcher"/> that marshals work onto
+/// <see cref="Dispatcher.UIThread"/>, following the same CheckAccess/Post
+/// pattern used by <c>MessageService.RunOnUi</c>.
+/// </summary>
+public sealed class AvaloniaUiDispatcher : IUiDispatcher
 {
-    /// <summary>
-    /// Avalonia-backed <see cref="IUiDispatcher"/> that marshals work onto
-    /// <see cref="Dispatcher.UIThread"/>, following the same CheckAccess/Post
-    /// pattern used by <c>MessageService.RunOnUi</c>.
-    /// </summary>
-    public sealed class AvaloniaUiDispatcher : IUiDispatcher
+    public static AvaloniaUiDispatcher Instance { get; } = new();
+
+    public void Post(Action action)
     {
-        public static AvaloniaUiDispatcher Instance { get; } = new();
+        ArgumentNullException.ThrowIfNull(action);
 
-        public void Post(Action action)
+        if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
         {
-            ArgumentNullException.ThrowIfNull(action);
-
-            if (Application.Current is null || Dispatcher.UIThread.CheckAccess())
-            {
-                action();
-                return;
-            }
-
-            Dispatcher.UIThread.Post(action);
+            action();
+            return;
         }
+
+        Dispatcher.UIThread.Post(action);
     }
 }

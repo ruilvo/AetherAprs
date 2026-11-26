@@ -17,7 +17,7 @@ public sealed class TxTimingTests
     [Fact]
     public void ComputeChannelAccessDelay_ZeroSlotTime_ReturnsZero()
     {
-        var timing = new TxTiming(new FixedRandom(255));
+        TxTiming timing = new(new FixedRandom(255));
 
         Assert.Equal(TimeSpan.Zero, timing.ComputeChannelAccessDelay(0, 63));
     }
@@ -26,7 +26,7 @@ public sealed class TxTimingTests
     public void ComputeChannelAccessDelay_MaxPersist_TransmitsImmediately()
     {
         // persist=255 clamps to 255; a draw of 254 is below it, so zero slots.
-        var timing = new TxTiming(new FixedRandom(254));
+        TxTiming timing = new(new FixedRandom(254));
 
         Assert.Equal(TimeSpan.Zero, timing.ComputeChannelAccessDelay(100, 255));
     }
@@ -35,7 +35,7 @@ public sealed class TxTimingTests
     public void ComputeChannelAccessDelay_LowPersist_DefersToBoundedSlots()
     {
         // persist=1 and a draw of 255 always defers, bounded to 32 slots.
-        var timing = new TxTiming(new FixedRandom(255));
+        TxTiming timing = new(new FixedRandom(255));
 
         Assert.Equal(TimeSpan.FromMilliseconds(3200), timing.ComputeChannelAccessDelay(100, 1));
     }
@@ -43,9 +43,9 @@ public sealed class TxTimingTests
     [Fact]
     public void ComputeChannelAccessDelay_IsMultipleOfSlotTime()
     {
-        var timing = new TxTiming(new Random(12345));
+        TxTiming timing = new(new Random(12345));
 
-        var delay = timing.ComputeChannelAccessDelay(50, 63);
+        TimeSpan delay = timing.ComputeChannelAccessDelay(50, 63);
 
         Assert.Equal(0, delay.TotalMilliseconds % 50);
         Assert.InRange(delay.TotalMilliseconds, 0, 50 * 32);
@@ -58,7 +58,7 @@ public sealed class TxTimingTests
     [Fact]
     public void ShouldHoldOff_UnseenKey_ReturnsFalse()
     {
-        var timing = new TxTiming();
+        TxTiming timing = new();
 
         Assert.False(timing.ShouldHoldOff("N0CALL|APRS|data", DateTimeOffset.UtcNow));
     }
@@ -66,8 +66,8 @@ public sealed class TxTimingTests
     [Fact]
     public void ShouldHoldOff_AfterMarkTransmitted_WithinWindow_ReturnsTrue()
     {
-        var timing = new TxTiming();
-        var now = DateTimeOffset.UtcNow;
+        TxTiming timing = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         timing.MarkTransmitted("N0CALL|APRS|data", now);
 
         Assert.True(timing.ShouldHoldOff("N0CALL|APRS|data", now + TimeSpan.FromSeconds(29)));
@@ -76,8 +76,8 @@ public sealed class TxTimingTests
     [Fact]
     public void ShouldHoldOff_AfterWindow_ReturnsFalse()
     {
-        var timing = new TxTiming();
-        var now = DateTimeOffset.UtcNow;
+        TxTiming timing = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         timing.MarkTransmitted("N0CALL|APRS|data", now);
 
         Assert.False(timing.ShouldHoldOff("N0CALL|APRS|data", now + TimeSpan.FromSeconds(31)));
@@ -86,8 +86,8 @@ public sealed class TxTimingTests
     [Fact]
     public void MarkTransmitted_BeyondCapacity_EvictsOldest()
     {
-        var timing = new TxTiming();
-        var now = DateTimeOffset.UtcNow;
+        TxTiming timing = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
         for (int i = 0; i <= 256; i++)
         {

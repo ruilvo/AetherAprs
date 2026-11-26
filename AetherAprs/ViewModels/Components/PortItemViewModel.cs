@@ -113,28 +113,19 @@ public partial class PortItemViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Edit()
-    {
-        _onEdit(this);
-    }
+    private void Edit() => _onEdit(this);
 
     [RelayCommand]
-    private async Task DeleteAsync()
-    {
-        await _onDelete(this);
-    }
+    private async Task DeleteAsync() => await _onDelete(this);
 
     [RelayCommand]
-    private void ToggleShowOnMap()
-    {
-        ShowOnMap = !ShowOnMap;
-    }
+    private void ToggleShowOnMap() => ShowOnMap = !ShowOnMap;
 
     public PortConfig BuildConfig()
     {
         // Return a copy: the item's config is a snapshot of service state and
         // must not be mutated as a side effect of opening the edit form.
-        var config = _config.Clone();
+        PortConfig config = _config.Clone();
         config.IsEnabled = IsEnabled;
         config.ShowOnMap = ShowOnMap;
         return config;

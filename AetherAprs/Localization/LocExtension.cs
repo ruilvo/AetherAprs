@@ -14,10 +14,7 @@ public sealed class LocExtension : MarkupExtension
     {
     }
 
-    public LocExtension(string key)
-    {
-        Key = key;
-    }
+    public LocExtension(string key) => Key = key;
 
     /// <summary>
     /// Gets or sets the localization resource key.
@@ -28,8 +25,5 @@ public sealed class LocExtension : MarkupExtension
     [ConstructorArgument("key")]
     public string Key { get; set; } = string.Empty;
 
-    public override object ProvideValue(IServiceProvider serviceProvider)
-    {
-        return Strings.Get(Key);
-    }
+    public override object ProvideValue(IServiceProvider serviceProvider) => Strings.Get(Key);
 }

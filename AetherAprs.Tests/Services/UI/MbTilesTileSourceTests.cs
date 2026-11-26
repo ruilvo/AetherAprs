@@ -17,12 +17,12 @@ public sealed class MbTilesTileSourceTests
     [Fact]
     public void Constructor_ReadsNameAndAttribution()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var path = MbTilesTestFixture.Create(directory);
+            string path = MbTilesTestFixture.Create(directory);
 
-            var source = new MbTilesTileSource(path);
+            MbTilesTileSource source = new(path);
 
             Assert.Equal("Test Map", source.Name);
             Assert.Equal("Test attribution", source.Attribution.Text);
@@ -36,12 +36,12 @@ public sealed class MbTilesTileSourceTests
     [Fact]
     public void Constructor_ReadsSchemaFormatAndZoomLevels()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var path = MbTilesTestFixture.Create(directory);
+            string path = MbTilesTestFixture.Create(directory);
 
-            var source = new MbTilesTileSource(path);
+            MbTilesTileSource source = new(path);
 
             Assert.Equal("png", source.Schema.Format);
             Assert.Equal(YAxis.TMS, source.Schema.YAxis);
@@ -58,12 +58,12 @@ public sealed class MbTilesTileSourceTests
     [Fact]
     public void Constructor_ReadsExtentFromBounds()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var path = MbTilesTestFixture.Create(directory);
+            string path = MbTilesTestFixture.Create(directory);
 
-            var source = new MbTilesTileSource(path);
+            MbTilesTileSource source = new(path);
 
             // Bounds -10,40,10,50 (WGS84) converted to Spherical Mercator meters.
             Assert.True(source.Schema.Extent.MinX < source.Schema.Extent.MaxX);
@@ -80,7 +80,7 @@ public sealed class MbTilesTileSourceTests
     [Fact]
     public void Constructor_MissingFile_ThrowsFileNotFound()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"does-not-exist-{Guid.NewGuid():N}.mbtiles");
+        string path = Path.Combine(Path.GetTempPath(), $"does-not-exist-{Guid.NewGuid():N}.mbtiles");
 
         Assert.Throws<FileNotFoundException>(() => new MbTilesTileSource(path));
     }
@@ -88,14 +88,14 @@ public sealed class MbTilesTileSourceTests
     [Fact]
     public async Task GetTileAsync_ExistingTile_ReturnsData()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var path = MbTilesTestFixture.Create(directory);
-            var source = new MbTilesTileSource(path);
+            string path = MbTilesTestFixture.Create(directory);
+            MbTilesTileSource source = new(path);
 
-            var tile = new TileInfo { Index = new TileIndex(0, 0, 0) };
-            var data = await source.GetTileAsync(tile);
+            TileInfo tile = new() { Index = new TileIndex(0, 0, 0) };
+            byte[]? data = await source.GetTileAsync(tile);
 
             Assert.NotNull(data);
             Assert.Equal([1, 2, 3, 4], data);
@@ -109,15 +109,15 @@ public sealed class MbTilesTileSourceTests
     [Fact]
     public async Task GetTileAsync_MissingTile_ReturnsNull()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var path = MbTilesTestFixture.Create(directory);
-            var source = new MbTilesTileSource(path);
+            string path = MbTilesTestFixture.Create(directory);
+            MbTilesTileSource source = new(path);
 
             // No tile exists at column 5 / row 5 / zoom 0.
-            var tile = new TileInfo { Index = new TileIndex(5, 5, 0) };
-            var data = await source.GetTileAsync(tile);
+            TileInfo tile = new() { Index = new TileIndex(5, 5, 0) };
+            byte[]? data = await source.GetTileAsync(tile);
 
             Assert.Null(data);
         }

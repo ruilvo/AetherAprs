@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -33,7 +33,7 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string Title { get; set; } = Localization.Strings.Get("Ports");
 
-    public ObservableCollection<PortItemViewModel> PortItems { get; } = new();
+    public ObservableCollection<PortItemViewModel> PortItems { get; } = [];
     public bool HasPorts => PortItems.Count > 0;
 
     public PortsViewModel(
@@ -63,13 +63,13 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     private void LoadPorts()
     {
         PortItems.Clear();
-        foreach (var port in _portService.Ports)
+        foreach (PortConfig port in _portService.Ports)
         {
-            var item = new PortItemViewModel(
-                port, 
-                OnTogglePortAsync, 
-                OnToggleShowOnMapAsync, 
-                OnDeletePortAsync, 
+            PortItemViewModel item = new(
+                port,
+                OnTogglePortAsync,
+                OnToggleShowOnMapAsync,
+                OnDeletePortAsync,
                 OnEditPort,
                 _loggerFactory.CreateLogger<PortItemViewModel>());
             PortItems.Add(item);
@@ -111,7 +111,7 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
 
     private async Task OnDeletePortAsync(PortItemViewModel item)
     {
-        var confirmed = await _confirmationDialogService.ShowConfirmationAsync(
+        bool confirmed = await _confirmationDialogService.ShowConfirmationAsync(
             Localization.Strings.Get("DeletePort"),
             Localization.Strings.Format("DeletePortConfirmation", item.Name));
 
@@ -127,8 +127,8 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     public void OnEditPort(PortItemViewModel item)
     {
         _logger.LogInformation("Edit port {PortName} ({PortId})", item.Name, item.Id);
-        var config = item.BuildConfig();
-        var vm = _addEditPortViewModelFactory.CreateForEdit(
+        PortConfig config = item.BuildConfig();
+        AddEditPortViewModel vm = _addEditPortViewModelFactory.CreateForEdit(
             _configurationService.Current.Aprs.Callsign,
             GetNextPortNumber(),
             config);
@@ -139,7 +139,7 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     public void AddPort()
     {
         _logger.LogInformation("Add port requested");
-        var vm = _addEditPortViewModelFactory.CreateForAdd(
+        AddEditPortViewModel vm = _addEditPortViewModelFactory.CreateForAdd(
             _configurationService.Current.Aprs.Callsign,
             GetNextPortNumber());
         _navigationService.NavigateTo(vm);
@@ -151,10 +151,10 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
         // port types: counting APRS-IS ports alone reused a KISS number when two
         // KISS ports existed and ignored the numbers a deleted port had already
         // used.
-        var highest = 0;
-        foreach (var port in _portService.Ports)
+        int highest = 0;
+        foreach (PortConfig port in _portService.Ports)
         {
-            var number = DefaultNameNumber(port);
+            int number = DefaultNameNumber(port);
             if (number > highest)
             {
                 highest = number;
@@ -168,15 +168,15 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
 
     private static int DefaultNameNumber(PortConfig port)
     {
-        var template = port.TypeSettings is AprsIsSettings
+        string template = port.TypeSettings is AprsIsSettings
             ? "DefaultAprsIsPortName"
             : "DefaultKissPortName";
 
         // Formatting with an empty argument yields the localized prefix
         // ("APRS-IS Port ", "KISS Port ") that the editor prepends to a number.
-        var prefix = Localization.Strings.Format(template, string.Empty);
+        string prefix = Localization.Strings.Format(template, string.Empty);
         return port.Name.StartsWith(prefix, StringComparison.Ordinal)
-            && int.TryParse(port.Name.AsSpan(prefix.Length), out var number)
+            && int.TryParse(port.Name.AsSpan(prefix.Length), out int number)
                 ? number
                 : 0;
     }

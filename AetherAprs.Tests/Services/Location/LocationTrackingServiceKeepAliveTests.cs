@@ -18,9 +18,9 @@ public sealed class LocationTrackingServiceKeepAliveTests
     [Fact]
     public async Task StartTrackingAsync_AcquiresLocationTrackingKeepAlive()
     {
-        var locationService = CreateAvailableLocationService();
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        var service = new LocationTrackingService(
+        ILocationService locationService = CreateAvailableLocationService();
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance);
@@ -36,9 +36,9 @@ public sealed class LocationTrackingServiceKeepAliveTests
     [Fact]
     public async Task StopTracking_ReleasesLocationTrackingKeepAlive()
     {
-        var locationService = CreateAvailableLocationService();
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        var service = new LocationTrackingService(
+        ILocationService locationService = CreateAvailableLocationService();
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance);
@@ -56,10 +56,10 @@ public sealed class LocationTrackingServiceKeepAliveTests
     [Fact]
     public async Task StartTrackingAsync_LocationUnavailable_DoesNotAcquireKeepAlive()
     {
-        var locationService = Substitute.For<ILocationService>();
+        ILocationService locationService = Substitute.For<ILocationService>();
         locationService.IsLocationAvailable().Returns(false);
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        var service = new LocationTrackingService(
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance);
@@ -74,9 +74,9 @@ public sealed class LocationTrackingServiceKeepAliveTests
     [Fact]
     public async Task StartTrackingAsync_AlreadyTracking_DoesNotAcquireTwice()
     {
-        var locationService = CreateAvailableLocationService();
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        var service = new LocationTrackingService(
+        ILocationService locationService = CreateAvailableLocationService();
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance);
@@ -92,7 +92,7 @@ public sealed class LocationTrackingServiceKeepAliveTests
 
     private static ILocationService CreateAvailableLocationService()
     {
-        var locationService = Substitute.For<ILocationService>();
+        ILocationService locationService = Substitute.For<ILocationService>();
         locationService.IsLocationAvailable().Returns(true);
         locationService.GetCurrentLocationAsync(Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new LocationData

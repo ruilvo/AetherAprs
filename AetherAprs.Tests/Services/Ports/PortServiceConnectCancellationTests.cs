@@ -32,12 +32,12 @@ public sealed class PortServiceConnectCancellationTests
     [Fact]
     public async Task StartSessionAsync_ForwardsCancellationToBluetoothConnectors()
     {
-        var classicPortId = Guid.NewGuid();
-        var lePortId = Guid.NewGuid();
-        var classicConnector = new BlockingConnector(typeof(BluetoothClassicKissTransportSettings));
-        var leConnector = new BlockingConnector(typeof(BluetoothLeKissTransportSettings));
-        var factory = new KissStreamFactory([classicConnector, leConnector]);
-        using var db = TempAppDatabase.Create(
+        Guid classicPortId = Guid.NewGuid();
+        Guid lePortId = Guid.NewGuid();
+        BlockingConnector classicConnector = new(typeof(BluetoothClassicKissTransportSettings));
+        BlockingConnector leConnector = new(typeof(BluetoothLeKissTransportSettings));
+        KissStreamFactory factory = new([classicConnector, leConnector]);
+        using TempAppDatabase db = TempAppDatabase.Create(
             CreatePort(classicPortId, new BluetoothClassicKissTransportSettings
             {
                 DeviceAddress = "00:11:22:33:44:55"
@@ -46,7 +46,7 @@ public sealed class PortServiceConnectCancellationTests
             {
                 DeviceAddress = "AA:BB:CC:DD:EE:FF"
             }));
-        await using var service = CreateService(db, factory);
+        await using PortService service = CreateService(db, factory);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
 
         await AssertCancellationIsForwardedAsync(service, classicPortId, classicConnector);
@@ -58,8 +58,8 @@ public sealed class PortServiceConnectCancellationTests
         Guid portId,
         BlockingConnector connector)
     {
-        using var cts = new CancellationTokenSource();
-        var startTask = service.StartSessionAsync(portId, cts.Token);
+        using CancellationTokenSource cts = new();
+        Task<PortSessionStartResult> startTask = service.StartSessionAsync(portId, cts.Token);
 
         await connector.Entered.Task.WaitAsync(
             TestTimeouts.TestTimeout,
@@ -69,10 +69,10 @@ public sealed class PortServiceConnectCancellationTests
         // Cancellation is reported as a structured result rather than an exception,
         // so supervision can distinguish it from a rejected transport, but the
         // original OperationCanceledException must still be attached.
-        var result = await startTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+        PortSessionStartResult result = await startTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStartStatus.Cancelled, result.Status);
-        Assert.IsAssignableFrom<OperationCanceledException>(result.Error);
+        Assert.IsType<OperationCanceledException>(result.Error, exactMatch: false);
         Assert.False(result.IsRunning);
         Assert.True(connector.CapturedToken.CanBeCanceled);
         Assert.True(connector.CapturedToken.IsCancellationRequested);
@@ -94,7 +94,7 @@ public sealed class PortServiceConnectCancellationTests
 
     private static PortService CreateService(TempAppDatabase db, IKissStreamFactory kissStreamFactory)
     {
-        var digipeater = Substitute.For<IDigipeaterService>();
+        IDigipeaterService digipeater = Substitute.For<IDigipeaterService>();
         digipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
             Arg.Any<Guid>(),

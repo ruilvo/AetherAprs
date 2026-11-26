@@ -5,20 +5,19 @@
 using System;
 using AetherAprs.Services.UI;
 
-namespace AetherAprs.Tests.Helpers
-{
-    /// <summary>
-    /// Test double that executes posted actions synchronously on the calling thread,
-    /// keeping event-handler assertions deterministic without a real UI thread.
-    /// </summary>
-    public sealed class SynchronousUiDispatcher : IUiDispatcher
-    {
-        public static SynchronousUiDispatcher Instance { get; } = new();
+namespace AetherAprs.Tests.Helpers;
 
-        public void Post(Action action)
-        {
-            ArgumentNullException.ThrowIfNull(action);
-            action();
-        }
+/// <summary>
+/// Test double that executes posted actions synchronously on the calling thread,
+/// keeping event-handler assertions deterministic without a real UI thread.
+/// </summary>
+public sealed class SynchronousUiDispatcher : IUiDispatcher
+{
+    public static SynchronousUiDispatcher Instance { get; } = new();
+
+    public void Post(Action action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        action();
     }
 }

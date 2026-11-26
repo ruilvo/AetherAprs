@@ -20,10 +20,7 @@ public sealed class BluetoothDeviceAddressTests
     [InlineData("AA:BB:CC:DD:EE:FF")]
     [InlineData("aa:bb:cc:dd:ee:ff")]
     [InlineData("Aa:bB:Cc:dD:Ee:fF")]
-    public void IsValid_AcceptsSixHexOctets(string address)
-    {
-        Assert.True(BluetoothDeviceAddress.IsValid(address));
-    }
+    public void IsValid_AcceptsSixHexOctets(string address) => Assert.True(BluetoothDeviceAddress.IsValid(address));
 
     [Theory]
     [InlineData(null)]
@@ -37,23 +34,17 @@ public sealed class BluetoothDeviceAddressTests
     [InlineData(" 00:11:22:33:44:55")]
     [InlineData("00:11:22:33:44:55 ")]
     [InlineData("001122334455")]
-    public void IsValid_RejectsAnythingElse(string? address)
-    {
-        Assert.False(BluetoothDeviceAddress.IsValid(address));
-    }
+    public void IsValid_RejectsAnythingElse(string? address) => Assert.False(BluetoothDeviceAddress.IsValid(address));
 
     [Fact]
-    public void Normalize_ReturnsCanonicalUpperCaseAddress()
-    {
-        Assert.Equal("AA:BB:CC:DD:EE:FF", BluetoothDeviceAddress.Normalize(
+    public void Normalize_ReturnsCanonicalUpperCaseAddress() => Assert.Equal("AA:BB:CC:DD:EE:FF", BluetoothDeviceAddress.Normalize(
             "aa:bb:cc:dd:ee:ff",
             "settings"));
-    }
 
     [Fact]
     public void Normalize_MalformedAddress_ThrowsArgumentException()
     {
-        var exception = Assert.Throws<ArgumentException>(() =>
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
             BluetoothDeviceAddress.Normalize("not-an-address", "settings"));
 
         Assert.Equal("settings", exception.ParamName);

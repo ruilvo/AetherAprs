@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Localization;
 using AetherAprs.Models;
@@ -128,11 +129,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         RefreshPermissionWarning();
     }
 
-    private void OnBeaconStatusChanged(object? sender, string status)
-    {
+    private void OnBeaconStatusChanged(object? sender, string status) =>
         // Events arrive on background threads; observable properties must update on the UI thread.
         _uiDispatcher.Post(() => BeaconStatus = status);
-    }
 
     private void OnPermissionAttentionChanged(object? sender, EventArgs e) =>
         _uiDispatcher.Post(RefreshPermissionWarning);
@@ -144,7 +143,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     /// </summary>
     private void RefreshPermissionWarning()
     {
-        var outstanding = _permissionAttention.Outstanding;
+        IReadOnlyList<PermissionAttention> outstanding = _permissionAttention.Outstanding;
         if (outstanding.Count == 0)
         {
             HasPermissionWarning = false;
@@ -153,9 +152,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var names = string.Join(", ", outstanding.Select(attention => PermissionName(attention.Kind)));
-        var requiresSettings = outstanding.Any(attention => attention.RequiresApplicationSettings);
-        var limitsBackgroundTracking = outstanding.Any(attention =>
+        string names = string.Join(", ", outstanding.Select(attention => PermissionName(attention.Kind)));
+        bool requiresSettings = outstanding.Any(attention => attention.RequiresApplicationSettings);
+        bool limitsBackgroundTracking = outstanding.Any(attention =>
             attention.Kind == PermissionKind.BackgroundLocation);
 
         HasPermissionWarning = true;
@@ -205,8 +204,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private void OnLocationUpdated(object? sender, LocationData currentLocation)
-    {
+    private void OnLocationUpdated(object? sender, LocationData currentLocation) =>
         // LocationTrackingService polls on a threadpool thread; marshal all map/UI
         // mutation onto the UI thread.
         _uiDispatcher.Post(() =>
@@ -241,7 +239,6 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
                 _logger.LogError(ex, "Error processing location update");
             }
         });
-    }
 
     private async void OnPortsChanged(object? sender, EventArgs e)
     {
@@ -257,7 +254,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private async Task ReconcileInitialBeaconsAsync()
     {
-        var location = _locationTrackingService.CurrentLocation;
+        LocationData? location = _locationTrackingService.CurrentLocation;
         if (location is null)
         {
             return;
@@ -266,13 +263,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         await _initialBeaconLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var ports = _portService.Ports;
+            IReadOnlyList<PortConfig> ports = _portService.Ports;
             _initialBeaconSentPorts.RemoveWhere(portId =>
                 !ports.Any(port => port.Id == portId && port.IsEnabled && port.IsTx));
 
-            var portsToBeacon = ports
-                .Where(port => port.IsEnabled && port.IsTx && !_initialBeaconSentPorts.Contains(port.Id))
-                .ToList();
+            List<PortConfig> portsToBeacon = [.. ports.Where(port => port.IsEnabled && port.IsTx && !_initialBeaconSentPorts.Contains(port.Id))];
 
             if (portsToBeacon.Count == 0)
             {
@@ -283,7 +278,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
                 location,
                 portsToBeacon).ConfigureAwait(false);
 
-            foreach (var port in portsToBeacon)
+            foreach (PortConfig port in portsToBeacon)
             {
                 _initialBeaconSentPorts.Add(port.Id);
             }
@@ -299,33 +294,22 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    public async Task StartLocationTrackingAsync()
-    {
+    public async Task StartLocationTrackingAsync() =>
         // Permission belongs to the feature: the prompt appears when the operator
         // starts tracking, not on every launch.
         await _locationTrackingService.RequestPermissionAndStartTrackingAsync();
-    }
 
     [RelayCommand]
-    public void StopLocationTracking()
-    {
-        _locationTrackingService.StopTracking();
-    }
+    public void StopLocationTracking() => _locationTrackingService.StopTracking();
 
     [RelayCommand]
-    public async Task SendManualBeaconAsync()
-    {
-        await _beaconTransmissionService.SendManualBeaconAsync(_locationTrackingService.CurrentLocation);
-    }
+    public async Task SendManualBeaconAsync() => await _beaconTransmissionService.SendManualBeaconAsync(_locationTrackingService.CurrentLocation);
 
     /// <summary>
     /// Forwards viewport resolution changes to the beacons layer service so it can
     /// re-cluster markers as the user zooms.
     /// </summary>
-    public void UpdateMapResolution(double resolution)
-    {
-        _receivedBeaconsLayerService.SetResolution(resolution);
-    }
+    public void UpdateMapResolution(double resolution) => _receivedBeaconsLayerService.SetResolution(resolution);
 
     /// <summary>
     /// Handles beacon click events from the map view.
@@ -338,7 +322,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var vm = _packetDetailsFactory.Create(callsign);
+        PacketDetailsViewModel vm = _packetDetailsFactory.Create(callsign);
         _navigationService.NavigateTo(vm);
     }
 
@@ -353,7 +337,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var vm = _objectDetailsFactory.Create(name);
+        ObjectDetailsViewModel vm = _objectDetailsFactory.Create(name);
         _navigationService.NavigateTo(vm);
     }
 

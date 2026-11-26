@@ -20,7 +20,7 @@ namespace AetherAprs.Services.Messaging;
 /// templates are handled by the configuration service; this service does not
 /// re-sanitize.
 /// </summary>
-public sealed class MessageTemplateService : IMessageTemplateService
+public sealed partial class MessageTemplateService(IConfigurationService configurationService) : IMessageTemplateService
 {
     /// <summary>
     /// Maximum allowed length of a message produced from a template.
@@ -28,23 +28,16 @@ public sealed class MessageTemplateService : IMessageTemplateService
     /// </summary>
     public const int MaxTemplateMessageLength = 67;
 
-    private static readonly Regex PlaceholderRegex = new(@"\{([A-Za-z0-9_]+)\}", RegexOptions.Compiled);
+    [GeneratedRegex(@"\{([A-Za-z0-9_]+)\}", RegexOptions.Compiled)]
+    private static partial Regex PlaceholderRegex { get; }
 
-    private readonly IConfigurationService _configurationService;
-
-    public MessageTemplateService(IConfigurationService configurationService)
-    {
-        _configurationService = configurationService;
-    }
+    private readonly IConfigurationService _configurationService = configurationService;
 
     public IReadOnlyList<MessageTemplate> Templates =>
-        _configurationService.Current.MessageTemplates.Templates.ToArray();
+        [.. _configurationService.Current.MessageTemplates.Templates];
 
-    public MessageTemplate? GetByName(string name)
-    {
-        return _configurationService.Current.MessageTemplates.Templates
+    public MessageTemplate? GetByName(string name) => _configurationService.Current.MessageTemplates.Templates
             .FirstOrDefault(template => string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase));
-    }
 
     public async Task AddAsync(MessageTemplate messageTemplate, CancellationToken cancellationToken = default)
     {
@@ -69,8 +62,8 @@ public sealed class MessageTemplateService : IMessageTemplateService
 
         await _configurationService.UpdateAsync(settings =>
         {
-            var templates = settings.MessageTemplates.Templates.ToArray();
-            var index = Array.FindIndex(
+            MessageTemplate[] templates = [.. settings.MessageTemplates.Templates];
+            int index = Array.FindIndex(
                 templates,
                 existing => string.Equals(existing.Name, originalName, StringComparison.OrdinalIgnoreCase));
 
@@ -91,24 +84,21 @@ public sealed class MessageTemplateService : IMessageTemplateService
         }, cancellationToken);
     }
 
-    public async Task DeleteAsync(string name, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(string name, CancellationToken cancellationToken = default) => await _configurationService.UpdateAsync(settings => settings with
     {
-        await _configurationService.UpdateAsync(settings => settings with
+        MessageTemplates = settings.MessageTemplates with
         {
-            MessageTemplates = settings.MessageTemplates with
-            {
-                Templates =
-                [
-                    .. settings.MessageTemplates.Templates.Where(template =>
+            Templates =
+                                                                                                              [
+                                                                                                                  .. settings.MessageTemplates.Templates.Where(template =>
                         !string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase)),
                 ],
-            },
-        }, cancellationToken);
-    }
+        },
+    }, cancellationToken);
 
     public IReadOnlyList<string> GetPlaceholderNames(string body)
     {
-        var names = new List<string>();
+        List<string> names = [];
         if (string.IsNullOrEmpty(body))
         {
             return names;
@@ -116,7 +106,7 @@ public sealed class MessageTemplateService : IMessageTemplateService
 
         foreach (Match match in PlaceholderRegex.Matches(body))
         {
-            var name = match.Groups[1].Value;
+            string name = match.Groups[1].Value;
             if (!names.Contains(name))
             {
                 names.Add(name);
@@ -131,11 +121,11 @@ public sealed class MessageTemplateService : IMessageTemplateService
         ArgumentNullException.ThrowIfNull(messageTemplate);
         ArgumentNullException.ThrowIfNull(values);
 
-        var result = messageTemplate.Body;
-        foreach (var name in GetPlaceholderNames(result))
+        string result = messageTemplate.Body;
+        foreach (string name in GetPlaceholderNames(result))
         {
             string? raw = null;
-            foreach (var pair in values)
+            foreach (KeyValuePair<string, string> pair in values)
             {
                 if (string.Equals(pair.Key, name, StringComparison.OrdinalIgnoreCase))
                 {
@@ -144,22 +134,19 @@ public sealed class MessageTemplateService : IMessageTemplateService
                 }
             }
 
-            var value = !string.IsNullOrWhiteSpace(raw) ? raw.Trim() : string.Empty;
+            string value = !string.IsNullOrWhiteSpace(raw) ? raw.Trim() : string.Empty;
             result = result.Replace("{" + name + "}", value, StringComparison.OrdinalIgnoreCase);
         }
 
         return result.Length > MaxTemplateMessageLength ? null : result;
     }
 
-    public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(AprsAddress peer)
-    {
+    public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(AprsAddress peer) =>
         // An addressee may be a callsign or a tactical address such as
         // "APRS2SOTA"; both are matched on the base so a template saved for
         // "SOTA" also applies to "SOTA-1".
-        return _configurationService.Current.MessageTemplates.Templates
+        [.. _configurationService.Current.MessageTemplates.Templates
             .Where(template =>
-                AprsAddress.TryParse(template.Destination, out var destination)
-                && destination.Base == peer.Base)
-            .ToArray();
-    }
+                AprsAddress.TryParse(template.Destination, out AprsAddress destination)
+                && destination.Base == peer.Base)];
 }

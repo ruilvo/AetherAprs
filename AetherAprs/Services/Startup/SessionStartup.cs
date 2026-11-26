@@ -59,10 +59,9 @@ public sealed class SessionStartup
     {
         await _coordinator.InitializeAsync(cancellationToken).ConfigureAwait(false);
 
-        var enabledPortIds = _portService.Ports
+        Guid[] enabledPortIds = [.. _portService.Ports
             .Where(port => port.IsEnabled)
-            .Select(port => port.Id)
-            .ToArray();
+            .Select(port => port.Id)];
 
         if (enabledPortIds.Length == 0)
         {

@@ -39,18 +39,18 @@ public sealed class PortServiceReceivePipelineTests
     [Fact]
     public async Task ReceivedFrame_StoresPacketAndRaisesPacketReceived()
     {
-        var portId = Guid.NewGuid();
-        var kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
-        using var db = TempAppDatabase.Create();
-        var storage = new RecordingPacketStorageService();
-        var digipeater = new RecordingDigipeaterService();
-        var kissSettings = new KissSettings
+        Guid portId = Guid.NewGuid();
+        byte[] kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        using TempAppDatabase db = TempAppDatabase.Create();
+        RecordingPacketStorageService storage = new();
+        RecordingDigipeaterService digipeater = new();
+        KissSettings kissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
-        await using var service = CreateService(db, storage, digipeater, kissBuffer, scriptedPortSettings: kissSettings);
+        await using PortService service = CreateService(db, storage, digipeater, kissBuffer, scriptedPortSettings: kissSettings);
 
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = portId,
             Name = "RF",
@@ -61,21 +61,21 @@ public sealed class PortServiceReceivePipelineTests
         };
         await service.AddPortAsync(port);
 
-        var receivedTcs = new TaskCompletionSource<PortPacketReceivedEventArgs>(
+        TaskCompletionSource<PortPacketReceivedEventArgs> receivedTcs = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         service.PacketReceived += (_, args) => receivedTcs.TrySetResult(args);
 
         await service.SetPortEnabledAsync(portId, true);
 
-        var args = await receivedTcs.Task.WaitAsync(
+        PortPacketReceivedEventArgs args = await receivedTcs.Task.WaitAsync(
             TimeSpan.FromSeconds(3),
             TestContext.Current.CancellationToken);
 
         Assert.Equal(portId, args.PortId);
-        var position = Assert.IsType<PositionPacket>(args.Packet);
+        PositionPacket position = Assert.IsType<PositionPacket>(args.Packet);
         Assert.Equal(new Callsign("N0CALL"), position.Source);
 
-        var stored = Assert.Single(storage.StoredPackets);
+        StoredPacketCall stored = Assert.Single(storage.StoredPackets);
         Assert.Equal(portId, stored.PortId);
         Assert.False(stored.IsOutbound);
         Assert.Same(args.Packet, stored.Packet);
@@ -85,7 +85,7 @@ public sealed class PortServiceReceivePipelineTests
             TimeSpan.FromSeconds(3),
             TestContext.Current.CancellationToken);
 
-        var digipeatCall = Assert.Single(digipeater.Calls);
+        DigipeatCall digipeatCall = Assert.Single(digipeater.Calls);
         Assert.Equal(portId, digipeatCall.SourcePortId);
         Assert.Same(args.Packet, digipeatCall.Packet);
         Assert.True(digipeatCall.SourcePortIsAprsIs is false);
@@ -96,20 +96,20 @@ public sealed class PortServiceReceivePipelineTests
     [Fact]
     public async Task ReceivedFrame_StorageThrows_DoesNotPublishAndCountsDrop()
     {
-        var portId = Guid.NewGuid();
-        var kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
-        using var db = TempAppDatabase.Create();
-        var storage = new RecordingPacketStorageService
+        Guid portId = Guid.NewGuid();
+        byte[] kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        using TempAppDatabase db = TempAppDatabase.Create();
+        RecordingPacketStorageService storage = new()
         {
             ThrownException = new InvalidOperationException("storage down")
         };
-        var digipeater = new RecordingDigipeaterService();
-        var diagnostics = new RecordingDiagnosticSink();
-        var kissSettings = new KissSettings
+        RecordingDigipeaterService digipeater = new();
+        RecordingDiagnosticSink diagnostics = new();
+        KissSettings kissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
-        await using var service = CreateService(
+        await using PortService service = CreateService(
             db,
             storage,
             digipeater,
@@ -117,7 +117,7 @@ public sealed class PortServiceReceivePipelineTests
             scriptedPortSettings: kissSettings,
             diagnosticSink: diagnostics);
 
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = portId,
             Name = "RF",
@@ -128,7 +128,7 @@ public sealed class PortServiceReceivePipelineTests
         };
         await service.AddPortAsync(port);
 
-        var published = 0;
+        int published = 0;
         service.PacketReceived += (_, _) => Interlocked.Increment(ref published);
 
         await service.SetPortEnabledAsync(portId, true);
@@ -145,7 +145,7 @@ public sealed class PortServiceReceivePipelineTests
         Assert.Equal(1, service.GetDroppedPacketCount(portId));
         Assert.Equal(1, service.TotalDroppedPackets);
 
-        var dropEvent = Assert.Single(diagnostics.Events);
+        DiagnosticEvent dropEvent = Assert.Single(diagnostics.Events);
         Assert.Equal("ingest", dropEvent.Category);
         Assert.Equal("Dropped", dropEvent.State);
         Assert.Equal(DiagnosticSeverity.Error, dropEvent.Severity);
@@ -156,18 +156,18 @@ public sealed class PortServiceReceivePipelineTests
     [Fact]
     public async Task ReceivedFrames_QueueFull_CountsDropsInsteadOfBlocking()
     {
-        var portId = Guid.NewGuid();
-        var frame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
-        var kissBuffer = frame.Concat(frame).Concat(frame).ToArray();
-        using var db = TempAppDatabase.Create();
-        var storage = new RecordingPacketStorageService();
-        var storeEntered = storage.BlockFirstStore();
-        var digipeater = new RecordingDigipeaterService();
-        var kissSettings = new KissSettings
+        Guid portId = Guid.NewGuid();
+        byte[] frame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        byte[] kissBuffer = [.. frame, .. frame, .. frame];
+        using TempAppDatabase db = TempAppDatabase.Create();
+        RecordingPacketStorageService storage = new();
+        TaskCompletionSource<bool> storeEntered = storage.BlockFirstStore();
+        RecordingDigipeaterService digipeater = new();
+        KissSettings kissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
-        await using var service = CreateService(
+        await using PortService service = CreateService(
             db,
             storage,
             digipeater,
@@ -175,7 +175,7 @@ public sealed class PortServiceReceivePipelineTests
             scriptedPortSettings: kissSettings,
             packetQueueCapacity: 1);
 
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = portId,
             Name = "RF",
@@ -206,7 +206,7 @@ public sealed class PortServiceReceivePipelineTests
 
     private static async Task WaitForIngestDropsAsync(PortService service, Guid portId)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
         while (service.GetDroppedPacketCount(portId) == 0)
         {
             if (DateTime.UtcNow >= deadline)
@@ -220,7 +220,7 @@ public sealed class PortServiceReceivePipelineTests
 
     private static async Task WaitForForwardDropsAsync(PortService service, Guid portId)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
         while (service.GetDroppedForwardCount(portId) == 0)
         {
             if (DateTime.UtcNow >= deadline)
@@ -235,35 +235,31 @@ public sealed class PortServiceReceivePipelineTests
     [Fact]
     public async Task ReceivedFrame_DigipeaterTargetsOtherPort_PacketSentToTarget()
     {
-        var rfPortId = Guid.NewGuid();
-        var targetPortId = Guid.NewGuid();
-        var kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
-        using var db = TempAppDatabase.Create();
-        var storage = new RecordingPacketStorageService();
+        Guid rfPortId = Guid.NewGuid();
+        Guid targetPortId = Guid.NewGuid();
+        byte[] kissBuffer = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        using TempAppDatabase db = TempAppDatabase.Create();
+        RecordingPacketStorageService storage = new();
 
         // The target port gets a writable stream we can inspect for the
         // digipeated (transmitted) frame.
-        var targetWriteTcs = new TaskCompletionSource<byte[]>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var digipeater = new RecordingDigipeaterService
+        TaskCompletionSource<byte[]> targetWriteTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        RecordingDigipeaterService digipeater = new()
         {
-            OnGetDigipeatTargets = (packet, _, _, _) =>
-            {
-                return
-                [
+            OnGetDigipeatTargets = (packet, _, _, _) => [
                     new DigipeatTarget(targetPortId, packet)
-                ];
-            }
+                ]
         };
 
-        var rfKissSettings = new KissSettings
+        KissSettings rfKissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
 
-        await using var service = CreateService(
+        await using PortService service = CreateService(
             db, storage, digipeater, kissBuffer, targetWriteTcs, scriptedPortSettings: rfKissSettings);
 
-        var rfPort = new PortConfig
+        PortConfig rfPort = new()
         {
             Id = rfPortId,
             Name = "RF",
@@ -272,7 +268,7 @@ public sealed class PortServiceReceivePipelineTests
             IsTx = false,
             TypeSettings = rfKissSettings
         };
-        var targetPort = new PortConfig
+        PortConfig targetPort = new()
         {
             Id = targetPortId,
             Name = "Target",
@@ -294,7 +290,7 @@ public sealed class PortServiceReceivePipelineTests
         await service.SetPortEnabledAsync(rfPortId, true);
 
         // Wait until digipeater has decided on targets and the send attempt completed.
-        var sent = await targetWriteTcs.Task.WaitAsync(
+        byte[] sent = await targetWriteTcs.Task.WaitAsync(
             TimeSpan.FromSeconds(5),
             TestContext.Current.CancellationToken);
 
@@ -309,27 +305,26 @@ public sealed class PortServiceReceivePipelineTests
     public async Task ReceivedFrames_DigipeatPending_DoesNotBlockIngest()
     {
         const int ordinaryPacketCount = 20;
-        var portId = Guid.NewGuid();
-        var firstFrame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
-        var ordinaryFrame = BuildKissFrame(BuildAx25Frame("APZ002", "N0CALL", "!3830.00N/00906.00E#"));
-        var kissBuffer = firstFrame
-            .Concat(Enumerable.Repeat(ordinaryFrame, ordinaryPacketCount).SelectMany(frame => frame))
-            .ToArray();
-        using var db = TempAppDatabase.Create();
-        var storage = new RecordingPacketStorageService();
-        var digipeater = new BlockingDigipeaterService(expectedCalls: ordinaryPacketCount + 1);
-        var kissSettings = new KissSettings
+        Guid portId = Guid.NewGuid();
+        byte[] firstFrame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        byte[] ordinaryFrame = BuildKissFrame(BuildAx25Frame("APZ002", "N0CALL", "!3830.00N/00906.00E#"));
+        byte[] kissBuffer = [.. firstFrame
+, .. Enumerable.Repeat(ordinaryFrame, ordinaryPacketCount).SelectMany(frame => frame)];
+        using TempAppDatabase db = TempAppDatabase.Create();
+        RecordingPacketStorageService storage = new();
+        BlockingDigipeaterService digipeater = new(expectedCalls: ordinaryPacketCount + 1);
+        KissSettings kissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
-        await using var service = CreateService(
+        await using PortService service = CreateService(
             db,
             storage,
             digipeater,
             kissBuffer,
             scriptedPortSettings: kissSettings);
 
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = portId,
             Name = "RF",
@@ -340,8 +335,8 @@ public sealed class PortServiceReceivePipelineTests
         };
         await service.AddPortAsync(port);
 
-        var published = 0;
-        var allPublished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int published = 0;
+        TaskCompletionSource<bool> allPublished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         service.PacketReceived += (_, _) =>
         {
             if (Interlocked.Increment(ref published) == ordinaryPacketCount + 1)
@@ -385,18 +380,18 @@ public sealed class PortServiceReceivePipelineTests
     public async Task ReceivedFrames_DigipeatQueueFull_CountsDrops()
     {
         const int frameCount = 40;
-        var portId = Guid.NewGuid();
-        var frame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
-        var kissBuffer = Enumerable.Repeat(frame, frameCount).SelectMany(bytes => bytes).ToArray();
-        using var db = TempAppDatabase.Create();
-        var storage = new RecordingPacketStorageService();
-        var digipeater = new BlockingDigipeaterService(expectedCalls: 1);
-        var diagnostics = new RecordingDiagnosticSink();
-        var kissSettings = new KissSettings
+        Guid portId = Guid.NewGuid();
+        byte[] frame = BuildKissFrame(BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#"));
+        byte[] kissBuffer = [.. Enumerable.Repeat(frame, frameCount).SelectMany(bytes => bytes)];
+        using TempAppDatabase db = TempAppDatabase.Create();
+        RecordingPacketStorageService storage = new();
+        BlockingDigipeaterService digipeater = new(expectedCalls: 1);
+        RecordingDiagnosticSink diagnostics = new();
+        KissSettings kissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
         };
-        await using var service = CreateService(
+        await using PortService service = CreateService(
             db,
             storage,
             digipeater,
@@ -405,7 +400,7 @@ public sealed class PortServiceReceivePipelineTests
             diagnosticSink: diagnostics,
             digipeatQueueCapacity: 2);
 
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = portId,
             Name = "RF",
@@ -446,7 +441,7 @@ public sealed class PortServiceReceivePipelineTests
 
     private static async Task<bool> WaitForDropReasonAsync(RecordingDiagnosticSink diagnostics, string reason)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
         while (!diagnostics.Events.Any(
                    diagnosticEvent => diagnosticEvent.State == "Dropped" && diagnosticEvent.Reason == reason))
         {
@@ -476,7 +471,7 @@ public sealed class PortServiceReceivePipelineTests
         int packetQueueCapacity = 1024,
         int digipeatQueueCapacity = 256)
     {
-        var kissStreamFactory = new ScriptedKissStreamFactory(scriptedPortSettings, injectedKissBuffer, targetWriteTcs);
+        ScriptedKissStreamFactory kissStreamFactory = new(scriptedPortSettings, injectedKissBuffer, targetWriteTcs);
         return TestPortService.Create(
             db,
             TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
@@ -493,21 +488,23 @@ public sealed class PortServiceReceivePipelineTests
 
     private static byte[] BuildAx25Frame(string destination, string source, string infoField)
     {
-        var frame = new List<byte>();
-        frame.AddRange(EncodeAddress(destination));
-        frame.AddRange(EncodeAddress(source));
-        frame.Add(0x03); // Control: UI-frame
-        frame.Add(0xF0); // PID: no layer 3
-        frame.AddRange(Encoding.ASCII.GetBytes(infoField));
+        List<byte> frame =
+        [
+            .. EncodeAddress(destination),
+            .. EncodeAddress(source),
+            0x03, // Control: UI-frame
+            0xF0, // PID: no layer 3
+            .. Encoding.ASCII.GetBytes(infoField),
+        ];
         return [.. frame];
     }
 
     private static byte[] EncodeAddress(string callsign)
     {
-        var bytes = new byte[7];
-        var @base = callsign.Split('-')[0].PadRight(6, ' ');
+        byte[] bytes = new byte[7];
+        string @base = callsign.Split('-')[0].PadRight(6, ' ');
 
-        for (var i = 0; i < 6; i++)
+        for (int i = 0; i < 6; i++)
         {
             bytes[i] = (byte)(@base[i] << 1);
         }
@@ -517,10 +514,7 @@ public sealed class PortServiceReceivePipelineTests
         return bytes;
     }
 
-    private static byte[] BuildKissFrame(byte[] ax25Data)
-    {
-        return KissSerializer.EncodeFrame(new KissFrame(0x00, ax25Data));
-    }
+    private static byte[] BuildKissFrame(byte[] ax25Data) => KissSerializer.EncodeFrame(new KissFrame(0x00, ax25Data));
 
     private sealed record StoredPacketCall(AprsPacket Packet, Guid? PortId, bool IsOutbound);
 
@@ -588,10 +582,7 @@ public sealed class PortServiceReceivePipelineTests
             AetherAprs.Models.Messaging.MessageDeliveryStatus deliveryStatus, int retryCount,
             DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
+        public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class RecordingDiagnosticSink : IDiagnosticEventSink
@@ -629,7 +620,8 @@ public sealed class PortServiceReceivePipelineTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Func<AprsPacket, Guid, bool, IReadOnlyList<PortInfo>, IReadOnlyList<DigipeatTarget>>?
-            OnGetDigipeatTargets { get; set; }
+            OnGetDigipeatTargets
+        { get; set; }
 
         public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
             AprsPacket packet,
@@ -651,7 +643,7 @@ public sealed class PortServiceReceivePipelineTests
     private sealed class BlockingDigipeaterService(int expectedCalls) : IDigipeaterService
     {
         private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(10);
-        private readonly object _gate = new();
+        private readonly Lock _gate = new();
         private readonly TaskCompletionSource<bool> _release =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly List<DigipeatCall> _calls = [];
@@ -739,16 +731,13 @@ public sealed class PortServiceReceivePipelineTests
         public override long Position { get => _position; set => throw new NotSupportedException(); }
         public override void Flush() { }
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            return ReadCore(buffer.AsSpan(offset, count));
-        }
+        public override int Read(byte[] buffer, int offset, int count) => ReadCore(buffer.AsSpan(offset, count));
 
         public override async ValueTask<int> ReadAsync(
             Memory<byte> buffer,
             CancellationToken cancellationToken = default)
         {
-            var read = ReadCore(buffer.Span);
+            int read = ReadCore(buffer.Span);
             while (read == 0 && !cancellationToken.IsCancellationRequested)
             {
                 // Hold the read loop open (never-EOF) until cancellation.
@@ -769,13 +758,13 @@ public sealed class PortServiceReceivePipelineTests
 
         private int ReadCore(Span<byte> destination)
         {
-            var remaining = buffer.Length - _position;
+            int remaining = buffer.Length - _position;
             if (remaining <= 0)
             {
                 return 0;
             }
 
-            var count = Math.Min(remaining, destination.Length);
+            int count = Math.Min(remaining, destination.Length);
             buffer.AsSpan(_position, count).CopyTo(destination);
             _position += count;
             return count;

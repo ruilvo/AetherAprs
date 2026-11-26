@@ -17,14 +17,14 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public async Task RequestAsync_ReturnsTheResultOfItsOwnRequest()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
 
-        var request = queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
-        var shown = await host.NextShownAsync();
+        Task<PermissionPromptResult> request = queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
+        (PermissionKind Kind, int RequestId) = await host.NextShownAsync();
 
-        Assert.Equal(PermissionKind.Notifications, shown.Kind);
-        Assert.True(queue.Complete(shown.RequestId, granted: true));
+        Assert.Equal(PermissionKind.Notifications, Kind);
+        Assert.True(queue.Complete(RequestId, granted: true));
         Assert.Equal(PermissionPromptResult.Granted, await request);
         Assert.Null(queue.PendingRequestId);
     }
@@ -32,21 +32,21 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public async Task RequestAsync_WhenALateResultForAnEarlierRequestArrives_DoesNotSettleThePendingOne()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
 
-        var first = queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
-        var firstShown = await host.NextShownAsync();
-        queue.Complete(firstShown.RequestId, granted: false);
+        Task<PermissionPromptResult> first = queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
+        (PermissionKind Kind, int RequestId) = await host.NextShownAsync();
+        queue.Complete(RequestId, granted: false);
         Assert.Equal(PermissionPromptResult.Denied, await first);
 
-        var second = queue.RequestAsync(PermissionKind.Audio, TestContext.Current.CancellationToken);
-        var secondShown = await host.NextShownAsync();
-        Assert.NotEqual(firstShown.RequestId, secondShown.RequestId);
+        Task<PermissionPromptResult> second = queue.RequestAsync(PermissionKind.Audio, TestContext.Current.CancellationToken);
+        (PermissionKind Kind, int RequestId) secondShown = await host.NextShownAsync();
+        Assert.NotEqual(RequestId, secondShown.RequestId);
 
         // The dialog for the earlier request is gone, but a delayed duplicate
         // answer must not grant the prompt that is on screen now.
-        Assert.False(queue.Complete(firstShown.RequestId, granted: true));
+        Assert.False(queue.Complete(RequestId, granted: true));
         Assert.False(second.IsCompleted);
         Assert.Equal(secondShown.RequestId, queue.PendingRequestId);
 
@@ -57,23 +57,23 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public async Task RequestAsync_ShowsOnePromptAtATime()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
 
-        var first = queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
-        var firstShown = await host.NextShownAsync();
+        Task<PermissionPromptResult> first = queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
+        (PermissionKind Kind, int RequestId) = await host.NextShownAsync();
 
         // The second call cannot reach the host while the first dialog is open.
-        var second = queue.RequestAsync(PermissionKind.Bluetooth, TestContext.Current.CancellationToken);
-        Assert.Equal(firstShown.RequestId, queue.PendingRequestId);
+        Task<PermissionPromptResult> second = queue.RequestAsync(PermissionKind.Bluetooth, TestContext.Current.CancellationToken);
+        Assert.Equal(RequestId, queue.PendingRequestId);
         Assert.Single(host.Shown);
 
-        queue.Complete(firstShown.RequestId, granted: true);
+        queue.Complete(RequestId, granted: true);
         Assert.Equal(PermissionPromptResult.Granted, await first);
 
-        var secondShown = await host.NextShownAsync();
+        (PermissionKind Kind, int RequestId) secondShown = await host.NextShownAsync();
         Assert.Equal(PermissionKind.Bluetooth, secondShown.Kind);
-        Assert.True(secondShown.RequestId > firstShown.RequestId);
+        Assert.True(secondShown.RequestId > RequestId);
 
         queue.Complete(secondShown.RequestId, granted: false);
         Assert.Equal(PermissionPromptResult.Denied, await second);
@@ -83,28 +83,28 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public async Task Close_AbandonsThePendingRequest()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
 
-        var request = queue.RequestAsync(PermissionKind.Bluetooth, TestContext.Current.CancellationToken);
-        var shown = await host.NextShownAsync();
+        Task<PermissionPromptResult> request = queue.RequestAsync(PermissionKind.Bluetooth, TestContext.Current.CancellationToken);
+        (PermissionKind Kind, int RequestId) = await host.NextShownAsync();
 
         queue.Close();
 
         Assert.Equal(PermissionPromptResult.Abandoned, await request);
         Assert.Null(queue.PendingRequestId);
-        Assert.False(queue.Complete(shown.RequestId, granted: true));
+        Assert.False(queue.Complete(RequestId, granted: true));
     }
 
     [Fact]
     public async Task Close_ThenALaterRequest_IsAbandonedWithoutPrompting()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
 
         queue.Close();
 
-        var result = await queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
+        PermissionPromptResult result = await queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
 
         Assert.Equal(PermissionPromptResult.Abandoned, result);
         Assert.Empty(host.Shown);
@@ -113,8 +113,8 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public void Complete_ForARequestThatWasNeverIssued_IsIgnored()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
 
         Assert.False(queue.Complete(7, granted: true));
         Assert.Null(queue.PendingRequestId);
@@ -123,26 +123,26 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public async Task RequestAsync_WhenTheWaitIsCancelled_ThrowsAndLeavesNothingPending()
     {
-        var host = new RecordingPromptHost();
-        using var queue = new PermissionRequestQueue(host);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        RecordingPromptHost host = new();
+        using PermissionRequestQueue queue = new(host);
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
 
-        var request = queue.RequestAsync(PermissionKind.Audio, cancellation.Token);
-        var shown = await host.NextShownAsync();
+        Task<PermissionPromptResult> request = queue.RequestAsync(PermissionKind.Audio, cancellation.Token);
+        (PermissionKind Kind, int RequestId) = await host.NextShownAsync();
 
         await cancellation.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request);
         Assert.Null(queue.PendingRequestId);
-        Assert.False(queue.Complete(shown.RequestId, granted: true));
+        Assert.False(queue.Complete(RequestId, granted: true));
     }
 
     [Fact]
     public async Task RequestAsync_WhenThePromptCannotBeShown_ReportsAbandoned()
     {
-        using var queue = new PermissionRequestQueue(new ThrowingPromptHost());
+        using PermissionRequestQueue queue = new(new ThrowingPromptHost());
 
-        var result = await queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
+        PermissionPromptResult result = await queue.RequestAsync(PermissionKind.Notifications, TestContext.Current.CancellationToken);
 
         Assert.Equal(PermissionPromptResult.Abandoned, result);
         Assert.Null(queue.PendingRequestId);
@@ -151,7 +151,7 @@ public sealed class PermissionRequestQueueTests
     [Fact]
     public async Task RequestAsync_AfterDispose_Throws()
     {
-        var queue = new PermissionRequestQueue(new RecordingPromptHost());
+        PermissionRequestQueue queue = new(new RecordingPromptHost());
         queue.Dispose();
 
         await Assert.ThrowsAsync<ObjectDisposedException>(
@@ -171,7 +171,7 @@ public sealed class PermissionRequestQueueTests
             {
                 lock (_all)
                 {
-                    return _all.ToArray();
+                    return [.. _all];
                 }
             }
         }
@@ -188,7 +188,7 @@ public sealed class PermissionRequestQueueTests
 
         public async Task<(PermissionKind Kind, int RequestId)> NextShownAsync()
         {
-            var reading = _shown.Reader.ReadAsync(TestContext.Current.CancellationToken).AsTask();
+            Task<(PermissionKind Kind, int RequestId)> reading = _shown.Reader.ReadAsync(TestContext.Current.CancellationToken).AsTask();
             return await reading.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         }
     }

@@ -12,25 +12,20 @@ namespace AetherAprs.Factories.ViewModels;
 /// <summary>
 /// Factory implementation for creating and initializing ConversationViewModel instances.
 /// </summary>
-public class ConversationViewModelFactory : IConversationViewModelFactory
+public class ConversationViewModelFactory(IServiceProvider serviceProvider) : IConversationViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public ConversationViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider;
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
 
     public ConversationViewModel Create(AprsAddress address)
     {
-        var viewModel = _serviceProvider.GetRequiredService<ConversationViewModel>();
+        ConversationViewModel viewModel = _serviceProvider.GetRequiredService<ConversationViewModel>();
         viewModel.Initialize(address);
         return viewModel;
     }
 
     public ConversationViewModel CreateNew()
     {
-        var viewModel = _serviceProvider.GetRequiredService<ConversationViewModel>();
+        ConversationViewModel viewModel = _serviceProvider.GetRequiredService<ConversationViewModel>();
         viewModel.InitializeNew();
         return viewModel;
     }

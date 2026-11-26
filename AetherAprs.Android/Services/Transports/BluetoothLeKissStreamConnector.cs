@@ -5,6 +5,7 @@
 using AetherAprs.Android.Services.Bluetooth;
 using AetherAprs.Configuration;
 using AetherAprs.Transports.Kiss;
+using Android.Bluetooth;
 using System;
 using System.IO;
 using System.Threading;
@@ -39,20 +40,20 @@ public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
 
         // GetRemoteDevice throws IllegalArgumentException on a malformed address,
         // so reject it before requesting permissions or touching the adapter.
-        var deviceAddress = BluetoothDeviceAddress.Normalize(
+        string deviceAddress = BluetoothDeviceAddress.Normalize(
             leSettings.DeviceAddress,
             nameof(settings));
 
         await BluetoothPermissionHelper.EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
-        var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
+        BluetoothAdapter adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
 
         if (!adapter.IsEnabled)
         {
             throw new InvalidOperationException("Bluetooth is disabled.");
         }
 
-        var device = adapter.GetRemoteDevice(deviceAddress)
+        BluetoothDevice device = adapter.GetRemoteDevice(deviceAddress)
             ?? throw new InvalidOperationException($"Bluetooth LE device '{deviceAddress}' was not found.");
 
         return await BluetoothLeGattDuplexStream.ConnectAsync(

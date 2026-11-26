@@ -19,7 +19,7 @@ internal static class MbTilesTestFixture
     /// </summary>
     public static string CreateTemporaryDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         return directory;
     }
@@ -31,9 +31,9 @@ internal static class MbTilesTestFixture
     /// </summary>
     public static string Create(string directory, string fileName = "fixture.mbtiles")
     {
-        var path = Path.Combine(directory, fileName);
+        string path = Path.Combine(directory, fileName);
 
-        using var connection = new SqliteConnection($"Data Source={path};Pooling=false");
+        using SqliteConnection connection = new($"Data Source={path};Pooling=false");
         connection.Open();
 
         Execute(connection, "CREATE TABLE metadata (name TEXT, value TEXT);");
@@ -54,7 +54,7 @@ internal static class MbTilesTestFixture
 
     private static void InsertMetadata(SqliteConnection connection, string name, string value)
     {
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "INSERT INTO metadata (name, value) VALUES ($name, $value);";
         command.Parameters.AddWithValue("$name", name);
         command.Parameters.AddWithValue("$value", value);
@@ -63,7 +63,7 @@ internal static class MbTilesTestFixture
 
     private static void InsertTile(SqliteConnection connection, int zoom, int column, int row, byte[] data)
     {
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText =
             "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES ($zoom, $column, $row, $data);";
         command.Parameters.AddWithValue("$zoom", zoom);
@@ -75,7 +75,7 @@ internal static class MbTilesTestFixture
 
     private static void Execute(SqliteConnection connection, string sql)
     {
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText = sql;
         command.ExecuteNonQuery();
     }

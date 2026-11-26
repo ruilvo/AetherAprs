@@ -32,7 +32,7 @@ public sealed class TcpKissStreamConnector : IKissStreamConnector
                 nameof(settings));
         }
 
-        var client = new TcpClient();
+        TcpClient client = new();
         try
         {
             await client.ConnectAsync(tcpSettings.Host, tcpSettings.Port, cancellationToken).ConfigureAwait(false);

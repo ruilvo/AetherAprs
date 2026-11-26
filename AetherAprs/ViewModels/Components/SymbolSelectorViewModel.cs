@@ -43,8 +43,8 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 
     public SymbolSelectorViewModel(
         IAprsSymbolBitmapProvider? symbolBitmapProvider,
-        SymbolTable currentTable, 
-        SymbolCode currentCode, 
+        SymbolTable currentTable,
+        SymbolCode currentCode,
         bool isOverlayMode = false)
     {
         _symbolBitmapProvider = symbolBitmapProvider;
@@ -56,15 +56,13 @@ public partial class SymbolSelectorViewModel : ViewModelBase
         SelectedTabIndex = currentTable == SymbolTable.Primary ? 0 : 1;
 
         // Generate all symbol codes (printable ASCII from ! to ~)
-        var allCodes = Enumerable.Range(0x21, 0x7E - 0x21 + 1)
-            .Select(i => (SymbolCode)(byte)i)
-            .ToList();
+        List<SymbolCode> allCodes = [.. Enumerable.Range(0x21, 0x7E - 0x21 + 1).Select(i => (SymbolCode)(byte)i)];
 
         if (_isOverlayMode)
         {
             // In overlay mode, show only overlay glyphs (no base symbols)
             PrimarySymbols = GenerateOverlayGridItems(allCodes);
-            AlternateSymbols = Array.Empty<SymbolGridItem>();
+            AlternateSymbols = [];
         }
         else
         {
@@ -86,11 +84,11 @@ public partial class SymbolSelectorViewModel : ViewModelBase
             // Let the dialog render before doing the first synchronous bitmap extraction.
             await Task.Yield();
 
-            foreach (var item in PrimarySymbols.Concat(AlternateSymbols))
+            foreach (SymbolGridItem? item in PrimarySymbols.Concat(AlternateSymbols))
             {
                 try
                 {
-                    var preview = _isOverlayMode
+                    Bitmap? preview = _isOverlayMode
                         ? _previewFactory(_symbolBitmapProvider.GetOverlayBitmap(item.Code))
                         : _previewFactory(_symbolBitmapProvider.GetSymbolBitmap(new Symbol(item.Table, item.Code)));
                     item.Preview = preview;
@@ -110,31 +108,19 @@ public partial class SymbolSelectorViewModel : ViewModelBase
         }
     }
 
-    private static IReadOnlyList<SymbolGridItem> GenerateSymbolGridItems(SymbolTable table, IEnumerable<SymbolCode> codes)
-    {
-        return [.. codes.Select(code =>
-        {
-            return new SymbolGridItem
+    private static IReadOnlyList<SymbolGridItem> GenerateSymbolGridItems(SymbolTable table, IEnumerable<SymbolCode> codes) => [.. codes.Select(code => new SymbolGridItem
             {
                 Code = code,
                 Table = table,
                 Character = code.ToChar().ToString()
-            };
-        })];
-    }
+            })];
 
-    private static IReadOnlyList<SymbolGridItem> GenerateOverlayGridItems(IEnumerable<SymbolCode> codes)
-    {
-        return [.. codes.Select(code =>
-        {
-            return new SymbolGridItem
+    private static IReadOnlyList<SymbolGridItem> GenerateOverlayGridItems(IEnumerable<SymbolCode> codes) => [.. codes.Select(code => new SymbolGridItem
             {
                 Code = code,
                 Table = SymbolTable.Alternate, // Overlays are always associated with Alternate table
                 Character = code.ToChar().ToString()
-            };
-        })];
-    }
+            })];
 
     partial void OnSelectedTabIndexChanged(int value)
     {
@@ -142,16 +128,10 @@ public partial class SymbolSelectorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void SelectPrimaryTab()
-    {
-        SelectedTabIndex = 0;
-    }
+    private void SelectPrimaryTab() => SelectedTabIndex = 0;
 
     [RelayCommand]
-    private void SelectAlternateTab()
-    {
-        SelectedTabIndex = 1;
-    }
+    private void SelectAlternateTab() => SelectedTabIndex = 1;
 
     [RelayCommand]
     private void SelectSymbol(SymbolGridItem item)
@@ -164,9 +144,9 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 
     private static Bitmap CreatePreviewBitmap(SKBitmap bitmap)
     {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = new MemoryStream(data.ToArray());
+        using SKImage image = SKImage.FromBitmap(bitmap);
+        using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using MemoryStream stream = new(data.ToArray());
         return new Bitmap(stream);
     }
 }

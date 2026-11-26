@@ -65,8 +65,8 @@ public sealed class PacketViewFilterService : IPacketViewFilterService, IDisposa
 
     public DateTimeOffset? GetCutoffTime()
     {
-        var aprs = _configurationService.Current.Aprs;
-        var cutoffTime = CalculateCutoffTime(aprs.DisplayTimeRange, aprs.CustomDisplayTimeRangeHours);
+        AprsSettings aprs = _configurationService.Current.Aprs;
+        DateTimeOffset? cutoffTime = CalculateCutoffTime(aprs.DisplayTimeRange, aprs.CustomDisplayTimeRangeHours);
 
         // If LoadHistoryOnStartup is false, use session start time as floor
         // This ensures fresh start when the setting is disabled
@@ -81,13 +81,9 @@ public sealed class PacketViewFilterService : IPacketViewFilterService, IDisposa
         return cutoffTime;
     }
 
-    public HashSet<Guid> GetVisiblePortIds()
-    {
-        return _portService.Ports
+    public HashSet<Guid> GetVisiblePortIds() => [.. _portService.Ports
             .Where(p => p.ShowOnMap)
-            .Select(p => p.Id)
-            .ToHashSet();
-    }
+            .Select(p => p.Id)];
 
     private void OnPortsChanged(object? sender, EventArgs e)
     {
@@ -105,24 +101,18 @@ public sealed class PacketViewFilterService : IPacketViewFilterService, IDisposa
         }
     }
 
-    private void RaiseFiltersChanged()
-    {
-        FiltersChanged?.Invoke(this, EventArgs.Empty);
-    }
+    private void RaiseFiltersChanged() => FiltersChanged?.Invoke(this, EventArgs.Empty);
 
-    private static DateTimeOffset? CalculateCutoffTime(PacketDisplayTimeRange timeRange, int customHours)
+    private static DateTimeOffset? CalculateCutoffTime(PacketDisplayTimeRange timeRange, int customHours) => timeRange switch
     {
-        return timeRange switch
-        {
-            PacketDisplayTimeRange.All => null,
-            PacketDisplayTimeRange.LastHour => DateTimeOffset.UtcNow.AddHours(-1),
-            PacketDisplayTimeRange.LastDay => DateTimeOffset.UtcNow.AddDays(-1),
-            PacketDisplayTimeRange.LastWeek => DateTimeOffset.UtcNow.AddDays(-7),
-            PacketDisplayTimeRange.LastMonth => DateTimeOffset.UtcNow.AddDays(-30),
-            PacketDisplayTimeRange.Custom => DateTimeOffset.UtcNow.AddHours(-customHours),
-            _ => DateTimeOffset.UtcNow.AddHours(-24)
-        };
-    }
+        PacketDisplayTimeRange.All => null,
+        PacketDisplayTimeRange.LastHour => DateTimeOffset.UtcNow.AddHours(-1),
+        PacketDisplayTimeRange.LastDay => DateTimeOffset.UtcNow.AddDays(-1),
+        PacketDisplayTimeRange.LastWeek => DateTimeOffset.UtcNow.AddDays(-7),
+        PacketDisplayTimeRange.LastMonth => DateTimeOffset.UtcNow.AddDays(-30),
+        PacketDisplayTimeRange.Custom => DateTimeOffset.UtcNow.AddHours(-customHours),
+        _ => DateTimeOffset.UtcNow.AddHours(-24)
+    };
 
     public void Dispose()
     {

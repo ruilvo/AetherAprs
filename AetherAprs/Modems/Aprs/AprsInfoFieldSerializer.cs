@@ -55,15 +55,12 @@ public static class AprsInfoFieldSerializer
     /// </summary>
     /// <param name="packet">The position packet to format.</param>
     /// <returns>The APRS info field string.</returns>
-    private static string FormatPosition(PositionPacket packet)
+    private static string FormatPosition(PositionPacket packet) => packet.Format switch
     {
-        return packet.Format switch
-        {
-            PositionFormat.Compressed => FormatPositionCompressed(packet),
-            PositionFormat.MicE => MicESerializer.FormatInfoField(packet),
-            _ => FormatPositionUncompressed(packet)
-        };
-    }
+        PositionFormat.Compressed => FormatPositionCompressed(packet),
+        PositionFormat.MicE => MicESerializer.FormatInfoField(packet),
+        _ => FormatPositionUncompressed(packet)
+    };
 
     /// <summary>
     /// Formats an uncompressed <see cref="PositionPacketBase"/> into its APRS info field string.
@@ -80,7 +77,7 @@ public static class AprsInfoFieldSerializer
         string lat = FormatLatitude(packet.Location.Latitude, packet.Precision);
         string lon = FormatLongitude(packet.Location.Longitude, packet.Precision);
 
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(typeId);
         info.Append(lat);
 
@@ -116,7 +113,7 @@ public static class AprsInfoFieldSerializer
         int latN = (int)Math.Round((90.0 - packet.Location.Latitude) * 380926.0, MidpointRounding.AwayFromZero);
         int lonN = (int)Math.Round((packet.Location.Longitude + 180.0) * 190463.0, MidpointRounding.AwayFromZero);
 
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append('!');
 
         if (packet.Symbol.Overlay.HasValue)
@@ -151,7 +148,7 @@ public static class AprsInfoFieldSerializer
         if (packet.Altitude is > 0)
         {
             // Altitude mode: c1*91 + s1 encodes log1.002(altitude in feet).
-            var (c1Value, s1Value) = AprsUnits.EncodeCompressedAltitude(packet.Altitude.Value);
+            (int c1Value, int s1Value) = AprsUnits.EncodeCompressedAltitude(packet.Altitude.Value);
             char c1 = (char)(c1Value + 33);
             char s1 = (char)(s1Value + 33);
             char ctype = (char)(0x10 + 33); // altitude flag set (bit 4)
@@ -179,7 +176,7 @@ public static class AprsInfoFieldSerializer
     /// </summary>
     private static string EncodeBase91(int value, int digits)
     {
-        var chars = new char[digits];
+        char[] chars = new char[digits];
         for (int i = digits - 1; i >= 0; i--)
         {
             chars[i] = (char)(value % 91 + 33);
@@ -275,11 +272,9 @@ public static class AprsInfoFieldSerializer
     /// </summary>
     /// <param name="precision">The precision value to normalize.</param>
     /// <returns>Normalized precision (1 or 2).</returns>
-    private static int NormalizePrecision(int precision)
-    {
+    private static int NormalizePrecision(int precision) =>
         // Clamp to valid range: compressed positions set precision=3, normalize to 2
-        return Math.Clamp(precision, 1, 2);
-    }
+        Math.Clamp(precision, 1, 2);
 
     /// <summary>
     /// Formats a <see cref="MessagePacket"/> into its APRS info field string.
@@ -289,7 +284,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatMessage(MessagePacket packet)
     {
         // Format: :ADDRESSEE :message text{msgid}
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(':');
         info.Append(packet.Addressee.ToString().PadRight(9, ' '));
         info.Append(':');
@@ -314,7 +309,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatObject(ObjectPacket packet)
     {
         // Format: ;NAME(9)*DDHHMMz<position> (or '_' for a killed object).
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(';');
         info.Append(packet.Name.PadRight(9, ' '));
         info.Append(packet.IsLive ? '*' : '_');
@@ -331,7 +326,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatItem(ItemPacket packet)
     {
         // Format: )NAME(3-9)!<position> (or '_' for a killed item).
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(')');
         info.Append(packet.Name);
         info.Append(packet.IsLive ? '!' : '_');
@@ -347,7 +342,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatBulletin(BulletinPacket packet)
     {
         // Format: :NAME(9):text{msgid}
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(':');
         info.Append(packet.Name.PadRight(9, ' '));
         info.Append(':');
@@ -374,7 +369,7 @@ public static class AprsInfoFieldSerializer
     private static string FormatMessageAckRej(AprsAddress addressee, string keyword, int messageNumber)
     {
         // Format: :ADDRESSEE :ack{N} / :ADDRESSEE :rej{N}
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(':');
         info.Append(addressee.ToString().PadRight(9, ' '));
         info.Append(':');
@@ -387,11 +382,9 @@ public static class AprsInfoFieldSerializer
     /// </summary>
     /// <param name="packet">The status packet to format.</param>
     /// <returns>The formatted APRS info field string.</returns>
-    private static string FormatStatus(StatusPacket packet)
-    {
+    private static string FormatStatus(StatusPacket packet) =>
         // Format: >status text
-        return $">{packet.Text}";
-    }
+        $">{packet.Text}";
 
     /// <summary>
     /// Formats a <see cref="WeatherPacket"/> into its APRS info field string.
@@ -404,7 +397,7 @@ public static class AprsInfoFieldSerializer
         // Per the APRS spec all fields are fixed-width integers (no decimal
         // point); rain amounts are in hundredths of an inch. Only non-null
         // fields are included.
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append('_');
 
         if (packet.WindDirection.HasValue)
@@ -426,8 +419,8 @@ public static class AprsInfoFieldSerializer
         {
             // Per the APRS weather spec, sub-zero temperatures are encoded as
             // 1000 - abs(temp): -5 °F transmits as t995.
-            var temperature = packet.Temperature.Value;
-            var encoded = temperature < 0 ? 1000 - Math.Abs((int)temperature) : temperature;
+            double temperature = packet.Temperature.Value;
+            double encoded = temperature < 0 ? 1000 - Math.Abs((int)temperature) : temperature;
             info.Append(CultureInfo.InvariantCulture, $"t{FormatFixedWidth(encoded, 3)}");
         }
 
@@ -459,8 +452,5 @@ public static class AprsInfoFieldSerializer
     /// Formats a value as a zero-padded fixed-width integer per the APRS
     /// fixed-width weather field convention.
     /// </summary>
-    private static string FormatFixedWidth(double value, int width)
-    {
-        return Math.Round(value).ToString(CultureInfo.InvariantCulture).PadLeft(width, '0');
-    }
+    private static string FormatFixedWidth(double value, int width) => Math.Round(value).ToString(CultureInfo.InvariantCulture).PadLeft(width, '0');
 }

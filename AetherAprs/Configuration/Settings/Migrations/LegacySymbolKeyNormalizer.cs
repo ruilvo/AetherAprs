@@ -57,9 +57,9 @@ public static class LegacySymbolKeyNormalizer
 
     private static void MigrateTable(IDictionary<string, string?> values, ILogger logger)
     {
-        foreach (var key in LegacyTableKeys)
+        foreach (string key in LegacyTableKeys)
         {
-            if (!values.TryGetValue(key, out var raw) || raw is null)
+            if (!values.TryGetValue(key, out string? raw) || raw is null)
             {
                 continue;
             }
@@ -70,13 +70,13 @@ public static class LegacySymbolKeyNormalizer
                 continue;
             }
 
-            var converted = raw switch
+            string? converted = raw switch
             {
                 "/" => SymbolTable.Primary.ToString(),
                 "\\" => SymbolTable.Alternate.ToString(),
                 // A value written by a previous version of this build is
                 // already the enum name; keep it.
-                _ when Enum.TryParse<SymbolTable>(raw, ignoreCase: true, out var parsed)
+                _ when Enum.TryParse<SymbolTable>(raw, ignoreCase: true, out SymbolTable parsed)
                     && Enum.IsDefined(parsed) => parsed.ToString(),
                 _ => null,
             };
@@ -100,9 +100,9 @@ public static class LegacySymbolKeyNormalizer
         string targetKey,
         ILogger logger)
     {
-        foreach (var key in legacyKeys)
+        foreach (string key in legacyKeys)
         {
-            if (!values.TryGetValue(key, out var raw) || raw is null)
+            if (!values.TryGetValue(key, out string? raw) || raw is null)
             {
                 continue;
             }
@@ -133,7 +133,7 @@ public static class LegacySymbolKeyNormalizer
             }
 
             // Already an enum name written by a previous version of this build.
-            if (Enum.TryParse<SymbolCode>(raw, ignoreCase: true, out var parsed)
+            if (Enum.TryParse<SymbolCode>(raw, ignoreCase: true, out SymbolCode parsed)
                 && Enum.IsDefined(parsed))
             {
                 values[targetKey] = parsed.ToString();

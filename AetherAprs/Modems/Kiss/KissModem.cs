@@ -30,7 +30,7 @@ public sealed class KissModem : IAsyncDisposable
     private int _streamClosed;
 
     /// <summary>Guards the start/stop lifecycle state so concurrent Start/Stop calls cannot race.</summary>
-    private readonly object _lifecycleLock = new();
+    private readonly Lock _lifecycleLock = new();
 
     /// <summary>
     /// Maximum accumulated frame size before the stream is treated as hostile or
@@ -164,7 +164,7 @@ public sealed class KissModem : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var buffer = KissSerializer.EncodeFrame(frame);
+        byte[] buffer = KissSerializer.EncodeFrame(frame);
         await _sendLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -187,13 +187,13 @@ public sealed class KissModem : IAsyncDisposable
 
         _disposed = true;
 
-        var readCts = _readCts;
+        CancellationTokenSource? readCts = _readCts;
         if (readCts is not null)
         {
             await readCts.CancelAsync().ConfigureAwait(false);
         }
 
-        var readTask = _readTask;
+        Task? readTask = _readTask;
 
         // Close the stream first: that is what unblocks a blocking platform read.
         // Only then is it safe to await the receive loop, and the wait is bounded
@@ -212,7 +212,7 @@ public sealed class KissModem : IAsyncDisposable
     /// </summary>
     private async Task CloseStreamAsync()
     {
-        var sendDrainAcquired = await _sendLock.WaitAsync(SendDrainTimeout).ConfigureAwait(false);
+        bool sendDrainAcquired = await _sendLock.WaitAsync(SendDrainTimeout).ConfigureAwait(false);
         try
         {
             // StopAsync and DisposeAsync both close the stream, and the port's stop
@@ -269,14 +269,14 @@ public sealed class KissModem : IAsyncDisposable
 
     private async Task ReadLoopAsync(CancellationToken cancellationToken)
     {
-        var buffer = new byte[4096];
-        var inFrame = false;
+        byte[] buffer = new byte[4096];
+        bool inFrame = false;
 
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var bytesRead = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                int bytesRead = await _stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
 
                 if (bytesRead == 0)
                 {
@@ -289,9 +289,9 @@ public sealed class KissModem : IAsyncDisposable
                     break;
                 }
 
-                for (var i = 0; i < bytesRead; i++)
+                for (int i = 0; i < bytesRead; i++)
                 {
-                    var b = buffer[i];
+                    byte b = buffer[i];
 
                     if (b == KissConstants.FEND)
                     {
@@ -354,10 +354,10 @@ public sealed class KissModem : IAsyncDisposable
         {
             // The command byte is transmitted unescaped per the KISS spec;
             // only the payload is escaped.
-            var data = _accumulator.Count > 1
+            byte[] data = _accumulator.Count > 1
                 ? KissSerializer.UnescapeData([.. _accumulator.GetRange(1, _accumulator.Count - 1)])
                 : [];
-            var frame = new KissFrame(_accumulator[0], data);
+            KissFrame frame = new(_accumulator[0], data);
             _logger.LogDebug(
                 "KISS frame received: Command={Command}, Port={Port}, DataLength={Length}",
                 frame.CommandType,

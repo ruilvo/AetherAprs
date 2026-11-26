@@ -316,7 +316,7 @@ public sealed class SymbolCodeJsonConverter : JsonConverter<SymbolCode>
             throw new JsonException("Symbol code must be a single character.");
         }
 
-        var value = reader.GetString();
+        string? value = reader.GetString();
         if (value is null || value.Length != 1)
         {
             throw new JsonException("Symbol code must be a single character.");
@@ -328,10 +328,7 @@ public sealed class SymbolCodeJsonConverter : JsonConverter<SymbolCode>
     public override void Write(
         Utf8JsonWriter writer,
         SymbolCode value,
-        JsonSerializerOptions options)
-    {
-        writer.WriteStringValue(value.ToChar().ToString());
-    }
+        JsonSerializerOptions options) => writer.WriteStringValue(value.ToChar().ToString());
 }
 
 /// <summary>

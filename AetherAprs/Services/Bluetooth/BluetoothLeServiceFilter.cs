@@ -69,7 +69,7 @@ public sealed class BluetoothLeServiceFilter
             return true;
         }
 
-        foreach (var serviceUuid in advertisement.ServiceUuids)
+        foreach (Guid serviceUuid in advertisement.ServiceUuids)
         {
             if (_supportedServiceUuids.Contains(serviceUuid))
             {

@@ -16,7 +16,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly INavigationService _navigationService;
     private readonly IKeyboardInsetsService _keyboardInsetsService;
     private ViewModelBase? _previousOverlay;
-    
+
     private static readonly Dictionary<int, Type> TabIndexToViewModelType = new()
     {
         [0] = typeof(HomeViewModel),
@@ -74,10 +74,7 @@ public partial class MainViewModel : ViewModelBase
     /// Wires the keyboard insets service to the window's TopLevel. Called by
     /// MainView once its TopLevel is available; avoids service-locator use in the view.
     /// </summary>
-    public void InitializeKeyboardInsets(TopLevel topLevel)
-    {
-        _keyboardInsetsService.Initialize(topLevel);
-    }
+    public void InitializeKeyboardInsets(TopLevel topLevel) => _keyboardInsetsService.Initialize(topLevel);
 
     partial void OnOverlayViewModelChanged(ViewModelBase? value)
     {
@@ -117,7 +114,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void OnCurrentViewModelChanged(object? sender, ViewModelBase? viewModel)
     {
-        if (viewModel != null && ViewModelTypeToTabIndex.TryGetValue(viewModel.GetType(), out var tabIndex))
+        if (viewModel != null && ViewModelTypeToTabIndex.TryGetValue(viewModel.GetType(), out int tabIndex))
         {
             OverlayViewModel = null;
             SelectedTabIndex = tabIndex;

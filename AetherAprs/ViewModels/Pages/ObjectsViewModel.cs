@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 
@@ -20,13 +21,18 @@ namespace AetherAprs.ViewModels.Pages;
 /// View model for the APRS objects management page. Lists known objects (live
 /// and killed), opens the object editor for add/edit, and kills objects.
 /// </summary>
-public sealed partial class ObjectsViewModel : ViewModelBase
+public sealed partial class ObjectsViewModel(
+    IObjectService objectService,
+    INavigationService navigationService,
+    IObjectEditorViewModelFactory editorFactory,
+    IConfirmationDialogService confirmationDialogService,
+    ILogger<ObjectsViewModel>? logger = null) : ViewModelBase
 {
-    private readonly IObjectService _objectService;
-    private readonly INavigationService _navigationService;
-    private readonly IObjectEditorViewModelFactory _editorFactory;
-    private readonly IConfirmationDialogService _confirmationDialogService;
-    private readonly ILogger<ObjectsViewModel>? _logger;
+    private readonly IObjectService _objectService = objectService ?? throw new ArgumentNullException(nameof(objectService));
+    private readonly INavigationService _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    private readonly IObjectEditorViewModelFactory _editorFactory = editorFactory ?? throw new ArgumentNullException(nameof(editorFactory));
+    private readonly IConfirmationDialogService _confirmationDialogService = confirmationDialogService ?? throw new ArgumentNullException(nameof(confirmationDialogService));
+    private readonly ILogger<ObjectsViewModel>? _logger = logger;
 
     [ObservableProperty]
     public partial ObservableCollection<ObjectPacket> Objects { get; set; } = [];
@@ -48,20 +54,6 @@ public sealed partial class ObjectsViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsObjectsEmpty { get; set; } = true;
 
-    public ObjectsViewModel(
-        IObjectService objectService,
-        INavigationService navigationService,
-        IObjectEditorViewModelFactory editorFactory,
-        IConfirmationDialogService confirmationDialogService,
-        ILogger<ObjectsViewModel>? logger = null)
-    {
-        _objectService = objectService ?? throw new ArgumentNullException(nameof(objectService));
-        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-        _editorFactory = editorFactory ?? throw new ArgumentNullException(nameof(editorFactory));
-        _confirmationDialogService = confirmationDialogService ?? throw new ArgumentNullException(nameof(confirmationDialogService));
-        _logger = logger;
-    }
-
     /// <summary>
     /// Reloads the object list from the object service. Called by the page
     /// code-behind when the page is shown.
@@ -71,10 +63,10 @@ public sealed partial class ObjectsViewModel : ViewModelBase
         try
         {
             IsLoading = true;
-            var objects = await _objectService.GetObjectsAsync();
+            IReadOnlyList<ObjectPacket> objects = await _objectService.GetObjectsAsync();
 
             Objects.Clear();
-            foreach (var obj in objects)
+            foreach (ObjectPacket obj in objects)
             {
                 Objects.Add(obj);
             }
@@ -94,7 +86,7 @@ public sealed partial class ObjectsViewModel : ViewModelBase
     [RelayCommand]
     private void Add()
     {
-        var vm = _editorFactory.Create();
+        ObjectEditorViewModel vm = _editorFactory.Create();
         _navigationService.NavigateTo(vm);
     }
 
@@ -106,7 +98,7 @@ public sealed partial class ObjectsViewModel : ViewModelBase
             return;
         }
 
-        var vm = _editorFactory.Create(obj);
+        ObjectEditorViewModel vm = _editorFactory.Create(obj);
         _navigationService.NavigateTo(vm);
     }
 
@@ -118,7 +110,7 @@ public sealed partial class ObjectsViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = await _confirmationDialogService.ShowConfirmationAsync(
+        bool confirmed = await _confirmationDialogService.ShowConfirmationAsync(
             Strings.Get("KillObjectConfirmationTitle"),
             Strings.Format("KillObjectConfirmationMessage", obj.Name));
 
@@ -139,10 +131,7 @@ public sealed partial class ObjectsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Close()
-    {
-        _navigationService.GoBack();
-    }
+    private void Close() => _navigationService.GoBack();
 
     partial void OnObjectsChanged(ObservableCollection<ObjectPacket> value)
     {

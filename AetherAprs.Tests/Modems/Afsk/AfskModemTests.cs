@@ -33,7 +33,7 @@ public sealed class AfskModemTests
 
     private static IAudioStreamService CreateAudioStream(int sampleRate = 48000)
     {
-        var stream = Substitute.For<IAudioStreamService>();
+        IAudioStreamService stream = Substitute.For<IAudioStreamService>();
         stream.SampleRate.Returns(sampleRate);
         return stream;
     }
@@ -42,7 +42,7 @@ public sealed class AfskModemTests
         int sampleRate = 48000,
         Action<ReadOnlyMemory<float>>? onPlay = null)
     {
-        var playback = Substitute.For<IAudioPlaybackService>();
+        IAudioPlaybackService playback = Substitute.For<IAudioPlaybackService>();
         playback.SampleRate.Returns(sampleRate);
         playback.PlayAsync(Arg.Any<ReadOnlyMemory<float>>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
@@ -58,21 +58,18 @@ public sealed class AfskModemTests
         IAudioStreamService? audioStream = null,
         IAudioPlaybackService? playback = null,
         IPttService? ptt = null,
-        TxTiming? txTiming = null)
-    {
-        return new AfskModem(
+        TxTiming? txTiming = null) => new(
             audioStream ?? CreateAudioStream(),
             playback ?? CreatePlayback(),
             ptt ?? Substitute.For<IPttService>(),
             settings,
             txTiming: txTiming ?? new TxTiming(new FixedRandom(0)));
-    }
 
     [Fact]
     public async Task DisposeAsync_DoesNotDisposeTheSharedAudioStream()
     {
-        var audioStream = CreateAudioStream();
-        var modem = CreateModem(new AfskSettings(), audioStream: audioStream);
+        IAudioStreamService audioStream = CreateAudioStream();
+        AfskModem modem = CreateModem(new AfskSettings(), audioStream: audioStream);
 
         await modem.DisposeAsync();
 
@@ -84,8 +81,8 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_PttModeNone_DoesNotKeyPtt()
     {
-        var ptt = Substitute.For<IPttService>();
-        var modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, ptt: ptt);
+        IPttService ptt = Substitute.For<IPttService>();
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, ptt: ptt);
 
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
 
@@ -96,12 +93,12 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_PttModeSpeakerMic_EngagesThenReleasesPtt()
     {
-        var order = new List<string>();
-        var ptt = Substitute.For<IPttService>();
+        List<string> order = [];
+        IPttService ptt = Substitute.For<IPttService>();
         ptt.When(p => p.Engage()).Do(_ => order.Add("engage"));
         ptt.When(p => p.Release()).Do(_ => order.Add("release"));
 
-        var modem = CreateModem(new AfskSettings { PttMode = PttMode.SpeakerMic }, ptt: ptt);
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.SpeakerMic }, ptt: ptt);
 
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
 
@@ -112,8 +109,8 @@ public sealed class AfskModemTests
     public async Task SendAsync_PlaysModulatedSamples_AtConfiguredLevel()
     {
         ReadOnlyMemory<float>? played = null;
-        var playback = CreatePlayback(onPlay: samples => played = samples);
-        var modem = CreateModem(
+        IAudioPlaybackService playback = CreatePlayback(onPlay: samples => played = samples);
+        AfskModem modem = CreateModem(
             new AfskSettings { PttMode = PttMode.None, AudioLevel = 0.9 },
             playback: playback);
 
@@ -123,7 +120,7 @@ public sealed class AfskModemTests
         Assert.False(played.Value.IsEmpty);
 
         // Peak amplitude must not exceed the configured level.
-        foreach (var sample in played.Value.Span)
+        foreach (float sample in played.Value.Span)
         {
             Assert.InRange(Math.Abs(sample), 0.0, 0.9001);
         }
@@ -132,13 +129,13 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_KeysPttBeforePlayback_AndReleasesAfterTail()
     {
-        var order = new List<string>();
-        var ptt = Substitute.For<IPttService>();
+        List<string> order = [];
+        IPttService ptt = Substitute.For<IPttService>();
         ptt.When(p => p.Engage()).Do(_ => order.Add("engage"));
         ptt.When(p => p.Release()).Do(_ => order.Add("release"));
 
-        var playback = CreatePlayback(onPlay: _ => order.Add("play"));
-        var modem = CreateModem(
+        IAudioPlaybackService playback = CreatePlayback(onPlay: _ => order.Add("play"));
+        AfskModem modem = CreateModem(
             new AfskSettings { PttMode = PttMode.SpeakerMic, TxDelayMs = 1, TxTailMs = 1 },
             playback: playback,
             ptt: ptt);
@@ -151,13 +148,13 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_PlaybackThrows_StillReleasesPtt()
     {
-        var ptt = Substitute.For<IPttService>();
-        var playback = Substitute.For<IAudioPlaybackService>();
+        IPttService ptt = Substitute.For<IPttService>();
+        IAudioPlaybackService playback = Substitute.For<IAudioPlaybackService>();
         playback.SampleRate.Returns(48000);
         playback.PlayAsync(Arg.Any<ReadOnlyMemory<float>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("boom")));
 
-        var modem = CreateModem(new AfskSettings { PttMode = PttMode.SpeakerMic }, playback: playback, ptt: ptt);
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.SpeakerMic }, playback: playback, ptt: ptt);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken));
@@ -169,7 +166,7 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_NullPacket_Throws()
     {
-        var modem = CreateModem(new AfskSettings());
+        AfskModem modem = CreateModem(new AfskSettings());
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => modem.SendAsync(null!, TestContext.Current.CancellationToken));
     }
@@ -177,7 +174,7 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_AfterDispose_Throws()
     {
-        var modem = CreateModem(new AfskSettings());
+        AfskModem modem = CreateModem(new AfskSettings());
         await modem.DisposeAsync();
 
         await Assert.ThrowsAsync<ObjectDisposedException>(
@@ -187,12 +184,12 @@ public sealed class AfskModemTests
     [Fact]
     public async Task SendAsync_RecentlyTransmittedFrame_IsSuppressed()
     {
-        var playback = Substitute.For<IAudioPlaybackService>();
+        IAudioPlaybackService playback = Substitute.For<IAudioPlaybackService>();
         playback.SampleRate.Returns(48000);
         playback.PlayAsync(Arg.Any<ReadOnlyMemory<float>>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        var modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, playback: playback);
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, playback: playback);
 
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);

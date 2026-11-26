@@ -89,12 +89,12 @@ public readonly record struct AprsAddress
         string addressBase;
         int? ssid = null;
 
-        var dashIndex = value.IndexOf('-');
+        int dashIndex = value.IndexOf('-');
         if (dashIndex >= 0)
         {
             addressBase = value[..dashIndex];
-            var ssidPart = value[(dashIndex + 1)..];
-            if (!int.TryParse(ssidPart, out var ssidValue) || ssidValue is < 0 or > 15)
+            string ssidPart = value[(dashIndex + 1)..];
+            if (!int.TryParse(ssidPart, out int ssidValue) || ssidValue is < 0 or > 15)
             {
                 return false;
             }
@@ -118,7 +118,7 @@ public readonly record struct AprsAddress
 
     private static bool HasOnlyBaseCharacters(string value)
     {
-        foreach (var character in value)
+        foreach (char character in value)
         {
             if (!IsBaseCharacter(character))
             {
@@ -135,10 +135,7 @@ public readonly record struct AprsAddress
     /// <summary>
     /// Creates an AprsAddress from a Callsign.
     /// </summary>
-    public static AprsAddress FromCallsign(Callsign callsign)
-    {
-        return new AprsAddress(callsign.Base, callsign.Ssid);
-    }
+    public static AprsAddress FromCallsign(Callsign callsign) => new(callsign.Base, callsign.Ssid);
 
     /// <summary>
     /// Creates an address from the two values storage keeps: a base and an SSID
@@ -161,7 +158,7 @@ public readonly record struct AprsAddress
     public bool TryToCallsign(out Callsign callsign)
     {
         callsign = default;
-        
+
         if (Base.Contains('-'))
         {
             return false;
@@ -183,8 +180,5 @@ public readonly record struct AprsAddress
     /// <see cref="AprsAddress"/> value itself, not this string, as a dictionary key or
     /// identity because those two values are not equal.
     /// </remarks>
-    public override string ToString()
-    {
-        return Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;
-    }
+    public override string ToString() => Ssid is > 0 ? $"{Base}-{Ssid.Value}" : Base;
 }

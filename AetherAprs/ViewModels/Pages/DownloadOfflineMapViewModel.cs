@@ -22,20 +22,27 @@ namespace AetherAprs.ViewModels.Pages;
 /// ViewModel for downloading a region of OpenStreetMap tiles into an offline
 /// MBTiles package and switching the map to use it.
 /// </summary>
-public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
+public partial class DownloadOfflineMapViewModel(
+    IOfflineTilePackageDownloader downloader,
+    INavigationService navigationService,
+    IConfigurationService configurationService,
+    IAppDataDirProviderService appDataDirProviderService,
+    ILogger<DownloadOfflineMapViewModel>? logger = null,
+    ITransientFeedbackService? transientFeedbackService = null,
+    ILocationTrackingService? locationTrackingService = null) : ViewModelBase, IDisposable
 {
     private const string OfflineMapsDirectoryName = "maps";
     private const string OfflinePackageFileName = "offline.mbtiles";
     private const int MinSupportedZoom = 0;
     private const int MaxSupportedZoom = 19;
 
-    private readonly IOfflineTilePackageDownloader _downloader;
-    private readonly INavigationService _navigationService;
-    private readonly IConfigurationService _configurationService;
-    private readonly IAppDataDirProviderService _appDataDirProviderService;
-    private readonly ILogger<DownloadOfflineMapViewModel>? _logger;
-    private readonly ITransientFeedbackService? _transientFeedbackService;
-    private readonly ILocationTrackingService? _locationTrackingService;
+    private readonly IOfflineTilePackageDownloader _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
+    private readonly INavigationService _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    private readonly IConfigurationService _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+    private readonly IAppDataDirProviderService _appDataDirProviderService = appDataDirProviderService ?? throw new ArgumentNullException(nameof(appDataDirProviderService));
+    private readonly ILogger<DownloadOfflineMapViewModel>? _logger = logger;
+    private readonly ITransientFeedbackService? _transientFeedbackService = transientFeedbackService;
+    private readonly ILocationTrackingService? _locationTrackingService = locationTrackingService;
 
     private CancellationTokenSource? _downloadCts;
 
@@ -100,24 +107,6 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
     /// </summary>
     public double? InitialLongitude => _locationTrackingService?.CurrentLocation?.Location.Longitude;
 
-    public DownloadOfflineMapViewModel(
-        IOfflineTilePackageDownloader downloader,
-        INavigationService navigationService,
-        IConfigurationService configurationService,
-        IAppDataDirProviderService appDataDirProviderService,
-        ILogger<DownloadOfflineMapViewModel>? logger = null,
-        ITransientFeedbackService? transientFeedbackService = null,
-        ILocationTrackingService? locationTrackingService = null)
-    {
-        _downloader = downloader ?? throw new ArgumentNullException(nameof(downloader));
-        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-        _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-        _appDataDirProviderService = appDataDirProviderService ?? throw new ArgumentNullException(nameof(appDataDirProviderService));
-        _logger = logger;
-        _transientFeedbackService = transientFeedbackService;
-        _locationTrackingService = locationTrackingService;
-    }
-
     private bool CanDownload() => !IsDownloading && HasSelection;
 
     /// <summary>
@@ -139,10 +128,7 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void ToggleDrawMode()
-    {
-        IsDrawMode = !IsDrawMode;
-    }
+    private void ToggleDrawMode() => IsDrawMode = !IsDrawMode;
 
     [RelayCommand]
     private void ClearSelection()
@@ -157,21 +143,18 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
         StatusMessage = string.Empty;
     }
 
-    private static string FormatBounds(double minLatitude, double minLongitude, double maxLatitude, double maxLongitude)
-    {
-        return string.Format(
+    private static string FormatBounds(double minLatitude, double minLongitude, double maxLatitude, double maxLongitude) => string.Format(
             CultureInfo.InvariantCulture,
             "{0:F4}, {1:F4} → {2:F4}, {3:F4}",
             minLatitude,
             minLongitude,
             maxLatitude,
             maxLongitude);
-    }
 
     [RelayCommand(CanExecute = nameof(CanDownload))]
     private async Task DownloadAsync()
     {
-        if (!ValidateInputs(out var region))
+        if (!ValidateInputs(out OfflineDownloadRegion? region))
         {
             return;
         }
@@ -184,11 +167,11 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var appDataDirectory = _appDataDirProviderService.GetAppDataDirectory();
-            var mapsDirectory = Path.Combine(appDataDirectory, OfflineMapsDirectoryName);
-            var outputPath = Path.Combine(mapsDirectory, OfflinePackageFileName);
+            string appDataDirectory = _appDataDirProviderService.GetAppDataDirectory();
+            string mapsDirectory = Path.Combine(appDataDirectory, OfflineMapsDirectoryName);
+            string outputPath = Path.Combine(mapsDirectory, OfflinePackageFileName);
 
-            var progress = new Progress<OfflineDownloadProgress>(report =>
+            Progress<OfflineDownloadProgress> progress = new(report =>
             {
                 if (report.TotalTiles > 0)
                 {
@@ -232,10 +215,7 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void Cancel()
-    {
-        _downloadCts?.Cancel();
-    }
+    private void Cancel() => _downloadCts?.Cancel();
 
     [RelayCommand]
     private void Close()

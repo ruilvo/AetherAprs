@@ -65,14 +65,14 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
             // A reason that was already held still reconciles, so a hold that
             // degraded can recover on the next attempt. Only a reason this call
             // added is eligible for rollback, so an earlier caller keeps its hold.
-            var added = _heldReasons.Add(reason);
+            bool added = _heldReasons.Add(reason);
             if (!added)
             {
                 _logger.LogDebug("Keep-alive reason {Reason} is already held.", reason);
             }
 
-            var wasActive = _status.State == KeepAliveState.Active;
-            var (status, startRejected) = await ReconcileAsync().ConfigureAwait(false);
+            bool wasActive = _status.State == KeepAliveState.Active;
+            (KeepAliveStatus? status, bool startRejected) = await ReconcileAsync().ConfigureAwait(false);
 
             if (!startRejected)
             {
@@ -102,7 +102,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
                 _logger.LogDebug("Keep-alive reason {Reason} was not held.", reason);
             }
 
-            var (status, startRejected) = await ReconcileAsync().ConfigureAwait(false);
+            (KeepAliveStatus? status, bool startRejected) = await ReconcileAsync().ConfigureAwait(false);
             return startRejected ? Publish(status) : status;
         }
         finally
@@ -124,7 +124,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
     /// </returns>
     private async Task<(KeepAliveStatus Status, bool StartRejected)> ReconcileAsync()
     {
-        var requiredTypes = GetRequiredTypes();
+        ForegroundServiceType requiredTypes = GetRequiredTypes();
 
         if (_heldReasons.Count == 0)
         {
@@ -136,7 +136,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
             return (_status, false);
         }
 
-        var refresh = _status.State == KeepAliveState.Active;
+        bool refresh = _status.State == KeepAliveState.Active;
 
         ForegroundServiceStartResult result;
         try
@@ -154,7 +154,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
 
         if (!result.IsRunning)
         {
-            var reason = result.FailureReason ?? "The foreground service is not running.";
+            string reason = result.FailureReason ?? "The foreground service is not running.";
             _logger.LogWarning(
                 "Keep-alive is degraded for {Types}: {Reason}",
                 requiredTypes,
@@ -263,7 +263,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
     /// </summary>
     private KeepAliveStatus Publish(KeepAliveStatus status)
     {
-        var previous = _status;
+        KeepAliveStatus previous = _status;
         Volatile.Write(ref _status, status);
 
         if (previous.DescribesSameHold(status))
@@ -285,7 +285,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
 
     private ForegroundServiceType GetRequiredTypes()
     {
-        var types = ForegroundServiceType.None;
+        ForegroundServiceType types = ForegroundServiceType.None;
 
         if (_heldReasons.Contains(KeepAliveReason.Ports))
         {
@@ -317,8 +317,5 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
     /// because a transition may still be inside it; it holds no unmanaged state
     /// unless a waiter asks for its kernel handle, which this type never does.
     /// </summary>
-    public void Dispose()
-    {
-        _disposed = true;
-    }
+    public void Dispose() => _disposed = true;
 }

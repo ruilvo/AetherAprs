@@ -36,9 +36,9 @@ public sealed class AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider) :
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (!_base64Cache.TryGetValue(symbol, out var base64Uri))
+        if (!_base64Cache.TryGetValue(symbol, out string? base64Uri))
         {
-            var bitmap = provider.GetSymbolBitmap(symbol);
+            SKBitmap bitmap = provider.GetSymbolBitmap(symbol);
             base64Uri = EncodeToBase64Uri(bitmap);
             _base64Cache[symbol] = base64Uri;
         }
@@ -65,9 +65,9 @@ public sealed class AprsSymbolMapConverter(IAprsSymbolBitmapProvider provider) :
 
     private static string EncodeToBase64Uri(SKBitmap bitmap)
     {
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        var bytes = data.ToArray();
+        using SKImage image = SKImage.FromBitmap(bitmap);
+        using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
+        byte[] bytes = data.ToArray();
         return "base64-content://" + Convert.ToBase64String(bytes);
     }
 }

@@ -20,8 +20,8 @@ internal sealed class BeaconStateStore(SqliteRuntimeWriter writer, SqliteRuntime
     public Task<BeaconStateSnapshot> LoadAsync(CancellationToken cancellationToken = default) =>
         reader.QueryAsync<BeaconStateSnapshot>(async (context, token) =>
         {
-            var records = await context.BeaconConfigs.AsNoTracking().ToListAsync(token).ConfigureAwait(false);
-            var state = await context.BeaconingState.AsNoTracking()
+            System.Collections.Generic.List<BeaconConfigRecord> records = await context.BeaconConfigs.AsNoTracking().ToListAsync(token).ConfigureAwait(false);
+            BeaconingStateRecord? state = await context.BeaconingState.AsNoTracking()
                 .FirstOrDefaultAsync(token).ConfigureAwait(false);
 
             return new BeaconStateSnapshot(
@@ -37,7 +37,7 @@ internal sealed class BeaconStateStore(SqliteRuntimeWriter writer, SqliteRuntime
         ArgumentNullException.ThrowIfNull(configuration);
         return writer.EnqueueAsync("beacon.save-config", async (context, token) =>
         {
-            var existing = await context.BeaconConfigs
+            BeaconConfigRecord? existing = await context.BeaconConfigs
                 .FindAsync([configuration.Mode], token).ConfigureAwait(false);
             if (existing is null)
             {
@@ -57,7 +57,7 @@ internal sealed class BeaconStateStore(SqliteRuntimeWriter writer, SqliteRuntime
         DynamicBeaconMode mode, CancellationToken cancellationToken = default) =>
         writer.EnqueueAsync("beacon.save-mode", async (context, token) =>
         {
-            var state = await context.BeaconingState
+            BeaconingStateRecord? state = await context.BeaconingState
                 .FindAsync([BeaconingStateRecord.SingletonId], token).ConfigureAwait(false);
             if (state is null)
             {
@@ -75,8 +75,8 @@ internal sealed class BeaconStateStore(SqliteRuntimeWriter writer, SqliteRuntime
     private static async Task<BeaconStateSnapshot> ReadSnapshotAsync(
         AppDbContext context, CancellationToken cancellationToken)
     {
-        var records = await context.BeaconConfigs.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
-        var state = await context.BeaconingState.AsNoTracking()
+        System.Collections.Generic.List<BeaconConfigRecord> records = await context.BeaconConfigs.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
+        BeaconingStateRecord? state = await context.BeaconingState.AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
         return new BeaconStateSnapshot(
@@ -89,7 +89,7 @@ internal sealed class BeaconStateStore(SqliteRuntimeWriter writer, SqliteRuntime
     /// <summary>Falls back to the compiled preset when a mode has never been stored.</summary>
     private static BeaconConfig Find(System.Collections.Generic.List<BeaconConfigRecord> records, DynamicBeaconMode mode)
     {
-        var record = records.FirstOrDefault(candidate => candidate.Mode == mode);
+        BeaconConfigRecord? record = records.FirstOrDefault(candidate => candidate.Mode == mode);
         if (record is not null)
         {
             return BeaconConfigMapper.ToConfig(record);

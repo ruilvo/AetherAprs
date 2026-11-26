@@ -17,27 +17,24 @@ namespace AetherAprs.Tests.Data.Mappers;
 
 public sealed class PacketRecordMapperTests
 {
-    private static PacketRecord CreateRecord(string packetType)
+    private static PacketRecord CreateRecord(string packetType) => new()
     {
-        return new PacketRecord
-        {
-            SourceBase = "N0CALL",
-            SourceSsid = AprsSsid.PrimaryStation,
-            DestinationBase = "APRS",
-            DestinationSsid = AprsSsid.PrimaryStation,
-            PacketType = packetType,
-            Timestamp = DateTime.UtcNow,
-            PacketTimestamp = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
-            PortId = Guid.NewGuid(),
-            IsOutbound = false,
-            RawInfo = "raw"
-        };
-    }
+        SourceBase = "N0CALL",
+        SourceSsid = AprsSsid.PrimaryStation,
+        DestinationBase = "APRS",
+        DestinationSsid = AprsSsid.PrimaryStation,
+        PacketType = packetType,
+        Timestamp = DateTime.UtcNow,
+        PacketTimestamp = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc),
+        PortId = Guid.NewGuid(),
+        IsOutbound = false,
+        RawInfo = "raw"
+    };
 
     [Fact]
     public void MapToPacket_PositionRecord_ReturnsPositionPacket()
     {
-        var record = CreateRecord("Position");
+        PacketRecord record = CreateRecord("Position");
         record.Position = new PositionDataRecord
         {
             Location = new Coordinate(38.5, -9.0),
@@ -49,9 +46,9 @@ public sealed class PacketRecordMapperTests
             Comment = "comment"
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var pos = Assert.IsType<PositionPacket>(packet);
+        PositionPacket pos = Assert.IsType<PositionPacket>(packet);
         // Mapper always passes an explicit SSID (PrimaryStation when null), so compare base + ssid
         Assert.Equal("N0CALL", pos.Source.Base);
         Assert.Equal("APRS", pos.Destination.Base);
@@ -69,7 +66,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_MessageRecord_ReturnsMessagePacket()
     {
-        var record = CreateRecord("Message");
+        PacketRecord record = CreateRecord("Message");
         record.Message = new MessageDataRecord
         {
             AddresseeBase = "K0OTH",
@@ -78,17 +75,17 @@ public sealed class PacketRecordMapperTests
             Number = 5
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var msg = Assert.IsType<MessagePacket>(packet);
-        Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0OTH", 7)), msg.Addressee);        Assert.Equal("Hello", msg.Text);
+        MessagePacket msg = Assert.IsType<MessagePacket>(packet);
+        Assert.Equal(AprsAddress.FromCallsign(new Callsign("K0OTH", 7)), msg.Addressee); Assert.Equal("Hello", msg.Text);
         Assert.Equal(5, msg.MessageNumber);
     }
 
     [Fact]
     public void MapToPacket_MessageStoredWithPrimaryStationSsid_ReadsAsNoSsid()
     {
-        var record = CreateRecord("Message");
+        PacketRecord record = CreateRecord("Message");
         record.Message = new MessageDataRecord
         {
             AddresseeBase = "APRS2SOTA",
@@ -97,9 +94,9 @@ public sealed class PacketRecordMapperTests
             Number = 1
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var msg = Assert.IsType<MessagePacket>(packet);
+        MessagePacket msg = Assert.IsType<MessagePacket>(packet);
         Assert.Equal("APRS2SOTA", msg.Addressee.Base);
         Assert.Null(msg.Addressee.Ssid);
         Assert.Equal(new AprsAddress("APRS2SOTA"), msg.Addressee);
@@ -109,7 +106,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void ToRecord_ThenMapToPacket_KeepsATacticalAddresseeWithoutAnSsid()
     {
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -118,31 +115,31 @@ public sealed class PacketRecordMapperTests
             MessageNumber = 1
         };
 
-        var record = PacketRecordMapper.ToRecord(
+        PacketRecord record = PacketRecordMapper.ToRecord(
             packet, Guid.NewGuid(), DateTimeOffset.UtcNow, isOutbound: true);
-        var reloaded = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? reloaded = PacketRecordMapper.MapToPacket(record);
 
-        var message = Assert.IsType<MessagePacket>(reloaded);
-        Assert.True(AprsAddress.TryParse("APRS2SOTA", out var expected));
+        MessagePacket message = Assert.IsType<MessagePacket>(reloaded);
+        Assert.True(AprsAddress.TryParse("APRS2SOTA", out AprsAddress expected));
         Assert.Equal(expected, message.Addressee);
     }
 
     [Fact]
     public void MapToPacket_StatusRecord_ReturnsStatusPacket()
     {
-        var record = CreateRecord("Status");
+        PacketRecord record = CreateRecord("Status");
         record.Status = new StatusDataRecord { Text = "on RF" };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var status = Assert.IsType<StatusPacket>(packet);
+        StatusPacket status = Assert.IsType<StatusPacket>(packet);
         Assert.Equal("on RF", status.Text);
     }
 
     [Fact]
     public void MapToPacket_WeatherRecord_ReturnsWeatherPacket()
     {
-        var record = CreateRecord("Weather");
+        PacketRecord record = CreateRecord("Weather");
         record.Weather = new WeatherDataRecord
         {
             Temperature = 21.5,
@@ -154,9 +151,9 @@ public sealed class PacketRecordMapperTests
             RainLast24Hours = 4
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var weather = Assert.IsType<WeatherPacket>(packet);
+        WeatherPacket weather = Assert.IsType<WeatherPacket>(packet);
         Assert.Equal(21.5, weather.Temperature);
         Assert.Equal(3, weather.WindSpeed);
         Assert.Equal(270, weather.WindDirection);
@@ -173,9 +170,9 @@ public sealed class PacketRecordMapperTests
     [InlineData("Bogus")]
     public void MapToPacket_UnmappedPacketType_ReturnsUnknownPacket(string packetType)
     {
-        var record = CreateRecord(packetType);
+        PacketRecord record = CreateRecord(packetType);
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
         Assert.IsType<UnknownPacket>(packet);
     }
@@ -183,10 +180,10 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_PositionTypeWithMissingOwnedData_ReturnsUnknownPacket()
     {
-        var record = CreateRecord("Position");
+        PacketRecord record = CreateRecord("Position");
         record.Position = null;
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
         Assert.IsType<UnknownPacket>(packet);
     }
@@ -194,12 +191,12 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_InvalidSourceBase_ReturnsNullAndLogsWarning()
     {
-        var record = CreateRecord("Status");
+        PacketRecord record = CreateRecord("Status");
         record.SourceBase = "BAD!";
         record.Status = new StatusDataRecord { Text = "x" };
-        var logger = Substitute.For<ILogger>();
+        ILogger logger = Substitute.For<ILogger>();
 
-        var packet = PacketRecordMapper.MapToPacket(record, logger);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record, logger);
 
         Assert.Null(packet);
         logger.Received().Log(
@@ -213,32 +210,32 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_PacketTimestamp_ReadsAsUtc()
     {
-        var record = CreateRecord("Status");
+        PacketRecord record = CreateRecord("Status");
         record.Status = new StatusDataRecord { Text = "x" };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var status = Assert.IsType<StatusPacket>(packet);
+        StatusPacket status = Assert.IsType<StatusPacket>(packet);
         Assert.Equal(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero), status.Timestamp);
     }
 
     [Fact]
     public void MapToPacket_NoPacketTimestamp_TimestampIsNull()
     {
-        var record = CreateRecord("Status");
+        PacketRecord record = CreateRecord("Status");
         record.PacketTimestamp = null;
         record.Status = new StatusDataRecord { Text = "x" };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var status = Assert.IsType<StatusPacket>(packet);
+        StatusPacket status = Assert.IsType<StatusPacket>(packet);
         Assert.Null(status.Timestamp);
     }
 
     [Fact]
     public void ToRecord_CopiesRawFrameAndPath()
     {
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -248,7 +245,7 @@ public sealed class PacketRecordMapperTests
             RawPath = "N0CALL>APRS,WIDE1-1"
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
 
         Assert.Equal("AA0000", record.RawFrameHex);
         Assert.Equal("N0CALL>APRS,WIDE1-1", record.RawPath);
@@ -257,14 +254,14 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_RestoresRawFrameAndPath()
     {
-        var record = CreateRecord("Status");
+        PacketRecord record = CreateRecord("Status");
         record.Status = new StatusDataRecord { Text = "x" };
         record.RawFrameHex = "AA0000";
         record.RawPath = "N0CALL>APRS,WIDE1-1";
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var status = Assert.IsType<StatusPacket>(packet);
+        StatusPacket status = Assert.IsType<StatusPacket>(packet);
         Assert.Equal("AA0000", status.RawFrameHex);
         Assert.Equal("N0CALL>APRS,WIDE1-1", status.RawPath);
     }
@@ -272,7 +269,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_TelemetryRecord_ReturnsTelemetryPacket()
     {
-        var record = CreateRecord("Telemetry");
+        PacketRecord record = CreateRecord("Telemetry");
         record.Telemetry = new TelemetryDataRecord
         {
             SequenceNumber = 42,
@@ -282,9 +279,9 @@ public sealed class PacketRecordMapperTests
             DigitalValue = 0b101
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var telemetry = Assert.IsType<TelemetryPacket>(packet);
+        TelemetryPacket telemetry = Assert.IsType<TelemetryPacket>(packet);
         Assert.Equal(42, telemetry.SequenceNumber);
         Assert.Equal([1.5, 2.5, 3.5], telemetry.AnalogValues);
         Assert.Equal((byte?)0b101, telemetry.DigitalValue);
@@ -293,7 +290,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_TelemetryWithAnInteriorGap_KeepsTheChannelPosition()
     {
-        var record = CreateRecord("Telemetry");
+        PacketRecord record = CreateRecord("Telemetry");
         record.Telemetry = new TelemetryDataRecord
         {
             SequenceNumber = 3,
@@ -303,9 +300,9 @@ public sealed class PacketRecordMapperTests
             Analog4 = 40.0
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var telemetry = Assert.IsType<TelemetryPacket>(packet);
+        TelemetryPacket telemetry = Assert.IsType<TelemetryPacket>(packet);
         Assert.Equal(4, telemetry.AnalogValues.Count);
         Assert.Null(telemetry.AnalogValues[0]);
         Assert.Equal(20.0, telemetry.AnalogValues[1]);
@@ -316,7 +313,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void ToRecord_ThenMapToPacket_KeepsAnEmptyChannelBetweenValues()
     {
-        var packet = new TelemetryPacket
+        TelemetryPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -324,8 +321,8 @@ public sealed class PacketRecordMapperTests
             AnalogValues = [1.0, null, 3.0]
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
-        var restored = Assert.IsType<TelemetryPacket>(PacketRecordMapper.MapToPacket(record));
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        TelemetryPacket restored = Assert.IsType<TelemetryPacket>(PacketRecordMapper.MapToPacket(record));
 
         Assert.Equal([1.0, null, 3.0], restored.AnalogValues);
     }
@@ -333,7 +330,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void ToRecord_TelemetryPacket_PersistsAnalogChannels()
     {
-        var packet = new TelemetryPacket
+        TelemetryPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -342,7 +339,7 @@ public sealed class PacketRecordMapperTests
             DigitalValue = 0xF0
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
 
         Assert.NotNull(record.Telemetry);
         Assert.Equal(7, record.Telemetry!.SequenceNumber);
@@ -355,26 +352,26 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_CapabilitiesRecord_ReturnsCapabilitiesPacket()
     {
-        var record = CreateRecord("Capabilities");
+        PacketRecord record = CreateRecord("Capabilities");
         record.Capabilities = new CapabilitiesDataRecord { Text = "IGATE,MSG_CNT=0" };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var capabilities = Assert.IsType<CapabilitiesPacket>(packet);
+        CapabilitiesPacket capabilities = Assert.IsType<CapabilitiesPacket>(packet);
         Assert.Equal("IGATE,MSG_CNT=0", capabilities.Text);
     }
 
     [Fact]
     public void ToRecord_CapabilitiesPacket_PersistsText()
     {
-        var packet = new CapabilitiesPacket
+        CapabilitiesPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
             Text = "IGATE,MSG_CNT=0"
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
 
         Assert.NotNull(record.Capabilities);
         Assert.Equal("IGATE,MSG_CNT=0", record.Capabilities!.Text);
@@ -383,7 +380,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_ObjectRecord_ReturnsObjectPacket()
     {
-        var record = CreateRecord("Object");
+        PacketRecord record = CreateRecord("Object");
         record.Object = new ObjectDataRecord
         {
             Name = "OBJNAME",
@@ -398,9 +395,9 @@ public sealed class PacketRecordMapperTests
             Comment = "object comment"
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var obj = Assert.IsType<ObjectPacket>(packet);
+        ObjectPacket obj = Assert.IsType<ObjectPacket>(packet);
         Assert.Equal("OBJNAME", obj.Name);
         Assert.True(obj.IsLive);
         Assert.Equal("010203z", obj.RawTimestamp);
@@ -417,7 +414,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void ToRecord_ObjectPacket_PersistsFields()
     {
-        var packet = new ObjectPacket
+        ObjectPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -432,7 +429,7 @@ public sealed class PacketRecordMapperTests
             Comment = "object comment"
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
 
         Assert.Equal("Object", record.PacketType);
         Assert.NotNull(record.Object);
@@ -452,7 +449,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_ItemRecord_ReturnsItemPacket()
     {
-        var record = CreateRecord("Item");
+        PacketRecord record = CreateRecord("Item");
         record.Item = new ItemDataRecord
         {
             Name = "ITEM",
@@ -466,9 +463,9 @@ public sealed class PacketRecordMapperTests
             Comment = "item comment"
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var item = Assert.IsType<ItemPacket>(packet);
+        ItemPacket item = Assert.IsType<ItemPacket>(packet);
         Assert.Equal("ITEM", item.Name);
         Assert.True(item.IsLive);
         Assert.Equal(38.5, item.Location.Latitude);
@@ -483,7 +480,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void ToRecord_ItemPacket_PersistsFields()
     {
-        var packet = new ItemPacket
+        ItemPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -494,7 +491,7 @@ public sealed class PacketRecordMapperTests
             Comment = "item comment"
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
 
         Assert.Equal("Item", record.PacketType);
         Assert.NotNull(record.Item);
@@ -510,7 +507,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_BulletinRecord_ReturnsBulletinPacket()
     {
-        var record = CreateRecord("Bulletin");
+        PacketRecord record = CreateRecord("Bulletin");
         record.Bulletin = new BulletinDataRecord
         {
             Name = "BLN0SPCL",
@@ -518,9 +515,9 @@ public sealed class PacketRecordMapperTests
             Number = 5
         };
 
-        var packet = PacketRecordMapper.MapToPacket(record);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record);
 
-        var bulletin = Assert.IsType<BulletinPacket>(packet);
+        BulletinPacket bulletin = Assert.IsType<BulletinPacket>(packet);
         Assert.Equal("BLN0SPCL", bulletin.Name);
         Assert.Equal("Special event", bulletin.Text);
         Assert.Equal(5, bulletin.MessageNumber);
@@ -529,7 +526,7 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void ToRecord_BulletinPacket_PersistsFields()
     {
-        var packet = new BulletinPacket
+        BulletinPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APRS"),
@@ -538,7 +535,7 @@ public sealed class PacketRecordMapperTests
             MessageNumber = 5
         };
 
-        var record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
+        PacketRecord record = PacketRecordMapper.ToRecord(packet, null, DateTimeOffset.UtcNow, isOutbound: false);
 
         Assert.Equal("Bulletin", record.PacketType);
         Assert.NotNull(record.Bulletin);
@@ -550,10 +547,10 @@ public sealed class PacketRecordMapperTests
     [Fact]
     public void MapToPacket_NullLogger_OnParseFailure_ReturnsNullWithoutThrowing()
     {
-        var record = CreateRecord("Status");
+        PacketRecord record = CreateRecord("Status");
         record.SourceBase = "BAD!";
 
-        var packet = PacketRecordMapper.MapToPacket(record, NullLogger.Instance);
+        AprsPacket? packet = PacketRecordMapper.MapToPacket(record, NullLogger.Instance);
 
         Assert.Null(packet);
     }

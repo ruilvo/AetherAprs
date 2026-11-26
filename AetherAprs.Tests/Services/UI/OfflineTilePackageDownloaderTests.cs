@@ -21,26 +21,26 @@ public sealed class OfflineTilePackageDownloaderTests
     [Fact]
     public async Task DownloadRegion_SingleTile_WritesPackageAndMetadata()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var outputPath = Path.Combine(directory, "download.mbtiles");
-            var handler = new StubTileHandler(_ => Ok(new byte[] { 1, 2, 3 }));
-            var downloader = new OfflineTilePackageDownloader(handler);
+            string outputPath = Path.Combine(directory, "download.mbtiles");
+            StubTileHandler handler = new(_ => Ok([1, 2, 3]));
+            OfflineTilePackageDownloader downloader = new(handler);
 
             await downloader.DownloadRegionAsync(
                 new OfflineDownloadRegion(-180, -85, 180, 85, 0, 0), outputPath,
                 cancellationToken: TestContext.Current.CancellationToken);
 
-            var metadata = ReadMetadata(outputPath);
+            Dictionary<string, string> metadata = ReadMetadata(outputPath);
             Assert.Equal("Offline Map", metadata["name"]);
             Assert.Equal("png", metadata["format"]);
             Assert.Equal("-180,-85,180,85", metadata["bounds"]);
             Assert.Equal("0", metadata["minzoom"]);
             Assert.Equal("0", metadata["maxzoom"]);
 
-            var tiles = ReadTiles(outputPath);
-            var tile = Assert.Single(tiles);
+            List<StoredTile> tiles = ReadTiles(outputPath);
+            StoredTile tile = Assert.Single(tiles);
             Assert.Equal((0, 0, 0), tile.Coordinates);
             Assert.Equal(new byte[] { 1, 2, 3 }, tile.Data);
         }
@@ -53,12 +53,12 @@ public sealed class OfflineTilePackageDownloaderTests
     [Fact]
     public async Task DownloadRegion_InvertsRowToTmsScheme()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var outputPath = Path.Combine(directory, "download.mbtiles");
-            var handler = new StubTileHandler(_ => Ok(new byte[] { 7 }));
-            var downloader = new OfflineTilePackageDownloader(handler);
+            string outputPath = Path.Combine(directory, "download.mbtiles");
+            StubTileHandler handler = new(_ => Ok([7]));
+            OfflineTilePackageDownloader downloader = new(handler);
 
             // Northern hemisphere at zoom 1 resolves to XYZ row 0, which must be
             // stored under TMS row (2^1 - 1) - 0 = 1.
@@ -66,7 +66,7 @@ public sealed class OfflineTilePackageDownloaderTests
                 new OfflineDownloadRegion(-180, 1, 180, 85, 1, 1), outputPath,
                 cancellationToken: TestContext.Current.CancellationToken);
 
-            var tiles = ReadTiles(outputPath);
+            List<StoredTile> tiles = ReadTiles(outputPath);
             Assert.Equal(2, tiles.Count);
             Assert.All(tiles, t => Assert.Equal(1, t.Coordinates.Row));
             Assert.Contains(tiles, t => t.Coordinates.Column == 0);
@@ -81,12 +81,12 @@ public sealed class OfflineTilePackageDownloaderTests
     [Fact]
     public async Task DownloadRegion_NotFoundTile_IsSkipped()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var outputPath = Path.Combine(directory, "download.mbtiles");
-            var handler = new StubTileHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
-            var downloader = new OfflineTilePackageDownloader(handler);
+            string outputPath = Path.Combine(directory, "download.mbtiles");
+            StubTileHandler handler = new(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+            OfflineTilePackageDownloader downloader = new(handler);
 
             await downloader.DownloadRegionAsync(
                 new OfflineDownloadRegion(-180, -85, 180, 85, 0, 0), outputPath,
@@ -104,13 +104,13 @@ public sealed class OfflineTilePackageDownloaderTests
     [Fact]
     public async Task DownloadRegion_ReportsProgressToCompletion()
     {
-        var directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
         try
         {
-            var outputPath = Path.Combine(directory, "download.mbtiles");
-            var handler = new StubTileHandler(_ => Ok(new byte[] { 9 }));
-            var downloader = new OfflineTilePackageDownloader(handler);
-            var progress = new ProgressCapture();
+            string outputPath = Path.Combine(directory, "download.mbtiles");
+            StubTileHandler handler = new(_ => Ok([9]));
+            OfflineTilePackageDownloader downloader = new(handler);
+            ProgressCapture progress = new();
 
             await downloader.DownloadRegionAsync(
                 new OfflineDownloadRegion(-180, 1, 180, 85, 1, 1), outputPath, progress,
@@ -134,7 +134,7 @@ public sealed class OfflineTilePackageDownloaderTests
     public async Task DownloadRegion_InvalidRegion_Throws(
         double minLon, double minLat, double maxLon, double maxLat, int minZoom, int maxZoom)
     {
-        var downloader = new OfflineTilePackageDownloader(new StubTileHandler(_ => Ok([])));
+        OfflineTilePackageDownloader downloader = new(new StubTileHandler(_ => Ok([])));
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             downloader.DownloadRegionAsync(
@@ -148,14 +148,14 @@ public sealed class OfflineTilePackageDownloaderTests
 
     private static Dictionary<string, string> ReadMetadata(string path)
     {
-        using var connection = new SqliteConnection($"Data Source={path};Pooling=false");
+        using SqliteConnection connection = new($"Data Source={path};Pooling=false");
         connection.Open();
 
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT name, value FROM metadata;";
 
-        using var reader = command.ExecuteReader();
-        var metadata = new Dictionary<string, string>();
+        using SqliteDataReader reader = command.ExecuteReader();
+        Dictionary<string, string> metadata = [];
         while (reader.Read())
         {
             metadata[reader.GetString(0)] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
@@ -166,14 +166,14 @@ public sealed class OfflineTilePackageDownloaderTests
 
     private static List<StoredTile> ReadTiles(string path)
     {
-        using var connection = new SqliteConnection($"Data Source={path};Pooling=false");
+        using SqliteConnection connection = new($"Data Source={path};Pooling=false");
         connection.Open();
 
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles ORDER BY tile_column;";
 
-        using var reader = command.ExecuteReader();
-        var tiles = new List<StoredTile>();
+        using SqliteDataReader reader = command.ExecuteReader();
+        List<StoredTile> tiles = [];
         while (reader.Read())
         {
             tiles.Add(new StoredTile(
@@ -191,7 +191,7 @@ public sealed class OfflineTilePackageDownloaderTests
 
     private sealed class ProgressCapture : IProgress<OfflineDownloadProgress>
     {
-        public List<OfflineDownloadProgress> Reports { get; } = new();
+        public List<OfflineDownloadProgress> Reports { get; } = [];
 
         public void Report(OfflineDownloadProgress value) => Reports.Add(value);
     }

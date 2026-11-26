@@ -20,20 +20,16 @@ using Xamarin.Android.NUnitLite;
 namespace AetherAprs.Android.Tests;
 
 [Instrumentation(Name = "com.aetheraprs.tests.TestInstrumentation")]
-public sealed class TestInstrumentation : TestSuiteInstrumentation
+public sealed class TestInstrumentation(IntPtr handle, JniHandleOwnership transfer)
+    : TestSuiteInstrumentation(handle, transfer)
 {
-    public TestInstrumentation(IntPtr handle, JniHandleOwnership transfer)
-        : base(handle, transfer)
-    {
-    }
-
     protected override void AddTests()
     {
     }
 
     public override void OnCreate(Bundle? arguments)
     {
-        var exitCode = 0;
+        int exitCode = 0;
         try
         {
             AndroidLifecycleInstrumentationTests.AndroidProcessAndPermissionsAreAvailable();
@@ -48,7 +44,7 @@ public sealed class TestInstrumentation : TestSuiteInstrumentation
             Log.Error("AetherAprs.Tests", $"Android instrumentation test failed: {exception}");
         }
 
-        var results = new Bundle();
+        Bundle results = new();
         results.PutInt("nunit-exit-code", exitCode);
         Finish(exitCode == 0 ? Result.Ok : Result.Canceled, results);
     }
@@ -58,7 +54,7 @@ public sealed class AndroidLifecycleInstrumentationTests
 {
     public static void AndroidProcessAndPermissionsAreAvailable()
     {
-        var context = Application.Context ?? throw new InvalidOperationException("Android context is unavailable.");
+        Context context = Application.Context ?? throw new InvalidOperationException("Android context is unavailable.");
         Ensure(context.PackageName == "com.AetherRadio.AetherAprs.Tests", "Unexpected test package.");
         Ensure(
             context.CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications)
@@ -68,7 +64,7 @@ public sealed class AndroidLifecycleInstrumentationTests
 
     public static void LifecycleStateMachineRecordsProcessDeathAndForegroundRejection()
     {
-        var state = new AndroidLifecycleState();
+        AndroidLifecycleState state = new();
         state.ProcessStarted();
         state.ForegroundStartRequested();
         state.ForegroundRejected();
@@ -82,14 +78,14 @@ public sealed class AndroidLifecycleInstrumentationTests
 
     public static void AndroidManifestExposesForegroundServicePermissions()
     {
-        var targetContext = Application.Context.CreatePackageContext(
+        Context targetContext = Application.Context.CreatePackageContext(
             "com.AetherRadio.AetherAprs",
             PackageContextFlags.IgnoreSecurity)
             ?? throw new InvalidOperationException("Target application context unavailable.");
-        var packageInfo = targetContext.PackageManager!.GetPackageInfo(
+        PackageInfo packageInfo = targetContext.PackageManager!.GetPackageInfo(
             targetContext.PackageName!,
             PackageInfoFlags.Permissions) ?? throw new InvalidOperationException("Package metadata unavailable.");
-        var permissions = packageInfo.RequestedPermissions ?? [];
+        IList<string> permissions = packageInfo.RequestedPermissions ?? [];
 
         Ensure(
             permissions.Contains(global::Android.Manifest.Permission.ForegroundService),
@@ -101,10 +97,10 @@ public sealed class AndroidLifecycleInstrumentationTests
 
     public static void TransportReconnectIsBoundedAndObservable()
     {
-        var portId = Guid.NewGuid();
-        var controller = new RecordingPortController();
-        var delays = new List<TimeSpan>();
-        var coordinator = new SessionCoordinator(
+        Guid portId = Guid.NewGuid();
+        RecordingPortController controller = new();
+        List<TimeSpan> delays = [];
+        SessionCoordinator coordinator = new(
             controller,
             new RecordingStateStore(),
             delayAsync: (delay, _) =>
@@ -135,7 +131,7 @@ public sealed class AndroidLifecycleInstrumentationTests
 
     private static void WaitFor(Func<bool> condition)
     {
-        for (var attempt = 0; attempt < 100 && !condition(); attempt++)
+        for (int attempt = 0; attempt < 100 && !condition(); attempt++)
         {
             Thread.Sleep(10);
         }

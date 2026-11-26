@@ -244,7 +244,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
         try
         {
-            var line = BuildIsLine(packet);
+            string line = BuildIsLine(packet);
 
             // Sanitize line breaks to prevent protocol injection
             if (line.Contains('\r') || line.Contains('\n'))
@@ -289,8 +289,8 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// </summary>
     private static string BuildIsLine(AprsPacket packet)
     {
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var destination = Ax25Serializer.ResolveDestination(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        Callsign destination = Ax25Serializer.ResolveDestination(packet);
 
         if (packet.RawFrameHex.Length == 0)
         {
@@ -299,7 +299,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
 
         // RF-received packet: preserve the digipeater path, marking repeated hops.
-        var path = FormatPath(packet.Path);
+        string path = FormatPath(packet.Path);
         return path.Length == 0
             ? $"{packet.Source}>{destination},qAR:{infoField}"
             : $"{packet.Source}>{destination},{path},qAR:{infoField}";
@@ -312,8 +312,8 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             return string.Empty;
         }
 
-        var builder = new StringBuilder();
-        for (var i = 0; i < path.Count; i++)
+        StringBuilder builder = new();
+        for (int i = 0; i < path.Count; i++)
         {
             if (i > 0)
             {
@@ -395,14 +395,14 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             _connectionVersion++;
         }
 
-        var tcpClient = new TcpClient();
+        TcpClient tcpClient = new();
         StreamReader? reader = null;
         StreamWriter? writer = null;
         try
         {
             await tcpClient.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
 
-            var stream = tcpClient.GetStream();
+            NetworkStream stream = tcpClient.GetStream();
             reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
             writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
             {
@@ -410,7 +410,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             };
 
             // Send APRS-IS login
-            var login = $"user {_callsign} pass {_passcode} vers {ApplicationVersion}";
+            string login = $"user {_callsign} pass {_passcode} vers {ApplicationVersion}";
             if (!string.IsNullOrEmpty(_filter))
             {
                 login += $" filter {_filter}";
@@ -456,7 +456,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         // Read lines from the server
         while (!cancellationToken.IsCancellationRequested)
         {
-            string? line = null;
+            string? line;
             try
             {
                 line = await ReadBoundedLineAsync(reader, MaxLineLength, cancellationToken).ConfigureAwait(false);
@@ -486,7 +486,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                 // packets.
                 if (line.Contains(" failed", StringComparison.OrdinalIgnoreCase))
                 {
-                    var exception = new InvalidOperationException($"APRS-IS login was rejected: {line}");
+                    InvalidOperationException exception = new($"APRS-IS login was rejected: {line}");
                     FaultConnectionReady(connectionReady, exception);
                     throw exception;
                 }
@@ -504,7 +504,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                 }
                 else
                 {
-                    var exception = new InvalidOperationException($"APRS-IS login was rejected: {line}");
+                    InvalidOperationException exception = new($"APRS-IS login was rejected: {line}");
                     FaultConnectionReady(connectionReady, exception);
                     throw exception;
                 }
@@ -518,7 +518,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
             try
             {
-                var packet = ParseIsLine(line);
+                AprsPacket? packet = ParseIsLine(line);
                 if (packet is not null)
                 {
                     PacketReceived?.Invoke(this, packet);
@@ -621,7 +621,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         List<Callsign> pathList = [];
         if (commaIndex >= 0)
         {
-            foreach (var hop in pathTail[(commaIndex + 1)..].Split(','))
+            foreach (string hop in pathTail[(commaIndex + 1)..].Split(','))
             {
                 if (hop.Length == 0 || hop == "TCPIP*")
                 {
@@ -646,7 +646,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             }
         }
 
-        var packet = AprsInfoFieldParser.ParseInfoField(info, source, destination, pathList);
+        AprsPacket packet = AprsInfoFieldParser.ParseInfoField(info, source, destination, pathList);
         return packet with
         {
             RawSource = rawSource,
@@ -677,7 +677,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             return false;
         }
 
-        return !int.TryParse(ssid, out var numericSsid) || numericSsid is < 0 or > 15;
+        return !int.TryParse(ssid, out int numericSsid) || numericSsid is < 0 or > 15;
     }
 
     /// <summary>
@@ -718,13 +718,13 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         int maxLength,
         CancellationToken cancellationToken)
     {
-        var buffer = new char[maxLength + 1]; // +1 to detect overflow
+        char[] buffer = new char[maxLength + 1]; // +1 to detect overflow
         int position = 0;
 
         while (true)
         {
             int c = await reader.ReadAsync(buffer.AsMemory(position, 1), cancellationToken).ConfigureAwait(false);
-            
+
             if (c == 0)
             {
                 // End of stream

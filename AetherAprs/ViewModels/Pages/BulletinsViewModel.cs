@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 
@@ -19,7 +20,10 @@ namespace AetherAprs.ViewModels.Pages;
 /// View model for the APRS bulletins page. Lists received/sent bulletins and
 /// composes new ones via <see cref="IBulletinService"/>.
 /// </summary>
-public sealed partial class BulletinsViewModel : ViewModelBase
+public sealed partial class BulletinsViewModel(
+    IBulletinService bulletinService,
+    INavigationService navigationService,
+    ILogger<BulletinsViewModel>? logger = null) : ViewModelBase
 {
     /// <summary>APRS bulletin name limit per the APRS specification.</summary>
     private const int BulletinNameMaxLength = 9;
@@ -27,9 +31,9 @@ public sealed partial class BulletinsViewModel : ViewModelBase
     /// <summary>APRS bulletin text limit per the APRS specification.</summary>
     private const int BulletinTextMaxLength = 67;
 
-    private readonly IBulletinService _bulletinService;
-    private readonly INavigationService _navigationService;
-    private readonly ILogger<BulletinsViewModel>? _logger;
+    private readonly IBulletinService _bulletinService = bulletinService ?? throw new ArgumentNullException(nameof(bulletinService));
+    private readonly INavigationService _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    private readonly ILogger<BulletinsViewModel>? _logger = logger;
 
     [ObservableProperty]
     public partial ObservableCollection<BulletinPacket> Bulletins { get; set; } = [];
@@ -63,16 +67,6 @@ public sealed partial class BulletinsViewModel : ViewModelBase
     [ObservableProperty]
     public partial string? ErrorMessage { get; set; }
 
-    public BulletinsViewModel(
-        IBulletinService bulletinService,
-        INavigationService navigationService,
-        ILogger<BulletinsViewModel>? logger = null)
-    {
-        _bulletinService = bulletinService ?? throw new ArgumentNullException(nameof(bulletinService));
-        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-        _logger = logger;
-    }
-
     /// <summary>
     /// Reloads the bulletin list. Called by the page code-behind when the page
     /// is shown.
@@ -82,10 +76,10 @@ public sealed partial class BulletinsViewModel : ViewModelBase
         try
         {
             IsLoading = true;
-            var bulletins = await _bulletinService.GetBulletinsAsync();
+            IReadOnlyList<BulletinPacket> bulletins = await _bulletinService.GetBulletinsAsync();
 
             Bulletins.Clear();
-            foreach (var bulletin in bulletins)
+            foreach (BulletinPacket bulletin in bulletins)
             {
                 Bulletins.Add(bulletin);
             }
@@ -108,7 +102,7 @@ public sealed partial class BulletinsViewModel : ViewModelBase
     private async Task SendAsync()
     {
         ErrorMessage = null;
-        var name = Name?.Trim();
+        string? name = Name?.Trim();
         if (string.IsNullOrEmpty(name))
         {
             ErrorMessage = Strings.Get("ValidationBulletinNameRequired");
@@ -127,7 +121,7 @@ public sealed partial class BulletinsViewModel : ViewModelBase
             return;
         }
 
-        var text = Text?.Trim();
+        string? text = Text?.Trim();
         if (string.IsNullOrEmpty(text))
         {
             ErrorMessage = Strings.Get("ValidationBulletinTextRequired");
@@ -160,10 +154,7 @@ public sealed partial class BulletinsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Close()
-    {
-        _navigationService.GoBack();
-    }
+    private void Close() => _navigationService.GoBack();
 
     partial void OnBulletinsChanged(ObservableCollection<BulletinPacket> value)
     {

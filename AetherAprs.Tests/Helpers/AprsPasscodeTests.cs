@@ -14,10 +14,7 @@ public sealed class AprsPasscodeTests
     [InlineData("N0CALL", "13023")]
     [InlineData("n0call", "13023")]
     [InlineData("TEST", "29939")]
-    public void Compute_ReturnsKnownPasscodes(string callsign, string expected)
-    {
-        Assert.Equal(expected, AprsPasscode.Compute(callsign));
-    }
+    public void Compute_ReturnsKnownPasscodes(string callsign, string expected) => Assert.Equal(expected, AprsPasscode.Compute(callsign));
 
     [Fact]
     public void Compute_ThrowsOnNullOrWhitespace()

@@ -13,11 +13,11 @@ public sealed class PermissionAttentionServiceTests
     [Fact]
     public void Report_WhenAPermissionIsDenied_KeepsItOutstanding()
     {
-        var service = new PermissionAttentionService();
+        PermissionAttentionService service = new();
 
         service.Report(PermissionRequestResult.Denied(PermissionKind.Notifications));
 
-        var attention = Assert.Single(service.Outstanding);
+        PermissionAttention attention = Assert.Single(service.Outstanding);
         Assert.Equal(PermissionKind.Notifications, attention.Kind);
         Assert.Equal(PermissionOutcome.Denied, attention.Outcome);
         Assert.False(attention.RequiresApplicationSettings);
@@ -26,19 +26,19 @@ public sealed class PermissionAttentionServiceTests
     [Fact]
     public void Report_WhenAPermissionIsBlockedInSettings_RequiresApplicationSettings()
     {
-        var service = new PermissionAttentionService();
+        PermissionAttentionService service = new();
 
         service.Report(PermissionRequestResult.PermanentlyDenied(PermissionKind.Bluetooth));
 
-        var attention = Assert.Single(service.Outstanding);
+        PermissionAttention attention = Assert.Single(service.Outstanding);
         Assert.True(attention.RequiresApplicationSettings);
     }
 
     [Fact]
     public void Report_WhenTheOperatorGrantsItAgain_ClearsItAndRaisesChanged()
     {
-        var service = new PermissionAttentionService();
-        var raised = 0;
+        PermissionAttentionService service = new();
+        int raised = 0;
         service.Changed += (_, _) => raised++;
         service.Report(PermissionRequestResult.Denied(PermissionKind.Audio));
 
@@ -51,7 +51,7 @@ public sealed class PermissionAttentionServiceTests
     [Fact]
     public void Report_WhenThePlatformCannotAnswer_ClearsIt()
     {
-        var service = new PermissionAttentionService();
+        PermissionAttentionService service = new();
         service.Report(PermissionRequestResult.Denied(PermissionKind.Bluetooth));
 
         service.Report(PermissionRequestResult.Unavailable(PermissionKind.Bluetooth));
@@ -62,8 +62,8 @@ public sealed class PermissionAttentionServiceTests
     [Fact]
     public void Report_WhenTheSameOutcomeRepeats_RaisesNothing()
     {
-        var service = new PermissionAttentionService();
-        var raised = 0;
+        PermissionAttentionService service = new();
+        int raised = 0;
         service.Changed += (_, _) => raised++;
         service.Report(PermissionRequestResult.Denied(PermissionKind.Notifications));
 
@@ -75,13 +75,13 @@ public sealed class PermissionAttentionServiceTests
     [Fact]
     public void Outstanding_IsOrderedByPermissionKind()
     {
-        var service = new PermissionAttentionService();
+        PermissionAttentionService service = new();
 
         service.Report(PermissionRequestResult.Denied(PermissionKind.Bluetooth));
         service.Report(PermissionRequestResult.Denied(PermissionKind.Notifications));
 
         Assert.Equal(
-            new[] { PermissionKind.Notifications, PermissionKind.Bluetooth },
+            [PermissionKind.Notifications, PermissionKind.Bluetooth],
             service.Outstanding.Select(attention => attention.Kind));
     }
 }

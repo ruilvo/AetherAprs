@@ -23,7 +23,7 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public void Initialize_Null_SetsAddMode()
     {
-        var vm = CreateViewModel();
+        ObjectEditorViewModel vm = CreateViewModel();
 
         vm.Initialize(null);
 
@@ -40,7 +40,7 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public void Initialize_Existing_SetsEditModeAndPopulatesFields()
     {
-        var existing = new ObjectPacket
+        ObjectPacket existing = new()
         {
             Name = "SHELTER1",
             IsLive = true,
@@ -49,7 +49,7 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
             Comment = "Shelter"
         };
 
-        var vm = CreateViewModel();
+        ObjectEditorViewModel vm = CreateViewModel();
         vm.Initialize(existing);
 
         Assert.True(vm.IsEditing);
@@ -65,8 +65,8 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public async Task Save_EmptyName_SetsError()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var vm = CreateViewModel(objectService);
+        IObjectService objectService = Substitute.For<IObjectService>();
+        ObjectEditorViewModel vm = CreateViewModel(objectService);
         vm.Initialize(null);
         vm.Name = "   ";
         vm.LatitudeText = "38.7223";
@@ -83,8 +83,8 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public async Task Save_NameTooLong_SetsError()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var vm = CreateViewModel(objectService);
+        IObjectService objectService = Substitute.For<IObjectService>();
+        ObjectEditorViewModel vm = CreateViewModel(objectService);
         vm.Initialize(null);
         vm.Name = "TOOLONGNAME";
         vm.LatitudeText = "38.7223";
@@ -101,8 +101,8 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public async Task Save_InvalidLatitude_SetsError()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var vm = CreateViewModel(objectService);
+        IObjectService objectService = Substitute.For<IObjectService>();
+        ObjectEditorViewModel vm = CreateViewModel(objectService);
         vm.Initialize(null);
         vm.Name = "SHELTER1";
         vm.LatitudeText = "abc";
@@ -119,8 +119,8 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public async Task Save_InvalidLongitude_SetsError()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var vm = CreateViewModel(objectService);
+        IObjectService objectService = Substitute.For<IObjectService>();
+        ObjectEditorViewModel vm = CreateViewModel(objectService);
         vm.Initialize(null);
         vm.Name = "SHELTER1";
         vm.LatitudeText = "38.7223";
@@ -137,9 +137,9 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public async Task Save_ValidInput_CallsCreateOrUpdateAndGoesBack()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(objectService, navigation);
+        IObjectService objectService = Substitute.For<IObjectService>();
+        INavigationService navigation = Substitute.For<INavigationService>();
+        ObjectEditorViewModel vm = CreateViewModel(objectService, navigation);
         vm.Initialize(null);
         vm.Name = "SHELTER1";
         vm.LatitudeText = "38.7223";
@@ -161,9 +161,9 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public async Task Save_KillObject_CallsKillNotCreate()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(objectService, navigation);
+        IObjectService objectService = Substitute.For<IObjectService>();
+        INavigationService navigation = Substitute.For<INavigationService>();
+        ObjectEditorViewModel vm = CreateViewModel(objectService, navigation);
         vm.Initialize(new ObjectPacket
         {
             Name = "SHELTER1",
@@ -185,8 +185,8 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
     [Fact]
     public void Cancel_CallsNavigationGoBack()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigationService: navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        ObjectEditorViewModel vm = CreateViewModel(navigationService: navigation);
 
         vm.CancelCommand.Execute(null);
 
@@ -195,13 +195,10 @@ public sealed class ObjectEditorViewModelTests : TestFixtureBase
 
     private static ObjectEditorViewModel CreateViewModel(
         IObjectService? objectService = null,
-        INavigationService? navigationService = null)
-    {
-        return new ObjectEditorViewModel(
+        INavigationService? navigationService = null) => new(
             objectService ?? Substitute.For<IObjectService>(),
             navigationService ?? Substitute.For<INavigationService>(),
             new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()));
-    }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
     {

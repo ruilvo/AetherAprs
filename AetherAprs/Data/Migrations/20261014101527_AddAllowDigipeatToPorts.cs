@@ -5,28 +5,21 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AetherAprs.Data.Migrations
+namespace AetherAprs.Data.Migrations;
+
+/// <inheritdoc />
+public partial class AddAllowDigipeatToPorts : Migration
 {
     /// <inheritdoc />
-    public partial class AddAllowDigipeatToPorts : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<bool>(
-                name: "AllowDigipeat",
-                table: "Ports",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: true);
-        }
+    protected override void Up(MigrationBuilder migrationBuilder) => migrationBuilder.AddColumn<bool>(
+            name: "AllowDigipeat",
+            table: "Ports",
+            type: "INTEGER",
+            nullable: false,
+            defaultValue: true);
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "AllowDigipeat",
-                table: "Ports");
-        }
-    }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.DropColumn(
+            name: "AllowDigipeat",
+            table: "Ports");
 }

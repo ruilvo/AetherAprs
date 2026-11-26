@@ -59,7 +59,7 @@ public sealed class AprsSsidJsonConverter : JsonConverter<AprsSsid>
         JsonSerializerOptions options)
     {
         if (reader.TokenType != JsonTokenType.Number
-            || !reader.TryGetByte(out var value)
+            || !reader.TryGetByte(out byte value)
             || value > 15)
         {
             throw new JsonException("APRS SSID must be a number between 0 and 15.");

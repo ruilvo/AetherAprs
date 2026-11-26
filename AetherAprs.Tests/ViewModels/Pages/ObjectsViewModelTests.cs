@@ -24,15 +24,15 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public async Task RefreshAsync_CopiesObjectsFromService()
     {
-        var objects = new List<ObjectPacket>
-        {
+        List<ObjectPacket> objects =
+        [
             new() { Name = "SHELTER1", IsLive = true },
             new() { Name = "SHELTER2", IsLive = false }
-        };
-        var objectService = Substitute.For<IObjectService>();
+        ];
+        IObjectService objectService = Substitute.For<IObjectService>();
         objectService.GetObjectsAsync(Arg.Any<CancellationToken>()).Returns(objects);
 
-        var vm = CreateViewModel(objectService: objectService);
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService);
         await vm.RefreshAsync();
 
         Assert.Equal(2, vm.Objects.Count);
@@ -43,29 +43,29 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public async Task RefreshAsync_ReplacesPreviouslyLoadedObjects()
     {
-        var backing = new List<ObjectPacket> { new() { Name = "A" } };
-        var objectService = Substitute.For<IObjectService>();
+        List<ObjectPacket> backing = [new() { Name = "A" }];
+        IObjectService objectService = Substitute.For<IObjectService>();
         objectService.GetObjectsAsync(Arg.Any<CancellationToken>()).Returns(backing);
 
-        var vm = CreateViewModel(objectService: objectService);
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService);
         await vm.RefreshAsync();
         backing.Clear();
         backing.Add(new ObjectPacket { Name = "B" });
         await vm.RefreshAsync();
 
-        Assert.Single(vm.Objects);
-        Assert.Equal("B", vm.Objects[0].Name);
+        ObjectPacket item = Assert.Single(vm.Objects);
+        Assert.Equal("B", item.Name);
     }
 
     [Fact]
     public async Task RefreshAsync_EmptyThenPopulated_TogglesEmptyStateFlags()
     {
-        var backing = new List<ObjectPacket>();
-        var objectService = Substitute.For<IObjectService>();
+        List<ObjectPacket> backing = [];
+        IObjectService objectService = Substitute.For<IObjectService>();
         objectService.GetObjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => new List<ObjectPacket>(backing));
+            .Returns(_ => [.. backing]);
 
-        var vm = CreateViewModel(objectService: objectService);
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService);
 
         await vm.RefreshAsync();
         Assert.False(vm.HasObjects);
@@ -80,12 +80,12 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public async Task RefreshAsync_PopulatedThenEmpty_TogglesEmptyStateFlags()
     {
-        var backing = new List<ObjectPacket> { new() { Name = "SHELTER1" } };
-        var objectService = Substitute.For<IObjectService>();
+        List<ObjectPacket> backing = [new() { Name = "SHELTER1" }];
+        IObjectService objectService = Substitute.For<IObjectService>();
         objectService.GetObjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => new List<ObjectPacket>(backing));
+            .Returns(_ => [.. backing]);
 
-        var vm = CreateViewModel(objectService: objectService);
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService);
 
         await vm.RefreshAsync();
         Assert.True(vm.HasObjects);
@@ -100,12 +100,12 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public async Task RefreshAsync_PopulatesObjects_RaisesStateFlagNotifications()
     {
-        var objectService = Substitute.For<IObjectService>();
+        IObjectService objectService = Substitute.For<IObjectService>();
         objectService.GetObjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(new List<ObjectPacket> { new() { Name = "SHELTER1" } });
+            .Returns([new() { Name = "SHELTER1" }]);
 
-        var vm = CreateViewModel(objectService: objectService);
-        var raised = new List<string>();
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService);
+        List<string> raised = [];
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
 
         await vm.RefreshAsync();
@@ -117,12 +117,12 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public void Add_NavigatesToNewEditor()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IObjectEditorViewModelFactory>();
-        var editor = CreateEditor(navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        IObjectEditorViewModelFactory factory = Substitute.For<IObjectEditorViewModelFactory>();
+        ObjectEditorViewModel editor = CreateEditor(navigation);
         factory.Create().Returns(editor);
 
-        var vm = CreateViewModel(navigationService: navigation, editorFactory: factory);
+        ObjectsViewModel vm = CreateViewModel(navigationService: navigation, editorFactory: factory);
 
         vm.AddCommand.Execute(null);
 
@@ -133,10 +133,10 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public void Edit_Null_DoesNothing()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IObjectEditorViewModelFactory>();
+        INavigationService navigation = Substitute.For<INavigationService>();
+        IObjectEditorViewModelFactory factory = Substitute.For<IObjectEditorViewModelFactory>();
 
-        var vm = CreateViewModel(navigationService: navigation, editorFactory: factory);
+        ObjectsViewModel vm = CreateViewModel(navigationService: navigation, editorFactory: factory);
 
         vm.EditCommand.Execute(null);
 
@@ -147,13 +147,13 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public void Edit_NavigatesToInitializedEditor()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var factory = Substitute.For<IObjectEditorViewModelFactory>();
-        var editor = CreateEditor(navigation);
-        var existing = new ObjectPacket { Name = "SHELTER1", IsLive = true };
+        INavigationService navigation = Substitute.For<INavigationService>();
+        IObjectEditorViewModelFactory factory = Substitute.For<IObjectEditorViewModelFactory>();
+        ObjectEditorViewModel editor = CreateEditor(navigation);
+        ObjectPacket existing = new() { Name = "SHELTER1", IsLive = true };
         factory.Create(existing).Returns(editor);
 
-        var vm = CreateViewModel(navigationService: navigation, editorFactory: factory);
+        ObjectsViewModel vm = CreateViewModel(navigationService: navigation, editorFactory: factory);
 
         vm.EditCommand.Execute(existing);
 
@@ -164,11 +164,11 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public async Task Kill_WithoutConfirmation_DoesNotCallService()
     {
-        var objectService = Substitute.For<IObjectService>();
-        var confirmation = Substitute.For<IConfirmationDialogService>();
+        IObjectService objectService = Substitute.For<IObjectService>();
+        IConfirmationDialogService confirmation = Substitute.For<IConfirmationDialogService>();
         confirmation.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
 
-        var vm = CreateViewModel(objectService: objectService, confirmationDialogService: confirmation);
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService, confirmationDialogService: confirmation);
 
         await vm.KillCommand.ExecuteAsync(new ObjectPacket { Name = "SHELTER1" });
 
@@ -178,12 +178,12 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public async Task Kill_WithConfirmation_CallsService()
     {
-        var objectService = Substitute.For<IObjectService>();
-        objectService.GetObjectsAsync(Arg.Any<CancellationToken>()).Returns(new List<ObjectPacket>());
-        var confirmation = Substitute.For<IConfirmationDialogService>();
+        IObjectService objectService = Substitute.For<IObjectService>();
+        objectService.GetObjectsAsync(Arg.Any<CancellationToken>()).Returns([]);
+        IConfirmationDialogService confirmation = Substitute.For<IConfirmationDialogService>();
         confirmation.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
 
-        var vm = CreateViewModel(objectService: objectService, confirmationDialogService: confirmation);
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService, confirmationDialogService: confirmation);
 
         await vm.KillCommand.ExecuteAsync(new ObjectPacket { Name = "SHELTER1" });
 
@@ -193,8 +193,8 @@ public sealed class ObjectsViewModelTests
     [Fact]
     public void Close_CallsNavigationGoBack()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigationService: navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        ObjectsViewModel vm = CreateViewModel(navigationService: navigation);
 
         vm.CloseCommand.Execute(null);
 
@@ -205,22 +205,16 @@ public sealed class ObjectsViewModelTests
         IObjectService? objectService = null,
         INavigationService? navigationService = null,
         IObjectEditorViewModelFactory? editorFactory = null,
-        IConfirmationDialogService? confirmationDialogService = null)
-    {
-        return new ObjectsViewModel(
+        IConfirmationDialogService? confirmationDialogService = null) => new(
             objectService ?? Substitute.For<IObjectService>(),
             navigationService ?? Substitute.For<INavigationService>(),
             editorFactory ?? Substitute.For<IObjectEditorViewModelFactory>(),
             confirmationDialogService ?? Substitute.For<IConfirmationDialogService>());
-    }
 
-    private static ObjectEditorViewModel CreateEditor(INavigationService navigation)
-    {
-        return new ObjectEditorViewModel(
+    private static ObjectEditorViewModel CreateEditor(INavigationService navigation) => new(
             Substitute.For<IObjectService>(),
             navigation,
             new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()));
-    }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider
     {

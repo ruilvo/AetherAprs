@@ -23,14 +23,14 @@ public sealed class ConversationDeepLinkTests
     [InlineData("EMAIL")]
     public void TryParsePeer_WhenTheValueIsAnAddressee_ReturnsThePeer(string value)
     {
-        Assert.True(ConversationDeepLink.TryParsePeer(value, out var peer));
+        Assert.True(ConversationDeepLink.TryParsePeer(value, out AprsAddress peer));
         Assert.False(string.IsNullOrWhiteSpace(peer.Base));
     }
 
     [Fact]
     public void TryParsePeer_WhenTheValueIsATacticalAddress_KeepsTheNineCharacterBase()
     {
-        Assert.True(ConversationDeepLink.TryParsePeer("APRS2SOTA", out var peer));
+        Assert.True(ConversationDeepLink.TryParsePeer("APRS2SOTA", out AprsAddress peer));
 
         Assert.Equal("APRS2SOTA", peer.Base);
         Assert.Null(peer.Ssid);
@@ -39,7 +39,7 @@ public sealed class ConversationDeepLinkTests
     [Fact]
     public void TryParsePeer_WhenTheValueIsACallsign_KeepsTheSsid()
     {
-        Assert.True(ConversationDeepLink.TryParsePeer("N0CALL-15", out var peer));
+        Assert.True(ConversationDeepLink.TryParsePeer("N0CALL-15", out AprsAddress peer));
 
         Assert.Equal("N0CALL", peer.Base);
         Assert.Equal(15, peer.Ssid);
@@ -59,14 +59,14 @@ public sealed class ConversationDeepLinkTests
     [InlineData("TOOLONGADDRESS")]
     public void TryParsePeer_WhenTheValueIsNotAnAddressee_ReturnsNoPeer(string? value)
     {
-        Assert.False(ConversationDeepLink.TryParsePeer(value, out var peer));
-        Assert.Equal(default(AprsAddress), peer);
+        Assert.False(ConversationDeepLink.TryParsePeer(value, out AprsAddress peer));
+        Assert.Equal(default, peer);
     }
 
     [Fact]
     public void TryParsePeer_WhenTheValueIsLongerThanAnAddressee_IsRejectedBeforeParsing()
     {
-        var oversized = new string('N', ConversationDeepLink.MaximumLength + 1) + new string('0', 4096);
+        string oversized = new string('N', ConversationDeepLink.MaximumLength + 1) + new string('0', 4096);
 
         Assert.False(ConversationDeepLink.TryParsePeer(oversized, out _));
     }

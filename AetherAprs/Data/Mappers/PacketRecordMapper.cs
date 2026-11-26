@@ -75,15 +75,15 @@ internal static class PacketRecordMapper
         bool isOutbound,
         MessageDeliveryStatus? deliveryStatus = null)
     {
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             SourceBase = packet.Source.Base,
-            SourceSsid = packet.Source.Ssid.HasValue 
-                ? (AprsSsid)packet.Source.Ssid.Value 
+            SourceSsid = packet.Source.Ssid.HasValue
+                ? (AprsSsid)packet.Source.Ssid.Value
                 : AprsSsid.PrimaryStation,
             DestinationBase = packet.Destination.Base,
-            DestinationSsid = packet.Destination.Ssid.HasValue 
-                ? (AprsSsid)packet.Destination.Ssid.Value 
+            DestinationSsid = packet.Destination.Ssid.HasValue
+                ? (AprsSsid)packet.Destination.Ssid.Value
                 : AprsSsid.PrimaryStation,
             PacketType = ResolvePacketType(packet),
             Timestamp = timestamp.UtcDateTime,
@@ -115,8 +115,8 @@ internal static class PacketRecordMapper
                 record.Message = new MessageDataRecord
                 {
                     AddresseeBase = msg.Addressee.Base,
-                    AddresseeSsid = msg.Addressee.Ssid.HasValue 
-                        ? (AprsSsid)msg.Addressee.Ssid.Value 
+                    AddresseeSsid = msg.Addressee.Ssid.HasValue
+                        ? (AprsSsid)msg.Addressee.Ssid.Value
                         : AprsSsid.PrimaryStation,
                     Text = msg.Text,
                     Number = msg.MessageNumber,
@@ -222,8 +222,8 @@ internal static class PacketRecordMapper
     {
         try
         {
-            var source = new Callsign(record.SourceBase, (int)record.SourceSsid);
-            var destination = new Callsign(record.DestinationBase, (int)record.DestinationSsid);
+            Callsign source = new(record.SourceBase, (int)record.SourceSsid);
+            Callsign destination = new(record.DestinationBase, (int)record.DestinationSsid);
 
             DateTimeOffset? timestamp = record.PacketTimestamp.HasValue
                 ? new DateTimeOffset(record.PacketTimestamp.Value, TimeSpan.Zero)
@@ -420,7 +420,7 @@ internal static class PacketRecordMapper
             telemetry.Analog5
         ];
 
-        var length = channels.Length;
+        int length = channels.Length;
         while (length > 0 && channels[length - 1] is null)
         {
             length--;

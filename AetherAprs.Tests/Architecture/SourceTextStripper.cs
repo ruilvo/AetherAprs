@@ -24,12 +24,12 @@ internal static class SourceTextStripper
     {
         ArgumentNullException.ThrowIfNull(source);
 
-        var result = new StringBuilder(source.Length);
-        var index = 0;
+        StringBuilder result = new(source.Length);
+        int index = 0;
         while (index < source.Length)
         {
-            var current = source[index];
-            var next = index + 1 < source.Length ? source[index + 1] : '\0';
+            char current = source[index];
+            char next = index + 1 < source.Length ? source[index + 1] : '\0';
 
             if (current == '/' && next == '/')
             {
@@ -99,11 +99,11 @@ internal static class SourceTextStripper
     private static int SkipQuoted(string source, int index, char delimiter)
     {
         // Verbatim ("@") and raw (""" ... """) strings do not use backslash escapes.
-        var verbatim = index > 0 && source[index - 1] == '@';
+        bool verbatim = index > 0 && source[index - 1] == '@';
         index++;
         while (index < source.Length)
         {
-            var current = source[index];
+            char current = source[index];
             if (!verbatim && current == '\\' && delimiter != '\'')
             {
                 index += 2;

@@ -28,8 +28,8 @@ public static class KissSerializer
                 nameof(frame));
         }
 
-        var escapedData = EscapeData(frame.Data);
-        var buffer = new byte[1 + 1 + escapedData.Length + 1];
+        byte[] escapedData = EscapeData(frame.Data);
+        byte[] buffer = new byte[1 + 1 + escapedData.Length + 1];
 
         buffer[0] = KissConstants.FEND;
         buffer[1] = frame.Command;
@@ -53,8 +53,8 @@ public static class KissSerializer
             throw new ArgumentException("Frame data cannot be empty.", nameof(rawData));
         }
 
-        var command = rawData[0];
-        var data = rawData.Length > 1
+        byte command = rawData[0];
+        byte[] data = rawData.Length > 1
             ? rawData[1..]
             : [];
 
@@ -74,9 +74,9 @@ public static class KissSerializer
             return [];
         }
 
-        var result = new List<byte>(data.Length);
+        List<byte> result = [with(data.Length)];
 
-        foreach (var b in data)
+        foreach (byte b in data)
         {
             switch (b)
             {
@@ -112,9 +112,9 @@ public static class KissSerializer
             return [];
         }
 
-        var result = new List<byte>(data.Length);
+        List<byte> result = [with(data.Length)];
 
-        for (var i = 0; i < data.Length; i++)
+        for (int i = 0; i < data.Length; i++)
         {
             if (data[i] == KissConstants.FESC)
             {

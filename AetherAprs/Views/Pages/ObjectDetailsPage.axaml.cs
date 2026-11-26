@@ -8,8 +8,5 @@ namespace AetherAprs.Views.Pages;
 
 public partial class ObjectDetailsPage : UserControl
 {
-    public ObjectDetailsPage()
-    {
-        InitializeComponent();
-    }
+    public ObjectDetailsPage() => InitializeComponent();
 }

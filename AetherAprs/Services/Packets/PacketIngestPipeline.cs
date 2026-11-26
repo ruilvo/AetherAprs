@@ -101,7 +101,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     }
 
     public long GetDroppedPacketCount(Guid portId) =>
-        _droppedPacketCounts.TryGetValue(portId, out var count) ? count : 0;
+        _droppedPacketCounts.TryGetValue(portId, out long count) ? count : 0;
 
     public PacketIngestMetrics GetMetrics() => new(
         Interlocked.Read(ref _enqueuedPackets),
@@ -112,7 +112,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     {
         try
         {
-            await foreach (var queued in _channel.Reader.ReadAllAsync(_disposalCts.Token).ConfigureAwait(false))
+            await foreach (QueuedPacket? queued in _channel.Reader.ReadAllAsync(_disposalCts.Token).ConfigureAwait(false))
             {
                 await ProcessPacketAsync(queued.PortId, queued.Packet).ConfigureAwait(false);
             }
@@ -165,7 +165,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     /// </summary>
     private async Task<bool> TryStorePacketAsync(Guid portId, AprsPacket packet)
     {
-        for (var attempt = 1; attempt <= Options.StoreAttemptLimit; attempt++)
+        for (int attempt = 1; attempt <= Options.StoreAttemptLimit; attempt++)
         {
             try
             {
@@ -218,7 +218,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     {
         try
         {
-            var delay = TimeSpan.FromTicks(Options.StoreRetryDelay.Ticks * attempt);
+            TimeSpan delay = TimeSpan.FromTicks(Options.StoreRetryDelay.Ticks * attempt);
             await Task.Delay(delay, _disposalCts.Token).ConfigureAwait(false);
             return true;
         }

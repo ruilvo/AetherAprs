@@ -117,7 +117,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     }
 
     public long GetDiscardedCandidateCount(Guid sourcePortId) =>
-        _discardedCandidates.TryGetValue(sourcePortId, out var count) ? count : 0;
+        _discardedCandidates.TryGetValue(sourcePortId, out long count) ? count : 0;
 
     public DigipeatMetrics GetMetrics() => new(
         Interlocked.Read(ref _enqueuedCandidates),
@@ -129,7 +129,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     {
         try
         {
-            await foreach (var candidate in _channel.Reader.ReadAllAsync(_disposalCts.Token).ConfigureAwait(false))
+            await foreach (DigipeatCandidate? candidate in _channel.Reader.ReadAllAsync(_disposalCts.Token).ConfigureAwait(false))
             {
                 try
                 {
@@ -163,7 +163,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     {
         // Freshness is checked when the candidate is dequeued: a relay that waited
         // behind a blocked route must be discarded, never replayed.
-        var age = _timeProvider.GetUtcNow() - candidate.ReceivedAt;
+        TimeSpan age = _timeProvider.GetUtcNow() - candidate.ReceivedAt;
         if (age > Options.MaxCandidateAge)
         {
             Discard(
@@ -173,9 +173,9 @@ internal sealed class DigipeatRouter : IDigipeatRouter
             return;
         }
 
-        var configuredPorts = _configurationSource.GetPorts();
+        IReadOnlyList<PortConfig> configuredPorts = _configurationSource.GetPorts();
 
-        var sourcePort = configuredPorts.FirstOrDefault(port => port.Id == candidate.SourcePortId);
+        PortConfig? sourcePort = configuredPorts.FirstOrDefault(port => port.Id == candidate.SourcePortId);
         if (sourcePort is null)
         {
             Discard(
@@ -187,22 +187,21 @@ internal sealed class DigipeatRouter : IDigipeatRouter
 
         // Only running sessions can carry a forward. Session ownership lives in the
         // manager, so ask it rather than inspecting state.
-        var availablePorts = configuredPorts
+        List<PortInfo> availablePorts = [.. configuredPorts
             .Where(port => _sessionManager.IsRunning(port.Id))
             .Select(port => new PortInfo(
                 port.Id,
                 port.TypeSettings is AprsIsSettings,
                 port.IsTx,
-                port.AllowDigipeat))
-            .ToList();
+                port.AllowDigipeat))];
 
-        var targets = _digipeaterService.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = _digipeaterService.GetDigipeatTargets(
             candidate.Packet,
             candidate.SourcePortId,
             sourcePort.TypeSettings is AprsIsSettings,
             availablePorts);
 
-        foreach (var target in targets)
+        foreach (DigipeatTarget target in targets)
         {
             if (!_sessionManager.IsRunning(target.PortId))
             {
@@ -223,12 +222,12 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     {
         // A wedged modem must not stall the relay consumer forever. The token is
         // linked to disposal and bounds only this transmit.
-        using var transmitCts = CancellationTokenSource.CreateLinkedTokenSource(_disposalCts.Token);
+        using CancellationTokenSource transmitCts = CancellationTokenSource.CreateLinkedTokenSource(_disposalCts.Token);
         transmitCts.CancelAfter(Options.TransmitTimeout);
 
         try
         {
-            var status = await _sessionManager
+            PortSessionSendStatus status = await _sessionManager
                 .SendAsync(target.PortId, target.Packet, transmitCts.Token)
                 .ConfigureAwait(false);
 

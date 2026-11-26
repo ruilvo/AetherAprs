@@ -23,15 +23,15 @@ public static class PathHelper
     {
         if (string.IsNullOrWhiteSpace(pathString))
         {
-            return Array.Empty<Callsign>();
+            return [];
         }
 
-        var parts = pathString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var result = new List<Callsign>(parts.Length);
+        string[] parts = pathString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        List<Callsign> result = [with(parts.Length)];
 
-        foreach (var part in parts)
+        foreach (string part in parts)
         {
-            var callsign = ParseCallsign(part);
+            Callsign callsign = ParseCallsign(part);
             result.Add(callsign);
         }
 
@@ -46,7 +46,7 @@ public static class PathHelper
     /// <exception cref="ArgumentException">Thrown if the callsign string is invalid.</exception>
     private static Callsign ParseCallsign(string callsignString)
     {
-        if (!Callsign.TryParse(callsignString, out var callsign))
+        if (!Callsign.TryParse(callsignString, out Callsign callsign))
         {
             throw new ArgumentException($"Invalid callsign '{callsignString}'.", nameof(callsignString));
         }
@@ -75,10 +75,7 @@ public static class PathHelper
     /// <param name="callsign">The callsign to check.</param>
     /// <param name="alias">The alias pattern (e.g., "WIDE1" or "WIDE2").</param>
     /// <returns>True if the callsign base matches the alias.</returns>
-    public static bool MatchesAlias(Callsign callsign, string alias)
-    {
-        return string.Equals(callsign.Base, alias, StringComparison.OrdinalIgnoreCase);
-    }
+    public static bool MatchesAlias(Callsign callsign, string alias) => string.Equals(callsign.Base, alias, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Decrements the SSID of a callsign (used in digipeater hop counting).

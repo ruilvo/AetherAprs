@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,15 +24,20 @@ namespace AetherAprs.ViewModels.Pages;
 /// searches via <see cref="IPacketQueryService.SearchStationsAsync"/>, and opens
 /// the packet details page when a result is tapped.
 /// </summary>
-public sealed partial class SearchViewModel : ViewModelBase
+public sealed partial class SearchViewModel(
+    IPacketQueryService packetQueryService,
+    INavigationService navigationService,
+    IPacketDetailsViewModelFactory packetDetailsFactory,
+    IObjectDetailsViewModelFactory objectDetailsFactory,
+    ILogger<SearchViewModel>? logger = null) : ViewModelBase
 {
     private const int DebounceMilliseconds = 300;
 
-    private readonly IPacketQueryService _packetQueryService;
-    private readonly INavigationService _navigationService;
-    private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
-    private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
-    private readonly ILogger<SearchViewModel>? _logger;
+    private readonly IPacketQueryService _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
+    private readonly INavigationService _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    private readonly IPacketDetailsViewModelFactory _packetDetailsFactory = packetDetailsFactory ?? throw new ArgumentNullException(nameof(packetDetailsFactory));
+    private readonly IObjectDetailsViewModelFactory _objectDetailsFactory = objectDetailsFactory ?? throw new ArgumentNullException(nameof(objectDetailsFactory));
+    private readonly ILogger<SearchViewModel>? _logger = logger;
     private CancellationTokenSource? _debounceCts;
 
     // Every query change starts a new generation. A completed search only applies
@@ -75,32 +81,18 @@ public sealed partial class SearchViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool ShowNoResults { get; set; }
 
-    public SearchViewModel(
-        IPacketQueryService packetQueryService,
-        INavigationService navigationService,
-        IPacketDetailsViewModelFactory packetDetailsFactory,
-        IObjectDetailsViewModelFactory objectDetailsFactory,
-        ILogger<SearchViewModel>? logger = null)
-    {
-        _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
-        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-        _packetDetailsFactory = packetDetailsFactory ?? throw new ArgumentNullException(nameof(packetDetailsFactory));
-        _objectDetailsFactory = objectDetailsFactory ?? throw new ArgumentNullException(nameof(objectDetailsFactory));
-        _logger = logger;
-    }
-
     partial void OnSearchQueryChanged(string value)
     {
         // Supersede the previous search before starting the next one. The source is
         // not disposed here: the superseded operation may still be using its token,
         // and a CTS used only with Task.Delay holds no unmanaged resource. Disposing
         // it eagerly is what made a newer query able to fault the older search.
-        var previous = _debounceCts;
-        var cancellation = new CancellationTokenSource();
+        CancellationTokenSource? previous = _debounceCts;
+        CancellationTokenSource cancellation = new();
         _debounceCts = cancellation;
         previous?.Cancel();
 
-        var generation = ++_searchGeneration;
+        int generation = ++_searchGeneration;
 
         // Clearing the box resets immediately rather than after the debounce delay.
         if (string.IsNullOrWhiteSpace(value))
@@ -138,7 +130,7 @@ public sealed partial class SearchViewModel : ViewModelBase
 
     private async Task SearchAsync(string query, int generation, CancellationToken token)
     {
-        var trimmed = query?.Trim() ?? string.Empty;
+        string trimmed = query?.Trim() ?? string.Empty;
 
         if (trimmed.Length == 0)
         {
@@ -157,7 +149,7 @@ public sealed partial class SearchViewModel : ViewModelBase
                 IsLoading = true;
             }
 
-            var packets = await _packetQueryService.SearchStationsAsync(trimmed, limit: 100, cancellationToken: token);
+            IReadOnlyList<PacketRecord> packets = await _packetQueryService.SearchStationsAsync(trimmed, limit: 100, cancellationToken: token);
 
             // A search that was superseded while it was running must not touch the
             // collection: the newer search owns it now.
@@ -167,7 +159,7 @@ public sealed partial class SearchViewModel : ViewModelBase
             }
 
             Results.Clear();
-            foreach (var packet in packets)
+            foreach (PacketRecord packet in packets)
             {
                 Results.Add(CreateResultItem(packet));
             }
@@ -210,7 +202,7 @@ public sealed partial class SearchViewModel : ViewModelBase
 
     private static SearchResultItem CreateResultItem(PacketRecord packet)
     {
-        var source = AprsSsidExtensions.FormatCallsign(packet.SourceBase, packet.SourceSsid);
+        string source = AprsSsidExtensions.FormatCallsign(packet.SourceBase, packet.SourceSsid);
 
         // An object result is identified by the object's own name, not by the
         // station that last reported it: the same object is reported by different
@@ -242,20 +234,17 @@ public sealed partial class SearchViewModel : ViewModelBase
 
         if (!string.IsNullOrEmpty(item.ObjectName))
         {
-            var objectDetails = _objectDetailsFactory.Create(item.ObjectName!);
+            ObjectDetailsViewModel objectDetails = _objectDetailsFactory.Create(item.ObjectName!);
             _navigationService.NavigateTo(objectDetails);
             return;
         }
 
-        var vm = _packetDetailsFactory.Create(item.Source);
+        PacketDetailsViewModel vm = _packetDetailsFactory.Create(item.Source);
         _navigationService.NavigateTo(vm);
     }
 
     [RelayCommand]
-    private void Close()
-    {
-        _navigationService.GoBack();
-    }
+    private void Close() => _navigationService.GoBack();
 
     partial void OnResultsChanged(ObservableCollection<SearchResultItem> value)
     {

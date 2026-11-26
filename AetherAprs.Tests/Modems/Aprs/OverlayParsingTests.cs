@@ -20,12 +20,12 @@ public class OverlayParsingTests
         // Overlay: D
         // Longitude: 007°47.95'W = 7.7992°W
         // Symbol: &
-        var result = AprsInfoFieldParser.ParseInfoField(
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             "!4038.72ND00747.95W&RNG0001 440 Voice 433.45000MHz +0.0000MHz",
-            new Callsign("APRS"), 
+            new Callsign("APRS"),
             new Callsign("APDG02"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.6453, pos.Location.Latitude, 4);
         Assert.Equal(-7.7992, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -41,12 +41,12 @@ public class OverlayParsingTests
         // Overlay: W
         // Longitude: 008°26.71'W = 8.4452°W
         // Symbol: i
-        var result = AprsInfoFieldParser.ParseInfoField(
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             "!4053.58NW00826.71Wi/A=00000070cm MMDVM Voice (DMR)",
-            new Callsign("APRS"), 
+            new Callsign("APRS"),
             new Callsign("APCHP0"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.893, pos.Location.Latitude, 3);
         Assert.Equal(-8.4452, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -59,12 +59,12 @@ public class OverlayParsingTests
     {
         // From database ID 4: !4013.00N\00824.78Wj
         // This should work correctly (baseline test)
-        var result = AprsInfoFieldParser.ParseInfoField(
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             "!4013.00N\\00824.78Wj#Obras-(Metro Mondego)",
-            new Callsign("APRS"), 
+            new Callsign("APRS"),
             new Callsign("APHPIB"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.2167, pos.Location.Latitude, 4);
         Assert.Equal(-8.4130, pos.Location.Longitude, 4);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);

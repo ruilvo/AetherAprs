@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -21,25 +22,25 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task SendAsync_ConcurrentSends_FramesDoNotInterleave()
     {
-        using var stream = new SlowWriteStream();
-        await using var modem = new KissModem(stream);
+        using SlowWriteStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frameA = new KissFrame(0x00, [0x11, 0x11, 0x11]);
-        var frameB = new KissFrame(0x01, [0x22, 0x22, 0x22]);
+        KissFrame frameA = new(0x00, [0x11, 0x11, 0x11]);
+        KissFrame frameB = new(0x01, [0x22, 0x22, 0x22]);
 
         await Task.WhenAll(
             modem.SendAsync(frameA, TestContext.Current.CancellationToken),
             modem.SendAsync(frameB, TestContext.Current.CancellationToken));
 
-        var written = stream.Written;
+        List<byte> written = stream.Written;
 
         // Each write call must be a complete KISS frame, never interleaved bytes.
-        var frames = 0;
-        var i = 0;
+        int frames = 0;
+        int i = 0;
         while (i < written.Count)
         {
             Assert.Equal(0xC0, written[i]); // opening FEND
-            var close = written.IndexOf(0xC0, i + 1);
+            int close = written.IndexOf(0xC0, i + 1);
             Assert.True(close > i, "Frame was not terminated by a FEND — sends interleaved.");
             frames++;
             i = close + 1;
@@ -55,10 +56,10 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task FrameReceived_EscapeSequenceSplitAcrossReads_IsUnescapedCorrectly()
     {
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
@@ -67,7 +68,7 @@ public class KissModemEdgeCaseTests
         stream.Enqueue([0xC0, 0x00, 0xDB]);
         stream.Enqueue([0xDC, 0xC0]);
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal([0xC0], received.Data);
     }
@@ -75,20 +76,20 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task FrameReceived_ByteByByteDelivery_ReceivesFrame()
     {
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        foreach (var b in (byte[])[0xC0, 0x00, 0x01, 0x02, 0xC0])
+        foreach (byte b in (byte[])[0xC0, 0x00, 0x01, 0x02, 0xC0])
         {
             stream.Enqueue([b]);
         }
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal([0x01, 0x02], received.Data);
     }
@@ -100,13 +101,13 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task OversizedFrame_FiresReceiveError_AndResynchronizesOnNextFrame()
     {
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> errorTcs = new();
         modem.ReceiveError += (_, ex) => errorTcs.TrySetResult(ex);
 
-        var frameTcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> frameTcs = new();
         modem.FrameReceived += (_, frame) => frameTcs.TrySetResult(frame);
 
         modem.Start();
@@ -116,10 +117,10 @@ public class KissModemEdgeCaseTests
         stream.Enqueue(new byte[5000]);
         stream.Enqueue([0xC0, 0x00, 0x01, 0xC0]);
 
-        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.Contains("exceeds maximum length", error.Message);
 
-        var received = await frameTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await frameTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.Equal([0x01], received.Data);
     }
 
@@ -130,21 +131,21 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task ReadLoop_StreamClosedByRemote_RaisesReceiveError()
     {
-        using var stream = new CloseAfterDataStream([0xC0, 0x00, 0x01, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using CloseAfterDataStream stream = new([0xC0, 0x00, 0x01, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> errorTcs = new();
         modem.ReceiveError += (_, ex) => errorTcs.TrySetResult(ex);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.Equal([0x01], received.Data);
 
-        var error = await errorTcs.Task.WaitAsync(
+        Exception error = await errorTcs.Task.WaitAsync(
             TimeSpan.FromSeconds(3),
             TestContext.Current.CancellationToken);
 
@@ -156,8 +157,8 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task StopAsync_AfterRemoteClose_CompletesAndAllowsRestart()
     {
-        using var stream = new ImmediateEofStream();
-        await using var modem = new KissModem(stream);
+        using ImmediateEofStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
         // Let the read loop hit EOF and exit.
@@ -176,10 +177,10 @@ public class KissModemEdgeCaseTests
     [Fact]
     public async Task SendAsync_CancelledBeforeWrite_ThrowsOperationCanceled()
     {
-        using var stream = new BlockingWriteStream();
-        await using var modem = new KissModem(stream);
+        using BlockingWriteStream stream = new();
+        await using KissModem modem = new(stream);
 
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
@@ -193,11 +194,11 @@ public class KissModemEdgeCaseTests
     [Fact]
     public void ReferenceDecoder_OnSameWire_DecodesAllFrames()
     {
-        var (expected, wire) = BuildFuzzWire(new Random(20261021), 300);
+        (List<KissFrame>? expected, List<byte>? wire) = BuildFuzzWire(new Random(20261021), 300);
 
-        var decoded = new List<(byte Command, byte[] Data)>();
-        var current = new List<byte>();
-        foreach (var b in wire)
+        List<(byte Command, byte[] Data)> decoded = [];
+        List<byte> current = [];
+        foreach (byte b in wire)
         {
             if (b == KissConstants.FEND)
             {
@@ -215,7 +216,7 @@ public class KissModemEdgeCaseTests
         }
 
         Assert.Equal(expected.Count, decoded.Count);
-        for (var i = 0; i < expected.Count; i++)
+        for (int i = 0; i < expected.Count; i++)
         {
             Assert.Equal(expected[i].Command, decoded[i].Command);
             Assert.Equal(expected[i].Data, decoded[i].Data);
@@ -224,7 +225,7 @@ public class KissModemEdgeCaseTests
 
     private static (byte Command, byte[] Data) DecodeReference(List<byte> raw)
     {
-        var unescaped = KissSerializer.UnescapeData([.. raw]);
+        byte[] unescaped = KissSerializer.UnescapeData([.. raw]);
         return (unescaped[0], unescaped[1..]);
     }
 
@@ -232,9 +233,9 @@ public class KissModemEdgeCaseTests
     {
         byte[] commandNibbles = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0F];
 
-        var expected = new List<KissFrame>();
-        var wire = new List<byte>();
-        for (var n = 0; n < count; n++)
+        List<KissFrame> expected = [];
+        List<byte> wire = [];
+        for (int n = 0; n < count; n++)
         {
             // 0xC0 (FEND) can never be a command byte on the wire; skip it.
             byte command;
@@ -244,7 +245,7 @@ public class KissModemEdgeCaseTests
             }
             while (command is KissConstants.FEND or KissConstants.FESC);
 
-            var data = new byte[random.Next(0, 64)];
+            byte[] data = new byte[random.Next(0, 64)];
             random.NextBytes(data);
 
             expected.Add(new KissFrame(command, data));
@@ -261,12 +262,12 @@ public class KissModemEdgeCaseTests
         // the serializer happily emits it raw, which corrupts framing. Whatever
         // the modem makes of the garbage, it must stay able to resync and
         // dispatch a later valid frame.
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var received = new System.Collections.Concurrent.ConcurrentQueue<KissFrame>();
-        var errors = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
-        var validFrame = new TaskCompletionSource<KissFrame>();
+        ConcurrentQueue<KissFrame> received = new();
+        ConcurrentQueue<Exception> errors = new();
+        TaskCompletionSource<KissFrame> validFrame = new();
 
         modem.FrameReceived += (_, frame) =>
         {
@@ -283,7 +284,7 @@ public class KissModemEdgeCaseTests
 
         // Malformed burst: frames with command byte 0xC0 (raw FEND on the wire),
         // i.e. exactly what the wire looks like if a sender emits such bytes.
-        for (var n = 0; n < 20; n++)
+        for (int n = 0; n < 20; n++)
         {
             stream.Enqueue([0xC0, 0xC0, 0x11, 0x22, 0x33, 0xC0]);
         }
@@ -292,22 +293,22 @@ public class KissModemEdgeCaseTests
         await Task.Delay(500, TestContext.Current.CancellationToken);
         stream.Enqueue([0xC0, 0x00, 0xAA, 0xBB, 0xC0]);
 
-        var resynced = await validFrame.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame resynced = await validFrame.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.Equal([0xAA, 0xBB], resynced.Data);
     }
 
     [Fact]
     public async Task Fuzz_RandomFrames_RoundTripThroughWireChunks()
     {
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var random = new Random(20261021);
-        var (expected, wire) = BuildFuzzWire(random, 300);
+        Random random = new(20261021);
+        (List<KissFrame>? expected, List<byte>? wire) = BuildFuzzWire(random, 300);
 
-        var received = new System.Collections.Concurrent.ConcurrentQueue<KissFrame>();
-        var allReceived = new TaskCompletionSource<bool>();
-        var errors = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+        ConcurrentQueue<KissFrame> received = new();
+        TaskCompletionSource<bool> allReceived = new();
+        ConcurrentQueue<Exception> errors = new();
 
         modem.FrameReceived += (_, frame) =>
         {
@@ -329,10 +330,10 @@ public class KissModemEdgeCaseTests
         modem.Start();
 
         // Chop the wire bytes into random chunks to simulate stream fragmentation.
-        var offset = 0;
+        int offset = 0;
         while (offset < wire.Count)
         {
-            var size = Math.Min(random.Next(1, 40), wire.Count - offset);
+            int size = Math.Min(random.Next(1, 40), wire.Count - offset);
             stream.Enqueue([.. wire.GetRange(offset, size)]);
             offset += size;
         }
@@ -345,14 +346,14 @@ public class KissModemEdgeCaseTests
         {
             Assert.Fail(
                 $"Timed out: received={received.Count}, expected={expected.Count}, errors={errors.Count}, " +
-                $"firstError={(errors.TryPeek(out var first) ? first.Message : "none")}");
+                $"firstError={(errors.TryPeek(out Exception? first) ? first.Message : "none")}");
         }
 
         Assert.Equal(expected.Count, received.Count);
-        for (var i = 0; i < expected.Count; i++)
+        for (int i = 0; i < expected.Count; i++)
         {
             Assert.True(
-                received.TryDequeue(out var frame),
+                received.TryDequeue(out KissFrame frame),
                 $"Frame {i} missing.");
             Assert.Equal(expected[i].Command, frame.Command);
             Assert.Equal(expected[i].Data, frame.Data);
@@ -399,7 +400,7 @@ public class KissModemEdgeCaseTests
                 chunk = _pending.Dequeue();
             }
 
-            var toCopy = Math.Min(buffer.Length, chunk.Length);
+            int toCopy = Math.Min(buffer.Length, chunk.Length);
             chunk.AsSpan(0, toCopy).CopyTo(buffer.Span);
             if (toCopy < chunk.Length)
             {
@@ -416,7 +417,7 @@ public class KissModemEdgeCaseTests
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            var memory = new Memory<byte>(buffer, offset, count);
+            Memory<byte> memory = new(buffer, offset, count);
             return ReadAsync(memory).AsTask().GetAwaiter().GetResult();
         }
 
@@ -486,10 +487,7 @@ public class KissModemEdgeCaseTests
             set => throw new NotSupportedException();
         }
 
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
+        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
             ValueTask.FromResult(0);
@@ -521,7 +519,7 @@ public class KissModemEdgeCaseTests
             if (!_delivered)
             {
                 _delivered = true;
-                var toCopy = Math.Min(buffer.Length, data.Length);
+                int toCopy = Math.Min(buffer.Length, data.Length);
                 data.AsSpan(0, toCopy).CopyTo(buffer.Span);
                 return ValueTask.FromResult(toCopy);
             }

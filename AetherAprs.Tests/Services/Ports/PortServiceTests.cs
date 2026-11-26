@@ -34,7 +34,7 @@ public sealed class PortServiceTests
     [Fact]
     public async Task UpdatePortAsyncPersistsAprsIsSettings()
     {
-        var existingPort = new PortConfig
+        PortConfig existingPort = new()
         {
             Id = Guid.NewGuid(),
             Name = "Old name",
@@ -48,9 +48,9 @@ public sealed class PortServiceTests
             IsRx = true,
             IsTx = false
         };
-        using var db = TempAppDatabase.Create(existingPort);
-        var service = await CreateAndInitializeServiceAsync(db);
-        var updatedPort = new PortConfig
+        using TempAppDatabase db = TempAppDatabase.Create(existingPort);
+        PortService service = await CreateAndInitializeServiceAsync(db);
+        PortConfig updatedPort = new()
         {
             Id = existingPort.Id,
             Name = "Updated name",
@@ -69,8 +69,8 @@ public sealed class PortServiceTests
 
         await service.UpdatePortAsync(updatedPort);
 
-        var persisted = Assert.Single(service.Ports);
-        var aprsIsSettings = persisted.GetAprsIsSettings();
+        PortConfig persisted = Assert.Single(service.Ports);
+        AprsIsSettings? aprsIsSettings = persisted.GetAprsIsSettings();
         Assert.Equal("Updated name", persisted.Name);
         Assert.True(persisted.IsEnabled);
         Assert.NotNull(aprsIsSettings);
@@ -82,8 +82,8 @@ public sealed class PortServiceTests
         Assert.True(persisted.IsTx);
         Assert.False(persisted.ShowOnMap);
 
-        var reloaded = await CreateAndInitializeServiceAsync(db);
-        var fromDb = Assert.Single(reloaded.Ports);
+        PortService reloaded = await CreateAndInitializeServiceAsync(db);
+        PortConfig fromDb = Assert.Single(reloaded.Ports);
         Assert.Equal("Updated name", fromDb.Name);
         Assert.Equal("new.example", fromDb.GetAprsIsSettings()?.Server);
     }
@@ -91,10 +91,10 @@ public sealed class PortServiceTests
     [Fact]
     public async Task UpdatePortAsyncRaisesPortsChangedAfterSaving()
     {
-        var existingPort = new PortConfig { Id = Guid.NewGuid(), Name = "Port" };
-        using var db = TempAppDatabase.Create(existingPort);
-        var service = await CreateAndInitializeServiceAsync(db);
-        var changeCount = 0;
+        PortConfig existingPort = new() { Id = Guid.NewGuid(), Name = "Port" };
+        using TempAppDatabase db = TempAppDatabase.Create(existingPort);
+        PortService service = await CreateAndInitializeServiceAsync(db);
+        int changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
         existingPort.Name = "Updated";
@@ -106,76 +106,76 @@ public sealed class PortServiceTests
     [Fact]
     public async Task UpdatePortAsyncWithUnknownIdDoesNotSaveOrRaiseEvent()
     {
-        using var db = TempAppDatabase.Create();
-        var service = CreateService(db);
-        var changeCount = 0;
+        using TempAppDatabase db = TempAppDatabase.Create();
+        PortService service = CreateService(db);
+        int changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
         await service.UpdatePortAsync(new PortConfig { Id = Guid.NewGuid() });
 
         Assert.Empty(service.Ports);
         Assert.Equal(0, changeCount);
-        using var context = db.CreateContext();
+        using AppDbContext context = db.CreateContext();
         Assert.Empty(context.Ports.AsNoTracking());
     }
 
     [Fact]
     public async Task AddPortAsyncPersistsPortAndRaisesPortsChanged()
     {
-        using var db = TempAppDatabase.Create();
-        var service = await CreateAndInitializeServiceAsync(db);
-        var changeCount = 0;
+        using TempAppDatabase db = TempAppDatabase.Create();
+        PortService service = await CreateAndInitializeServiceAsync(db);
+        int changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
-        var port = new PortConfig { Id = Guid.NewGuid(), Name = "New port" };
+        PortConfig port = new() { Id = Guid.NewGuid(), Name = "New port" };
 
         await service.AddPortAsync(port);
 
         // The service publishes a snapshot copy, so compare identity by value.
-        var published = Assert.Single(service.Ports);
+        PortConfig published = Assert.Single(service.Ports);
         Assert.Equal(port.Id, published.Id);
         Assert.Equal(port.Name, published.Name);
         Assert.Equal(1, changeCount);
-        var reloaded = await CreateAndInitializeServiceAsync(db);
+        PortService reloaded = await CreateAndInitializeServiceAsync(db);
         Assert.Equal("New port", Assert.Single(reloaded.Ports).Name);
     }
 
     [Fact]
     public async Task RemovePortAsyncRemovesPortAndRaisesPortsChanged()
     {
-        var existingPort = new PortConfig { Id = Guid.NewGuid(), Name = "Port" };
-        using var db = TempAppDatabase.Create(existingPort);
-        var service = await CreateAndInitializeServiceAsync(db);
-        var changeCount = 0;
+        PortConfig existingPort = new() { Id = Guid.NewGuid(), Name = "Port" };
+        using TempAppDatabase db = TempAppDatabase.Create(existingPort);
+        PortService service = await CreateAndInitializeServiceAsync(db);
+        int changeCount = 0;
         service.PortsChanged += (_, _) => changeCount++;
 
         await service.RemovePortAsync(existingPort.Id);
 
         Assert.Empty(service.Ports);
         Assert.Equal(1, changeCount);
-        var reloaded = await CreateAndInitializeServiceAsync(db);
+        PortService reloaded = await CreateAndInitializeServiceAsync(db);
         Assert.Empty(reloaded.Ports);
     }
 
     [Fact]
     public async Task SendPacketAsyncOnEnabledPortWithNullTypeSettingsThrowsNotRunning()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "Broken port",
             IsEnabled = true,
             TypeSettings = null
         };
-        using var db = TempAppDatabase.Create(port);
-        var service = CreateService(db);
-        var packet = new PositionPacket
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        PortService service = CreateService(db);
+        PositionPacket packet = new()
         {
             Source = new Callsign("N0CALL", 1),
             Destination = new Callsign("APRS"),
             Location = new Coordinate(0, 0)
         };
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SendPacketAsync(port.Id, packet));
 
         Assert.Contains("is not running", ex.Message, StringComparison.Ordinal);
@@ -184,30 +184,30 @@ public sealed class PortServiceTests
     [Fact]
     public async Task SetPortEnabledAsyncWithNullTypeSettingsLeavesIsEnabledFalse()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "Broken port",
             IsEnabled = false,
             TypeSettings = null
         };
-        using var db = TempAppDatabase.Create(port);
-        var service = await CreateAndInitializeServiceAsync(db);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        PortService service = await CreateAndInitializeServiceAsync(db);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.SetPortEnabledAsync(port.Id, true));
 
         Assert.Contains("Failed to start port", ex.Message, StringComparison.Ordinal);
         Assert.False(Assert.Single(service.Ports).IsEnabled);
-        using var context = db.CreateContext();
+        using AppDbContext context = db.CreateContext();
         Assert.False(Assert.Single(context.Ports.AsNoTracking()).IsEnabled);
     }
 
     [Fact]
     public async Task UpdatePortAsync_WhenSessionActive_RestartsModemWithNewSettings()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -218,14 +218,14 @@ public sealed class PortServiceTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var factory = new CountingKissStreamFactory();
-        var service = await CreateAndInitializeServiceAsync(db, factory);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        CountingKissStreamFactory factory = new();
+        PortService service = await CreateAndInitializeServiceAsync(db, factory);
 
         await service.SetPortEnabledAsync(portId, true);
         Assert.Equal(1, factory.OpenCount);
 
-        var updated = new PortConfig
+        PortConfig updated = new()
         {
             Id = portId,
             Name = "KISS-updated",
@@ -240,10 +240,10 @@ public sealed class PortServiceTests
         await service.UpdatePortAsync(updated);
 
         Assert.Equal(2, factory.OpenCount);
-        var persisted = Assert.Single(service.Ports);
+        PortConfig persisted = Assert.Single(service.Ports);
         Assert.Equal("KISS-updated", persisted.Name);
-        var kiss = Assert.IsType<KissSettings>(persisted.TypeSettings);
-        var tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
+        KissSettings kiss = Assert.IsType<KissSettings>(persisted.TypeSettings);
+        TcpKissTransportSettings tcp = Assert.IsType<TcpKissTransportSettings>(kiss.Transport);
         Assert.Equal(8002, tcp.Port);
 
         await service.StopAllPortsAsync();
@@ -252,8 +252,8 @@ public sealed class PortServiceTests
     [Fact]
     public async Task SetPortEnabledAsync_WhenPersistFails_LeavesMemoryUnchanged()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -263,11 +263,11 @@ public sealed class PortServiceTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var service = await CreateAndInitializeServiceAsync(db);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        PortService service = await CreateAndInitializeServiceAsync(db);
 
         // Remove the table so the durable write fails after the read succeeded.
-        using (var context = db.CreateContext())
+        using (AppDbContext context = db.CreateContext())
         {
             await context.Database.ExecuteSqlRawAsync(
                 "DROP TABLE Ports;",
@@ -283,17 +283,17 @@ public sealed class PortServiceTests
     [Fact]
     public async Task AddPortAsync_WhenPersistFails_DoesNotPublishToMemory()
     {
-        using var db = TempAppDatabase.Create();
-        var service = await CreateAndInitializeServiceAsync(db);
+        using TempAppDatabase db = TempAppDatabase.Create();
+        PortService service = await CreateAndInitializeServiceAsync(db);
 
-        using (var context = db.CreateContext())
+        using (AppDbContext context = db.CreateContext())
         {
             await context.Database.ExecuteSqlRawAsync(
                 "DROP TABLE Ports;",
                 TestContext.Current.CancellationToken);
         }
 
-        var port = new PortConfig { Id = Guid.NewGuid(), Name = "New port" };
+        PortConfig port = new() { Id = Guid.NewGuid(), Name = "New port" };
 
         await Assert.ThrowsAnyAsync<Exception>(() => service.AddPortAsync(port));
 
@@ -303,8 +303,8 @@ public sealed class PortServiceTests
     [Fact]
     public async Task UpdatePortAsync_WhenPersistFails_KeepsPreviousSettings()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "Original",
@@ -314,17 +314,17 @@ public sealed class PortServiceTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var service = await CreateAndInitializeServiceAsync(db);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        PortService service = await CreateAndInitializeServiceAsync(db);
 
-        using (var context = db.CreateContext())
+        using (AppDbContext context = db.CreateContext())
         {
             await context.Database.ExecuteSqlRawAsync(
                 "DROP TABLE Ports;",
                 TestContext.Current.CancellationToken);
         }
 
-        var updated = new PortConfig
+        PortConfig updated = new()
         {
             Id = portId,
             Name = "Renamed",
@@ -342,8 +342,8 @@ public sealed class PortServiceTests
     [Fact]
     public async Task SetPortEnabledAsync_WhenAlreadyEnabled_StillEnsuresSessionRuns()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -353,9 +353,9 @@ public sealed class PortServiceTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var factory = new CountingKissStreamFactory();
-        var service = await CreateAndInitializeServiceAsync(db, factory);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        CountingKissStreamFactory factory = new();
+        PortService service = await CreateAndInitializeServiceAsync(db, factory);
 
         // The persisted intent says enabled but no session was ever started;
         // enabling again must converge the runtime instead of short-circuiting.
@@ -372,9 +372,9 @@ public sealed class PortServiceTests
         IKissStreamFactory? kissStreamFactory = null)
     {
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
-        var mockPacketStorage = new MockPacketStorageService();
-        var mockKeepAliveService = Substitute.For<IKeepAliveService>();
-        var mockDigipeaterService = new MockDigipeaterService();
+        MockPacketStorageService mockPacketStorage = new();
+        IKeepAliveService mockKeepAliveService = Substitute.For<IKeepAliveService>();
+        MockDigipeaterService mockDigipeaterService = new();
         return TestPortService.Create(
             db,
             TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
@@ -390,7 +390,7 @@ public sealed class PortServiceTests
         TempAppDatabase db,
         IKissStreamFactory? kissStreamFactory = null)
     {
-        var service = CreateService(db, kissStreamFactory);
+        PortService service = CreateService(db, kissStreamFactory);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
         return service;
     }
@@ -401,15 +401,9 @@ public sealed class PortServiceTests
         public event EventHandler? PacketStored;
 #pragma warning restore CS0067
 
-        public Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
+        public Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
+        public Task CleanupOldPacketsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task EnsureOutboundMessageAsync(MessagePacket packet, Guid? portId, int retryCount,
             DateTimeOffset? nextRetryTime, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -425,10 +419,7 @@ public sealed class PortServiceTests
             AprsPacket packet,
             Guid sourcePortId,
             bool sourcePortIsAprsIs,
-            IReadOnlyList<PortInfo> availablePorts)
-        {
-            return Array.Empty<DigipeatTarget>();
-        }
+            IReadOnlyList<PortInfo> availablePorts) => [];
     }
 
     private sealed class CountingKissStreamFactory : IKissStreamFactory

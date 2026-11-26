@@ -66,7 +66,7 @@ public sealed class AprsIsFilter
     /// </summary>
     public string ToFilterString()
     {
-        var parts = new List<string>();
+        List<string> parts = [];
 
         if (RangeLatitude.HasValue && RangeLongitude.HasValue && RangeDistanceKm.HasValue)
         {
@@ -83,7 +83,7 @@ public sealed class AprsIsFilter
             parts.Add("b/" + string.Join("/", Buddies));
         }
 
-        var types = ToTypeString(PacketTypes);
+        string types = ToTypeString(PacketTypes);
         if (types.Length > 0)
         {
             parts.Add("t/" + types);
@@ -127,7 +127,7 @@ public sealed class AprsIsFilter
             return string.Empty;
         }
 
-        var parsed = Parse(filter);
+        AprsIsFilter parsed = Parse(filter);
 
         if (parsed.PacketTypes == AprsIsPacketType.All)
         {
@@ -162,15 +162,15 @@ public sealed class AprsIsFilter
     /// </summary>
     public static AprsIsFilter Parse(string filter)
     {
-        var result = new AprsIsFilter();
+        AprsIsFilter result = new();
         if (string.IsNullOrWhiteSpace(filter))
         {
             return result;
         }
 
-        foreach (var raw in filter.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        foreach (string raw in filter.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
         {
-            var token = raw.Trim();
+            string token = raw.Trim();
             if (token.Length == 0)
             {
                 continue;
@@ -183,15 +183,15 @@ public sealed class AprsIsFilter
                 continue;
             }
 
-            var slash = token.IndexOf('/');
+            int slash = token.IndexOf('/');
             if (slash <= 0)
             {
                 result.OtherDirectives.Add(token);
                 continue;
             }
 
-            var key = token[..slash].ToLowerInvariant();
-            var value = token[(slash + 1)..];
+            string key = token[..slash].ToLowerInvariant();
+            string value = token[(slash + 1)..];
             if (!ParseDirective(result, key, value))
             {
                 result.OtherDirectives.Add(token);
@@ -206,7 +206,7 @@ public sealed class AprsIsFilter
         switch (key)
         {
             case "r":
-                if (!TryParseDoubles(value, 3, out var range))
+                if (!TryParseDoubles(value, 3, out double[]? range))
                 {
                     return false;
                 }
@@ -216,7 +216,7 @@ public sealed class AprsIsFilter
                 return true;
 
             case "p":
-                var prefixes = SplitParts(value);
+                List<string> prefixes = SplitParts(value);
                 if (prefixes.Count == 0)
                 {
                     return false;
@@ -225,7 +225,7 @@ public sealed class AprsIsFilter
                 return true;
 
             case "b":
-                var buddies = SplitParts(value);
+                List<string> buddies = SplitParts(value);
                 if (buddies.Count == 0)
                 {
                     return false;
@@ -234,10 +234,10 @@ public sealed class AprsIsFilter
                 return true;
 
             case "t":
-                var flags = AprsIsPacketType.None;
-                foreach (var c in value)
+                AprsIsPacketType flags = AprsIsPacketType.None;
+                foreach (char c in value)
                 {
-                    var flag = TypeCharToFlag(c);
+                    AprsIsPacketType flag = TypeCharToFlag(c);
                     if (flag == AprsIsPacketType.None)
                     {
                         return false; // unknown type char: preserve whole token
@@ -252,7 +252,7 @@ public sealed class AprsIsFilter
                 return true;
 
             case "a":
-                if (!TryParseDoubles(value, 4, out var area))
+                if (!TryParseDoubles(value, 4, out double[]? area))
                 {
                     return false;
                 }
@@ -263,7 +263,7 @@ public sealed class AprsIsFilter
                 return true;
 
             case "m":
-                if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dist))
+                if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double dist))
                 {
                     return false;
                 }
@@ -278,14 +278,14 @@ public sealed class AprsIsFilter
     private static bool TryParseDoubles(string value, int count, out double[] result)
     {
         result = [];
-        var parts = value.Split('/', StringSplitOptions.None);
+        string[] parts = value.Split('/', StringSplitOptions.None);
         if (parts.Length != count)
         {
             return false;
         }
 
-        var parsed = new double[count];
-        for (var i = 0; i < count; i++)
+        double[] parsed = new double[count];
+        for (int i = 0; i < count; i++)
         {
             if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out parsed[i]))
             {
@@ -297,35 +297,28 @@ public sealed class AprsIsFilter
         return true;
     }
 
-    private static List<string> SplitParts(string value)
-    {
-        return value.Split('/', StringSplitOptions.RemoveEmptyEntries)
+    private static List<string> SplitParts(string value) => [.. value.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Select(part => part.Trim())
-            .Where(part => part.Length > 0)
-            .ToList();
-    }
+            .Where(part => part.Length > 0)];
 
-    private static AprsIsPacketType TypeCharToFlag(char c)
+    private static AprsIsPacketType TypeCharToFlag(char c) => c switch
     {
-        return c switch
-        {
-            'p' or 'P' => AprsIsPacketType.Position,
-            'o' or 'O' => AprsIsPacketType.ObjectPacket,
-            'i' or 'I' => AprsIsPacketType.Item,
-            'm' or 'M' => AprsIsPacketType.Message,
-            'q' or 'Q' => AprsIsPacketType.Query,
-            's' or 'S' => AprsIsPacketType.Status,
-            't' or 'T' => AprsIsPacketType.Telemetry,
-            'u' or 'U' => AprsIsPacketType.UserDefined,
-            'n' or 'N' => AprsIsPacketType.Nws,
-            'w' or 'W' => AprsIsPacketType.Weather,
-            _ => AprsIsPacketType.None,
-        };
-    }
+        'p' or 'P' => AprsIsPacketType.Position,
+        'o' or 'O' => AprsIsPacketType.ObjectPacket,
+        'i' or 'I' => AprsIsPacketType.Item,
+        'm' or 'M' => AprsIsPacketType.Message,
+        'q' or 'Q' => AprsIsPacketType.Query,
+        's' or 'S' => AprsIsPacketType.Status,
+        't' or 'T' => AprsIsPacketType.Telemetry,
+        'u' or 'U' => AprsIsPacketType.UserDefined,
+        'n' or 'N' => AprsIsPacketType.Nws,
+        'w' or 'W' => AprsIsPacketType.Weather,
+        _ => AprsIsPacketType.None,
+    };
 
     private static string ToTypeString(AprsIsPacketType types)
     {
-        var sb = new StringBuilder();
+        StringBuilder sb = new();
         AppendType(sb, types, AprsIsPacketType.Position, 'p');
         AppendType(sb, types, AprsIsPacketType.ObjectPacket, 'o');
         AppendType(sb, types, AprsIsPacketType.Item, 'i');

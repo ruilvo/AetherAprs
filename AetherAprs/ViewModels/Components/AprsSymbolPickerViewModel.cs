@@ -18,10 +18,10 @@ namespace AetherAprs.ViewModels.Components;
 /// ViewModel for the APRS symbol picker component.
 /// Manages symbol selection, preview generation, and overlay logic.
 /// </summary>
-public partial class AprsSymbolPickerViewModel : ViewModelBase
+public partial class AprsSymbolPickerViewModel(IAprsSymbolBitmapProvider symbolBitmapProvider, ILogger<AprsSymbolPickerViewModel>? logger = null) : ViewModelBase
 {
-    private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider;
-    private readonly ILogger<AprsSymbolPickerViewModel>? _logger;
+    private readonly IAprsSymbolBitmapProvider _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
+    private readonly ILogger<AprsSymbolPickerViewModel>? _logger = logger;
     private bool _suppressPropertyNotifications;
 
     [ObservableProperty]
@@ -54,14 +54,6 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
     public event EventHandler? OpenSymbolSelectorRequested;
     public event EventHandler? OpenOverlaySelectorRequested;
 
-    public AprsSymbolPickerViewModel(IAprsSymbolBitmapProvider symbolBitmapProvider, ILogger<AprsSymbolPickerViewModel>? logger = null)
-    {
-        _symbolBitmapProvider = symbolBitmapProvider ?? throw new ArgumentNullException(nameof(symbolBitmapProvider));
-        _logger = logger;
-        // Don't call UpdatePreviews() in constructor - let property setters handle it
-        // This avoids Avalonia platform dependencies during construction (important for tests and design-time)
-    }
-
     partial void OnTableCharacterChanged(string value)
     {
         // Only update previews if we have valid character (avoid updates during initialization)
@@ -93,10 +85,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
     /// Temporarily suppress property change notifications during bulk updates.
     /// Used when initializing from saved settings to avoid triggering unwanted events.
     /// </summary>
-    public void BeginSuppressNotifications()
-    {
-        _suppressPropertyNotifications = true;
-    }
+    public void BeginSuppressNotifications() => _suppressPropertyNotifications = true;
 
     /// <summary>
     /// Resume property change notifications and trigger preview update.
@@ -129,12 +118,12 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
 
         try
         {
-            var table = TableCharacter[0].ToSymbolTable();
-            var code = CodeCharacter[0].ToSymbolCode();
+            SymbolTable table = TableCharacter[0].ToSymbolTable();
+            SymbolCode code = CodeCharacter[0].ToSymbolCode();
 
             // Update base symbol preview (without overlay)
-            var baseSymbol = new Symbol(table, code);
-            var baseBitmap = _symbolBitmapProvider.GetSymbolBitmap(baseSymbol);
+            Symbol baseSymbol = new(table, code);
+            SKBitmap baseBitmap = _symbolBitmapProvider.GetSymbolBitmap(baseSymbol);
             BaseSymbolPreview = baseBitmap != null ? CreatePreviewBitmap(baseBitmap) : null;
 
             // Enable overlay only for Alternate table
@@ -145,13 +134,13 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
             {
                 try
                 {
-                    var overlayCode = OverlayCharacter[0].ToSymbolCode();
-                    var overlayBitmap = _symbolBitmapProvider.GetOverlayBitmap(overlayCode);
+                    SymbolCode overlayCode = OverlayCharacter[0].ToSymbolCode();
+                    SKBitmap overlayBitmap = _symbolBitmapProvider.GetOverlayBitmap(overlayCode);
                     OverlayPreview = overlayBitmap != null ? CreatePreviewBitmap(overlayBitmap) : null;
 
                     // Create final symbol with overlay
-                    var finalSymbol = new Symbol(table, code, OverlayCharacter[0]);
-                    var finalBitmap = _symbolBitmapProvider.GetSymbolBitmap(finalSymbol);
+                    Symbol finalSymbol = new(table, code, OverlayCharacter[0]);
+                    SKBitmap finalBitmap = _symbolBitmapProvider.GetSymbolBitmap(finalSymbol);
                     FinalSymbolPreview = finalBitmap != null ? CreatePreviewBitmap(finalBitmap) : null;
                 }
                 catch (Exception ex)
@@ -180,8 +169,8 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
     [RelayCommand]
     private void OpenBaseSymbolSelector()
     {
-        var table = TableCharacter.Length == 1 ? TableCharacter[0].ToSymbolTable() : SymbolTable.Primary;
-        var code = CodeCharacter.Length == 1 ? CodeCharacter[0].ToSymbolCode() : SymbolCode.LeftSquareBracket;
+        SymbolTable table = TableCharacter.Length == 1 ? TableCharacter[0].ToSymbolTable() : SymbolTable.Primary;
+        SymbolCode code = CodeCharacter.Length == 1 ? CodeCharacter[0].ToSymbolCode() : SymbolCode.LeftSquareBracket;
 
         // Documented exception to the child-ViewModel-injection rule: SymbolSelectorViewModel is a
         // transient per-dialog selector whose arguments are derived at invocation time; see AGENTS.md
@@ -198,7 +187,7 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
             return;
         }
 
-        var currentCode = !string.IsNullOrEmpty(OverlayCharacter) && OverlayCharacter.Length == 1
+        SymbolCode currentCode = !string.IsNullOrEmpty(OverlayCharacter) && OverlayCharacter.Length == 1
             ? OverlayCharacter[0].ToSymbolCode()
             : SymbolCode.Digit0;
 
@@ -239,9 +228,9 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
 
         try
         {
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using var stream = new MemoryStream(data.ToArray());
+            using SKImage image = SKImage.FromBitmap(bitmap);
+            using SKData data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using MemoryStream stream = new(data.ToArray());
             return new Bitmap(stream);
         }
         catch (InvalidOperationException)
@@ -255,8 +244,5 @@ public partial class AprsSymbolPickerViewModel : ViewModelBase
     /// Reports dialog errors from the View to the ViewModel for logging.
     /// Called by AprsSymbolPickerComponent when dialog operations fail.
     /// </summary>
-    public void ReportDialogError(string operation, Exception exception)
-    {
-        _logger?.LogError(exception, "Failed to {Operation} in symbol picker", operation);
-    }
+    public void ReportDialogError(string operation, Exception exception) => _logger?.LogError(exception, "Failed to {Operation} in symbol picker", operation);
 }

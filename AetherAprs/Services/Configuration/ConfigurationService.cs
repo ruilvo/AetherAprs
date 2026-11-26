@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -90,11 +90,11 @@ public class ConfigurationService : IConfigurationService, IDisposable
         _appDataDirProvider = appDataDirProvider;
         _logger = logger;
 
-        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
+        string configDirectory = _appDataDirProvider.GetAppDataDirectory();
 
         try
         {
-            var builder = new ConfigurationBuilder()
+            IConfigurationBuilder builder = new ConfigurationBuilder()
                 .SetBasePath(configDirectory)
                 .AddJsonFile(
                     _appSettingsFileName,
@@ -133,10 +133,10 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 .Build();
         }
 
-        var normalizedValues = new Dictionary<string, string?>(
-            StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string?> normalizedValues = [with(
+            StringComparer.OrdinalIgnoreCase)];
 
-        foreach (var pair in _configuration.AsEnumerable())
+        foreach (KeyValuePair<string, string?> pair in _configuration.AsEnumerable())
         {
             // Skip the version marker here: it is read separately below so the
             // document's own declared version, not the default, drives migration.
@@ -150,16 +150,16 @@ public class ConfigurationService : IConfigurationService, IDisposable
             normalizedValues[pair.Key] = pair.Value;
         }
 
-        var documentVersion = ReadDocumentVersion();
+        int documentVersion = ReadDocumentVersion();
         LegacySymbolKeyNormalizer.Normalize(normalizedValues, _logger);
-        var migratedVersion = SettingsMigrationPipeline.Migrate(
+        int migratedVersion = SettingsMigrationPipeline.Migrate(
             normalizedValues,
             documentVersion,
             SettingsSchema.CurrentVersion,
             _logger);
 
-        var isNewerDocument = documentVersion > SettingsSchema.CurrentVersion;
-        var migrationSucceeded = documentVersion < SettingsSchema.CurrentVersion
+        bool isNewerDocument = documentVersion > SettingsSchema.CurrentVersion;
+        bool migrationSucceeded = documentVersion < SettingsSchema.CurrentVersion
             && migratedVersion == SettingsSchema.CurrentVersion;
 
         if (isNewerDocument)
@@ -192,7 +192,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
             BackupSettingsFile(configDirectory, documentVersion);
         }
 
-        var document = new AppSettingsDocument();
+        AppSettingsDocument document = new();
         BindSettings(document, normalizedValues);
         SanitizeMessageTemplates(document);
 
@@ -229,7 +229,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         // configuration owns it and a save preserves it verbatim.
         BindSection(document, values, "MessageTemplates");
 
-        foreach (var pair in values)
+        foreach (KeyValuePair<string, string?> pair in values)
         {
             if (IsInSection(pair.Key, "MessageTemplates") || IsInSection(pair.Key, LoggingSectionName))
             {
@@ -245,10 +245,10 @@ public class ConfigurationService : IConfigurationService, IDisposable
         IDictionary<string, string?> values,
         string section)
     {
-        var sectionValues = new Dictionary<string, string?>(
-            StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, string?> sectionValues = [with(
+            StringComparer.OrdinalIgnoreCase)];
 
-        foreach (var pair in values)
+        foreach (KeyValuePair<string, string?> pair in values)
         {
             if (IsInSection(pair.Key, section))
             {
@@ -279,7 +279,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
     private void BindSingleValue(AppSettingsDocument document, string key, string? value)
     {
-        var singleValue = new Dictionary<string, string?>(
+        Dictionary<string, string?> singleValue = new(
             StringComparer.OrdinalIgnoreCase)
         {
             [key] = value,
@@ -302,11 +302,8 @@ public class ConfigurationService : IConfigurationService, IDisposable
         }
     }
 
-    private static bool IsInSection(string key, string section)
-    {
-        return key.Equals(section, StringComparison.OrdinalIgnoreCase)
+    private static bool IsInSection(string key, string section) => key.Equals(section, StringComparison.OrdinalIgnoreCase)
             || key.StartsWith(section + ":", StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// Persists the newly migrated settings during construction, where the
@@ -316,7 +313,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
     {
         try
         {
-            var filePath = GetSettingsFilePath();
+            string filePath = GetSettingsFilePath();
             File.WriteAllText(filePath + ".tmp", SerializeSettings(Current));
             File.Move(filePath + ".tmp", filePath, overwrite: true);
             _logger.LogInformation(
@@ -346,7 +343,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </remarks>
     private string SerializeSettings(AppSettings settings)
     {
-        var node = JsonSerializer.SerializeToNode(settings, SettingsJsonContext.Default.AppSettings)!.AsObject();
+        JsonObject node = JsonSerializer.SerializeToNode(settings, SettingsJsonContext.Default.AppSettings)!.AsObject();
 
         if (ReadExistingSection(GetSettingsFilePath(), LoggingSectionName) is { } logging)
         {
@@ -388,13 +385,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     private int ReadDocumentVersion()
     {
-        var raw = _configuration[SettingsSchema.VersionPropertyName];
+        string? raw = _configuration[SettingsSchema.VersionPropertyName];
         if (string.IsNullOrWhiteSpace(raw))
         {
             return SettingsSchema.LegacyUnversionedVersion;
         }
 
-        if (int.TryParse(raw, out var version) && version >= SettingsSchema.LegacyUnversionedVersion)
+        if (int.TryParse(raw, out int version) && version >= SettingsSchema.LegacyUnversionedVersion)
         {
             return version;
         }
@@ -414,7 +411,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
     {
         try
         {
-            var sourcePath = Path.Combine(configDirectory, _appSettingsFileName);
+            string sourcePath = Path.Combine(configDirectory, _appSettingsFileName);
             if (!File.Exists(sourcePath))
             {
                 return;
@@ -422,7 +419,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
 
             // The unversioned source file can be loaded repeatedly (saves may go
             // to an overlay file), so only preserve its contents once.
-            var existingBackups = Directory.GetFiles(
+            string[] existingBackups = Directory.GetFiles(
                 configDirectory,
                 $"{_appSettingsFileName}.v{fromVersion}.*.bak");
             if (existingBackups.Length > 0)
@@ -430,7 +427,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 return;
             }
 
-            var backupPath = Path.Combine(
+            string backupPath = Path.Combine(
                 configDirectory,
                 $"{_appSettingsFileName}.v{fromVersion}.{DateTimeOffset.UtcNow:yyyyMMddHHmmss}.bak");
             File.Copy(sourcePath, backupPath, overwrite: false);
@@ -453,13 +450,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
     {
         try
         {
-            var corruptPath = Path.Combine(configDirectory, _appSettingsFileName);
+            string corruptPath = Path.Combine(configDirectory, _appSettingsFileName);
             if (!File.Exists(corruptPath))
             {
                 return;
             }
 
-            var quarantinedPath = Path.Combine(
+            string quarantinedPath = Path.Combine(
                 configDirectory,
                 $"{_appSettingsFileName}.corrupt-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}");
             File.Move(corruptPath, quarantinedPath);
@@ -478,7 +475,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     private string GetSettingsFilePath()
     {
-        var configDirectory = _appDataDirProvider.GetAppDataDirectory();
+        string configDirectory = _appDataDirProvider.GetAppDataDirectory();
 
 #if DEBUG
         return Path.Combine(
@@ -509,7 +506,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         await _updateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var candidate = update(Current)
+            AppSettings candidate = update(Current)
                 ?? throw new InvalidOperationException(
                     "A settings update must return a settings snapshot.");
 
@@ -538,23 +535,20 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     private async Task SaveJsonAsync(string json, CancellationToken cancellationToken)
     {
-        var filePath = GetSettingsFilePath();
+        string filePath = GetSettingsFilePath();
 
         // Atomic write: serialize to a temp file, then replace the live config
         // so a crash mid-write cannot corrupt it (H4 fix).
-        var tempFilePath = filePath + ".tmp";
+        string tempFilePath = filePath + ".tmp";
         await File.WriteAllTextAsync(tempFilePath, json, cancellationToken).ConfigureAwait(false);
         File.Move(tempFilePath, filePath, overwrite: true);
     }
 
-    private void LogReadOnlyWriteRefused(string operation)
-    {
-        _logger.LogWarning(
+    private void LogReadOnlyWriteRefused(string operation) => _logger.LogWarning(
             "Refusing {Operation}: the settings file declares schema version {DocumentVersion}, which is newer than this build ({CurrentVersion}), so it is read-only.",
             operation,
             Current.SchemaVersion,
             SettingsSchema.CurrentVersion);
-    }
 
     /// <summary>
     /// Drops message templates that are unusable: a null/whitespace name, a
@@ -564,10 +558,10 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// </summary>
     private void SanitizeMessageTemplates(AppSettingsDocument document)
     {
-        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var sanitized = new List<MessageTemplateDocument>();
+        HashSet<string> seenNames = [with(StringComparer.OrdinalIgnoreCase)];
+        List<MessageTemplateDocument> sanitized = [];
 
-        foreach (var template in document.MessageTemplates.Templates)
+        foreach (MessageTemplateDocument template in document.MessageTemplates.Templates)
         {
             if (string.IsNullOrWhiteSpace(template.Name))
             {

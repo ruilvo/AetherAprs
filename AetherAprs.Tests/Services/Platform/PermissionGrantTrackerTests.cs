@@ -13,11 +13,11 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void Observe_FirstRead_IsNotATransition()
     {
-        var tracker = new PermissionGrantTracker();
-        var changes = new List<PermissionGrantTransition>();
+        PermissionGrantTracker tracker = new();
+        List<PermissionGrantTransition> changes = [];
         tracker.Changed += (_, transition) => changes.Add(transition);
 
-        var observed = tracker.Observe(
+        PermissionGrantTransition observed = tracker.Observe(
             PermissionKind.Notifications,
             PermissionGrant.Granted,
             rationaleSuggested: false,
@@ -32,12 +32,12 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void Observe_WhenAGrantIsRevokedAndTheRationaleStopsShowing_ReportsPermanentDenial()
     {
-        var tracker = new PermissionGrantTracker();
+        PermissionGrantTracker tracker = new();
         tracker.Observe(PermissionKind.Location, PermissionGrant.Granted, rationaleSuggested: false, requestedBefore: true);
-        var changes = new List<PermissionGrantTransition>();
+        List<PermissionGrantTransition> changes = [];
         tracker.Changed += (_, transition) => changes.Add(transition);
 
-        var revoked = tracker.Observe(
+        PermissionGrantTransition revoked = tracker.Observe(
             PermissionKind.Location,
             PermissionGrant.Denied,
             rationaleSuggested: false,
@@ -47,7 +47,7 @@ public sealed class PermissionGrantTrackerTests
         Assert.True(revoked.Result.RequiresApplicationSettings);
         Assert.Equal(PermissionOutcome.Granted, revoked.Previous);
         Assert.True(revoked.HasChanged);
-        var change = Assert.Single(changes);
+        PermissionGrantTransition change = Assert.Single(changes);
         Assert.Equal(PermissionKind.Location, change.Kind);
         Assert.Equal(PermissionOutcome.PermanentlyDenied, change.Result.Outcome);
     }
@@ -55,12 +55,12 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void Observe_WhenTheOperatorGrantsThePermissionInSettings_ReportsGranted()
     {
-        var tracker = new PermissionGrantTracker();
+        PermissionGrantTracker tracker = new();
         tracker.Observe(PermissionKind.Audio, PermissionGrant.Denied, rationaleSuggested: true, requestedBefore: true);
-        var changes = new List<PermissionGrantTransition>();
+        List<PermissionGrantTransition> changes = [];
         tracker.Changed += (_, transition) => changes.Add(transition);
 
-        var restored = tracker.Observe(
+        PermissionGrantTransition restored = tracker.Observe(
             PermissionKind.Audio,
             PermissionGrant.Granted,
             rationaleSuggested: false,
@@ -76,12 +76,12 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void Observe_WhenTheStateIsUnchanged_DoesNotRaiseChanged()
     {
-        var tracker = new PermissionGrantTracker();
+        PermissionGrantTracker tracker = new();
         tracker.Observe(PermissionKind.Bluetooth, PermissionGrant.Granted, rationaleSuggested: false, requestedBefore: true);
-        var changes = new List<PermissionGrantTransition>();
+        List<PermissionGrantTransition> changes = [];
         tracker.Changed += (_, transition) => changes.Add(transition);
 
-        var again = tracker.Observe(
+        PermissionGrantTransition again = tracker.Observe(
             PermissionKind.Bluetooth,
             PermissionGrant.Granted,
             rationaleSuggested: false,
@@ -94,9 +94,9 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void Observe_WhenAFreshDenialStillOffersARationale_ReportsDenied()
     {
-        var tracker = new PermissionGrantTracker();
+        PermissionGrantTracker tracker = new();
 
-        var observed = tracker.Observe(
+        PermissionGrantTransition observed = tracker.Observe(
             PermissionKind.Notifications,
             PermissionGrant.Denied,
             rationaleSuggested: false,
@@ -109,9 +109,9 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void Observe_WhenThePlatformCannotReport_ReportsUnavailable()
     {
-        var tracker = new PermissionGrantTracker();
+        PermissionGrantTracker tracker = new();
 
-        var observed = tracker.Observe(
+        PermissionGrantTransition observed = tracker.Observe(
             PermissionKind.BatteryOptimization,
             PermissionGrant.Unsupported,
             rationaleSuggested: false,
@@ -125,7 +125,7 @@ public sealed class PermissionGrantTrackerTests
     [Fact]
     public void LastKnown_ForAPermissionThatWasNeverRead_IsNull()
     {
-        var tracker = new PermissionGrantTracker();
+        PermissionGrantTracker tracker = new();
 
         Assert.Null(tracker.LastKnown(PermissionKind.Location));
     }

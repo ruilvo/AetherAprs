@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 using AetherAprs.Modems.Afsk;
 using Xunit;
@@ -22,10 +23,8 @@ public class AfskDspTests
         byte[] bits = HdlcFramer.Encode(data);
         float[] samples = AfskModulator.Modulate(bits, SampleRate);
 
-        var demodulator = new AfskDemodulator(SampleRate);
-        var frames = new System.Collections.Generic.List<byte[]>();
-        frames.AddRange(demodulator.Process(samples));
-        frames.AddRange(demodulator.Flush());
+        AfskDemodulator demodulator = new(SampleRate);
+        List<byte[]> frames = [.. demodulator.Process(samples), .. demodulator.Flush()];
 
         Assert.Contains(frames, f => f.AsSpan().SequenceEqual(data));
     }
@@ -37,19 +36,14 @@ public class AfskDspTests
         byte[] bits = HdlcFramer.Encode(data);
         float[] samples = AfskModulator.Modulate(bits, SampleRate);
 
-        var demodulator = new AfskDemodulator(SampleRate);
-        var frames = new System.Collections.Generic.List<byte[]>();
-        frames.AddRange(demodulator.Process(samples));
-        frames.AddRange(demodulator.Flush());
+        AfskDemodulator demodulator = new(SampleRate);
+        List<byte[]> frames = [.. demodulator.Process(samples), .. demodulator.Flush()];
 
         Assert.Contains(frames, f => f.AsSpan().SequenceEqual(data));
     }
 
     [Fact]
-    public void Modulate_EmptyBitStream_ReturnsEmptySamples()
-    {
-        Assert.Empty(AfskModulator.Modulate([], SampleRate));
-    }
+    public void Modulate_EmptyBitStream_ReturnsEmptySamples() => Assert.Empty(AfskModulator.Modulate([], SampleRate));
 
     [Fact]
     public void Modulate_InvalidSampleRate_Throws()
@@ -67,10 +61,7 @@ public class AfskDspTests
     }
 
     [Fact]
-    public void Demodulator_InvalidSampleRate_Throws()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new AfskDemodulator(0));
-    }
+    public void Demodulator_InvalidSampleRate_Throws() => Assert.Throws<ArgumentOutOfRangeException>(() => new AfskDemodulator(0));
 
     [Fact]
     public void Demodulator_Reset_ClearsState()
@@ -79,14 +70,12 @@ public class AfskDspTests
         byte[] bits = HdlcFramer.Encode(data);
         float[] samples = AfskModulator.Modulate(bits, SampleRate);
 
-        var demodulator = new AfskDemodulator(SampleRate);
+        AfskDemodulator demodulator = new(SampleRate);
         demodulator.Process(samples);
         demodulator.Reset();
 
         // After reset, a fresh demodulation still recovers the frame.
-        var frames = new System.Collections.Generic.List<byte[]>();
-        frames.AddRange(demodulator.Process(samples));
-        frames.AddRange(demodulator.Flush());
+        List<byte[]> frames = [.. demodulator.Process(samples), .. demodulator.Flush()];
 
         Assert.Contains(frames, f => f.AsSpan().SequenceEqual(data));
     }

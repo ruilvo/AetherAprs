@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
@@ -39,17 +40,13 @@ public partial class HomePage : UserControl
         MapControl.Map.Navigator.ViewportChanged += OnViewportChanged;
     }
 
-    private void OnViewportChanged(object? sender, ViewportChangedEventArgs e)
-    {
+    private void OnViewportChanged(object? sender, ViewportChangedEventArgs e) =>
         // Forward resolution changes so the beacons layer can re-cluster as the user zooms.
         _currentViewModel?.UpdateMapResolution(e.Viewport.Resolution);
-    }
 
-    private void OnMapPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
-    {
+    private void OnMapPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) =>
         // User is interacting with the map - disable follow mode
         _currentViewModel?.Map?.OnUserInteraction();
-    }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
@@ -113,7 +110,7 @@ public partial class HomePage : UserControl
 
     private void OnCenterOnPointRequested(object? sender, MPoint mapPoint)
     {
-        var navigator = MapControl.Map?.Navigator;
+        Navigator? navigator = MapControl.Map?.Navigator;
         if (navigator is null || !HasMapViewport(navigator))
         {
             _pendingCenterPoint = mapPoint;
@@ -125,7 +122,7 @@ public partial class HomePage : UserControl
 
     private void OnRotateToNorthRequested(object? sender, EventArgs e)
     {
-        var navigator = MapControl.Map?.Navigator;
+        Navigator? navigator = MapControl.Map?.Navigator;
         if (navigator is null || !HasMapViewport(navigator))
         {
             return;
@@ -142,7 +139,7 @@ public partial class HomePage : UserControl
             return;
         }
 
-        var navigator = MapControl.Map?.Navigator;
+        Navigator? navigator = MapControl.Map?.Navigator;
         if (navigator is null || !HasMapViewport(navigator))
         {
             return;
@@ -154,7 +151,7 @@ public partial class HomePage : UserControl
 
     private static bool HasMapViewport(Navigator navigator)
     {
-        var viewport = navigator.Viewport;
+        Viewport viewport = navigator.Viewport;
         return viewport.Width > 0 && viewport.Height > 0;
     }
 
@@ -172,15 +169,9 @@ public partial class HomePage : UserControl
         }
     }
 
-    private void OnZoomInRequested(object? sender, EventArgs e)
-    {
-        MapControl.Map?.Navigator.ZoomIn(300, Easing.CubicOut);
-    }
+    private void OnZoomInRequested(object? sender, EventArgs e) => MapControl.Map?.Navigator.ZoomIn(300, Easing.CubicOut);
 
-    private void OnZoomOutRequested(object? sender, EventArgs e)
-    {
-        MapControl.Map?.Navigator.ZoomOut(300, Easing.CubicOut);
-    }
+    private void OnZoomOutRequested(object? sender, EventArgs e) => MapControl.Map?.Navigator.ZoomOut(300, Easing.CubicOut);
 
     private void OnMapTapped(object? sender, MapEventArgs e)
     {
@@ -198,21 +189,20 @@ public partial class HomePage : UserControl
             return;
         }
 
-        var viewport = MapControl.Map.Navigator.Viewport;
+        Viewport viewport = MapControl.Map.Navigator.Viewport;
 
         // Query features at the tapped position (with tolerance). e.WorldPosition is
         // already converted from screen to world coordinates by the MapControl.
-        var tolerance = viewport.Resolution * 20; // 20 pixel tolerance
-        var clickedFeatures = MapControl.Map.Layers
+        double tolerance = viewport.Resolution * 20; // 20 pixel tolerance
+        List<IFeature> clickedFeatures = [.. MapControl.Map.Layers
             .SelectMany(layer => layer.GetFeatures(new MRect(
                 e.WorldPosition.X - tolerance,
                 e.WorldPosition.Y - tolerance,
                 e.WorldPosition.X + tolerance,
-                e.WorldPosition.Y + tolerance), viewport.Resolution))
-            .ToList();
+                e.WorldPosition.Y + tolerance), viewport.Resolution))];
 
         // Find the first cluster, object, or beacon feature at the tap point.
-        foreach (var feature in clickedFeatures)
+        foreach (IFeature feature in clickedFeatures)
         {
             if (feature.Fields == null)
             {
@@ -234,7 +224,7 @@ public partial class HomePage : UserControl
             // Object/item click: open the object details page.
             if (feature.Fields.Contains("ObjectName"))
             {
-                var objectName = feature["ObjectName"] as string;
+                string? objectName = feature["ObjectName"] as string;
                 if (!string.IsNullOrEmpty(objectName))
                 {
                     _currentViewModel.OnObjectClicked(objectName);
@@ -246,7 +236,7 @@ public partial class HomePage : UserControl
             // Beacon click: open station details.
             if (feature.Fields.Contains("Callsign"))
             {
-                var callsign = feature["Callsign"] as string;
+                string? callsign = feature["Callsign"] as string;
                 if (!string.IsNullOrEmpty(callsign))
                 {
                     // Delegate to ViewModel for navigation

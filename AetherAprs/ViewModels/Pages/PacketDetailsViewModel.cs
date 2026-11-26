@@ -18,6 +18,7 @@ using Geo.Abstractions.Interfaces;
 using Geo.Geodesy;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -106,14 +107,14 @@ public partial class PacketDetailsViewModel(
 
             logger.LogInformation("Loading packets for callsign: {Callsign}", Callsign);
 
-            var packets = await packetQueryService.GetPacketsByCallsignAsync(Callsign, 500);
+            IReadOnlyList<PacketRecord> packets = await packetQueryService.GetPacketsByCallsignAsync(Callsign, 500);
 
             logger.LogInformation("Found {Count} packets for callsign {Callsign}", packets.Count, Callsign);
 
             Packets.Clear();
             PositionHistory.Clear();
             WeatherStatusTelemetry.Clear();
-            foreach (var packet in packets)
+            foreach (PacketRecord packet in packets)
             {
                 Packets.Add(packet);
 
@@ -145,8 +146,8 @@ public partial class PacketDetailsViewModel(
 
     private void UpdateDistanceAndBearing()
     {
-        var userLocation = locationTrackingService.CurrentLocation;
-        var latestPosition = Packets.FirstOrDefault(p => p.Position != null)?.Position;
+        LocationData? userLocation = locationTrackingService.CurrentLocation;
+        PositionDataRecord? latestPosition = Packets.FirstOrDefault(p => p.Position != null)?.Position;
 
         if (userLocation is null || latestPosition is null)
         {
@@ -157,7 +158,7 @@ public partial class PacketDetailsViewModel(
             return;
         }
 
-        var line = _geodeticCalculator.CalculateOrthodromicLine(
+        GeodeticLine? line = _geodeticCalculator.CalculateOrthodromicLine(
             userLocation.Location,
             latestPosition.Location);
 
@@ -172,8 +173,8 @@ public partial class PacketDetailsViewModel(
             return;
         }
 
-        var distanceMeters = line.Distance.SiValue;
-        var bearingDegrees = line.Bearing12;
+        double distanceMeters = line.Distance.SiValue;
+        double bearingDegrees = line.Bearing12;
 
         _bearingDegrees = bearingDegrees;
         HasDistance = true;
@@ -193,13 +194,13 @@ public partial class PacketDetailsViewModel(
             return;
         }
 
-        var heading = compassService.HeadingDegrees;
+        double? heading = compassService.HeadingDegrees;
         RelativeBearingDegrees = NormalizeDegrees(heading.HasValue ? bearing - heading.Value : bearing);
     }
 
     private static double NormalizeDegrees(double value)
     {
-        var result = value % 360.0;
+        double result = value % 360.0;
         return result < 0 ? result + 360.0 : result;
     }
 
@@ -211,10 +212,10 @@ public partial class PacketDetailsViewModel(
 
         // The message is addressed to the station, so the SSID is part of the
         // destination; dropping it would deliver to N0CALL instead of N0CALL-7.
-        if (Models.Aprs.Callsign.TryParse(Callsign, out var callsign))
+        if (Models.Aprs.Callsign.TryParse(Callsign, out Callsign callsign))
         {
-            var address = AprsAddress.FromCallsign(callsign);
-            var conversationVm = conversationFactory.Create(address);
+            AprsAddress address = AprsAddress.FromCallsign(callsign);
+            ConversationViewModel conversationVm = conversationFactory.Create(address);
             navigationService.NavigateTo(conversationVm);
         }
         else

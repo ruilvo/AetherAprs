@@ -8,8 +8,5 @@ namespace AetherAprs.Views.Components;
 
 public partial class AprsIsFilterBuilderComponent : UserControl
 {
-    public AprsIsFilterBuilderComponent()
-    {
-        InitializeComponent();
-    }
+    public AprsIsFilterBuilderComponent() => InitializeComponent();
 }

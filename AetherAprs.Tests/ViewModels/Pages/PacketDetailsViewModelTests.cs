@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data.Entities;
@@ -61,7 +62,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
     {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
         {
             await Task.Delay(10, TestContext.Current.CancellationToken);
@@ -71,7 +72,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Initialize_PartitionsPacketsIntoTabs()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
             [
@@ -97,11 +98,11 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
                 }
             ]));
 
-        var locationTracking = Substitute.For<ILocationTrackingService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
         locationTracking.CurrentLocation.Returns((LocationData?)null);
-        var compass = Substitute.For<ICompassService>();
+        ICompassService compass = Substitute.For<ICompassService>();
 
-        var vm = CreateViewModel(query, locationTracking, compass);
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
@@ -113,17 +114,17 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     [Fact]
     public async Task DistanceAndBearing_ComputedFromUserLocation()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        var locationTracking = Substitute.For<ILocationTrackingService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
         locationTracking.CurrentLocation.Returns(CreateLocation(38.5, -9.0));
-        var compass = Substitute.For<ICompassService>();
+        ICompassService compass = Substitute.For<ICompassService>();
         compass.HeadingDegrees.Returns((double?)null);
 
-        var vm = CreateViewModel(query, locationTracking, compass);
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
@@ -137,17 +138,17 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     [Fact]
     public async Task RelativeBearing_WithHeading_SubtractsCompassHeading()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        var locationTracking = Substitute.For<ILocationTrackingService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
         locationTracking.CurrentLocation.Returns(CreateLocation(38.5, -9.0));
-        var compass = Substitute.For<ICompassService>();
+        ICompassService compass = Substitute.For<ICompassService>();
         compass.HeadingDegrees.Returns((double?)45.0);
 
-        var vm = CreateViewModel(query, locationTracking, compass);
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
@@ -158,16 +159,16 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     [Fact]
     public async Task NoDistance_WhenUserLocationUnavailable()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        var locationTracking = Substitute.For<ILocationTrackingService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
         locationTracking.CurrentLocation.Returns((LocationData?)null);
-        var compass = Substitute.For<ICompassService>();
+        ICompassService compass = Substitute.For<ICompassService>();
 
-        var vm = CreateViewModel(query, locationTracking, compass);
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
@@ -180,16 +181,16 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     [Fact]
     public async Task LocationUpdated_RecomputesDistance()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
-        var locationTracking = Substitute.For<ILocationTrackingService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
         locationTracking.CurrentLocation.Returns((LocationData?)null);
-        var compass = Substitute.For<ICompassService>();
+        ICompassService compass = Substitute.For<ICompassService>();
 
-        var vm = CreateViewModel(query, locationTracking, compass);
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
@@ -207,12 +208,12 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     [Fact]
     public void OnRetiredFromOverlay_StopsCompassAndUnsubscribes()
     {
-        var query = Substitute.For<IPacketQueryService>();
-        var locationTracking = Substitute.For<ILocationTrackingService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
         locationTracking.CurrentLocation.Returns((LocationData?)null);
-        var compass = Substitute.For<ICompassService>();
+        ICompassService compass = Substitute.For<ICompassService>();
 
-        var vm = CreateViewModel(query, locationTracking, compass);
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
         vm.Initialize("N0CALL-1");
 
         compass.Received(1).StartListening();

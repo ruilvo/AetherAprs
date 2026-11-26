@@ -17,8 +17,8 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WithTheDefaultMtu_SlicesTheFrameByPayloadSize()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 20);
-        var writer = CreateWriter(transport);
+        FakeBluetoothLeTransport transport = new(payloadSize: 20);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
         await writer.WriteAsync(Frame(50), TestContext.Current.CancellationToken);
 
@@ -30,8 +30,8 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WithANegotiatedMtu_WritesTheFrameInOneChunk()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 244);
-        var writer = CreateWriter(transport);
+        FakeBluetoothLeTransport transport = new(payloadSize: 244);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
         await writer.WriteAsync(Frame(200), TestContext.Current.CancellationToken);
 
@@ -42,9 +42,9 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheStackIsBusy_RetriesTheSameChunk()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 20);
+        FakeBluetoothLeTransport transport = new(payloadSize: 20);
         transport.Enqueue(GattWriteOutcome.Busy, GattWriteOutcome.Busy);
-        var writer = CreateWriter(transport);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
         await writer.WriteAsync(Frame(10), TestContext.Current.CancellationToken);
 
@@ -55,15 +55,15 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheStackStaysBusy_ThrowsAfterTheBoundedAttempts()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 20);
+        FakeBluetoothLeTransport transport = new(payloadSize: 20);
         transport.Enqueue(
             GattWriteOutcome.Busy,
             GattWriteOutcome.Busy,
             GattWriteOutcome.Busy,
             GattWriteOutcome.Busy);
-        var writer = CreateWriter(transport);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
-        var thrown = await Assert.ThrowsAsync<IOException>(async () =>
+        IOException thrown = await Assert.ThrowsAsync<IOException>(async () =>
             await writer.WriteAsync(Frame(10), TestContext.Current.CancellationToken));
 
         Assert.Contains("Busy", thrown.Message);
@@ -73,9 +73,9 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheStackRejectsTheChunk_DoesNotRetry()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 20);
+        FakeBluetoothLeTransport transport = new(payloadSize: 20);
         transport.Enqueue(GattWriteOutcome.Rejected);
-        var writer = CreateWriter(transport);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
         await Assert.ThrowsAsync<IOException>(async () =>
             await writer.WriteAsync(Frame(10), TestContext.Current.CancellationToken));
@@ -86,9 +86,9 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheStackConnectsAndFailsTransiently_RetriesTheConnectionError()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 20);
+        FakeBluetoothLeTransport transport = new(payloadSize: 20);
         transport.Enqueue(GattWriteOutcome.ConnectionError);
-        var writer = CreateWriter(transport);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
         await writer.WriteAsync(Frame(10), TestContext.Current.CancellationToken);
 
@@ -98,13 +98,13 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheChunkIsAbandoned_StopsWritingTheRestOfTheFrame()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 20);
+        FakeBluetoothLeTransport transport = new(payloadSize: 20);
         transport.BlockUntilReleased();
-        var writer = CreateWriter(transport);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
+        using CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(
             TestContext.Current.CancellationToken);
 
-        var write = writer.WriteAsync(Frame(100), cancellation.Token);
+        Task write = writer.WriteAsync(Frame(100), cancellation.Token);
         Assert.False(write.IsCompleted);
         await cancellation.CancelAsync();
 
@@ -115,11 +115,11 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheChunkIsLate_ContinuesAfterTheCallbackArrives()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 30);
+        FakeBluetoothLeTransport transport = new(payloadSize: 30);
         transport.BlockUntilReleased();
-        var writer = CreateWriter(transport);
+        BluetoothLeFrameWriter writer = CreateWriter(transport);
 
-        var write = writer.WriteAsync(Frame(60), TestContext.Current.CancellationToken);
+        Task write = writer.WriteAsync(Frame(60), TestContext.Current.CancellationToken);
         Assert.False(write.IsCompleted);
 
         transport.Release();
@@ -131,8 +131,8 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_PassesTheWriteModeToTheTransport()
     {
-        var withResponse = new FakeBluetoothLeTransport(payloadSize: 512, supportsWithoutResponse: false);
-        var withoutResponse = new FakeBluetoothLeTransport(payloadSize: 512, supportsWithoutResponse: true);
+        FakeBluetoothLeTransport withResponse = new(payloadSize: 512, supportsWithoutResponse: false);
+        FakeBluetoothLeTransport withoutResponse = new(payloadSize: 512, supportsWithoutResponse: true);
 
         await CreateWriter(withResponse).WriteAsync(Frame(8), TestContext.Current.CancellationToken);
         await CreateWriter(withoutResponse).WriteAsync(Frame(8), TestContext.Current.CancellationToken);
@@ -144,7 +144,7 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheFrameIsEmpty_WritesNothing()
     {
-        var transport = new FakeBluetoothLeTransport();
+        FakeBluetoothLeTransport transport = new();
 
         await CreateWriter(transport).WriteAsync(ReadOnlyMemory<byte>.Empty, TestContext.Current.CancellationToken);
 
@@ -154,7 +154,7 @@ public sealed class BluetoothLeFrameWriterTests
     [Fact]
     public async Task WriteAsync_WhenTheTransportHasNoPayloadSize_Throws()
     {
-        var transport = new FakeBluetoothLeTransport(payloadSize: 0);
+        FakeBluetoothLeTransport transport = new(payloadSize: 0);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await CreateWriter(transport).WriteAsync(Frame(4), TestContext.Current.CancellationToken));
@@ -165,8 +165,8 @@ public sealed class BluetoothLeFrameWriterTests
 
     private static byte[] Frame(int length)
     {
-        var frame = new byte[length];
-        for (var index = 0; index < length; index++)
+        byte[] frame = new byte[length];
+        for (int index = 0; index < length; index++)
         {
             frame[index] = (byte)index;
         }
@@ -197,7 +197,7 @@ public sealed class BluetoothLeFrameWriterTests
 
         public void Enqueue(params GattWriteOutcome[] outcomes)
         {
-            foreach (var outcome in outcomes)
+            foreach (GattWriteOutcome outcome in outcomes)
             {
                 _outcomes.Enqueue(outcome);
             }
@@ -228,8 +228,8 @@ public sealed class BluetoothLeFrameWriterTests
 
         public int BytesWritten()
         {
-            var total = 0;
-            foreach (var chunk in _chunks)
+            int total = 0;
+            foreach (byte[] chunk in _chunks)
             {
                 total += chunk.Length;
             }

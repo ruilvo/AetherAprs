@@ -15,8 +15,8 @@ public sealed class MapViewModelTests
     [Fact]
     public void ZoomIn_RaisesZoomInRequested()
     {
-        var vm = new MapViewModel(Substitute.For<IUserLocationLayerService>());
-        var raised = 0;
+        MapViewModel vm = new(Substitute.For<IUserLocationLayerService>());
+        int raised = 0;
         vm.ZoomInRequested += (_, _) => raised++;
 
         vm.ZoomInCommand.Execute(null);
@@ -27,8 +27,8 @@ public sealed class MapViewModelTests
     [Fact]
     public void ZoomOut_RaisesZoomOutRequested()
     {
-        var vm = new MapViewModel(Substitute.For<IUserLocationLayerService>());
-        var raised = 0;
+        MapViewModel vm = new(Substitute.For<IUserLocationLayerService>());
+        int raised = 0;
         vm.ZoomOutRequested += (_, _) => raised++;
 
         vm.ZoomOutCommand.Execute(null);
@@ -39,10 +39,10 @@ public sealed class MapViewModelTests
     [Fact]
     public void CenterOnUser_NoLocation_DoesNotRaise()
     {
-        var userLocation = Substitute.For<IUserLocationLayerService>();
+        IUserLocationLayerService userLocation = Substitute.For<IUserLocationLayerService>();
         userLocation.CurrentMapPoint.Returns((Mapsui.MPoint?)null);
-        var vm = new MapViewModel(userLocation);
-        var raised = 0;
+        MapViewModel vm = new(userLocation);
+        int raised = 0;
         vm.CenterOnPointRequested += (_, _) => raised++;
 
         vm.CenterOnUserCommand.Execute(null);

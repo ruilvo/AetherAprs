@@ -24,10 +24,7 @@ public static class AprsSsidExtensions
     /// callsign. Never use its result as a dictionary key or for equality comparisons;
     /// keep the structured base/SSID pair for identity.
     /// </remarks>
-    public static string FormatCallsign(string baseCallsign, AprsSsid? ssid)
-    {
-        return ssid is null or AprsSsid.PrimaryStation
+    public static string FormatCallsign(string baseCallsign, AprsSsid? ssid) => ssid is null or AprsSsid.PrimaryStation
             ? baseCallsign
             : $"{baseCallsign}-{(byte)ssid.Value}";
-    }
 }

@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -35,17 +35,17 @@ public sealed class ConfigurationSnapshotTests
     [MemberData(nameof(MirroredTypes))]
     public void SettingsSnapshot_ExposesNoMutableState(Type snapshotType)
     {
-        var mutableMembers = new List<string>();
+        List<string> mutableMembers = [];
 
-        foreach (var property in PublicInstanceProperties(snapshotType))
+        foreach (PropertyInfo property in PublicInstanceProperties(snapshotType))
         {
-            var setter = property.GetSetMethod();
+            MethodInfo? setter = property.GetSetMethod();
             if (setter is null)
             {
                 continue;
             }
 
-            var isInitOnly = Array.IndexOf(
+            bool isInitOnly = Array.IndexOf(
                 setter.ReturnParameter.GetRequiredCustomModifiers(),
                 typeof(IsExternalInit)) >= 0;
 
@@ -62,11 +62,11 @@ public sealed class ConfigurationSnapshotTests
     [MemberData(nameof(MirroredPairs))]
     public void SettingsDocument_CarriesEverySnapshotProperty(Type snapshotType, Type documentType)
     {
-        var missing = new List<string>();
+        List<string> missing = [];
 
-        foreach (var property in PublicInstanceProperties(snapshotType))
+        foreach (PropertyInfo property in PublicInstanceProperties(snapshotType))
         {
-            var documentProperty = documentType.GetProperty(
+            PropertyInfo? documentProperty = documentType.GetProperty(
                 property.Name,
                 BindingFlags.Public | BindingFlags.Instance);
 
@@ -83,10 +83,10 @@ public sealed class ConfigurationSnapshotTests
 
     public static TheoryData<Type> MirroredTypes()
     {
-        var data = new TheoryData<Type>();
-        foreach (var pair in MirroredGraph)
+        TheoryData<Type> data = [];
+        foreach ((Type? Snapshot, Type _) in MirroredGraph)
         {
-            data.Add(pair.Snapshot);
+            data.Add(Snapshot);
         }
 
         return data;
@@ -94,10 +94,10 @@ public sealed class ConfigurationSnapshotTests
 
     public static TheoryData<Type, Type> MirroredPairs()
     {
-        var data = new TheoryData<Type, Type>();
-        foreach (var pair in MirroredGraph)
+        TheoryData<Type, Type> data = [];
+        foreach ((Type? Snapshot, Type? Document) in MirroredGraph)
         {
-            data.Add(pair.Snapshot, pair.Document);
+            data.Add(Snapshot, Document);
         }
 
         return data;
@@ -118,7 +118,7 @@ public sealed class ConfigurationSnapshotTests
             return true;
         }
 
-        if (DocumentFor.TryGetValue(snapshotType, out var expectedDocument))
+        if (DocumentFor.TryGetValue(snapshotType, out Type? expectedDocument))
         {
             return documentType == expectedDocument;
         }

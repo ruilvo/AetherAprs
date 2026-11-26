@@ -20,15 +20,15 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task RefreshAsync_CopiesBulletinsFromService()
     {
-        var bulletins = new List<BulletinPacket>
-        {
+        List<BulletinPacket> bulletins =
+        [
             new() { Name = "BLN0SPCL", Text = "Special event", Source = new Callsign("N0CALL") },
             new() { Name = "BLN0WX", Text = "Weather", Source = new Callsign("K0PEER") }
-        };
-        var bulletinService = Substitute.For<IBulletinService>();
+        ];
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
         bulletinService.GetBulletinsAsync(Arg.Any<CancellationToken>()).Returns(bulletins);
 
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         await vm.RefreshAsync();
 
         Assert.Equal(2, vm.Bulletins.Count);
@@ -39,8 +39,8 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_EmptyName_SetsError()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "   ";
         vm.Text = "Hello";
 
@@ -54,8 +54,8 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_NameNotStartingWithBln_SetsError()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "SPCL";
         vm.Text = "Hello";
 
@@ -69,8 +69,8 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_NameTooLong_SetsError()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "BLNTOOLONG";
         vm.Text = "Hello";
 
@@ -84,8 +84,8 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_EmptyText_SetsError()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "BLN0SPCL";
         vm.Text = "  ";
 
@@ -99,8 +99,8 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_TextTooLong_SetsError()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "BLN0SPCL";
         vm.Text = new string('x', 68);
 
@@ -114,12 +114,12 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task RefreshAsync_EmptyThenPopulated_TogglesEmptyStateFlags()
     {
-        var backing = new List<BulletinPacket>();
-        var bulletinService = Substitute.For<IBulletinService>();
+        List<BulletinPacket> backing = [];
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
         bulletinService.GetBulletinsAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => new List<BulletinPacket>(backing));
+            .Returns(_ => [.. backing]);
 
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
 
         await vm.RefreshAsync();
         Assert.False(vm.HasBulletins);
@@ -134,9 +134,9 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_ValidInput_CallsServiceAndClearsText()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
-        bulletinService.GetBulletinsAsync(Arg.Any<CancellationToken>()).Returns(new List<BulletinPacket>());
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        bulletinService.GetBulletinsAsync(Arg.Any<CancellationToken>()).Returns([]);
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "BLN0SPCL";
         vm.Text = "Special event";
 
@@ -151,11 +151,11 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public async Task Send_ServiceThrows_SetsErrorMessage()
     {
-        var bulletinService = Substitute.For<IBulletinService>();
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
         bulletinService
             .When(s => s.SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
             .Do(_ => throw new System.InvalidOperationException("No TX ports"));
-        var vm = CreateViewModel(bulletinService: bulletinService);
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
         vm.Name = "BLN0SPCL";
         vm.Text = "Special event";
 
@@ -167,8 +167,8 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
     [Fact]
     public void Close_CallsNavigationGoBack()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigationService: navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        BulletinsViewModel vm = CreateViewModel(navigationService: navigation);
 
         vm.CloseCommand.Execute(null);
 
@@ -177,10 +177,7 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
 
     private static BulletinsViewModel CreateViewModel(
         IBulletinService? bulletinService = null,
-        INavigationService? navigationService = null)
-    {
-        return new BulletinsViewModel(
+        INavigationService? navigationService = null) => new(
             bulletinService ?? Substitute.For<IBulletinService>(),
             navigationService ?? Substitute.For<INavigationService>());
-    }
 }

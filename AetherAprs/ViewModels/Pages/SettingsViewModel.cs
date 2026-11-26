@@ -17,6 +17,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Configuration.Settings;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -35,7 +36,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly MessageTemplatesViewModel _messageTemplatesViewModel;
     private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
-    private bool _isInitializing = true;
+    private readonly bool _isInitializing = true;
     private Task _currentSaveTask = Task.CompletedTask;
 
     [ObservableProperty]
@@ -124,19 +125,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial PositionFormat PositionFormat { get; set; } = PositionFormat.Compressed;
 
-    public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } = 
+    public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } =
         Enum.GetValues<Configuration.PacketDisplayTimeRange>();
 
     public PositionFormat[] AvailablePositionFormats { get; } =
         Enum.GetValues<PositionFormat>();
 
-    public AprsSsid[] AvailableSsids { get; } = 
+    public AprsSsid[] AvailableSsids { get; } =
         Enum.GetValues<AprsSsid>();
 
-    public Configuration.TileSourceType[] AvailableTileSources { get; } = 
+    public Configuration.TileSourceType[] AvailableTileSources { get; } =
         Enum.GetValues<Configuration.TileSourceType>();
 
-    public Configuration.ThemeMode[] AvailableThemes { get; } = 
+    public Configuration.ThemeMode[] AvailableThemes { get; } =
         Enum.GetValues<Configuration.ThemeMode>();
 
     public SettingsViewModel(
@@ -152,8 +153,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _messageTemplatesViewModel = messageTemplatesViewModel;
         SymbolPicker = aprsSymbolPicker;
 
-        var settings = _configurationService.Current;
-        var aprs = settings.Aprs;
+        AppSettings settings = _configurationService.Current;
+        AprsSettings aprs = settings.Aprs;
         Callsign = aprs.Callsign;
         Ssid = aprs.Ssid;
         SymbolTableCharacter = aprs.SymbolTable.ToChar().ToString();
@@ -180,19 +181,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         MbTilesFilePath = settings.Map.MbTilesFilePath;
         Theme = settings.Theme;
 
-        _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}", 
+        _logger?.LogDebug("Loaded from config: Table={Table}, Code={Code}, Overlay={Overlay}",
             SymbolTableCharacter, SymbolCodeCharacter, SymbolOverlayCharacter);
 
         // Suppress symbol picker notifications during initialization to prevent async preview updates
         // from triggering property changed events that would overwrite our loaded settings
         SymbolPicker.BeginSuppressNotifications();
-        
+
         // Initialize symbol picker with settings values
         SymbolPicker.TableCharacter = SymbolTableCharacter;
         SymbolPicker.CodeCharacter = SymbolCodeCharacter;
         SymbolPicker.OverlayCharacter = SymbolOverlayCharacter;
 
-        _logger?.LogDebug("Set in SymbolPicker: Table={Table}, Code={Code}, Overlay={Overlay}", 
+        _logger?.LogDebug("Set in SymbolPicker: Table={Table}, Code={Code}, Overlay={Overlay}",
             SymbolPicker.TableCharacter, SymbolPicker.CodeCharacter, SymbolPicker.OverlayCharacter);
 
         // Resume notifications and update previews
@@ -211,7 +212,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private void OnSymbolPickerPropertyChanged(object? s, System.ComponentModel.PropertyChangedEventArgs e)
     {
         _logger?.LogDebug("SymbolPicker property changed: {PropertyName}", e.PropertyName);
-        
+
         if (e.PropertyName == nameof(AprsSymbolPickerViewModel.TableCharacter))
         {
             _logger?.LogDebug("Syncing TableCharacter from SymbolPicker: {Value}", SymbolPicker.TableCharacter);
@@ -392,22 +393,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void OpenBeaconingSettings()
-    {
-        _navigationService.NavigateTo<DynamicBeaconingViewModel>();
-    }
+    private void OpenBeaconingSettings() => _navigationService.NavigateTo<DynamicBeaconingViewModel>();
 
     [RelayCommand]
-    private void OpenDownloadOfflineMap()
-    {
-        _navigationService.NavigateTo<DownloadOfflineMapViewModel>();
-    }
+    private void OpenDownloadOfflineMap() => _navigationService.NavigateTo<DownloadOfflineMapViewModel>();
 
     [RelayCommand]
-    private void OpenMessageTemplates()
-    {
-        _navigationService.NavigateTo(_messageTemplatesViewModel);
-    }
+    private void OpenMessageTemplates() => _navigationService.NavigateTo(_messageTemplatesViewModel);
 
     public void Dispose()
     {
@@ -419,9 +411,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
         _disposed = true;
 
-        if (SymbolPicker != null)
-        {
-            SymbolPicker.PropertyChanged -= OnSymbolPickerPropertyChanged;
-        }
+        SymbolPicker?.PropertyChanged -= OnSymbolPickerPropertyChanged;
     }
 }

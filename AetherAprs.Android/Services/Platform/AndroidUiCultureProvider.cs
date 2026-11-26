@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Globalization;
+using Java.Util;
 
 namespace AetherAprs.Android.Services.Platform;
 
@@ -13,13 +14,13 @@ public sealed class AndroidUiCultureProvider : AetherAprs.Services.UI.IUiCulture
 {
     public CultureInfo GetUiCulture()
     {
-        var locale = global::Android.App.Application.Context.Resources?.Configuration?.Locales?.Get(0);
+        Locale? locale = global::Android.App.Application.Context.Resources?.Configuration?.Locales?.Get(0);
         if (locale is null)
         {
             return CultureInfo.CurrentUICulture;
         }
 
-        var languageTag = locale.ToLanguageTag();
+        string languageTag = locale.ToLanguageTag();
         if (string.IsNullOrWhiteSpace(languageTag))
         {
             return CultureInfo.CurrentUICulture;
@@ -31,7 +32,7 @@ public sealed class AndroidUiCultureProvider : AetherAprs.Services.UI.IUiCulture
         }
         catch (CultureNotFoundException)
         {
-            var language = locale.Language;
+            string language = locale.Language;
             if (string.IsNullOrWhiteSpace(language))
             {
                 return CultureInfo.GetCultureInfo("en");

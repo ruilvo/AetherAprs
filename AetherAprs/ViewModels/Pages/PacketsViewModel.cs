@@ -48,7 +48,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly List<PacketSummary> _filteredSummaries = [];
     private Task? _throttleTask;
     private bool _disposed;
-    private Task? _initializationTask;
+    private readonly Task? _initializationTask;
     private int _visibleCount;
 
     [ObservableProperty]
@@ -125,16 +125,14 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         // Subscribe to filter changes (from filter service) and packet storage events
         _filterService.FiltersChanged += OnFiltersChanged;
         _packetStorageService.PacketStored += OnPacketStored;
-        
+
         // Load initial data from database
         _initializationTask = LoadPacketsAsync();
     }
 
-    private void OnFiltersChanged(object? sender, EventArgs e)
-    {
+    private void OnFiltersChanged(object? sender, EventArgs e) =>
         // Trigger a reload when filters change
         _uiDispatcher.Post(() => _ = LoadPacketsAsync());
-    }
 
     private void OnPacketStored(object? sender, EventArgs e)
     {
@@ -171,13 +169,13 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             // reports are excluded from the per-callsign list (they belong to the
             // named report, not the reporting station) and loaded separately so they
             // appear under their own name.
-            var stationPackets = (await _packetQueryService.GetMostRecentPacketsAsync())
+            IEnumerable<PacketRecord> stationPackets = (await _packetQueryService.GetMostRecentPacketsAsync())
                 .Values
                 .Where(r => r.Object == null && r.Item == null);
-            var objectPackets = await _packetQueryService.GetMostRecentObjectsAsync();
-            var itemPackets = await _packetQueryService.GetMostRecentItemsAsync();
+            IReadOnlyList<PacketRecord> objectPackets = await _packetQueryService.GetMostRecentObjectsAsync();
+            IReadOnlyList<PacketRecord> itemPackets = await _packetQueryService.GetMostRecentItemsAsync();
 
-            var all = new List<PacketRecord>(stationPackets);
+            List<PacketRecord> all = [.. stationPackets];
             all.AddRange(objectPackets);
             all.AddRange(itemPackets);
 
@@ -189,15 +187,13 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             }
 
             // Sort by most recent first
-            var packets = filtered
-                .OrderByDescending(r => r.Id)
-                .ToList();
+            List<PacketRecord> packets = [.. filtered.OrderByDescending(r => r.Id)];
 
             _logger.LogInformation("Loaded {Count} packets from database with time filter", packets.Count);
 
             // Build the list of summaries
             _allSummaries.Clear();
-            foreach (var record in packets)
+            foreach (PacketRecord record in packets)
             {
                 _allSummaries.Add(CreateSummary(record));
             }
@@ -217,8 +213,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
     private static PacketSummary CreateSummary(PacketRecord record)
     {
-        var isObject = record.Object != null || record.Item != null;
-        var source = isObject
+        bool isObject = record.Object != null || record.Item != null;
+        string source = isObject
             ? (record.Object?.Name ?? record.Item?.Name ?? string.Empty)
             : AprsSsidExtensions.FormatCallsign(record.SourceBase, record.SourceSsid);
 
@@ -262,7 +258,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
         if (record.Message != null)
         {
-            var addressee = AprsSsidExtensions.FormatCallsign(record.Message.AddresseeBase, record.Message.AddresseeSsid);
+            string addressee = AprsSsidExtensions.FormatCallsign(record.Message.AddresseeBase, record.Message.AddresseeSsid);
             return Strings.Format("PreviewMessageTo", addressee, record.Message.Text);
         }
 
@@ -293,7 +289,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         HasMore = _visibleCount < _filteredSummaries.Count;
 
         Packets.Clear();
-        for (var index = 0; index < _visibleCount; index++)
+        for (int index = 0; index < _visibleCount; index++)
         {
             Packets.Add(_filteredSummaries[index]);
         }
@@ -301,7 +297,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
 
     private void RebuildFiltered()
     {
-        var query = SearchQuery?.Trim() ?? string.Empty;
+        string query = SearchQuery?.Trim() ?? string.Empty;
         _filteredSummaries.Clear();
 
         if (query.Length == 0)
@@ -310,7 +306,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        foreach (var summary in _allSummaries)
+        foreach (PacketSummary summary in _allSummaries)
         {
             if (MatchesSearch(summary, query))
             {
@@ -319,11 +315,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private static bool MatchesSearch(PacketSummary summary, string query)
-    {
-        return (summary.Source?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+    private static bool MatchesSearch(PacketSummary summary, string query) => (summary.Source?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
             || (summary.Preview?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
-    }
 
     /// <summary>
     /// Appends the next page of summaries to the visible collection. Invoked by the
@@ -337,8 +330,8 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var next = Math.Min(_visibleCount + PageSize, _filteredSummaries.Count);
-        for (var index = _visibleCount; index < next; index++)
+        int next = Math.Min(_visibleCount + PageSize, _filteredSummaries.Count);
+        for (int index = _visibleCount; index < next; index++)
         {
             Packets.Add(_filteredSummaries[index]);
         }
@@ -359,26 +352,20 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         // details. Both are keyed by the summary's Source (object name or callsign).
         if (summary.IsObject)
         {
-            var objectVm = _objectDetailsFactory.Create(summary.Source);
+            ObjectDetailsViewModel objectVm = _objectDetailsFactory.Create(summary.Source);
             _navigationService.NavigateTo(objectVm);
             return;
         }
 
-        var vm = _packetDetailsFactory.Create(summary.Source);
+        PacketDetailsViewModel vm = _packetDetailsFactory.Create(summary.Source);
         _navigationService.NavigateTo(vm);
     }
 
     [RelayCommand]
-    private void OpenObjects()
-    {
-        _navigationService.NavigateTo(_objectsViewModel);
-    }
+    private void OpenObjects() => _navigationService.NavigateTo(_objectsViewModel);
 
     [RelayCommand]
-    private void OpenSearch()
-    {
-        _navigationService.NavigateTo(_searchViewModel);
-    }
+    private void OpenSearch() => _navigationService.NavigateTo(_searchViewModel);
 
     public void Dispose()
     {

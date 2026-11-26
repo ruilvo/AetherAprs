@@ -14,10 +14,7 @@ public readonly struct SymbolCharacter : IEquatable<SymbolCharacter>
 {
     private readonly char _value;
 
-    private SymbolCharacter(char value)
-    {
-        _value = value;
-    }
+    private SymbolCharacter(char value) => _value = value;
 
     /// <summary>
     /// Gets the character value.
@@ -40,7 +37,7 @@ public readonly struct SymbolCharacter : IEquatable<SymbolCharacter>
             return false;
         }
 
-        var ch = value[0];
+        char ch = value[0];
 
         if (isTableCharacter)
         {

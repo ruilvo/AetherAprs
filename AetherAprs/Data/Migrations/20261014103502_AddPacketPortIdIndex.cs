@@ -5,26 +5,19 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AetherAprs.Data.Migrations
+namespace AetherAprs.Data.Migrations;
+
+/// <inheritdoc />
+public partial class AddPacketPortIdIndex : Migration
 {
     /// <inheritdoc />
-    public partial class AddPacketPortIdIndex : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.CreateIndex(
-                name: "IX_Packets_PortId",
-                table: "Packets",
-                column: "PortId");
-        }
+    protected override void Up(MigrationBuilder migrationBuilder) => migrationBuilder.CreateIndex(
+            name: "IX_Packets_PortId",
+            table: "Packets",
+            column: "PortId");
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropIndex(
-                name: "IX_Packets_PortId",
-                table: "Packets");
-        }
-    }
+    /// <inheritdoc />
+    protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.DropIndex(
+            name: "IX_Packets_PortId",
+            table: "Packets");
 }

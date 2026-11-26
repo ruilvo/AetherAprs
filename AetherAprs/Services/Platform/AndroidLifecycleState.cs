@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace AetherAprs.Services.Platform;
 
@@ -56,7 +57,7 @@ public sealed record AndroidLifecycleSnapshot(
 /// </summary>
 public sealed class AndroidLifecycleState
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Dictionary<AndroidPermission, bool> _permissions = [];
     private AndroidLifecycleSnapshot _snapshot = new(
         false,
@@ -148,10 +149,7 @@ public sealed class AndroidLifecycleState
     public void TransportReconnectStarted() =>
         Update(snapshot => snapshot with { TransportState = AndroidTransportState.Reconnecting });
 
-    private void Update(Func<AndroidLifecycleSnapshot, AndroidLifecycleSnapshot> update)
-    {
-        Publish(update);
-    }
+    private void Update(Func<AndroidLifecycleSnapshot, AndroidLifecycleSnapshot> update) => Publish(update);
 
     private void Publish(Func<AndroidLifecycleSnapshot, AndroidLifecycleSnapshot> update)
     {

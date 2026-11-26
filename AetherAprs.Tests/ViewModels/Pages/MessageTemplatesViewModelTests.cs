@@ -21,15 +21,15 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Refresh_CopiesTemplatesFromService()
     {
-        var templates = new List<MessageTemplate>
-        {
+        List<MessageTemplate> templates =
+        [
             new() { Name = "SOTA spot", Destination = "SOTA", Body = "{summit}" },
             new() { Name = "Generic", Body = "Hello" }
-        };
-        var templateService = Substitute.For<IMessageTemplateService>();
+        ];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(templates);
 
-        var vm = CreateViewModel(templateService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService);
         vm.Refresh();
 
         Assert.Equal(2, vm.Templates.Count);
@@ -41,28 +41,28 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Refresh_ReplacesPreviouslyLoadedTemplates()
     {
-        var backing = new List<MessageTemplate> { new() { Name = "A" } };
-        var templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> backing = [new() { Name = "A" }];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(backing);
 
-        var vm = CreateViewModel(templateService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService);
         vm.Refresh();
         backing.Clear();
         backing.Add(new MessageTemplate { Name = "B" });
         vm.Refresh();
 
-        Assert.Single(vm.Templates);
-        Assert.Equal("B", vm.Templates[0].Name);
+        MessageTemplate item = Assert.Single(vm.Templates);
+        Assert.Equal("B", item.Name);
     }
 
     [Fact]
     public void Refresh_EmptyThenPopulated_TogglesEmptyStateFlags()
     {
-        var backing = new List<MessageTemplate>();
-        var templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> backing = [];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(_ => backing);
 
-        var vm = CreateViewModel(templateService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService);
 
         vm.Refresh();
         Assert.False(vm.HasTemplates);
@@ -77,11 +77,11 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Refresh_PopulatedThenEmpty_TogglesEmptyStateFlags()
     {
-        var backing = new List<MessageTemplate> { new() { Name = "A" } };
-        var templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> backing = [new() { Name = "A" }];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(_ => backing);
 
-        var vm = CreateViewModel(templateService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService);
 
         vm.Refresh();
         Assert.True(vm.HasTemplates);
@@ -96,11 +96,11 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Refresh_RaisesStateFlagNotifications()
     {
-        var templateService = Substitute.For<IMessageTemplateService>();
-        templateService.Templates.Returns(new List<MessageTemplate> { new() { Name = "A" } });
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        templateService.Templates.Returns([new() { Name = "A" }]);
 
-        var vm = CreateViewModel(templateService);
-        var raised = new List<string>();
+        MessageTemplatesViewModel vm = CreateViewModel(templateService);
+        List<string> raised = [];
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
 
         vm.Refresh();
@@ -112,13 +112,13 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public async Task DeleteAsync_WithoutConfirmation_DoesNotCallService()
     {
-        var templateService = Substitute.For<IMessageTemplateService>();
-        var confirmationDialogService = Substitute.For<IConfirmationDialogService>();
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        IConfirmationDialogService confirmationDialogService = Substitute.For<IConfirmationDialogService>();
         confirmationDialogService
             .ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(false);
 
-        var vm = CreateViewModel(templateService, confirmationDialogService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService, confirmationDialogService);
 
         await vm.DeleteCommand.ExecuteAsync(new MessageTemplate { Name = "A" });
 
@@ -129,11 +129,11 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public async Task DeleteAsync_WithConfirmation_CallsServiceAndRefreshes()
     {
-        var template = new MessageTemplate { Name = "A", Body = "x" };
-        var backing = new List<MessageTemplate> { template };
-        var templateService = Substitute.For<IMessageTemplateService>();
+        MessageTemplate template = new() { Name = "A", Body = "x" };
+        List<MessageTemplate> backing = [template];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(backing);
-        var confirmationDialogService = Substitute.For<IConfirmationDialogService>();
+        IConfirmationDialogService confirmationDialogService = Substitute.For<IConfirmationDialogService>();
         confirmationDialogService
             .ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(true);
@@ -141,7 +141,7 @@ public sealed class MessageTemplatesViewModelTests
             .When(t => t.DeleteAsync(template.Name, Arg.Any<CancellationToken>()))
             .Do(_ => backing.Remove(template));
 
-        var vm = CreateViewModel(templateService, confirmationDialogService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService, confirmationDialogService);
         vm.Refresh();
 
         await vm.DeleteCommand.ExecuteAsync(template);
@@ -153,13 +153,13 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public async Task DeleteAsync_ShowsConfirmationDialogWithTemplateName()
     {
-        var templateService = Substitute.For<IMessageTemplateService>();
-        var confirmationDialogService = Substitute.For<IConfirmationDialogService>();
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        IConfirmationDialogService confirmationDialogService = Substitute.For<IConfirmationDialogService>();
         confirmationDialogService
             .ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(false);
 
-        var vm = CreateViewModel(templateService, confirmationDialogService);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService, confirmationDialogService);
 
         await vm.DeleteCommand.ExecuteAsync(new MessageTemplate { Name = "My Template" });
 
@@ -171,10 +171,10 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Add_RaisesAddRequestedWithNullTemplate()
     {
-        var vm = CreateViewModel();
+        MessageTemplatesViewModel vm = CreateViewModel();
 
         MessageTemplate? received = null;
-        var raiseCount = 0;
+        int raiseCount = 0;
         vm.AddRequested += (_, template) =>
         {
             raiseCount++;
@@ -190,11 +190,11 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Edit_RaisesEditRequestedWithTemplate()
     {
-        var vm = CreateViewModel();
+        MessageTemplatesViewModel vm = CreateViewModel();
 
-        var template = new MessageTemplate { Name = "A" };
+        MessageTemplate template = new() { Name = "A" };
         MessageTemplate? received = null;
-        var raiseCount = 0;
+        int raiseCount = 0;
         vm.EditRequested += (_, requested) =>
         {
             raiseCount++;
@@ -210,8 +210,8 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void Close_CallsNavigationGoBack()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigationService: navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        MessageTemplatesViewModel vm = CreateViewModel(navigationService: navigation);
 
         vm.CloseCommand.Execute(null);
 
@@ -221,14 +221,14 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void CreateEditViewModel_PassesOriginalAndNamesExcludingOriginalToFactory()
     {
-        var backing = new List<MessageTemplate>
-        {
+        List<MessageTemplate> backing =
+        [
             new() { Name = "Alpha", Body = "a" },
             new() { Name = "Beta", Body = "b" }
-        };
-        var templateService = Substitute.For<IMessageTemplateService>();
+        ];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(backing);
-        var factory = Substitute.For<IMessageTemplateEditViewModelFactory>();
+        IMessageTemplateEditViewModelFactory factory = Substitute.For<IMessageTemplateEditViewModelFactory>();
         MessageTemplate? receivedOriginal = null;
         IReadOnlyList<string>? receivedNames = null;
         factory
@@ -240,9 +240,9 @@ public sealed class MessageTemplatesViewModelTests
                 return new AetherAprs.ViewModels.Components.MessageTemplateEditViewModel();
             });
 
-        var vm = CreateViewModel(templateService, editViewModelFactory: factory);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService, editViewModelFactory: factory);
         vm.Refresh();
-        var original = backing[0];
+        MessageTemplate original = backing[0];
 
         vm.CreateEditViewModel(original);
 
@@ -255,13 +255,13 @@ public sealed class MessageTemplatesViewModelTests
     [Fact]
     public void CreateEditViewModel_AddMode_PassesAllNamesAndNullOriginal()
     {
-        var backing = new List<MessageTemplate>
-        {
+        List<MessageTemplate> backing =
+        [
             new() { Name = "Alpha", Body = "a" }
-        };
-        var templateService = Substitute.For<IMessageTemplateService>();
+        ];
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
         templateService.Templates.Returns(backing);
-        var factory = Substitute.For<IMessageTemplateEditViewModelFactory>();
+        IMessageTemplateEditViewModelFactory factory = Substitute.For<IMessageTemplateEditViewModelFactory>();
         MessageTemplate? receivedOriginal = null;
         IReadOnlyList<string>? receivedNames = null;
         factory
@@ -273,26 +273,23 @@ public sealed class MessageTemplatesViewModelTests
                 return new AetherAprs.ViewModels.Components.MessageTemplateEditViewModel();
             });
 
-        var vm = CreateViewModel(templateService, editViewModelFactory: factory);
+        MessageTemplatesViewModel vm = CreateViewModel(templateService, editViewModelFactory: factory);
         vm.Refresh();
 
         vm.CreateEditViewModel(null);
 
         Assert.Null(receivedOriginal);
         Assert.NotNull(receivedNames);
-        Assert.Equal(new[] { "Alpha" }, receivedNames);
+        Assert.Equal(["Alpha"], receivedNames);
     }
 
     private static MessageTemplatesViewModel CreateViewModel(
         IMessageTemplateService? templateService = null,
         IConfirmationDialogService? confirmationDialogService = null,
         INavigationService? navigationService = null,
-        IMessageTemplateEditViewModelFactory? editViewModelFactory = null)
-    {
-        return new MessageTemplatesViewModel(
+        IMessageTemplateEditViewModelFactory? editViewModelFactory = null) => new(
             templateService ?? Substitute.For<IMessageTemplateService>(),
             confirmationDialogService ?? Substitute.For<IConfirmationDialogService>(),
             navigationService ?? Substitute.For<INavigationService>(),
             editViewModelFactory ?? Substitute.For<IMessageTemplateEditViewModelFactory>());
-    }
 }

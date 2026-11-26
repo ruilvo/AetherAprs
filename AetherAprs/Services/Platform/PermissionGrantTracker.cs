@@ -21,17 +21,15 @@ namespace AetherAprs.Services.Platform;
 /// prompt. Only an actual change is logged and raised, so a resume that observes
 /// nothing new stays quiet.
 /// </remarks>
-public sealed class PermissionGrantTracker
+/// <remarks>
+/// Initializes a tracker.
+/// </remarks>
+/// <param name="logger">An optional logger for observed transitions.</param>
+public sealed class PermissionGrantTracker(ILogger<PermissionGrantTracker>? logger = null)
 {
     private readonly Lock _gate = new();
     private readonly Dictionary<PermissionKind, PermissionOutcome> _lastKnown = [];
-    private readonly ILogger<PermissionGrantTracker>? _logger;
-
-    /// <summary>
-    /// Initializes a tracker.
-    /// </summary>
-    /// <param name="logger">An optional logger for observed transitions.</param>
-    public PermissionGrantTracker(ILogger<PermissionGrantTracker>? logger = null) => _logger = logger;
+    private readonly ILogger<PermissionGrantTracker>? _logger = logger;
 
     /// <summary>
     /// Raised once per permission whose evaluated outcome differs from the one
@@ -58,7 +56,7 @@ public sealed class PermissionGrantTracker
         bool rationaleSuggested,
         bool requestedBefore)
     {
-        var result = PermissionRequestPolicy.Evaluate(
+        PermissionRequestResult result = PermissionRequestPolicy.Evaluate(
             kind,
             granted: grant.Status == PermissionGrantStatus.Granted,
             rationaleSuggested,
@@ -68,7 +66,7 @@ public sealed class PermissionGrantTracker
         PermissionGrantTransition transition;
         lock (_gate)
         {
-            var hadPrevious = _lastKnown.TryGetValue(kind, out var previous);
+            bool hadPrevious = _lastKnown.TryGetValue(kind, out PermissionOutcome previous);
             _lastKnown[kind] = result.Outcome;
 
             transition = new PermissionGrantTransition(kind, hadPrevious ? previous : null, result);
@@ -97,7 +95,7 @@ public sealed class PermissionGrantTracker
     {
         lock (_gate)
         {
-            return _lastKnown.TryGetValue(kind, out var outcome) ? outcome : null;
+            return _lastKnown.TryGetValue(kind, out PermissionOutcome outcome) ? outcome : null;
         }
     }
 }

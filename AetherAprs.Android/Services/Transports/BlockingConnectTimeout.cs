@@ -43,7 +43,7 @@ internal static class BlockingConnectTimeout
         // owns cancellation and timeout; the caller releases the handle when
         // the wait ends. Passing the token to Task.Run would only prevent the
         // call from starting, not interrupt it.
-        var connectTask = Task.Run(connect, CancellationToken.None);
+        Task connectTask = Task.Run(connect, CancellationToken.None);
 
         try
         {
@@ -67,9 +67,7 @@ internal static class BlockingConnectTimeout
     /// Ensures a late native failure is observed instead of surfacing as an
     /// unobserved task exception after the caller has already moved on.
     /// </summary>
-    private static void ObserveFailure(Task connectTask)
-    {
-        _ = connectTask.ContinueWith(
+    private static void ObserveFailure(Task connectTask) => _ = connectTask.ContinueWith(
             static task =>
             {
                 _ = task.Exception;
@@ -77,5 +75,4 @@ internal static class BlockingConnectTimeout
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
-    }
 }

@@ -33,8 +33,5 @@ public class BoolToOpacityConverter : IValueConverter
         return FadedOpacity;
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        return Avalonia.Data.BindingOperations.DoNothing;
-    }
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Avalonia.Data.BindingOperations.DoNothing;
 }

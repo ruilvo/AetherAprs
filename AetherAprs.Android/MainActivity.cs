@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services.Lifecycle;
@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AetherAprs.ViewModels.Pages;
 
 namespace AetherAprs.Android;
 
@@ -97,7 +98,7 @@ public class MainActivity : AvaloniaMainActivity
         }
 
         // Android 13+ only (SupportedOSPlatformVersion = 33)
-        var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications);
+        Permission currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications);
         _logger.LogDebug("Notification permission status: {Status}", currentStatus);
 
         if (currentStatus == Permission.Granted)
@@ -127,8 +128,8 @@ public class MainActivity : AvaloniaMainActivity
         }
 
         // Android 13+ only (SupportedOSPlatformVersion = 33, includes S/12 permissions)
-        var bluetoothScanStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothScan);
-        var bluetoothConnectStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothConnect);
+        Permission bluetoothScanStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothScan);
+        Permission bluetoothConnectStatus = CheckSelfPermission(global::Android.Manifest.Permission.BluetoothConnect);
         _logger.LogDebug(
             "Bluetooth permission status: {ScanStatus}, {ConnectStatus}",
             bluetoothScanStatus,
@@ -161,7 +162,7 @@ public class MainActivity : AvaloniaMainActivity
             return PermissionPromptResult.Abandoned;
         }
 
-        var currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio);
+        Permission currentStatus = CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio);
         _logger.LogDebug("Audio permission status: {Status}", currentStatus);
 
         if (currentStatus == Permission.Granted)
@@ -176,7 +177,7 @@ public class MainActivity : AvaloniaMainActivity
 
     private async Task<PermissionPromptResult> PromptForAsync(PermissionKind kind)
     {
-        var queue = _permissionRequests;
+        PermissionRequestQueue? queue = _permissionRequests;
         if (queue is null)
         {
             return PermissionPromptResult.Abandoned;
@@ -184,10 +185,10 @@ public class MainActivity : AvaloniaMainActivity
 
         // A dialog the operator walks away from must not hold the startup burst
         // forever; an abandoned request is not a denial.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(30));
         try
         {
-            var result = await queue.RequestAsync(kind, timeout.Token);
+            PermissionPromptResult result = await queue.RequestAsync(kind, timeout.Token);
             _logger.LogDebug("The {Permission} prompt finished with {Outcome}", kind, result);
             return result;
         }
@@ -236,7 +237,7 @@ public class MainActivity : AvaloniaMainActivity
         // Get navigation service and subscribe to exit requests
         if (navigationService == null)
         {
-            var app = (App?)Avalonia.Application.Current;
+            App? app = (App?)Avalonia.Application.Current;
             if (app != null)
             {
                 navigationService = app.ServiceProvider.GetService<INavigationService>();
@@ -255,10 +256,7 @@ public class MainActivity : AvaloniaMainActivity
             _ = RequestInitialPermissionsAsync();
         }
 
-        if (navigationService != null)
-        {
-            navigationService.CurrentViewModelChanged += OnCurrentViewModelChanged;
-        }
+        navigationService?.CurrentViewModelChanged += OnCurrentViewModelChanged;
         UpdateBackCallback();
 
         // Process a notification deep-link (cold start or resume with intent).
@@ -276,7 +274,7 @@ public class MainActivity : AvaloniaMainActivity
             return;
         }
 
-        var app = (App?)Avalonia.Application.Current;
+        App? app = (App?)Avalonia.Application.Current;
         if (app?.ServiceProvider.GetService<IPermissionService>() is not IPermissionGrantRechecker rechecker)
         {
             return;
@@ -284,7 +282,7 @@ public class MainActivity : AvaloniaMainActivity
 
         try
         {
-            foreach (var transition in rechecker.Recheck())
+            foreach (PermissionGrantTransition transition in rechecker.Recheck())
             {
                 if (transition.HasChanged)
                 {
@@ -304,14 +302,14 @@ public class MainActivity : AvaloniaMainActivity
 
     private void ConfigureSystemBars()
     {
-        var window = Window;
+        Window? window = Window;
         if (window is null)
         {
             return;
         }
-        var isLightTheme = (Avalonia.Application.Current?.ActualThemeVariant
+        bool isLightTheme = (Avalonia.Application.Current?.ActualThemeVariant
             ?? Avalonia.Styling.ThemeVariant.Light) == Avalonia.Styling.ThemeVariant.Light;
-        var controller = WindowCompat.GetInsetsController(window, window.DecorView);
+        WindowInsetsControllerCompat? controller = WindowCompat.GetInsetsController(window, window.DecorView);
         if (controller != null)
         {
             controller.AppearanceLightStatusBars = isLightTheme;
@@ -319,15 +317,9 @@ public class MainActivity : AvaloniaMainActivity
         }
     }
 
-    private void OnActualThemeVariantChanged(object? sender, EventArgs e)
-    {
-        ConfigureSystemBars();
-    }
+    private void OnActualThemeVariantChanged(object? sender, EventArgs e) => ConfigureSystemBars();
 
-    private void OnCurrentViewModelChanged(object? sender, AetherAprs.ViewModels.ViewModelBase? viewModel)
-    {
-        UpdateBackCallback();
-    }
+    private void OnCurrentViewModelChanged(object? sender, AetherAprs.ViewModels.ViewModelBase? viewModel) => UpdateBackCallback();
 
     private void UpdateBackCallback()
     {
@@ -336,7 +328,7 @@ public class MainActivity : AvaloniaMainActivity
             return;
         }
 
-        var shouldRegister = navigationService?.CanGoBack == true;
+        bool shouldRegister = navigationService?.CanGoBack == true;
         if (shouldRegister && !_backCallbackRegistered)
         {
             OnBackInvokedDispatcher.RegisterOnBackInvokedCallback(0, backInvokedCallback);
@@ -380,13 +372,13 @@ public class MainActivity : AvaloniaMainActivity
             return null;
         }
 
-        var extra = intent.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra);
+        string? extra = intent.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra);
         if (extra is null)
         {
             return null;
         }
 
-        if (!ConversationDeepLink.TryParsePeer(extra, out var peer))
+        if (!ConversationDeepLink.TryParsePeer(extra, out AprsAddress peer))
         {
             _logger.LogDebug("Ignored a conversation intent whose callsign extra was not a callsign");
             return null;
@@ -398,7 +390,7 @@ public class MainActivity : AvaloniaMainActivity
     private void ProcessPendingConversation()
     {
         // Prefer the extra from the current intent, then any OnNewIntent value.
-        var peer = ReadConversationPeer(Intent) ?? pendingConversationPeer;
+        AprsAddress? peer = ReadConversationPeer(Intent) ?? pendingConversationPeer;
         pendingConversationPeer = null;
 
         // Clear the extra so a subsequent plain resume does not re-navigate.
@@ -409,14 +401,14 @@ public class MainActivity : AvaloniaMainActivity
             return;
         }
 
-        var app = (App?)Avalonia.Application.Current;
+        App? app = (App?)Avalonia.Application.Current;
         if (app == null)
         {
             return;
         }
 
-        var factory = app.ServiceProvider.GetService<IConversationViewModelFactory>();
-        var conversation = factory?.Create(target);
+        IConversationViewModelFactory? factory = app.ServiceProvider.GetService<IConversationViewModelFactory>();
+        ConversationViewModel? conversation = factory?.Create(target);
         if (conversation != null)
         {
             navigationService?.NavigateTo(conversation);
@@ -429,14 +421,14 @@ public class MainActivity : AvaloniaMainActivity
         {
             _logger.LogDebug("Requesting the initial permission burst");
 
-            var notificationResult = await RequestNotificationPermissionAsync();
-            var bluetoothResult = await RequestBluetoothPermissionAsync();
-            var locationGranted = await RequestLocationPermissionsAsync();
-            var audioResult = await RequestAudioPermissionAsync();
+            PermissionPromptResult notificationResult = await RequestNotificationPermissionAsync();
+            PermissionPromptResult bluetoothResult = await RequestBluetoothPermissionAsync();
+            bool locationGranted = await RequestLocationPermissionsAsync();
+            PermissionPromptResult audioResult = await RequestAudioPermissionAsync();
 
             // Request background location (non-fatal when denied; Android 11+
             // routes this to the app settings page)
-            var backgroundLocationGranted = await RequestBackgroundLocationPermissionAsync();
+            bool backgroundLocationGranted = await RequestBackgroundLocationPermissionAsync();
             ReportBackgroundLocation(backgroundLocationGranted);
 
             // One bounded summary instead of a line per step: the individual
@@ -472,8 +464,8 @@ public class MainActivity : AvaloniaMainActivity
             return false;
         }
 
-        var fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
-        var coarseLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessCoarseLocation);
+        Permission fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
+        Permission coarseLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessCoarseLocation);
         _logger.LogDebug(
             "Location permission status: {FineStatus}, {CoarseStatus}",
             fineLocationStatus,
@@ -494,11 +486,11 @@ public class MainActivity : AvaloniaMainActivity
 
         // Request permissions and wait for result
         _logger.LogDebug("Requesting the location permissions");
-        
+
         // Use the LocationService's existing request code to avoid conflicts
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var locationTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var locationRegistration = locationTimeoutCts.Token.Register(() =>
+        TaskCompletionSource<bool> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenSource locationTimeoutCts = new(TimeSpan.FromSeconds(30));
+        await using CancellationTokenRegistration locationRegistration = locationTimeoutCts.Token.Register(() =>
         {
             OnPermissionResult -= OnPermissionResultHandler;
             tcs.TrySetCanceled(locationTimeoutCts.Token);
@@ -508,7 +500,7 @@ public class MainActivity : AvaloniaMainActivity
             if (requestCode == 1001) // LocationPermissionRequestCode from LocationService
             {
                 OnPermissionResult -= OnPermissionResultHandler;
-                var granted = grantResults.Any(r => r == Permission.Granted);
+                bool granted = grantResults.Any(r => r == Permission.Granted);
                 tcs.TrySetResult(granted);
             }
         }
@@ -516,12 +508,12 @@ public class MainActivity : AvaloniaMainActivity
         try
         {
             OnPermissionResult += OnPermissionResultHandler;
-            RequestPermissions(new[] 
-            { 
+            RequestPermissions(
+            [
                 global::Android.Manifest.Permission.AccessFineLocation,
                 global::Android.Manifest.Permission.AccessCoarseLocation
-            }, 1001); // Use LocationService's request code
-            var result = await tcs.Task.ConfigureAwait(false);
+            ], 1001); // Use LocationService's request code
+            bool result = await tcs.Task.ConfigureAwait(false);
             _logger.LogDebug("Location permission result: {Granted}", result);
             return result;
         }
@@ -584,7 +576,7 @@ public class MainActivity : AvaloniaMainActivity
 
         // The dialog is only meaningful once fine location is granted; the system
         // otherwise sends the user to app settings where the toggle is hidden.
-        var fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
+        Permission fineLocationStatus = CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation);
         if (fineLocationStatus != Permission.Granted)
         {
             _logger.LogDebug("Fine location not granted; skipping the background location request");
@@ -593,9 +585,9 @@ public class MainActivity : AvaloniaMainActivity
 
         _logger.LogDebug("Requesting the background location permission");
 
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var backgroundTimeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var backgroundRegistration = backgroundTimeoutCts.Token.Register(() =>
+        TaskCompletionSource<bool> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenSource backgroundTimeoutCts = new(TimeSpan.FromSeconds(30));
+        await using CancellationTokenRegistration backgroundRegistration = backgroundTimeoutCts.Token.Register(() =>
         {
             OnPermissionResult -= OnPermissionResultHandler;
             tcs.TrySetCanceled(backgroundTimeoutCts.Token);
@@ -605,7 +597,7 @@ public class MainActivity : AvaloniaMainActivity
             if (requestCode == backgroundLocationRequestCode)
             {
                 OnPermissionResult -= OnPermissionResultHandler;
-                var granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
+                bool granted = grantResults.Length > 0 && grantResults[0] == Permission.Granted;
                 tcs.TrySetResult(granted);
             }
         }
@@ -613,8 +605,8 @@ public class MainActivity : AvaloniaMainActivity
         try
         {
             OnPermissionResult += OnPermissionResultHandler;
-            RequestPermissions(new[] { global::Android.Manifest.Permission.AccessBackgroundLocation }, backgroundLocationRequestCode);
-            var result = await tcs.Task.ConfigureAwait(false);
+            RequestPermissions([global::Android.Manifest.Permission.AccessBackgroundLocation], backgroundLocationRequestCode);
+            bool result = await tcs.Task.ConfigureAwait(false);
             _logger.LogDebug("Background location permission result: {Granted}", result);
             return result;
         }
@@ -633,10 +625,7 @@ public class MainActivity : AvaloniaMainActivity
         {
             app.ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         }
-        if (navigationService != null)
-        {
-            navigationService.CurrentViewModelChanged -= OnCurrentViewModelChanged;
-        }
+        navigationService?.CurrentViewModelChanged -= OnCurrentViewModelChanged;
         // Unregister (but keep) the modern back callback while paused; OnResume
         // registers it again through UpdateBackCallback.
         UnregisterBackCallback();
@@ -667,24 +656,22 @@ public class MainActivity : AvaloniaMainActivity
         }
     }
 
-    private void OnRequestAppExit(object? sender, EventArgs e)
-    {
+    private void OnRequestAppExit(object? sender, EventArgs e) =>
         // Exit is the same operator action as the notification's stop: stop the
         // background session and then close the activity. Without the shared stop,
         // an exit would leave the foreground service running behind a closed window.
         _ = CloseApplicationAsync();
-    }
 
     private async Task CloseApplicationAsync()
     {
         try
         {
-            var app = (App?)Avalonia.Application.Current;
+            App? app = (App?)Avalonia.Application.Current;
             if (app?.ServiceProvider.GetService(typeof(IApplicationSessionControl))
                 is IApplicationSessionControl sessionControl)
             {
-                var result = await sessionControl.StopAsync();
-                foreach (var failure in result.Failures)
+                ApplicationSessionStopResult result = await sessionControl.StopAsync();
+                foreach (ApplicationSessionStopFailure failure in result.Failures)
                 {
                     _logger.LogWarning(
                         "Application stop step {Step} failed: {Message}",
@@ -706,10 +693,7 @@ public class MainActivity : AvaloniaMainActivity
         }
     }
 
-    public override void OnBackPressed()
-    {
-        HandleBackPressed();
-    }
+    public override void OnBackPressed() => HandleBackPressed();
 
     protected override void OnDestroy()
     {
@@ -760,7 +744,7 @@ public class MainActivity : AvaloniaMainActivity
         // Clear the flag first so a throwing platform call cannot leave the
         // lifecycle believing the callback is still registered.
         _backCallbackRegistered = false;
-        var callback = backInvokedCallback;
+        BackInvokedCallback? callback = backInvokedCallback;
         if (callback == null)
         {
             return;
@@ -809,9 +793,9 @@ public class MainActivity : AvaloniaMainActivity
 
         // The request code is the queue's request id, so the kind the prompt was
         // shown for comes from the host rather than from a fixed code per kind.
-        if (_promptHost is { } host && host.TryTakeKind(requestCode, out var kind))
+        if (_promptHost is { } host && host.TryTakeKind(requestCode, out PermissionKind kind))
         {
-            var granted = grantResults.Length > 0 &&
+            bool granted = grantResults.Length > 0 &&
                 (kind == PermissionKind.Bluetooth
                     ? grantResults.All(result => result == Permission.Granted)
                     : grantResults[0] == Permission.Granted);
@@ -852,15 +836,15 @@ public class MainActivity : AvaloniaMainActivity
 
         public void Show(PermissionKind kind, int requestId)
         {
-            var permissions = kind switch
+            string[] permissions = kind switch
             {
-                PermissionKind.Notifications => new[] { global::Android.Manifest.Permission.PostNotifications },
-                PermissionKind.Bluetooth => new[]
-                {
+                PermissionKind.Notifications => [global::Android.Manifest.Permission.PostNotifications],
+                PermissionKind.Bluetooth =>
+                [
                     global::Android.Manifest.Permission.BluetoothScan,
                     global::Android.Manifest.Permission.BluetoothConnect,
-                },
-                PermissionKind.Audio => new[] { global::Android.Manifest.Permission.RecordAudio },
+                ],
+                PermissionKind.Audio => [global::Android.Manifest.Permission.RecordAudio],
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "This permission has no prompt."),
             };
 
@@ -873,9 +857,6 @@ public class MainActivity : AvaloniaMainActivity
 
     private sealed class BackInvokedCallback(Action onBackInvoked) : Java.Lang.Object, IOnBackInvokedCallback
     {
-        public void OnBackInvoked()
-        {
-            onBackInvoked?.Invoke();
-        }
+        public void OnBackInvoked() => onBackInvoked?.Invoke();
     }
 }

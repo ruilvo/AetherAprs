@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Tests.Helpers;
@@ -15,12 +16,12 @@ public sealed class AppDbContextTests
     [Fact]
     public void DateTimes_RoundTripAsUtc()
     {
-        using var database = TempAppDatabase.CreateEmpty();
-        var timestamp = new DateTime(2026, 11, 24, 12, 34, 56, DateTimeKind.Utc);
-        var packetTimestamp = timestamp.AddMinutes(-1);
-        var nextRetryTime = timestamp.AddMinutes(1);
+        using TempAppDatabase database = TempAppDatabase.CreateEmpty();
+        DateTime timestamp = new(2026, 11, 24, 12, 34, 56, DateTimeKind.Utc);
+        DateTime packetTimestamp = timestamp.AddMinutes(-1);
+        DateTime nextRetryTime = timestamp.AddMinutes(1);
 
-        using (var context = database.CreateContext())
+        using (AppDbContext context = database.CreateContext())
         {
             context.Database.EnsureCreated();
             context.Packets.Add(new PacketRecord
@@ -46,8 +47,8 @@ public sealed class AppDbContextTests
             context.SaveChanges();
         }
 
-        using var reloadedContext = database.CreateContext();
-        var reloaded = Assert.Single(reloadedContext.Packets);
+        using AppDbContext reloadedContext = database.CreateContext();
+        PacketRecord reloaded = Assert.Single(reloadedContext.Packets);
 
         Assert.Equal(timestamp, reloaded.Timestamp);
         Assert.Equal(DateTimeKind.Utc, reloaded.Timestamp.Kind);

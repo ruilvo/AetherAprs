@@ -45,14 +45,15 @@ public static class MicESerializer
         // Position 1-3 use the '0'-'9' range (message bits clear = standard message).
         // Position 4 (N/S), 5 (longitude offset) and 6 (W/E) use '0'-'9' for the
         // default state and 'P'-'Y' for the flagged state, mirroring the parser.
-        var chars = new char[6];
-        chars[0] = (char)('0' + degrees / 10);
-        chars[1] = (char)('0' + degrees % 10);
-        chars[2] = (char)('0' + minutes / 10);
-        chars[3] = (char)((isNorth ? '0' : 'P') + minutes % 10);
-        chars[4] = (char)((offset ? 'P' : '0') + hundredths / 10);
-        chars[5] = (char)((isWest ? 'P' : '0') + hundredths % 10);
-
+        char[] chars =
+        [
+            (char)('0' + degrees / 10),
+            (char)('0' + degrees % 10),
+            (char)('0' + minutes / 10),
+            (char)((isNorth ? '0' : 'P') + minutes % 10),
+            (char)((offset ? 'P' : '0') + hundredths / 10),
+            (char)((isWest ? 'P' : '0') + hundredths % 10),
+        ];
         return new Callsign(new string(chars));
     }
 
@@ -69,7 +70,7 @@ public static class MicESerializer
         (int degrees, int minutes, int hundredths) = SplitDegrees(longitude);
         bool offset = degrees >= 100;
 
-        var info = new StringBuilder();
+        StringBuilder info = new();
         info.Append(CurrentPosition);
 
         // Longitude degrees, encoded with the offset-flag scheme the parser
@@ -155,7 +156,7 @@ public static class MicESerializer
     /// </summary>
     private static string EncodeBase91(int value, int digits)
     {
-        var chars = new char[digits];
+        char[] chars = new char[digits];
         for (int i = digits - 1; i >= 0; i--)
         {
             chars[i] = (char)(value % 91 + 33);

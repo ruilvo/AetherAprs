@@ -24,10 +24,10 @@ public class AprsParserTests
     {
         // "!" = position without timestamp
         // "!3830.00N/00906.00E#Test" = 38°30.00'N = 38.5, 9°06.00'E = 9.1
-        var result = AprsInfoFieldParser.ParseInfoField("!3830.00N/00906.00E#Test",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!3830.00N/00906.00E#Test",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
         Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
@@ -40,10 +40,10 @@ public class AprsParserTests
     public void ParseInfoField_PositionWithTimestamp_ReturnsPositionPacket()
     {
         // "@" = position with timestamp
-        var result = AprsInfoFieldParser.ParseInfoField("@123456z3830.00N/00906.00E#Test",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("@123456z3830.00N/00906.00E#Test",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
         Assert.Equal(9.1, pos.Location.Longitude, 6);
     }
@@ -51,10 +51,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionSinglePrecision_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("=3830.0N/00906.0E>",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("=3830.0N/00906.0E>",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
         Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Equal(1, pos.Precision);
@@ -63,10 +63,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionNoComment_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("!3830.00N/00906.00E#",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!3830.00N/00906.00E#",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
         Assert.Equal(9.1, pos.Location.Longitude, 6);
         Assert.Null(pos.Comment);
@@ -75,20 +75,20 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionSouthernHemisphere_LatitudeNegative()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("!3830.00S/00906.00W#",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!3830.00S/00906.00W#",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(-38.5, pos.Location.Latitude, 6);
     }
 
     [Fact]
     public void ParseInfoField_PositionEasternHemisphere_LongitudePositive()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("!3830.00N/00906.00E#",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!3830.00N/00906.00E#",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(9.1, pos.Location.Longitude, 6);
     }
 
@@ -96,10 +96,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_CompressedPosition_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("!/9-pFL>:4uBkQ",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!/9-pFL>:4uBkQ",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(42.2419, pos.Location.Latitude, 4);
         Assert.Equal(-8.59665, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
@@ -117,10 +117,10 @@ public class AprsParserTests
     public void ParseInfoField_CompressedPositionWithCourseSpeed_ReturnsCourseAndSpeed()
     {
         // Same lat/lon/symbol as known vector; csT encodes course=180, speed~1.16 kn
-        var result = AprsInfoFieldParser.ParseInfoField("!/9-pFL>:4uN+!",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!/9-pFL>:4uN+!",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(42.2419, pos.Location.Latitude, 4);
         Assert.Equal(-8.59665, pos.Location.Longitude, 5);
         Assert.Equal(180, pos.Course);
@@ -132,10 +132,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_CompressedObjectPosition_ReturnsObjectPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(";TESTOBJ  *123456z/9-pFL>:4uBkQ",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(";TESTOBJ  *123456z/9-pFL>:4uBkQ",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var obj = Assert.IsType<ObjectPacket>(result);
+        ObjectPacket obj = Assert.IsType<ObjectPacket>(result);
         Assert.Equal("TESTOBJ", obj.Name);
         Assert.True(obj.IsLive);
         Assert.Equal("123456z", obj.RawTimestamp);
@@ -150,10 +150,10 @@ public class AprsParserTests
     public void ParseInfoField_PositionWithOverlayNoExplicitTable_ReturnsPositionPacket()
     {
         // Format: !DDMM.mmND DDDMM.mmW& where D is overlay, & is symbol
-        var result = AprsInfoFieldParser.ParseInfoField("!4038.72ND00747.95W&RNG0001 440 Voice 433.45000MHz +0.0000MHz",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!4038.72ND00747.95W&RNG0001 440 Voice 433.45000MHz +0.0000MHz",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.6453333, pos.Location.Latitude, 6);
         Assert.Equal(-7.79916667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -165,10 +165,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionWithTimestampAndOverlayNoExplicitTable_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("@251029z4057.65ND00544.73WaRNG0001/A=002624 70cm Voice (D-Star) 438.01250MHz +0.0000MHz",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("@251029z4057.65ND00544.73WaRNG0001/A=002624 70cm Voice (D-Star) 438.01250MHz +0.0000MHz",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.9608333, pos.Location.Latitude, 6);
         Assert.Equal(-5.74550, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -180,10 +180,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionWithOverlayE_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("@111111z4321.56NE00825.18W0PHG3000/434.550MHz Toff R04m TETRA DMO RPT (https://ham-tetra.es)",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("@111111z4321.56NE00825.18W0PHG3000/434.550MHz Toff R04m TETRA DMO RPT (https://ham-tetra.es)",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(43.35933333, pos.Location.Latitude, 6);
         Assert.Equal(-8.41966667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -195,10 +195,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionWithOverlayC_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("@251030z4213.06NC00844.10W0430.950MHz PL tone 69.0 CONNECTED",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("@251030z4213.06NC00844.10W0430.950MHz PL tone 69.0 CONNECTED",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(42.21766667, pos.Location.Latitude, 6);
         Assert.Equal(-8.73500, pos.Location.Longitude, 5);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -210,10 +210,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_ObjectPositionWithOverlayK_ReturnsObjectPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(";EA1RKF   *251030z4327.49N/00808.92WKAbierto viernes 19h-22h",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(";EA1RKF   *251030z4327.49N/00808.92WKAbierto viernes 19h-22h",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var obj = Assert.IsType<ObjectPacket>(result);
+        ObjectPacket obj = Assert.IsType<ObjectPacket>(result);
         Assert.Equal("EA1RKF", obj.Name);
         Assert.True(obj.IsLive);
         Assert.Equal("251030z", obj.RawTimestamp);
@@ -227,10 +227,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionWithAltitudeInComment_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("!4219.20ND00621.60W&/A=0000002m MMDVM Voice (NXDN) 144.20000MHz +0.0000MHz, EB1ISC_Pi-Star_ND",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!4219.20ND00621.60W&/A=0000002m MMDVM Voice (NXDN) 144.20000MHz +0.0000MHz, EB1ISC_Pi-Star_ND",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(42.32, pos.Location.Latitude, 6);
         Assert.Equal(-6.36, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -242,10 +242,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_PositionWithMalformedAltitude_ReturnsPositionPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("!4221.37ND00752.21W&/A=00065670cm MMDVM Voice (C4FM) 430.50000MHz +0.0000MHz, EA1RKP_Pi-Star_ND",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("!4221.37ND00752.21W&/A=00065670cm MMDVM Voice (C4FM) 430.50000MHz +0.0000MHz, EA1RKP_Pi-Star_ND",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(42.35616667, pos.Location.Latitude, 6);
         Assert.Equal(-7.87016667, pos.Location.Longitude, 6);
         Assert.Equal(SymbolTable.Alternate, pos.Symbol.Table);
@@ -261,20 +261,20 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_Capabilities_ReturnsCapabilitiesPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("<IGATE,MSG_CNT=0,LOC_CNT=1",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("<IGATE,MSG_CNT=0,LOC_CNT=1",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var cap = Assert.IsType<CapabilitiesPacket>(result);
+        CapabilitiesPacket cap = Assert.IsType<CapabilitiesPacket>(result);
         Assert.Equal("IGATE,MSG_CNT=0,LOC_CNT=1", cap.Text);
     }
 
     [Fact]
     public void ParseInfoField_CapabilitiesEmpty_ReturnsEmptyText()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("<",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("<",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var cap = Assert.IsType<CapabilitiesPacket>(result);
+        CapabilitiesPacket cap = Assert.IsType<CapabilitiesPacket>(result);
         Assert.Equal(string.Empty, cap.Text);
     }
 
@@ -285,10 +285,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_Telemetry_ReturnsTelemetryPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("T#069,10.3,0.0,42.0,1.0,0.0,00000000",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("T#069,10.3,0.0,42.0,1.0,0.0,00000000",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var tel = Assert.IsType<TelemetryPacket>(result);
+        TelemetryPacket tel = Assert.IsType<TelemetryPacket>(result);
         Assert.Equal(69, tel.SequenceNumber);
         Assert.Equal(5, tel.AnalogValues.Count);
         Assert.Equal(10.3, tel.AnalogValues[0]);
@@ -303,10 +303,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_TelemetryWithDigitalBits_ParsesDigitalValue()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("T#001,1.0,2.0,3.0,4.0,5.0,10101010",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("T#001,1.0,2.0,3.0,4.0,5.0,10101010",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var tel = Assert.IsType<TelemetryPacket>(result);
+        TelemetryPacket tel = Assert.IsType<TelemetryPacket>(result);
         Assert.Equal(1, tel.SequenceNumber);
         Assert.NotNull(tel.DigitalValue);
         Assert.Equal(170, tel.DigitalValue.Value); // 0b10101010 = 170
@@ -315,10 +315,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_TelemetryWithAnEmptyChannel_KeepsTheLaterChannelInPlace()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("T#005,,,42.5,7",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("T#005,,,42.5,7",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var tel = Assert.IsType<TelemetryPacket>(result);
+        TelemetryPacket tel = Assert.IsType<TelemetryPacket>(result);
         Assert.Equal(4, tel.AnalogValues.Count);
         Assert.Null(tel.AnalogValues[0]);
         Assert.Null(tel.AnalogValues[1]);
@@ -329,10 +329,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_TelemetryWithAMalformedChannel_ReportsItAsNotSent()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("T#006,1.5,not-a-number,3.5",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("T#006,1.5,not-a-number,3.5",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var tel = Assert.IsType<TelemetryPacket>(result);
+        TelemetryPacket tel = Assert.IsType<TelemetryPacket>(result);
         Assert.Equal(3, tel.AnalogValues.Count);
         Assert.Equal(1.5, tel.AnalogValues[0]);
         Assert.Null(tel.AnalogValues[1]);
@@ -342,10 +342,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_TelemetryPartial_ReturnsPartialData()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("T#042,12.5,3.7",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("T#042,12.5,3.7",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var tel = Assert.IsType<TelemetryPacket>(result);
+        TelemetryPacket tel = Assert.IsType<TelemetryPacket>(result);
         Assert.Equal(42, tel.SequenceNumber);
         Assert.Equal(2, tel.AnalogValues.Count);
         Assert.Equal(12.5, tel.AnalogValues[0]);
@@ -356,7 +356,7 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_TelemetryInvalid_ReturnsUnknown()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("T#abc,1.0",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("T#abc,1.0",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<UnknownPacket>(result);
@@ -371,10 +371,10 @@ public class AprsParserTests
     {
         // MIC-E packet with latitude encoded in destination
         // Destination: S3TRV0 encodes latitude
-        var result = AprsInfoFieldParser.ParseInfoField("`(_fn\"Oj/",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("`(_fn\"Oj/",
             new Callsign("N0CALL"), new Callsign("S3TRV0"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         // Latitude and longitude are value types, just verify they're reasonable
         Assert.InRange(pos.Location.Latitude, -90, 90);
         Assert.InRange(pos.Location.Longitude, -180, 180);
@@ -387,10 +387,10 @@ public class AprsParserTests
         // Field layout: ` + lon(3) + speed/course(3) + symbol(2).
         // Speed/course bytes: '"' (34) → sp=6, 0x1C (28) → dc=0, 'v' (118) → se=90
         // speedVal = 6*10 + 0/10 = 60 knots; course = (0%10)*100 + 90 = 90
-        var result = AprsInfoFieldParser.ParseInfoField("`(_f\"\u001Cv/>",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("`(_f\"\u001Cv/>",
             new Callsign("N0CALL"), new Callsign("S3TRV0"));
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(60, pos.Speed);
         Assert.Equal(90, pos.Course);
     }
@@ -399,7 +399,7 @@ public class AprsParserTests
     public void ParseInfoField_MicEWithAltGrave_ReturnsPositionPacket()
     {
         // MIC-E with grave accent (`) data type indicator
-        var result = AprsInfoFieldParser.ParseInfoField("`test12345/`comment",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("`test12345/`comment",
             new Callsign("TEST"), new Callsign("T2SRVW"));
 
         // Should parse as PositionPacket or UnknownPacket
@@ -410,7 +410,7 @@ public class AprsParserTests
     public void ParseInfoField_MicEWithApostrophe_ReturnsPositionPacket()
     {
         // MIC-E with apostrophe (') data type indicator (current MIC-E)
-        var result = AprsInfoFieldParser.ParseInfoField("'test12345/'comment",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("'test12345/'comment",
             new Callsign("TEST"), new Callsign("T2SRVW"));
 
         // Should parse as PositionPacket or UnknownPacket
@@ -420,7 +420,7 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MicETooShort_ReturnsUnknown()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("`short",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("`short",
             new Callsign("N0CALL"), new Callsign("S3TRV0"));
 
         Assert.IsType<UnknownPacket>(result);
@@ -433,10 +433,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_Message_ReturnsMessagePacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello there",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello there",
             new Callsign("MYCALL"), new Callsign("APZ001"));
 
-        var msg = Assert.IsType<MessagePacket>(result);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), msg.Addressee);
         Assert.Equal("Hello there", msg.Text);
         Assert.Null(msg.MessageNumber);
@@ -445,10 +445,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MessageWithNumber_ReturnsMessageWithNumber()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello{5}",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello{5}",
             new Callsign("MYCALL"), new Callsign("APZ001"));
 
-        var msg = Assert.IsType<MessagePacket>(result);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal("Hello", msg.Text);
         Assert.Equal(5, msg.MessageNumber);
     }
@@ -456,10 +456,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MessageShortAddressee_PadsCorrectly()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL:Hi",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL:Hi",
             new Callsign("MYCALL"), new Callsign("APZ001"));
 
-        var msg = Assert.IsType<MessagePacket>(result);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         // The addressee is trimmed from "N0CALL   " (9 chars)
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), msg.Addressee);
         Assert.Equal("Hi", msg.Text);
@@ -468,19 +468,19 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MessageWithSsid_PreservesAddresseeSsid()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL-1:Hello", new Callsign("MYCALL"), new Callsign("APZ001"));
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL-1:Hello", new Callsign("MYCALL"), new Callsign("APZ001"));
 
-        var message = Assert.IsType<MessagePacket>(result);
+        MessagePacket message = Assert.IsType<MessagePacket>(result);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL", 1)), message.Addressee);
     }
 
     [Fact]
     public void ParseInfoField_MessageAckWithBraces_ReturnsAckPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack{5}",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack{5}",
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
-        var ack = Assert.IsType<MessageAckPacket>(result);
+        MessageAckPacket ack = Assert.IsType<MessageAckPacket>(result);
         Assert.Equal(new Callsign("K0PEER"), ack.Source);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), ack.Addressee);
         Assert.Equal(5, ack.MessageNumber);
@@ -489,20 +489,20 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MessageAckBareNumber_ReturnsAckPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack42",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack42",
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
-        var ack = Assert.IsType<MessageAckPacket>(result);
+        MessageAckPacket ack = Assert.IsType<MessageAckPacket>(result);
         Assert.Equal(42, ack.MessageNumber);
     }
 
     [Fact]
     public void ParseInfoField_MessageAckNonNumeric_FallsBackToMessagePacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack{abc}",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :ack{abc}",
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
-        var msg = Assert.IsType<MessagePacket>(result);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal("ack{abc}", msg.Text);
         Assert.Null(msg.MessageNumber);
     }
@@ -510,10 +510,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MessageRejWithBraces_ReturnsRejPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :rej{7}",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :rej{7}",
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
-        var rej = Assert.IsType<MessageRejPacket>(result);
+        MessageRejPacket rej = Assert.IsType<MessageRejPacket>(result);
         Assert.Equal(new Callsign("K0PEER"), rej.Source);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("N0CALL")), rej.Addressee);
         Assert.Equal(7, rej.MessageNumber);
@@ -522,20 +522,20 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_MessageRejBareNumber_ReturnsRejPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :rej3",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :rej3",
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
-        var rej = Assert.IsType<MessageRejPacket>(result);
+        MessageRejPacket rej = Assert.IsType<MessageRejPacket>(result);
         Assert.Equal(3, rej.MessageNumber);
     }
 
     [Fact]
     public void ParseInfoField_MessageAckNonCallsignAddressee_FallsBackToAprs()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":INVALID! :ack{5}",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":INVALID! :ack{5}",
             new Callsign("K0PEER"), new Callsign("APZ001"));
 
-        var ack = Assert.IsType<MessageAckPacket>(result);
+        MessageAckPacket ack = Assert.IsType<MessageAckPacket>(result);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("APRS")), ack.Addressee);
         Assert.Equal(5, ack.MessageNumber);
     }
@@ -545,7 +545,7 @@ public class AprsParserTests
     [InlineData(":N0CALL   :Hello{")]
     public void ParseInfoField_MessageWithMalformedAck_DoesNotThrow(string info)
     {
-        var exception = Record.Exception(() => AprsInfoFieldParser.ParseInfoField(info, new Callsign("MYCALL"), new Callsign("APZ001")));
+        Exception? exception = Record.Exception(() => AprsInfoFieldParser.ParseInfoField(info, new Callsign("MYCALL"), new Callsign("APZ001")));
 
         Assert.Null(exception);
     }
@@ -557,7 +557,7 @@ public class AprsParserTests
     [InlineData("!0000.00N/18000.01W#")]
     public void ParseInfoField_PositionOutsideCoordinateBounds_ReturnsUnknown(string info)
     {
-        var result = AprsInfoFieldParser.ParseInfoField(info, new Callsign("N0CALL"), new Callsign("APZ001"));
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(info, new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<UnknownPacket>(result);
     }
@@ -569,20 +569,20 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_Status_ReturnsStatusPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(">Online via APRS",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(">Online via APRS",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var status = Assert.IsType<StatusPacket>(result);
+        StatusPacket status = Assert.IsType<StatusPacket>(result);
         Assert.Equal("Online via APRS", status.Text);
     }
 
     [Fact]
     public void ParseInfoField_StatusEmpty_ReturnsEmptyText()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(">",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(">",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var status = Assert.IsType<StatusPacket>(result);
+        StatusPacket status = Assert.IsType<StatusPacket>(result);
         Assert.Equal(string.Empty, status.Text);
     }
 
@@ -593,10 +593,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_Weather_ReturnsWeatherPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("_c100s020g030t080h55b10100",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("_c100s020g030t080h55b10100",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var w = Assert.IsType<WeatherPacket>(result);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(result);
         Assert.Equal(100, w.WindDirection);
         Assert.Equal(20, w.WindSpeed);
         Assert.Equal(30, w.WindGust);
@@ -608,10 +608,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_WeatherPartial_OnlyParsesPresentFields()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("_c090s015b10150",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("_c090s015b10150",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var w = Assert.IsType<WeatherPacket>(result);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(result);
         Assert.Equal(90, w.WindDirection);
         Assert.Equal(15, w.WindSpeed);
         Assert.Equal(1015, w.Pressure); // 10150 tenths of millibars = 1015.0
@@ -623,10 +623,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_WeatherEmpty_ReturnsEmptyWeather()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("_",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("_",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var w = Assert.IsType<WeatherPacket>(result);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(result);
         Assert.Null(w.WindDirection);
     }
 
@@ -637,10 +637,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_ItemLive_ReturnsItemPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(")ITEM123!4327.49N/00808.92WKTest",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(")ITEM123!4327.49N/00808.92WKTest",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var item = Assert.IsType<ItemPacket>(result);
+        ItemPacket item = Assert.IsType<ItemPacket>(result);
         Assert.Equal("ITEM123", item.Name);
         Assert.True(item.IsLive);
         Assert.Equal(43.45816667, item.Location.Latitude, 6);
@@ -653,10 +653,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_ItemKilled_ReturnsItemPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(")ITEM123_4327.49N/00808.92WK",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(")ITEM123_4327.49N/00808.92WK",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var item = Assert.IsType<ItemPacket>(result);
+        ItemPacket item = Assert.IsType<ItemPacket>(result);
         Assert.Equal("ITEM123", item.Name);
         Assert.False(item.IsLive);
         Assert.Equal(43.45816667, item.Location.Latitude, 6);
@@ -665,7 +665,7 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_ItemNameTooShort_ReturnsUnknownPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(")AB!4327.49N/00808.92WK",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(")AB!4327.49N/00808.92WK",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<UnknownPacket>(result);
@@ -678,30 +678,30 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_ThirdParty_ReturnsThirdPartyPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("}N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("}N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var thirdParty = Assert.IsType<ThirdPartyPacket>(result);
+        ThirdPartyPacket thirdParty = Assert.IsType<ThirdPartyPacket>(result);
         Assert.Equal("N0CALL>APRS,TCPIP*:!4327.49N/00808.92WK", thirdParty.Encapsulated);
     }
 
     [Fact]
     public void ParseInfoField_Query_ReturnsQueryPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("?APRS?",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("?APRS?",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var query = Assert.IsType<QueryPacket>(result);
+        QueryPacket query = Assert.IsType<QueryPacket>(result);
         Assert.Equal("APRS?", query.Query);
     }
 
     [Fact]
     public void ParseInfoField_RawGps_ReturnsRawGpsPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("$GPGGA,123519,4807.038,N,01131.000,E",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("$GPGGA,123519,4807.038,N,01131.000,E",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var rawGps = Assert.IsType<RawGpsPacket>(result);
+        RawGpsPacket rawGps = Assert.IsType<RawGpsPacket>(result);
         Assert.Equal("GPGGA,123519,4807.038,N,01131.000,E", rawGps.Sentence);
     }
 
@@ -712,10 +712,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_Bulletin_ReturnsBulletinPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":BLN0SPCL :Club meeting Friday",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":BLN0SPCL :Club meeting Friday",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var bulletin = Assert.IsType<BulletinPacket>(result);
+        BulletinPacket bulletin = Assert.IsType<BulletinPacket>(result);
         Assert.Equal("BLN0SPCL", bulletin.Name);
         Assert.Equal("Club meeting Friday", bulletin.Text);
         Assert.Null(bulletin.MessageNumber);
@@ -724,10 +724,10 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_BulletinWithNumber_ReturnsBulletinWithNumber()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":BLN0SPCL :Club meeting{7}",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":BLN0SPCL :Club meeting{7}",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
-        var bulletin = Assert.IsType<BulletinPacket>(result);
+        BulletinPacket bulletin = Assert.IsType<BulletinPacket>(result);
         Assert.Equal("BLN0SPCL", bulletin.Name);
         Assert.Equal("Club meeting", bulletin.Text);
         Assert.Equal(7, bulletin.MessageNumber);
@@ -736,7 +736,7 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_NonBulletinMessage_ReturnsMessagePacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(":N0CALL   :Hello",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<MessagePacket>(result);
@@ -749,7 +749,7 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_UnknownType_ReturnsUnknownPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField("#some weird data",
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField("#some weird data",
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<UnknownPacket>(result);
@@ -758,7 +758,7 @@ public class AprsParserTests
     [Fact]
     public void ParseInfoField_NullOrEmpty_ReturnsUnknownPacket()
     {
-        var result = AprsInfoFieldParser.ParseInfoField(string.Empty,
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(string.Empty,
             new Callsign("N0CALL"), new Callsign("APZ001"));
 
         Assert.IsType<UnknownPacket>(result);
@@ -771,10 +771,10 @@ public class AprsParserTests
     [Fact]
     public void ParseFrame_ValidAx25Position_ReturnsPositionPacket()
     {
-        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
-        var result = Ax25Parser.ParseFrame(frame);
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
         Assert.Equal(new Callsign("APZ001"), pos.Destination);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
@@ -784,10 +784,10 @@ public class AprsParserTests
     [Fact]
     public void ParseFrame_ValidAx25Message_ReturnsMessagePacket()
     {
-        var frame = BuildAx25Frame("APZ001", "N0CALL", ":OTHER    :Hello!");
-        var result = Ax25Parser.ParseFrame(frame);
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", ":OTHER    :Hello!");
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var msg = Assert.IsType<MessagePacket>(result);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal(new Callsign("N0CALL"), msg.Source);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("OTHER")), msg.Addressee);
         Assert.Equal("Hello!", msg.Text);
@@ -797,25 +797,25 @@ public class AprsParserTests
     public void ParseFrame_TrailingBytesInAddresses_DoesNotThrow()
     {
         // Simulate a frame with a digipeater address (3 addresses)
-        var frame = BuildAx25Frame("APZ001", "N0CALL", ["WIDE1-1"], "!3830.00N/00906.00E#");
-        var result = Ax25Parser.ParseFrame(frame);
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", ["WIDE1-1"], "!3830.00N/00906.00E#");
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
     }
 
     [Fact]
     public void ParseFrame_TooShort_ThrowsArgumentException()
     {
-        var ex = Assert.Throws<ArgumentException>(() => Ax25Parser.ParseFrame([0x01, 0x02]));
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => Ax25Parser.ParseFrame([0x01, 0x02]));
         Assert.Contains("too short", ex.Message);
     }
 
     [Fact]
     public void ParseFrame_EmptyInfo_ReturnsUnknownPacket()
     {
-        var frame = BuildAx25Frame("APZ001", "N0CALL", "");
-        var result = Ax25Parser.ParseFrame(frame);
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", "");
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
         Assert.IsType<UnknownPacket>(result);
     }
@@ -829,7 +829,7 @@ public class AprsParserTests
         // as control characters in the callsign base.
         byte[] address = [0x82, 0x84, 0x00, 0x00, 0x00, 0x00, 0x61];
 
-        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
         // Replace the source address (bytes 7..13) with the NUL-padded address
         frame[7] = address[0];
         frame[8] = address[1];
@@ -839,9 +839,9 @@ public class AprsParserTests
         frame[12] = address[5];
         frame[13] = address[6];
 
-        var result = Ax25Parser.ParseFrame(frame);
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("AB"), pos.Source);
         Assert.DoesNotContain('\0', pos.Source.Base);
     }
@@ -849,11 +849,11 @@ public class AprsParserTests
     [Fact]
     public void ParseFrame_SetsRawFrameHex_ToHexOfInputBytes()
     {
-        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
 
-        var result = Ax25Parser.ParseFrame(frame);
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(Convert.ToHexString(frame), pos.RawFrameHex);
     }
 
@@ -861,7 +861,7 @@ public class AprsParserTests
     public void ParseFrame_SetsRawPath_WithSourceDestAndDigipeaters()
     {
         // Use the real serializer so SSIDs in the path are faithfully encoded.
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = new Callsign("N0CALL"),
             Destination = new Callsign("APZ001"),
@@ -870,22 +870,22 @@ public class AprsParserTests
             Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
             Precision = 2
         };
-        var frame = Ax25Serializer.Serialize(packet);
+        byte[] frame = Ax25Serializer.Serialize(packet);
 
-        var result = Ax25Parser.ParseFrame(frame);
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal("N0CALL>APZ001,WIDE1-1,WIDE2-1", pos.RawPath);
     }
 
     [Fact]
     public void ParseFrame_SetsRawPath_WithoutDigipeaters_OmitsTrailingComma()
     {
-        var frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+        byte[] frame = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
 
-        var result = Ax25Parser.ParseFrame(frame);
+        AprsPacket result = Ax25Parser.ParseFrame(frame);
 
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal("N0CALL>APZ001", pos.RawPath);
     }
 
@@ -893,14 +893,11 @@ public class AprsParserTests
     // Helpers
     // ---------------------------------------------------------------
 
-    private static byte[] BuildAx25Frame(string destination, string source, string infoField)
-    {
-        return BuildAx25Frame(destination, source, [], infoField);
-    }
+    private static byte[] BuildAx25Frame(string destination, string source, string infoField) => BuildAx25Frame(destination, source, [], infoField);
 
     private static byte[] BuildAx25Frame(string destination, string source, string[] digipeaters, string infoField)
     {
-        var frames = new List<byte>();
+        List<byte> frames = [];
         bool hasDigipeaters = digipeaters.Length > 0;
 
         // Destination address — never last when source follows
@@ -932,7 +929,7 @@ public class AprsParserTests
 
     private static byte[] EncodeAddress(string callsign, byte ssidByte)
     {
-        var bytes = new byte[7];
+        byte[] bytes = new byte[7];
 
         // Parse callsign base and SSID
         string @base = callsign;

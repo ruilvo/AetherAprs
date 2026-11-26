@@ -18,10 +18,7 @@ public sealed class AprsUnitsTests
     }
 
     [Fact]
-    public void FeetToMeters_ReversesMetersToFeet()
-    {
-        Assert.Equal(1234.5, AprsUnits.FeetToMeters(AprsUnits.MetersToFeet(1234.5)), 9);
-    }
+    public void FeetToMeters_ReversesMetersToFeet() => Assert.Equal(1234.5, AprsUnits.FeetToMeters(AprsUnits.MetersToFeet(1234.5)), 9);
 
     [Fact]
     public void KnotsToMetersPerSecond_UsesOneNauticalMilePerHour()
@@ -56,9 +53,9 @@ public sealed class AprsUnitsTests
     [InlineData(30000)]
     public void CompressedAltitude_RoundTripsWithinOneEncodingStep(double feet)
     {
-        var (c1, s1) = AprsUnits.EncodeCompressedAltitude(feet);
+        (int c1, int s1) = AprsUnits.EncodeCompressedAltitude(feet);
 
-        var decoded = AprsUnits.DecodeCompressedAltitude(c1, s1);
+        double decoded = AprsUnits.DecodeCompressedAltitude(c1, s1);
 
         // Each step of the base-1.002 logarithm is 0.2 % of the altitude, so a
         // round trip may move by at most one step.
@@ -74,14 +71,14 @@ public sealed class AprsUnitsTests
     [InlineData(200)]
     public void CompressedSpeed_RoundTripsWithinOneEncodingStep(double knots)
     {
-        var s1 = AprsUnits.EncodeCompressedSpeed(knots);
+        int s1 = AprsUnits.EncodeCompressedSpeed(knots);
 
-        var decoded = AprsUnits.DecodeCompressedSpeed(s1);
+        double decoded = AprsUnits.DecodeCompressedSpeed(s1);
 
         // The step grows with the speed (8 % of value + 1 knot), so compare against
         // the neighbouring encodings instead of a fixed tolerance.
-        var lower = AprsUnits.DecodeCompressedSpeed(Math.Max(0, s1 - 1));
-        var upper = AprsUnits.DecodeCompressedSpeed(s1 + 1);
+        double lower = AprsUnits.DecodeCompressedSpeed(Math.Max(0, s1 - 1));
+        double upper = AprsUnits.DecodeCompressedSpeed(s1 + 1);
         Assert.InRange(decoded, lower, upper);
         Assert.InRange(decoded, knots - ((upper - lower) / 2), knots + ((upper - lower) / 2));
     }
@@ -89,14 +86,8 @@ public sealed class AprsUnitsTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void EncodeCompressedAltitude_ForANonPositiveAltitude_Throws(double feet)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => AprsUnits.EncodeCompressedAltitude(feet));
-    }
+    public void EncodeCompressedAltitude_ForANonPositiveAltitude_Throws(double feet) => Assert.Throws<ArgumentOutOfRangeException>(() => AprsUnits.EncodeCompressedAltitude(feet));
 
     [Fact]
-    public void EncodeCompressedSpeed_ForANegativeSpeed_Throws()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => AprsUnits.EncodeCompressedSpeed(-0.5));
-    }
+    public void EncodeCompressedSpeed_ForANegativeSpeed_Throws() => Assert.Throws<ArgumentOutOfRangeException>(() => AprsUnits.EncodeCompressedSpeed(-0.5));
 }

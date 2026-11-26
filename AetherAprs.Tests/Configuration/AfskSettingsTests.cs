@@ -13,7 +13,7 @@ public sealed class AfskSettingsTests
     [Fact]
     public void NewInstance_HasDocumentedDefaults()
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
 
         Assert.Equal(PttMode.None, settings.PttMode);
         Assert.Equal(AfskSettings.DefaultTxDelayMs, settings.TxDelayMs);
@@ -29,14 +29,14 @@ public sealed class AfskSettingsTests
     [InlineData(PttMode.SpeakerMic)]
     public void PttMode_ValidValues_AreAccepted(PttMode mode)
     {
-        var settings = new AfskSettings { PttMode = mode };
+        AfskSettings settings = new() { PttMode = mode };
         Assert.Equal(mode, settings.PttMode);
     }
 
     [Fact]
     public void PttMode_InvalidValue_Throws()
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.PttMode = (PttMode)99);
     }
 
@@ -45,7 +45,7 @@ public sealed class AfskSettingsTests
     [InlineData(int.MinValue)]
     public void TxDelayMs_Negative_Throws(int value)
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.TxDelayMs = value);
     }
 
@@ -54,7 +54,7 @@ public sealed class AfskSettingsTests
     [InlineData(300)]
     public void TxDelayMs_NonNegative_IsAccepted(int value)
     {
-        var settings = new AfskSettings { TxDelayMs = value };
+        AfskSettings settings = new() { TxDelayMs = value };
         Assert.Equal(value, settings.TxDelayMs);
     }
 
@@ -63,7 +63,7 @@ public sealed class AfskSettingsTests
     [InlineData(int.MinValue)]
     public void TxTailMs_Negative_Throws(int value)
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.TxTailMs = value);
     }
 
@@ -72,7 +72,7 @@ public sealed class AfskSettingsTests
     [InlineData(50)]
     public void TxTailMs_NonNegative_IsAccepted(int value)
     {
-        var settings = new AfskSettings { TxTailMs = value };
+        AfskSettings settings = new() { TxTailMs = value };
         Assert.Equal(value, settings.TxTailMs);
     }
 
@@ -81,7 +81,7 @@ public sealed class AfskSettingsTests
     [InlineData(int.MinValue)]
     public void SlotTimeMs_Negative_Throws(int value)
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.SlotTimeMs = value);
     }
 
@@ -90,7 +90,7 @@ public sealed class AfskSettingsTests
     [InlineData(100)]
     public void SlotTimeMs_NonNegative_IsAccepted(int value)
     {
-        var settings = new AfskSettings { SlotTimeMs = value };
+        AfskSettings settings = new() { SlotTimeMs = value };
         Assert.Equal(value, settings.SlotTimeMs);
     }
 
@@ -99,7 +99,7 @@ public sealed class AfskSettingsTests
     [InlineData(256)]
     public void Persist_OutsideByteRange_Throws(int value)
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.Persist = value);
     }
 
@@ -109,7 +109,7 @@ public sealed class AfskSettingsTests
     [InlineData(255)]
     public void Persist_WithinByteRange_IsAccepted(int value)
     {
-        var settings = new AfskSettings { Persist = value };
+        AfskSettings settings = new() { Persist = value };
         Assert.Equal(value, settings.Persist);
     }
 
@@ -119,7 +119,7 @@ public sealed class AfskSettingsTests
     [InlineData(1.5)]
     public void AudioLevel_OutsideOpenUnitInterval_Throws(double value)
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.AudioLevel = value);
     }
 
@@ -129,7 +129,7 @@ public sealed class AfskSettingsTests
     [InlineData(1.0)]
     public void AudioLevel_WithinOpenUnitInterval_IsAccepted(double value)
     {
-        var settings = new AfskSettings { AudioLevel = value };
+        AfskSettings settings = new() { AudioLevel = value };
         Assert.Equal(value, settings.AudioLevel);
     }
 
@@ -138,7 +138,7 @@ public sealed class AfskSettingsTests
     [InlineData(1.1)]
     public void SquelchThreshold_OutsideClosedUnitInterval_Throws(double value)
     {
-        var settings = new AfskSettings();
+        AfskSettings settings = new();
         Assert.Throws<ArgumentOutOfRangeException>(() => settings.SquelchThreshold = value);
     }
 
@@ -148,7 +148,7 @@ public sealed class AfskSettingsTests
     [InlineData(1.0)]
     public void SquelchThreshold_WithinClosedUnitInterval_IsAccepted(double value)
     {
-        var settings = new AfskSettings { SquelchThreshold = value };
+        AfskSettings settings = new() { SquelchThreshold = value };
         Assert.Equal(value, settings.SquelchThreshold);
     }
 }

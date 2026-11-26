@@ -55,7 +55,7 @@ public sealed class AndroidLogcatLoggerProvider : ILoggerProvider
             // the record. Callers still pass values as structured arguments, so
             // the same message is structured wherever a richer provider is
             // attached.
-            var message = $"{categoryName}: {formatter(state, exception)}";
+            string message = $"{categoryName}: {formatter(state, exception)}";
 
             switch (logLevel)
             {

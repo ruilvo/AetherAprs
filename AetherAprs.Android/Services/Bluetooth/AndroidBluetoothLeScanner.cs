@@ -4,7 +4,9 @@
 
 using AetherAprs.Services.Bluetooth;
 using Android.Bluetooth.LE;
+using Android.OS;
 using Android.Runtime;
+using Java.Util;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -29,34 +31,31 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
     {
         await EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
-        var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
+        global::Android.Bluetooth.BluetoothAdapter adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
 
         if (!adapter.IsEnabled)
         {
             throw new InvalidOperationException("Bluetooth is disabled.");
         }
 
-        var scanner = adapter.BluetoothLeScanner
+        BluetoothLeScanner scanner = adapter.BluetoothLeScanner
             ?? throw new InvalidOperationException("Bluetooth LE scanner is not available on this device.");
         // Filter by advertised service here rather than at the platform: a
         // ScanFilter would also hide devices that only reveal their GATT services
         // after connecting, which is how most KISS-over-BLE bridges appear.
-        var buffer = new BluetoothAdvertisementBuffer(
+        BluetoothAdvertisementBuffer buffer = new(
             filter: BluetoothLeServiceFilter.SupportedTransports);
 
-        var callback = new AdvertisementScanCallback(advertisement =>
-        {
-            buffer.Publish(advertisement);
-        },
+        AdvertisementScanCallback callback = new(advertisement => buffer.Publish(advertisement),
         error => buffer.Complete(new InvalidOperationException($"BLE scan failed: {error}")));
-        var settings = new ScanSettings.Builder()
+        ScanSettings? settings = new ScanSettings.Builder()
             .SetScanMode(ScanMode.LowLatency)!
             .Build();
 
         scanner.StartScan(filters: null, settings, callback);
         try
         {
-            await foreach (var advertisement in buffer.Reader.ReadAllAsync(cancellationToken)
+            await foreach (BluetoothLeAdvertisement? advertisement in buffer.Reader.ReadAllAsync(cancellationToken)
                                .ConfigureAwait(false))
             {
                 yield return advertisement;
@@ -82,10 +81,7 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
         Action<BluetoothLeAdvertisement> onAdvertisement,
         Action<ScanFailure> onScanFailed) : ScanCallback
     {
-        public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult? result)
-        {
-            Publish(result);
-        }
+        public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult? result) => Publish(result);
 
         public override void OnBatchScanResults(IList<ScanResult>? results)
         {
@@ -94,18 +90,16 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
                 return;
             }
 
-            foreach (var result in results)
+            foreach (ScanResult result in results)
             {
                 Publish(result);
             }
         }
 
-        public override void OnScanFailed([GeneratedEnum] ScanFailure errorCode)
-        {
+        public override void OnScanFailed([GeneratedEnum] ScanFailure errorCode) =>
             // Complete the channel with an error so callers observe the failure
             // instead of a scan that "succeeds" with zero results.
             onScanFailed(errorCode);
-        }
 
         private void Publish(ScanResult? result)
         {
@@ -114,27 +108,27 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
                 return;
             }
 
-            var serviceUuids = new List<Guid>();
-            var parcelUuids = result.ScanRecord?.ServiceUuids;
+            List<Guid> serviceUuids = [];
+            IList<ParcelUuid>? parcelUuids = result.ScanRecord?.ServiceUuids;
             if (parcelUuids is not null)
             {
-                foreach (var parcelUuid in parcelUuids)
+                foreach (ParcelUuid parcelUuid in parcelUuids)
                 {
-                    var uuid = parcelUuid?.Uuid;
+                    UUID? uuid = parcelUuid?.Uuid;
                     if (uuid is null)
                     {
                         continue;
                     }
 
-                    if (Guid.TryParse(uuid.ToString(), out var guid))
+                    if (Guid.TryParse(uuid.ToString(), out Guid guid))
                     {
                         serviceUuids.Add(guid);
                     }
                 }
             }
 
-            var name = result.ScanRecord?.DeviceName ?? result.Device.Name;
-            var rssi = result.Rssi;
+            string? name = result.ScanRecord?.DeviceName ?? result.Device.Name;
+            int rssi = result.Rssi;
             onAdvertisement(new BluetoothLeAdvertisement(address, name, rssi, serviceUuids));
         }
     }

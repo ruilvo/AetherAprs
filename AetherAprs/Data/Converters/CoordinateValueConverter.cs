@@ -27,10 +27,10 @@ public sealed class CoordinateValueConverter : ValueConverter<Coordinate, string
         // Defensive parse: one malformed Location string in the database must not
         // kill every position query during materialization (M6). Falls back to a
         // (0,0) coordinate, which will simply render at the equator if ever shown.
-        var parts = value.Split(',');
+        string[] parts = value.Split(',');
         if (parts.Length == 2
-            && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude)
-            && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude))
+            && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double latitude)
+            && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double longitude))
         {
             return new Coordinate(latitude, longitude);
         }

@@ -17,7 +17,7 @@ public class KissSerializerTests
     [Fact]
     public void EscapeData_Empty_ReturnsEmpty()
     {
-        var result = KissSerializer.EscapeData([]);
+        byte[] result = KissSerializer.EscapeData([]);
 
         Assert.Empty(result);
     }
@@ -27,7 +27,7 @@ public class KissSerializerTests
     {
         byte[] data = [0x01, 0x02, 0x03, 0xAA, 0xBB];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal(data, result);
     }
@@ -37,7 +37,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xC0];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal([0xDB, 0xDC], result);
     }
@@ -47,7 +47,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal([0xDB, 0xDD], result);
     }
@@ -57,7 +57,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xC0, 0xC0, 0xC0];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal([0xDB, 0xDC, 0xDB, 0xDC, 0xDB, 0xDC], result);
     }
@@ -67,7 +67,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB, 0xDB];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal([0xDB, 0xDD, 0xDB, 0xDD], result);
     }
@@ -77,7 +77,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xC0, 0x01, 0xDB, 0x02, 0xC0];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal([0xDB, 0xDC, 0x01, 0xDB, 0xDD, 0x02, 0xDB, 0xDC], result);
     }
@@ -87,7 +87,7 @@ public class KissSerializerTests
     {
         byte[] data = [0x00, 0x01, 0x7F, 0x80, 0xFE, 0xFF];
 
-        var result = KissSerializer.EscapeData(data);
+        byte[] result = KissSerializer.EscapeData(data);
 
         Assert.Equal(data, result);
     }
@@ -99,7 +99,7 @@ public class KissSerializerTests
     [Fact]
     public void UnescapeData_Empty_ReturnsEmpty()
     {
-        var result = KissSerializer.UnescapeData([]);
+        byte[] result = KissSerializer.UnescapeData([]);
 
         Assert.Empty(result);
     }
@@ -109,7 +109,7 @@ public class KissSerializerTests
     {
         byte[] data = [0x01, 0x02, 0x03, 0xAA];
 
-        var result = KissSerializer.UnescapeData(data);
+        byte[] result = KissSerializer.UnescapeData(data);
 
         Assert.Equal(data, result);
     }
@@ -119,7 +119,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB, 0xDC];
 
-        var result = KissSerializer.UnescapeData(data);
+        byte[] result = KissSerializer.UnescapeData(data);
 
         Assert.Equal([0xC0], result);
     }
@@ -129,7 +129,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB, 0xDD];
 
-        var result = KissSerializer.UnescapeData(data);
+        byte[] result = KissSerializer.UnescapeData(data);
 
         Assert.Equal([0xDB], result);
     }
@@ -139,7 +139,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB, 0xDC, 0xDB, 0xDD, 0xDB, 0xDC];
 
-        var result = KissSerializer.UnescapeData(data);
+        byte[] result = KissSerializer.UnescapeData(data);
 
         Assert.Equal([0xC0, 0xDB, 0xC0], result);
     }
@@ -149,7 +149,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB];
 
-        var exception = Assert.Throws<ArgumentException>(() => KissSerializer.UnescapeData(data));
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => KissSerializer.UnescapeData(data));
 
         Assert.Contains("Incomplete escape sequence", exception.Message);
     }
@@ -159,7 +159,7 @@ public class KissSerializerTests
     {
         byte[] data = [0xDB, 0x42];
 
-        var exception = Assert.Throws<ArgumentException>(() => KissSerializer.UnescapeData(data));
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => KissSerializer.UnescapeData(data));
 
         Assert.Contains("Invalid escape sequence", exception.Message);
         Assert.Contains("0x42", exception.Message);
@@ -174,8 +174,8 @@ public class KissSerializerTests
     {
         byte[] original = [0xC0, 0x01, 0xDB, 0x02, 0xC0, 0x03, 0xDB];
 
-        var escaped = KissSerializer.EscapeData(original);
-        var unescaped = KissSerializer.UnescapeData(escaped);
+        byte[] escaped = KissSerializer.EscapeData(original);
+        byte[] unescaped = KissSerializer.UnescapeData(escaped);
 
         Assert.Equal(original, unescaped);
     }
@@ -183,8 +183,8 @@ public class KissSerializerTests
     [Fact]
     public void EscapeThenUnescape_Empty_RoundTrips()
     {
-        var escaped = KissSerializer.EscapeData([]);
-        var unescaped = KissSerializer.UnescapeData(escaped);
+        byte[] escaped = KissSerializer.EscapeData([]);
+        byte[] unescaped = KissSerializer.UnescapeData(escaped);
 
         Assert.Empty(unescaped);
     }
@@ -194,8 +194,8 @@ public class KissSerializerTests
     {
         byte[] original = [0x01, 0x02, 0x03, 0xFF];
 
-        var escaped = KissSerializer.EscapeData(original);
-        var unescaped = KissSerializer.UnescapeData(escaped);
+        byte[] escaped = KissSerializer.EscapeData(original);
+        byte[] unescaped = KissSerializer.UnescapeData(escaped);
 
         Assert.Equal(original, unescaped);
     }
@@ -207,9 +207,9 @@ public class KissSerializerTests
     [Fact]
     public void EncodeFrame_DataFrameWithEmptyPayload_ProducesMinimalFrame()
     {
-        var frame = new KissFrame(0x00, []);
+        KissFrame frame = new(0x00, []);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         // FEND + command + FEND
         Assert.Equal(3, result.Length);
@@ -221,9 +221,9 @@ public class KissSerializerTests
     [Fact]
     public void EncodeFrame_DataFrameWithPayload_IncludesCommandAndEscapedData()
     {
-        var frame = new KissFrame(0x00, [0x01, 0x02, 0x03]);
+        KissFrame frame = new(0x00, [0x01, 0x02, 0x03]);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         // FEND + cmd + 3 data + FEND = 6
         Assert.Equal(6, result.Length);
@@ -238,9 +238,9 @@ public class KissSerializerTests
     [Fact]
     public void EncodeFrame_PayloadWithFEND_IsEscapedInFrame()
     {
-        var frame = new KissFrame(0x00, [0xC0]);
+        KissFrame frame = new(0x00, [0xC0]);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         // FEND + cmd + FESC(0xDB) + TFEND(0xDC) + FEND = 5
         Assert.Equal(5, result.Length);
@@ -254,9 +254,9 @@ public class KissSerializerTests
     [Fact]
     public void EncodeFrame_PayloadWithFESC_IsEscapedInFrame()
     {
-        var frame = new KissFrame(0x00, [0xDB]);
+        KissFrame frame = new(0x00, [0xDB]);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         // FEND + cmd + FESC(0xDB) + TFESC(0xDD) + FEND = 5
         Assert.Equal(5, result.Length);
@@ -270,9 +270,9 @@ public class KissSerializerTests
     [Fact]
     public void EncodeFrame_CommandByte_IsPreserved()
     {
-        var frame = new KissFrame(0x42, [0x01]);
+        KissFrame frame = new(0x42, [0x01]);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         Assert.Equal(0x42, result[1]);
     }
@@ -280,9 +280,9 @@ public class KissSerializerTests
     [Fact]
     public void EncodeFrame_TXDelayCommand_ProducesCorrectFrame()
     {
-        var frame = new KissFrame((byte)KissCommandType.TXDelay, [0x05]);
+        KissFrame frame = new((byte)KissCommandType.TXDelay, [0x05]);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         Assert.Equal(0xC0, result[0]);
         Assert.Equal(0x01, result[1]); // TXDelay = 0x01
@@ -294,9 +294,9 @@ public class KissSerializerTests
     public void EncodeFrame_PortNumberInUpperBits_IsPreserved()
     {
         // Port 3 (0x30) | DataFrame (0x00) = 0x30
-        var frame = new KissFrame(0x30, [0x01]);
+        KissFrame frame = new(0x30, [0x01]);
 
-        var result = KissSerializer.EncodeFrame(frame);
+        byte[] result = KissSerializer.EncodeFrame(frame);
 
         Assert.Equal(0x30, result[1]);
     }
@@ -308,7 +308,7 @@ public class KissSerializerTests
     [Fact]
     public void DecodeFrame_EmptyData_ThrowsArgumentException()
     {
-        var exception = Assert.Throws<ArgumentException>(() => KissSerializer.DecodeFrame([]));
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => KissSerializer.DecodeFrame([]));
 
         Assert.Contains("empty", exception.Message.ToLowerInvariant());
     }
@@ -316,7 +316,7 @@ public class KissSerializerTests
     [Fact]
     public void DecodeFrame_SingleByte_ReturnsFrameWithEmptyData()
     {
-        var frame = KissSerializer.DecodeFrame([0x00]);
+        KissFrame frame = KissSerializer.DecodeFrame([0x00]);
 
         Assert.Equal(0x00, frame.Command);
         Assert.Empty(frame.Data);
@@ -325,7 +325,7 @@ public class KissSerializerTests
     [Fact]
     public void DecodeFrame_CommandByte_IsFirstByte()
     {
-        var frame = KissSerializer.DecodeFrame([0x42, 0x01, 0x02]);
+        KissFrame frame = KissSerializer.DecodeFrame([0x42, 0x01, 0x02]);
 
         Assert.Equal(0x42, frame.Command);
     }
@@ -333,7 +333,7 @@ public class KissSerializerTests
     [Fact]
     public void DecodeFrame_DataBytes_ArePreserved()
     {
-        var frame = KissSerializer.DecodeFrame([0x00, 0x01, 0x02, 0x03]);
+        KissFrame frame = KissSerializer.DecodeFrame([0x00, 0x01, 0x02, 0x03]);
 
         Assert.Equal([0x01, 0x02, 0x03], frame.Data);
     }
@@ -342,7 +342,7 @@ public class KissSerializerTests
     public void DecodeFrame_ReturnCommand_SetsCommandType()
     {
         // Return (0xFF) & 0x0F = 0x0F = KissCommandType.Return
-        var frame = KissSerializer.DecodeFrame([0xFF]);
+        KissFrame frame = KissSerializer.DecodeFrame([0xFF]);
 
         Assert.Equal(KissCommandType.Return, frame.CommandType);
     }
@@ -351,7 +351,7 @@ public class KissSerializerTests
     public void DecodeFrame_DataFrameWithUpperBits_SetsPort()
     {
         // Port 7 (0x70) | DataFrame (0x00) = 0x70
-        var frame = KissSerializer.DecodeFrame([0x70]);
+        KissFrame frame = KissSerializer.DecodeFrame([0x70]);
 
         Assert.Equal(KissCommandType.DataFrame, frame.CommandType);
         Assert.Equal(7, frame.Port);

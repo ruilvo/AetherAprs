@@ -27,9 +27,9 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_Disabled_ReturnsEmpty()
     {
-        var service = CreateService(enableDigipeater: false);
+        DigipeaterService service = CreateService(enableDigipeater: false);
 
-        var targets = service.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(
             CreatePositionPacket(),
             SourcePortId,
             sourcePortIsAprsIs: true,
@@ -41,9 +41,9 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_OwnStationPacket_ReturnsEmpty()
     {
-        var service = CreateService(callsignBase: "N0CALL");
+        DigipeaterService service = CreateService(callsignBase: "N0CALL");
 
-        var targets = service.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(
             CreatePositionPacket(source: "N0CALL"),
             SourcePortId,
             sourcePortIsAprsIs: true,
@@ -55,9 +55,9 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_TelemetryPacket_IsNotDigipeated()
     {
-        var service = CreateService();
+        DigipeaterService service = CreateService();
 
-        var packet = new TelemetryPacket
+        TelemetryPacket packet = new()
         {
             Source = new Callsign("N5TEL"),
             Destination = new Callsign("APRS"),
@@ -66,7 +66,7 @@ public sealed class DigipeaterServiceTests
             SequenceNumber = 5
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.Empty(targets);
     }
@@ -74,9 +74,9 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_CapabilitiesPacket_IsNotDigipeated()
     {
-        var service = CreateService();
+        DigipeaterService service = CreateService();
 
-        var packet = new CapabilitiesPacket
+        CapabilitiesPacket packet = new()
         {
             Source = new Callsign("N5CAP"),
             Destination = new Callsign("APRS"),
@@ -85,7 +85,7 @@ public sealed class DigipeaterServiceTests
             Text = "STATIONCAPABILITIES"
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.Empty(targets);
     }
@@ -93,11 +93,11 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_DuplicateWithinRetentionWindow_IsSuppressed()
     {
-        var service = CreateService();
-        var packet = CreatePositionPacket();
+        DigipeaterService service = CreateService();
+        PositionPacket packet = CreatePositionPacket();
 
-        var first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
-        var second = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        IReadOnlyList<DigipeatTarget> first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        IReadOnlyList<DigipeatTarget> second = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.NotEmpty(first);
         Assert.Empty(second);
@@ -106,14 +106,14 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_SamePacketOnDifferentPort_IsSuppressed()
     {
-        var service = CreateService();
-        var packet = CreatePositionPacket();
+        DigipeaterService service = CreateService();
+        PositionPacket packet = CreatePositionPacket();
 
         // Heard first on one RF port, then the identical packet arrives on a second
         // port. The shared heard table (source+dest+info hash) must suppress the
         // second digipeat so the packet is forwarded once, not once per port.
-        var first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
-        var second = service.GetDigipeatTargets(packet, RfPortId, sourcePortIsAprsIs: true, CreatePorts());
+        IReadOnlyList<DigipeatTarget> first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        IReadOnlyList<DigipeatTarget> second = service.GetDigipeatTargets(packet, RfPortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.NotEmpty(first);
         Assert.Empty(second);
@@ -122,15 +122,15 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_SamePacketDifferentInfo_IsNotSuppressed()
     {
-        var service = CreateService();
-        var first = CreatePositionPacket();
+        DigipeaterService service = CreateService();
+        PositionPacket first = CreatePositionPacket();
 
         _ = service.GetDigipeatTargets(first, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         // Same source and destination but different info field: must not be treated
         // as a duplicate by the source+dest+info hash.
-        var second = CreatePositionPacket() with { Raw = "!4903.50N/07202.75W-Different comment" };
-        var targets = service.GetDigipeatTargets(second, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        PositionPacket second = CreatePositionPacket() with { Raw = "!4903.50N/07202.75W-Different comment" };
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(second, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.NotEmpty(targets);
     }
@@ -138,13 +138,13 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_DifferentPacketFromSameSource_IsNotSuppressed()
     {
-        var service = CreateService();
-        var first = CreatePositionPacket();
+        DigipeaterService service = CreateService();
+        PositionPacket first = CreatePositionPacket();
 
         _ = service.GetDigipeatTargets(first, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
-        var second = CreatePositionPacket() with { Raw = "!4903.50N/07202.75W-Other comment" };
-        var targets = service.GetDigipeatTargets(second, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        PositionPacket second = CreatePositionPacket() with { Raw = "!4903.50N/07202.75W-Other comment" };
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(second, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.NotEmpty(targets);
     }
@@ -152,9 +152,9 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_AprsIsToRfGateDisabled_ReturnsEmpty()
     {
-        var service = CreateService(enableAprsIsToRfGate: false);
+        DigipeaterService service = CreateService(enableAprsIsToRfGate: false);
 
-        var targets = service.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(
             CreatePositionPacket(),
             SourcePortId,
             sourcePortIsAprsIs: true,
@@ -166,37 +166,37 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToAprsIs_ForwardsOriginalPacket()
     {
-        var service = CreateService(callsignBase: "MYCALL", ssid: 9);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", ssid: 9);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("WIDE2", 2)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var isTarget = Assert.Single(targets, t => t.PortId == AprsIsPortId);
+        DigipeatTarget isTarget = Assert.Single(targets, t => t.PortId == AprsIsPortId);
         // RF→IS forwards the packet unchanged; APRS-IS handles distribution.
-        Assert.Single(isTarget.Packet.Path);
-        Assert.Equal("WIDE2", isTarget.Packet.Path[0].Base);
+        Callsign item = Assert.Single(isTarget.Packet.Path);
+        Assert.Equal("WIDE2", item.Base);
         Assert.Equal(2, isTarget.Packet.Path[0].Ssid);
     }
 
     [Fact]
     public void GetDigipeatTargets_RfToRf_ForwardsWhenHopRemains()
     {
-        var service = CreateService(callsignBase: "MYCALL", ssid: 9);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", ssid: 9);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("WIDE2", 2)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal(2, rfTarget.Packet.Path.Count);
         Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
         Assert.Equal("WIDE2", rfTarget.Packet.Path[1].Base);
@@ -206,15 +206,15 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_Wide1NotResponded_NotForwardedOnRf()
     {
-        var service = CreateService(callsignBase: "MYCALL", respondToWide1: false, respondToWide2: true);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", respondToWide1: false, respondToWide2: true);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("WIDE1", 1)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
         Assert.DoesNotContain(targets, t => t.PortId == RfPortId);
     }
@@ -222,17 +222,17 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_Wide1Responded_ForwardsWithDecrement()
     {
-        var service = CreateService(callsignBase: "MYCALL", respondToWide1: true, respondToWide2: false);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", respondToWide1: true, respondToWide2: false);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("WIDE1", 1)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
         Assert.Equal("WIDE1", rfTarget.Packet.Path[1].Base);
         Assert.Equal(0, rfTarget.Packet.Path[1].Ssid);
@@ -241,15 +241,15 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_TraceNotResponded_NotForwardedOnRf()
     {
-        var service = CreateService(callsignBase: "MYCALL", respondToTrace: false);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", respondToTrace: false);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("TRACE", 3)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
         Assert.DoesNotContain(targets, t => t.PortId == RfPortId);
     }
@@ -257,17 +257,17 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_TraceResponded_ForwardsWithDecrement()
     {
-        var service = CreateService(callsignBase: "MYCALL", respondToTrace: true);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", respondToTrace: true);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("TRACE", 3)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
         Assert.Equal("TRACE", rfTarget.Packet.Path[1].Base);
         Assert.Equal(2, rfTarget.Packet.Path[1].Ssid);
@@ -276,11 +276,11 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_AlreadyRepeatedHop_IsSkipped()
     {
-        var service = CreateService(callsignBase: "MYCALL", ssid: 9, respondToWide2: true);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", ssid: 9, respondToWide2: true);
 
         // WIDE1-1 already marked "has been repeated" by an upstream digipeater, so
         // this station must skip it and service the next unserviced WIDE2-2 hop.
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path =
@@ -290,9 +290,9 @@ public sealed class DigipeaterServiceTests
             ]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal(3, rfTarget.Packet.Path.Count);
         Assert.Equal("WIDE1", rfTarget.Packet.Path[0].Base);
         Assert.True(rfTarget.Packet.Path[0].HasBeenRepeated);
@@ -304,44 +304,44 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_InsertCallsignDisabled_OmitsOwnCallsign()
     {
-        var service = CreateService(
+        DigipeaterService service = CreateService(
             callsignBase: "MYCALL",
             ssid: 9,
             respondToWide2: true,
             digipeaterInsertCallsign: false);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("WIDE2", 2)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
-        Assert.Single(rfTarget.Packet.Path);
-        Assert.Equal("WIDE2", rfTarget.Packet.Path[0].Base);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        Callsign item = Assert.Single(rfTarget.Packet.Path);
+        Assert.Equal("WIDE2", item.Base);
         Assert.Equal(1, rfTarget.Packet.Path[0].Ssid);
     }
 
     [Fact]
     public void GetDigipeatTargets_RfToRf_TraceAlwaysInsertsCallsign()
     {
-        var service = CreateService(
+        DigipeaterService service = CreateService(
             callsignBase: "MYCALL",
             ssid: 9,
             respondToTrace: true,
             digipeaterInsertCallsign: false);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("TRACE", 3)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal(2, rfTarget.Packet.Path.Count);
         Assert.Equal("MYCALL", rfTarget.Packet.Path[0].Base);
         Assert.Equal("TRACE", rfTarget.Packet.Path[1].Base);
@@ -351,17 +351,17 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_RfToRf_ServicedHopIsMarkedRepeated()
     {
-        var service = CreateService(callsignBase: "MYCALL", ssid: 9, respondToWide2: true);
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", ssid: 9, respondToWide2: true);
 
-        var packet = CreatePositionPacket() with
+        PositionPacket packet = CreatePositionPacket() with
         {
             Source = new Callsign("N5RF"),
             Path = [new Callsign("WIDE2", 2)]
         };
 
-        var targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts());
 
-        var rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
+        DigipeatTarget rfTarget = Assert.Single(targets, t => t.PortId == RfPortId);
         Assert.Equal(2, rfTarget.Packet.Path.Count);
 
         // Our inserted callsign and the decremented hop are both marked as repeated.
@@ -375,13 +375,13 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_PortWithoutTx_IsSkipped()
     {
-        var service = CreateService();
-        var ports = new List<PortInfo>
-        {
+        DigipeaterService service = CreateService();
+        List<PortInfo> ports =
+        [
             new(RfPortId, IsAprsIs: false, IsTxEnabled: false, AllowDigipeat: true)
-        };
+        ];
 
-        var targets = service.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(
             CreatePositionPacket(),
             SourcePortId,
             sourcePortIsAprsIs: true,
@@ -393,13 +393,13 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_PortWithoutAllowDigipeat_IsSkipped()
     {
-        var service = CreateService();
-        var ports = new List<PortInfo>
-        {
+        DigipeaterService service = CreateService();
+        List<PortInfo> ports =
+        [
             new(RfPortId, IsAprsIs: false, IsTxEnabled: true, AllowDigipeat: false)
-        };
+        ];
 
-        var targets = service.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(
             CreatePositionPacket(),
             SourcePortId,
             sourcePortIsAprsIs: true,
@@ -411,13 +411,13 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_SourcePort_IsExcluded()
     {
-        var service = CreateService();
-        var ports = new List<PortInfo>
-        {
+        DigipeaterService service = CreateService();
+        List<PortInfo> ports =
+        [
             new(SourcePortId, IsAprsIs: false, IsTxEnabled: true, AllowDigipeat: true)
-        };
+        ];
 
-        var targets = service.GetDigipeatTargets(
+        IReadOnlyList<DigipeatTarget> targets = service.GetDigipeatTargets(
             CreatePositionPacket(),
             SourcePortId,
             sourcePortIsAprsIs: false,
@@ -450,7 +450,7 @@ public sealed class DigipeaterServiceTests
         bool respondToTrace = false,
         bool digipeaterInsertCallsign = true)
     {
-        var settings = new AppSettings
+        AppSettings settings = new()
         {
             Aprs = new AprsSettings
             {
@@ -471,18 +471,14 @@ public sealed class DigipeaterServiceTests
             NullLogger<DigipeaterService>.Instance);
     }
 
-    private sealed class TestConfigurationService : IConfigurationService
+    private sealed class TestConfigurationService(AppSettings settings) : IConfigurationService
     {
-        public TestConfigurationService(AppSettings settings)
-        {
-            Current = settings;
-        }
 
 #pragma warning disable CS0067 // Event is never used in this test double
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
 
-        public AppSettings Current { get; private set; }
+        public AppSettings Current { get; private set; } = settings;
 
         public Task<AppSettings> UpdateAsync(
             Func<AppSettings, AppSettings> update,

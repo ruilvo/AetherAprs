@@ -24,11 +24,11 @@ public sealed class DynamicBeaconingViewModelTests
     [Fact]
     public async Task Constructor_LoadsActiveModeFromService()
     {
-        var beacon = new RecordingBeaconService();
+        RecordingBeaconService beacon = new();
         await beacon.SetActiveModeAsync(DynamicBeaconMode.Drive, TestContext.Current.CancellationToken);
-        var navigation = Substitute.For<INavigationService>();
+        INavigationService navigation = Substitute.For<INavigationService>();
 
-        var vm = new DynamicBeaconingViewModel(beacon, navigation);
+        DynamicBeaconingViewModel vm = new(beacon, navigation);
 
         Assert.Equal(DynamicBeaconMode.Drive, vm.ActiveMode);
     }
@@ -36,9 +36,9 @@ public sealed class DynamicBeaconingViewModelTests
     [Fact]
     public async Task Close_PersistsAllModeConfigurations_ThenNavigatesBack()
     {
-        var beacon = new RecordingBeaconService();
-        var navigation = Substitute.For<INavigationService>();
-        var vm = new DynamicBeaconingViewModel(beacon, navigation);
+        RecordingBeaconService beacon = new();
+        INavigationService navigation = Substitute.For<INavigationService>();
+        DynamicBeaconingViewModel vm = new(beacon, navigation);
 
         vm.WalkConfiguration!.SlowIntervalSeconds = 1234;
         vm.DriveConfiguration!.FastIntervalSeconds = 42;

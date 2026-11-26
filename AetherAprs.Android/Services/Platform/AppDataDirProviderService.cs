@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Linq;
+using Java.IO;
 
 namespace AetherAprs.Android.Services.Platform;
 
@@ -23,7 +24,7 @@ public class AppDataDirProviderService : AetherAprs.Services.Platform.IAppDataDi
         // files, or migrate to getExternalFilesDir() as the primary location if media directory access
         // is not strictly required. This requires analyzing app requirements for file accessibility.
 #pragma warning disable CA1422
-        var mediaDir = global::Android.App.Application.Context.GetExternalMediaDirs()?.FirstOrDefault();
+        File? mediaDir = global::Android.App.Application.Context.GetExternalMediaDirs()?.FirstOrDefault();
 #pragma warning restore CA1422
         if (mediaDir != null)
         {
@@ -31,7 +32,7 @@ public class AppDataDirProviderService : AetherAprs.Services.Platform.IAppDataDi
         }
 
         // Fallback to external files directory
-        var externalFilesDir = global::Android.App.Application.Context.GetExternalFilesDir(null);
+        File? externalFilesDir = global::Android.App.Application.Context.GetExternalFilesDir(null);
         if (externalFilesDir != null)
         {
             return externalFilesDir.AbsolutePath;
@@ -49,14 +50,13 @@ public class AppDataDirProviderService : AetherAprs.Services.Platform.IAppDataDi
     }
 
     /// <inheritdoc/>
-    public string GetPrivateAppDataDirectory()
-    {
+    public string GetPrivateAppDataDirectory() =>
         // Internal app-only storage (/data/data/package/files): not readable by
         // the user or other apps, so the database (APRS-IS passcodes) lives here.
         // SUPPRESSED WARNING CS8602: FilesDir is documented to never return null
         // in normal app lifecycle; null would indicate a critical system failure.
 #pragma warning disable CS8602
-        return global::Android.App.Application.Context.FilesDir.AbsolutePath;
+        global::Android.App.Application.Context.FilesDir.AbsolutePath;
 #pragma warning restore CS8602
-    }
+
 }

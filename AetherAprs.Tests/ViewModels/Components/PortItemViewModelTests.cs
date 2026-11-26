@@ -14,37 +14,34 @@ namespace AetherAprs.Tests.ViewModels.Components;
 public sealed class PortItemViewModelTests : TestFixtureBase
 {
     [Fact]
-    public void Constructor_NullConfig_Throws()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            new PortItemViewModel(null!, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => { }, logger: null));
-    }
+    public void Constructor_NullConfig_Throws() => Assert.Throws<ArgumentNullException>(() =>
+                                                            new PortItemViewModel(null!, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => Task.CompletedTask, _ => { }, logger: null));
 
     [Fact]
     public void TypeName_MapsAprsIs()
     {
-        var vm = Create(new PortConfig { Name = "Port", TypeSettings = new AprsIsSettings() });
+        PortItemViewModel vm = Create(new PortConfig { Name = "Port", TypeSettings = new AprsIsSettings() });
         Assert.Equal("APRS-IS", vm.TypeName);
     }
 
     [Fact]
     public void TypeName_MapsKiss()
     {
-        var vm = Create(new PortConfig { Name = "Port", TypeSettings = new KissSettings() });
+        PortItemViewModel vm = Create(new PortConfig { Name = "Port", TypeSettings = new KissSettings() });
         Assert.Equal("KISS", vm.TypeName);
     }
 
     [Fact]
     public void TypeName_UnknownWhenNull()
     {
-        var vm = Create(new PortConfig { Name = "Port", TypeSettings = null });
+        PortItemViewModel vm = Create(new PortConfig { Name = "Port", TypeSettings = null });
         Assert.Equal("Unknown", vm.TypeName);
     }
 
     [Fact]
     public void StatusText_TracksIsEnabled()
     {
-        var vm = Create(new PortConfig { Name = "Port", IsEnabled = false });
+        PortItemViewModel vm = Create(new PortConfig { Name = "Port", IsEnabled = false });
 
         Assert.Equal(Localization.Strings.Get("Stopped"), vm.StatusText);
 
@@ -58,20 +55,21 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     {
         PortItemViewModel? toggled = null;
         PortItemViewModel? mapToggled = null;
-        var toggledTcs = new TaskCompletionSource<PortItemViewModel>();
-        var mapToggledTcs = new TaskCompletionSource<PortItemViewModel>();
-        var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
+        TaskCompletionSource<PortItemViewModel> toggledTcs = new();
+        TaskCompletionSource<PortItemViewModel> mapToggledTcs = new();
+        PortConfig config = new() { Name = "Port", IsEnabled = false, ShowOnMap = false };
 
-        var vm = new PortItemViewModel(
+        PortItemViewModel vm = new(
             config,
             item => { toggled = item; toggledTcs.SetResult(item); return Task.CompletedTask; },
             item => { mapToggled = item; mapToggledTcs.SetResult(item); return Task.CompletedTask; },
             _ => Task.CompletedTask,
             _ => { },
-            logger: null);
-
-        vm.IsEnabled = true;
-        vm.ShowOnMap = true;
+            logger: null)
+        {
+            IsEnabled = true,
+            ShowOnMap = true
+        };
 
         await toggledTcs.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         await mapToggledTcs.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
@@ -85,7 +83,7 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     {
         PortItemViewModel? deleted = null;
         PortItemViewModel? edited = null;
-        var vm = new PortItemViewModel(
+        PortItemViewModel vm = new(
             new PortConfig { Name = "Port" },
             _ => Task.CompletedTask,
             _ => Task.CompletedTask,
@@ -103,12 +101,12 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     [Fact]
     public void BuildConfig_ReturnsIndependentCopyWithCurrentFlags()
     {
-        var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
-        var vm = Create(config);
+        PortConfig config = new() { Name = "Port", IsEnabled = false, ShowOnMap = false };
+        PortItemViewModel vm = Create(config);
 
         vm.IsEnabled = true;
         vm.ShowOnMap = true;
-        var built = vm.BuildConfig();
+        PortConfig built = vm.BuildConfig();
 
         // The item holds a snapshot of service state; building an edit config
         // must not mutate it, and the returned copy must not alias it either.
@@ -128,17 +126,17 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     {
         // This test prevents the infinite loop bug where setting properties
         // during construction triggered callbacks that reloaded the ports list
-        var toggleCount = 0;
-        var mapToggleCount = 0;
-        
-        var config = new PortConfig 
-        { 
-            Name = "Port", 
+        int toggleCount = 0;
+        int mapToggleCount = 0;
+
+        PortConfig config = new()
+        {
+            Name = "Port",
             IsEnabled = true,  // Setting to true during construction
             ShowOnMap = true   // Setting to true during construction
         };
 
-        var vm = new PortItemViewModel(
+        PortItemViewModel vm = new(
             config,
             _ => { toggleCount++; return Task.CompletedTask; },
             _ => { mapToggleCount++; return Task.CompletedTask; },
@@ -149,7 +147,7 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         // Callbacks should NOT have been invoked during construction
         Assert.Equal(0, toggleCount);
         Assert.Equal(0, mapToggleCount);
-        
+
         // But properties should be set correctly
         Assert.True(vm.IsEnabled);
         Assert.True(vm.ShowOnMap);
@@ -159,13 +157,13 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     public async Task PropertyChanges_AfterInitialization_InvokeCallbacks()
     {
         // This test ensures callbacks ARE invoked after initialization
-        var toggleCount = 0;
-        var mapToggleCount = 0;
-        var toggleTcs = new TaskCompletionSource<bool>();
-        var mapToggleTcs = new TaskCompletionSource<bool>();
-        var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
+        int toggleCount = 0;
+        int mapToggleCount = 0;
+        TaskCompletionSource<bool> toggleTcs = new();
+        TaskCompletionSource<bool> mapToggleTcs = new();
+        PortConfig config = new() { Name = "Port", IsEnabled = false, ShowOnMap = false };
 
-        var vm = new PortItemViewModel(
+        PortItemViewModel vm = new(
             config,
             _ => { toggleCount++; toggleTcs.TrySetResult(true); return Task.CompletedTask; },
             _ => { mapToggleCount++; mapToggleTcs.TrySetResult(true); return Task.CompletedTask; },

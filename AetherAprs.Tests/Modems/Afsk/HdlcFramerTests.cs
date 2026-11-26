@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 using AetherAprs.Modems.Afsk;
 using Xunit;
@@ -25,11 +26,9 @@ public class HdlcFramerTests
     }
 
     [Fact]
-    public void ComputeFcs_EmptyData_ReturnsZeroXorOut()
-    {
+    public void ComputeFcs_EmptyData_ReturnsZeroXorOut() =>
         // Raw CRC of empty input is the initial 0xFFFF, XORed out back to 0x0000.
         Assert.Equal((ushort)0x0000, HdlcFramer.ComputeFcs([]));
-    }
 
     [Fact]
     public void IsFcsValid_ValidFrameWithFcs_ReturnsTrue()
@@ -53,10 +52,7 @@ public class HdlcFramerTests
     }
 
     [Fact]
-    public void IsFcsValid_TooShort_ReturnsFalse()
-    {
-        Assert.False(HdlcFramer.IsFcsValid([0x01]));
-    }
+    public void IsFcsValid_TooShort_ReturnsFalse() => Assert.False(HdlcFramer.IsFcsValid([0x01]));
 
     // ---------------------------------------------------------------
     // HDLC encode -> deframe round-trip
@@ -68,11 +64,11 @@ public class HdlcFramerTests
         byte[] data = Encoding.ASCII.GetBytes("APRS TEST 123");
         byte[] bits = HdlcFramer.Encode(data);
 
-        var deframer = new HdlcDeframer();
+        HdlcDeframer deframer = new();
         byte[]? result = null;
-        foreach (var bit in bits)
+        foreach (byte bit in bits)
         {
-            var frame = deframer.Feed(bit);
+            byte[]? frame = deframer.Feed(bit);
             if (frame is not null)
             {
                 result = frame;
@@ -91,11 +87,11 @@ public class HdlcFramerTests
         byte[] data = [0xFF, 0x00, 0xFF, 0x7E, 0x55];
         byte[] bits = HdlcFramer.Encode(data);
 
-        var deframer = new HdlcDeframer();
+        HdlcDeframer deframer = new();
         byte[]? result = null;
-        foreach (var bit in bits)
+        foreach (byte bit in bits)
         {
-            var frame = deframer.Feed(bit);
+            byte[]? frame = deframer.Feed(bit);
             if (frame is not null)
             {
                 result = frame;
@@ -124,11 +120,11 @@ public class HdlcFramerTests
         byte[] frameB = [0x30, 0x40, 0x50];
         byte[] bits = [.. HdlcFramer.Encode(frameA), .. HdlcFramer.Encode(frameB)];
 
-        var deframer = new HdlcDeframer();
-        var frames = new System.Collections.Generic.List<byte[]>();
-        foreach (var bit in bits)
+        HdlcDeframer deframer = new();
+        List<byte[]> frames = [];
+        foreach (byte bit in bits)
         {
-            var frame = deframer.Feed(bit);
+            byte[]? frame = deframer.Feed(bit);
             if (frame is not null)
             {
                 frames.Add(frame);
@@ -149,16 +145,16 @@ public class HdlcFramerTests
         byte[] payload = [.. data, (byte)(fcs & 0xFF), (byte)(fcs >> 8)];
         payload[0] ^= 0x01;
 
-        var bits = new System.Collections.Generic.List<byte>();
+        List<byte> bits = [];
         AppendFlag(bits);
         AppendStuffed(bits, payload);
         AppendFlag(bits);
 
-        var deframer = new HdlcDeframer();
+        HdlcDeframer deframer = new();
         byte[]? result = null;
-        foreach (var bit in bits)
+        foreach (byte bit in bits)
         {
-            var frame = deframer.Feed(bit);
+            byte[]? frame = deframer.Feed(bit);
             if (frame is not null)
             {
                 result = frame;
@@ -186,7 +182,7 @@ public class HdlcFramerTests
     private static void AppendStuffed(System.Collections.Generic.List<byte> bits, ReadOnlySpan<byte> data)
     {
         int ones = 0;
-        foreach (var value in data)
+        foreach (byte value in data)
         {
             for (int i = 0; i < 8; i++)
             {

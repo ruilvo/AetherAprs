@@ -13,18 +13,13 @@ namespace AetherAprs.Factories.ViewModels;
 /// <summary>
 /// Factory implementation for creating and initializing MessageTemplateEditViewModel instances.
 /// </summary>
-public class MessageTemplateEditViewModelFactory : IMessageTemplateEditViewModelFactory
+public class MessageTemplateEditViewModelFactory(IServiceProvider serviceProvider) : IMessageTemplateEditViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public MessageTemplateEditViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider;
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
 
     public MessageTemplateEditViewModel Create(MessageTemplate? original, IReadOnlyList<string> existingNames)
     {
-        var viewModel = _serviceProvider.GetRequiredService<MessageTemplateEditViewModel>();
+        MessageTemplateEditViewModel viewModel = _serviceProvider.GetRequiredService<MessageTemplateEditViewModel>();
         viewModel.Initialize(original, existingNames);
         return viewModel;
     }

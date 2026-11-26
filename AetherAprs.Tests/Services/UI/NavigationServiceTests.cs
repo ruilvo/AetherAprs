@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -8,6 +8,7 @@ using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
+using AetherAprs.Models;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
@@ -33,11 +34,11 @@ public sealed class NavigationServiceTests
     [Fact]
     public void NavigateToInstance_GoBack_RestoresParentInstance()
     {
-        var navigation = CreateNavigation(out _);
+        INavigationService navigation = CreateNavigation(out _);
         navigation.NavigateTo<PortsViewModel>();
-        var ports = navigation.CurrentViewModel;
+        ViewModelBase? ports = navigation.CurrentViewModel;
 
-        var overlay = new OverlayViewModel();
+        OverlayViewModel overlay = new();
         navigation.NavigateTo(overlay);
 
         Assert.Same(overlay, navigation.CurrentViewModel);
@@ -50,14 +51,14 @@ public sealed class NavigationServiceTests
     [Fact]
     public void NavigateToRootTab_ClearsStack()
     {
-        var navigation = CreateNavigation(out var provider);
+        INavigationService navigation = CreateNavigation(out ServiceProvider? provider);
         navigation.NavigateTo<PortsViewModel>();
         navigation.NavigateTo(new OverlayViewModel());
         navigation.NavigateTo<HomeViewModel>();
 
         Assert.IsType<HomeViewModel>(navigation.CurrentViewModel);
 
-        var exited = false;
+        bool exited = false;
         navigation.RequestAppExit += (_, _) => exited = true;
         navigation.GoBack();
         Assert.True(exited);
@@ -67,9 +68,9 @@ public sealed class NavigationServiceTests
     [Fact]
     public void NavigateToDynamicBeaconing_GoBack_ReturnsToSettings()
     {
-        var navigation = CreateNavigation(out _);
+        INavigationService navigation = CreateNavigation(out _);
         navigation.NavigateTo<SettingsViewModel>();
-        var settings = navigation.CurrentViewModel;
+        ViewModelBase? settings = navigation.CurrentViewModel;
 
         navigation.NavigateTo<DynamicBeaconingViewModel>();
         Assert.IsType<DynamicBeaconingViewModel>(navigation.CurrentViewModel);
@@ -80,25 +81,25 @@ public sealed class NavigationServiceTests
 
     private static INavigationService CreateNavigation(out ServiceProvider provider)
     {
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
         services.AddLogging();
         services.AddSingleton<INavigationService, NavigationService>();
 
-        var portService = Substitute.For<IPortService>();
-        portService.Ports.Returns(Array.Empty<AetherAprs.Configuration.PortConfig>());
+        IPortService portService = Substitute.For<IPortService>();
+        portService.Ports.Returns([]);
         services.AddSingleton(portService);
-        var configuration = Substitute.For<IConfigurationService>();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings());
         configuration.Current.Returns(_ => new AppSettings());
         services.AddSingleton(configuration);
-        var beaconService = Substitute.For<IBeaconService>();
-        var walk = AetherAprs.Models.BeaconConfig.CreateWalkPreset();
-        beaconService.AllConfigurations.Returns(new[]
-        {
+        IBeaconService beaconService = Substitute.For<IBeaconService>();
+        BeaconConfig walk = AetherAprs.Models.BeaconConfig.CreateWalkPreset();
+        beaconService.AllConfigurations.Returns(
+        [
             walk,
             AetherAprs.Models.BeaconConfig.CreateDrivePreset(),
             AetherAprs.Models.BeaconConfig.CreateCustomPreset()
-        });
+        ]);
         beaconService.CurrentConfiguration.Returns(walk);
         services.AddSingleton(beaconService);
         services.AddSingleton(Substitute.For<IMessageService>());
@@ -126,13 +127,13 @@ public sealed class NavigationServiceTests
 
         // Register IAddEditPortViewModelFactory - required by PortsViewModel
         services.AddSingleton(Substitute.For<IAddEditPortViewModelFactory>());
-        
+
         // Register IPacketDetailsViewModelFactory - required by HomeViewModel
         services.AddSingleton(Substitute.For<IPacketDetailsViewModelFactory>());
-        
+
         // Register IObjectDetailsViewModelFactory - required by HomeViewModel and PacketsViewModel
         services.AddSingleton(Substitute.For<IObjectDetailsViewModelFactory>());
-        
+
         // Register IConversationViewModelFactory - required by MessagesViewModel
         services.AddSingleton(Substitute.For<IConversationViewModelFactory>());
 

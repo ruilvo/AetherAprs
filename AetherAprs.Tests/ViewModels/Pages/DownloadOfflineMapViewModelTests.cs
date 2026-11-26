@@ -23,21 +23,21 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public async Task Download_Success_SwitchesMapToDownloadedPackage()
     {
-        var directory = CreateTemporaryDirectory();
+        string directory = CreateTemporaryDirectory();
         try
         {
-            var configuration = new TestConfigurationService();
-            var navigation = new TestNavigationService();
-            var appDataDir = Substitute.For<IAppDataDirProviderService>();
+            TestConfigurationService configuration = new();
+            TestNavigationService navigation = new();
+            IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
             appDataDir.GetAppDataDirectory().Returns(directory);
-            var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+            IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-            var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+            DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
             viewModel.SetSelection(-10, 40, 10, 50);
 
             await viewModel.DownloadCommand.ExecuteAsync(null);
 
-            var expectedPath = Path.Combine(directory, "maps", "offline.mbtiles");
+            string expectedPath = Path.Combine(directory, "maps", "offline.mbtiles");
             await downloader.Received(1).DownloadRegionAsync(
                 Arg.Is<OfflineDownloadRegion>(r =>
                     r.MinLongitude == -10 && r.MinLatitude == 40 &&
@@ -60,15 +60,17 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public async Task Download_InvalidLongitude_SetsErrorWithoutDownloading()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
         appDataDir.GetAppDataDirectory().Returns(CreateTemporaryDirectory());
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
-        viewModel.MinLongitude = 10;
-        viewModel.MaxLongitude = -10;
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir)
+        {
+            MinLongitude = 10,
+            MaxLongitude = -10
+        };
 
         await viewModel.DownloadCommand.ExecuteAsync(null);
 
@@ -85,11 +87,11 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public async Task Download_Failure_SetsErrorAndKeepsCurrentSource()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
         appDataDir.GetAppDataDirectory().Returns(CreateTemporaryDirectory());
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
         downloader.DownloadRegionAsync(
                 Arg.Any<OfflineDownloadRegion>(),
                 Arg.Any<string>(),
@@ -97,7 +99,7 @@ public sealed class DownloadOfflineMapViewModelTests
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("boom")));
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
         viewModel.SetSelection(-10, 40, 10, 50);
 
         await viewModel.DownloadCommand.ExecuteAsync(null);
@@ -111,12 +113,12 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public void Close_NavigatesBack()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
 
         viewModel.CloseCommand.Execute(null);
 
@@ -126,13 +128,15 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public void Download_WhileDownloading_IsNotAllowed()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
-        viewModel.IsDownloading = true;
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir)
+        {
+            IsDownloading = true
+        };
 
         Assert.False(viewModel.DownloadCommand.CanExecute(null));
     }
@@ -140,12 +144,12 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public void Download_WithoutSelection_IsNotAllowed()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
 
         Assert.False(viewModel.HasSelection);
         Assert.False(viewModel.DownloadCommand.CanExecute(null));
@@ -154,12 +158,12 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public void SetSelection_NormalizesBoundsAndEnablesDownload()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
 
         // Reversed corners must still normalize to a valid region.
         viewModel.SetSelection(10, 50, -10, 40);
@@ -176,12 +180,12 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public void ClearSelection_ResetsBoundsAndDisablesDownload()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
         viewModel.SetSelection(-10, 40, 10, 50);
 
         viewModel.ClearSelectionCommand.Execute(null);
@@ -198,15 +202,15 @@ public sealed class DownloadOfflineMapViewModelTests
     [Fact]
     public void ToggleDrawMode_FlipsModeAndButtonLabel()
     {
-        var configuration = new TestConfigurationService();
-        var navigation = new TestNavigationService();
-        var appDataDir = Substitute.For<IAppDataDirProviderService>();
-        var downloader = Substitute.For<IOfflineTilePackageDownloader>();
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        IAppDataDirProviderService appDataDir = Substitute.For<IAppDataDirProviderService>();
+        IOfflineTilePackageDownloader downloader = Substitute.For<IOfflineTilePackageDownloader>();
 
-        var viewModel = new DownloadOfflineMapViewModel(downloader, navigation, configuration, appDataDir);
+        DownloadOfflineMapViewModel viewModel = new(downloader, navigation, configuration, appDataDir);
 
         Assert.False(viewModel.IsDrawMode);
-        var initialLabel = viewModel.DrawModeButtonLabel;
+        string initialLabel = viewModel.DrawModeButtonLabel;
         Assert.False(string.IsNullOrEmpty(initialLabel));
 
         viewModel.ToggleDrawModeCommand.Execute(null);
@@ -222,7 +226,7 @@ public sealed class DownloadOfflineMapViewModelTests
 
     private static string CreateTemporaryDirectory()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         return directory;
     }

@@ -16,15 +16,12 @@ namespace AetherAprs.Tests.Transports.Kiss;
 public sealed class KissStreamFactoryEdgeCaseTests
 {
     [Fact]
-    public void Constructor_NullConnectors_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => new KissStreamFactory(null!));
-    }
+    public void Constructor_NullConnectors_ThrowsArgumentNullException() => Assert.Throws<ArgumentNullException>(() => new KissStreamFactory(null!));
 
     [Fact]
     public void SupportedTransports_NoSupportedConnectors_ReturnsEmpty()
     {
-        var factory = new KissStreamFactory(
+        KissStreamFactory factory = new(
         [
             new UnsupportedBluetoothLeKissStreamConnector(),
             new UnsupportedBluetoothClassicKissStreamConnector()
@@ -38,7 +35,7 @@ public sealed class KissStreamFactoryEdgeCaseTests
     {
         // Documents current behaviour: an unsupported connector is still
         // invoked and fails with PlatformNotSupportedException.
-        var factory = new KissStreamFactory([new UnsupportedBluetoothLeKissStreamConnector()]);
+        KissStreamFactory factory = new([new UnsupportedBluetoothLeKissStreamConnector()]);
 
         await Assert.ThrowsAsync<PlatformNotSupportedException>(() => factory.OpenAsync(
             new KissSettings
@@ -51,10 +48,10 @@ public sealed class KissStreamFactoryEdgeCaseTests
     [Fact]
     public async Task OpenAsync_PassesCancellationTokenToConnector()
     {
-        var connector = new CancellingStubConnector();
-        var factory = new KissStreamFactory([connector]);
+        CancellingStubConnector connector = new();
+        KissStreamFactory factory = new([connector]);
 
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => factory.OpenAsync(

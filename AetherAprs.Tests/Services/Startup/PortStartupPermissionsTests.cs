@@ -27,10 +27,10 @@ public sealed class PortStartupPermissionsTests
     [Fact]
     public void RequiresBluetooth_RecognizesBothBluetoothTransports()
     {
-        var classic = CreateKissPort(enabled: true, new BluetoothClassicKissTransportSettings());
-        var lowEnergy = CreateKissPort(enabled: true, new BluetoothLeKissTransportSettings());
-        var tcp = CreateKissPort(enabled: true, new TcpKissTransportSettings());
-        var disabledBluetooth = CreateKissPort(enabled: false, new BluetoothLeKissTransportSettings());
+        PortConfig classic = CreateKissPort(enabled: true, new BluetoothClassicKissTransportSettings());
+        PortConfig lowEnergy = CreateKissPort(enabled: true, new BluetoothLeKissTransportSettings());
+        PortConfig tcp = CreateKissPort(enabled: true, new TcpKissTransportSettings());
+        PortConfig disabledBluetooth = CreateKissPort(enabled: false, new BluetoothLeKissTransportSettings());
 
         Assert.True(PortStartupPermissions.RequiresBluetooth([classic]));
         Assert.True(PortStartupPermissions.RequiresBluetooth([lowEnergy]));
@@ -49,7 +49,7 @@ public sealed class PortStartupPermissionsTests
     [Fact]
     public async Task RequestAsync_WithoutEnabledPorts_RequestsNothing()
     {
-        var permissions = Substitute.For<IPermissionService>();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
 
         await PortStartupPermissions.RequestAsync(
             [CreateAfskPort(enabled: false), CreateKissPort(enabled: false, new BluetoothLeKissTransportSettings())],
@@ -63,12 +63,12 @@ public sealed class PortStartupPermissionsTests
     [Fact]
     public async Task RequestAsync_RequestsOnlyWhatTheEnabledPortsNeed()
     {
-        var permissions = AllowAll();
-        var ports = new[]
-        {
+        IPermissionService permissions = AllowAll();
+        PortConfig[] ports =
+        [
             CreateKissPort(enabled: true, new BluetoothLeKissTransportSettings()),
             CreateAfskPort(enabled: false)
-        };
+        ];
 
         await PortStartupPermissions.RequestAsync(
             ports,
@@ -87,14 +87,14 @@ public sealed class PortStartupPermissionsTests
     [InlineData(PermissionOutcome.Unavailable)]
     public async Task RequestAsync_AnUnmetPermission_DoesNotSkipTheNextRequest(PermissionOutcome outcome)
     {
-        var permissions = AllowAll();
+        IPermissionService permissions = AllowAll();
         permissions.RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(new PermissionRequestResult(PermissionKind.Bluetooth, outcome)));
-        var ports = new[]
-        {
+        PortConfig[] ports =
+        [
             CreateKissPort(enabled: true, new BluetoothClassicKissTransportSettings()),
             CreateAfskPort(enabled: true)
-        };
+        ];
 
         await PortStartupPermissions.RequestAsync(
             ports,
@@ -109,10 +109,10 @@ public sealed class PortStartupPermissionsTests
     [Fact]
     public async Task RequestAsync_WhenAPermissionIsBlocked_ReportsItForTheOperator()
     {
-        var permissions = AllowAll();
+        IPermissionService permissions = AllowAll();
         permissions.RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(PermissionRequestResult.PermanentlyDenied(PermissionKind.Bluetooth)));
-        var attention = new PermissionAttentionService();
+        PermissionAttentionService attention = new();
 
         await PortStartupPermissions.RequestAsync(
             [CreateKissPort(enabled: true, new BluetoothLeKissTransportSettings())],
@@ -121,14 +121,14 @@ public sealed class PortStartupPermissionsTests
             TestContext.Current.CancellationToken,
             attention);
 
-        var reported = Assert.Single(attention.Outstanding);
+        PermissionAttention reported = Assert.Single(attention.Outstanding);
         Assert.Equal(PermissionKind.Bluetooth, reported.Kind);
         Assert.True(reported.RequiresApplicationSettings);
     }
 
     private static IPermissionService AllowAll()
     {
-        var permissions = Substitute.For<IPermissionService>();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
         return permissions;

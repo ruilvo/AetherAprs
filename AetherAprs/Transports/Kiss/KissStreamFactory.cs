@@ -47,8 +47,8 @@ public sealed class KissStreamFactory : IKissStreamFactory
             throw new InvalidOperationException("KISS transport settings are required.");
         }
 
-        var transportType = settings.Transport.GetType();
-        if (!_connectorsBySettingsType.TryGetValue(transportType, out var connector))
+        Type transportType = settings.Transport.GetType();
+        if (!_connectorsBySettingsType.TryGetValue(transportType, out IKissStreamConnector? connector))
         {
             throw new NotSupportedException($"No KISS stream connector is registered for transport type '{transportType.Name}'.");
         }

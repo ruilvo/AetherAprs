@@ -10,6 +10,7 @@ using Mapsui.Projections;
 using Mapsui.Styles;
 using Microsoft.Extensions.Logging;
 using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries.Utilities;
 using System;
 
 namespace AetherAprs.Services.UI;
@@ -67,21 +68,21 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
             return;
         }
 
-        var (x, y) = SphericalMercator.FromLonLat(location.Location.Longitude, location.Location.Latitude);
-        var mapPoint = new MPoint(x, y);
+        (double x, double y) = SphericalMercator.FromLonLat(location.Location.Longitude, location.Location.Latitude);
+        MPoint mapPoint = new(x, y);
         _currentMapPoint = mapPoint;
 
         _layer.Clear();
 
         // Draw base circle for location
-        var locationStyle = new SymbolStyle
+        SymbolStyle locationStyle = new()
         {
             SymbolScale = 0.5,
             Fill = new Brush(Color.FromArgb(150, 0, 122, 255)),
             Outline = new Pen(Color.White, 2)
         };
 
-        var locationFeature = new PointFeature(mapPoint)
+        PointFeature locationFeature = new(mapPoint)
         {
             Styles = [locationStyle]
         };
@@ -90,13 +91,13 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
         // Draw directional indicator if bearing is available
         if (location.Bearing.HasValue)
         {
-            var directionArrow = CreateDirectionArrow(mapPoint, location.Bearing.Value);
+            GeometryFeature directionArrow = CreateDirectionArrow(mapPoint, location.Bearing.Value);
             _layer.Add(directionArrow);
         }
 
         _layer.DataHasChanged();
 
-        _logger.LogDebug("User location updated on map: {Lat}, {Lon}, Bearing: {Bearing}", 
+        _logger.LogDebug("User location updated on map: {Lat}, {Lon}, Bearing: {Bearing}",
             location.Location.Latitude, location.Location.Longitude, location.Bearing);
     }
 
@@ -108,33 +109,33 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
         const double arrowWidth = 8; // meters
 
         // Triangle vertices (pointing up/north before rotation)
-        var vertices = new[]
-        {
+        Coordinate[] vertices =
+        [
             new Coordinate(center.X, center.Y + arrowSize), // tip (north)
             new Coordinate(center.X - arrowWidth, center.Y - arrowSize / 2), // left base
             new Coordinate(center.X + arrowWidth, center.Y - arrowSize / 2), // right base
             new Coordinate(center.X, center.Y + arrowSize) // close the ring
-        };
+        ];
 
         // Create polygon
-        var geometryFactory = new GeometryFactory();
-        var shell = geometryFactory.CreateLinearRing(vertices);
-        var polygon = geometryFactory.CreatePolygon(shell);
+        GeometryFactory geometryFactory = new();
+        LinearRing shell = geometryFactory.CreateLinearRing(vertices);
+        Polygon polygon = geometryFactory.CreatePolygon(shell);
 
         // Rotate the polygon based on bearing
         // Mapsui uses counter-clockwise rotation, bearing is clockwise from north
-        var rotationRadians = bearingDegrees * Math.PI / 180.0;
-        var transform = new NetTopologySuite.Geometries.Utilities.AffineTransformation();
+        double rotationRadians = bearingDegrees * Math.PI / 180.0;
+        AffineTransformation transform = new();
         transform.Rotate(rotationRadians, center.X, center.Y);
-        var rotatedPolygon = (Polygon)transform.Transform(polygon);
+        Polygon rotatedPolygon = (Polygon)transform.Transform(polygon);
 
-        var arrowStyle = new VectorStyle
+        VectorStyle arrowStyle = new()
         {
             Fill = new Brush(Color.FromArgb(200, 255, 255, 255)),
             Outline = new Pen(Color.FromArgb(255, 0, 122, 255), 2)
         };
 
-        var arrowFeature = new GeometryFeature
+        GeometryFeature arrowFeature = new()
         {
             Geometry = rotatedPolygon,
             Styles = [arrowStyle]

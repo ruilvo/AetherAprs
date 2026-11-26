@@ -11,25 +11,20 @@ namespace AetherAprs.Services.Ports;
 /// <summary>
 /// Resolves APRS identity settings from global configuration.
 /// </summary>
-public class AprsPortSettingsResolver : IAprsPortSettingsResolver
+public class AprsPortSettingsResolver(IConfigurationService configurationService) : IAprsPortSettingsResolver
 {
-    private readonly IConfigurationService _configurationService;
-
-    public AprsPortSettingsResolver(IConfigurationService configurationService)
-    {
-        _configurationService = configurationService;
-    }
+    private readonly IConfigurationService _configurationService = configurationService;
 
     public int? GetSsid()
     {
-        var ssid = _configurationService.Current.Aprs.Ssid;
-        var value = (int)ssid;
+        AprsSsid ssid = _configurationService.Current.Aprs.Ssid;
+        int value = (int)ssid;
         return value > 0 ? value : null;
     }
 
     public string GetCallsign(string baseCallsign)
     {
-        var ssid = GetSsid();
+        int? ssid = GetSsid();
         return ssid.HasValue ? $"{baseCallsign}-{ssid.Value}" : baseCallsign;
     }
 

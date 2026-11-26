@@ -70,20 +70,20 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
     {
         get
         {
-            var filter = new AprsIsFilter();
+            AprsIsFilter filter = new();
 
             AddList(filter.Prefixes, Prefixes);
 
             // A type filter that selects every type (or none) is a no-op that
             // would otherwise subscribe to the full global feed, so only emit
             // t/ when the user has chosen a meaningful subset.
-            var types = BuildPacketTypes();
+            AprsIsPacketType types = BuildPacketTypes();
             if (types != AprsIsPacketType.All)
             {
                 filter.PacketTypes = types;
             }
 
-            if (TryParse(MyRangeKm, out var myRange))
+            if (TryParse(MyRangeKm, out double myRange))
             {
                 filter.MyRangeKm = myRange;
             }
@@ -105,7 +105,7 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
             return;
         }
 
-        var parsed = AprsIsFilter.Parse(filter);
+        AprsIsFilter parsed = AprsIsFilter.Parse(filter);
 
         Prefixes = string.Join(" ", parsed.Prefixes);
         SetPacketTypes(parsed.PacketTypes);
@@ -130,7 +130,7 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
 
     private AprsIsPacketType BuildPacketTypes()
     {
-        var types = AprsIsPacketType.None;
+        AprsIsPacketType types = AprsIsPacketType.None;
         if (IncludePosition) types |= AprsIsPacketType.Position;
         if (IncludeObject) types |= AprsIsPacketType.ObjectPacket;
         if (IncludeItem) types |= AprsIsPacketType.Item;
@@ -165,9 +165,9 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
             return;
         }
 
-        foreach (var item in source.Split([' ', ',', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        foreach (string item in source.Split([' ', ',', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
-            var trimmed = item.Trim();
+            string trimmed = item.Trim();
             if (trimmed.Length > 0)
             {
                 target.Add(trimmed);

@@ -12,20 +12,15 @@ namespace AetherAprs.Factories.ViewModels;
 /// <summary>
 /// Factory implementation for creating and initializing ObjectEditorViewModel instances.
 /// </summary>
-public sealed class ObjectEditorViewModelFactory : IObjectEditorViewModelFactory
+public sealed class ObjectEditorViewModelFactory(IServiceProvider serviceProvider) : IObjectEditorViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public ObjectEditorViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
     public ObjectEditorViewModel Create() => Create(null);
 
     public ObjectEditorViewModel Create(ObjectPacket? existing)
     {
-        var viewModel = _serviceProvider.GetRequiredService<ObjectEditorViewModel>();
+        ObjectEditorViewModel viewModel = _serviceProvider.GetRequiredService<ObjectEditorViewModel>();
         viewModel.Initialize(existing);
         return viewModel;
     }

@@ -14,16 +14,14 @@ using Xunit;
 
 namespace AetherAprs.Tests.Architecture;
 
-public sealed class ViewLocatorRoutingTests
+public sealed partial class ViewLocatorRoutingTests
 {
     [Fact]
     public void EveryMappedViewModelName_IsAViewModelType()
     {
-        var mapped = MappedViewModelNames();
+        IReadOnlyList<string> mapped = MappedViewModelNames();
 
-        var missing = mapped
-            .Where(name => FindViewModelType(name) is null)
-            .ToArray();
+        string[] missing = [.. mapped.Where(name => FindViewModelType(name) is null)];
 
         Assert.NotEmpty(mapped);
         Assert.Empty(missing);
@@ -32,9 +30,9 @@ public sealed class ViewLocatorRoutingTests
     [Fact]
     public void Build_ForAnUnmappedViewModel_ShowsLocalizedFallbackText()
     {
-        var view = new AetherAprs.ViewLocator().Build(new TemplateFieldViewModel("summit"));
+        Control? view = new AetherAprs.ViewLocator().Build(new TemplateFieldViewModel("summit"));
 
-        var text = Assert.IsType<TextBlock>(view);
+        TextBlock text = Assert.IsType<TextBlock>(view);
         Assert.Equal(
             Strings.Format("ViewLocatorMissingView", nameof(TemplateFieldViewModel)),
             text.Text);
@@ -43,7 +41,7 @@ public sealed class ViewLocatorRoutingTests
     [Fact]
     public void Build_ForNoData_ReturnsNothing()
     {
-        var locator = new AetherAprs.ViewLocator();
+        ViewLocator locator = new();
 
         Assert.Null(locator.Build(null));
         Assert.False(locator.Match(null));
@@ -55,13 +53,12 @@ public sealed class ViewLocatorRoutingTests
     /// </summary>
     private static IReadOnlyList<string> MappedViewModelNames()
     {
-        var locator = SourceScanner.ReadProductionSources()
+        ScannedSource locator = SourceScanner.ReadProductionSources()
             .Single(source => source.RelativePath.EndsWith("ViewLocator.cs", StringComparison.Ordinal));
 
-        return Regex.Matches(locator.Text, @"(?<name>\w+ViewModel)\s*=>\s*new\s")
+        return [.. MyRegex.Matches(locator.Text)
             .Select(match => match.Groups["name"].Value)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
+            .Distinct(StringComparer.Ordinal)];
     }
 
     private static Type? FindViewModelType(string name) =>
@@ -69,4 +66,7 @@ public sealed class ViewLocatorRoutingTests
             .FirstOrDefault(type =>
                 string.Equals(type.Name, name, StringComparison.Ordinal) &&
                 typeof(ViewModelBase).IsAssignableFrom(type));
+
+    [GeneratedRegex(@"(?<name>\w+ViewModel)\s*=>\s*new\s")]
+    private static partial Regex MyRegex { get; }
 }

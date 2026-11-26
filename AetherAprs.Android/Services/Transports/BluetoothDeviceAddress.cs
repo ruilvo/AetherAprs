@@ -37,10 +37,10 @@ internal static class BluetoothDeviceAddress
             return false;
         }
 
-        for (var index = 0; index < address.Length; index++)
+        for (int index = 0; index < address.Length; index++)
         {
-            var character = address[index];
-            var isSeparator = index % 3 == 2;
+            char character = address[index];
+            bool isSeparator = index % 3 == 2;
             if (isSeparator)
             {
                 if (character != ':')

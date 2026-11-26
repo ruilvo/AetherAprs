@@ -123,6 +123,13 @@ persistence, and transport logic belong in ViewModels or services.
 - Parameters and locals: `camelCase`
 - Interfaces start with `I`.
 - `ImplicitUsings` is disabled. Add every required `using`.
+- Use file-scoped namespaces.
+- Use explicit types at declaration sites. Reserve `var` for anonymous types or
+  values whose type cannot be named; the style linter enforces IDE0008.
+- Prefer expression-bodied members when the body reads as one phrase.
+- A primary-constructor parameter is a parameter and keeps `camelCase`; the
+  compiler-generated backing field is not renamed. An explicitly declared private
+  field still uses `_camelCase`.
 - Package versions belong in `Directory.Packages.props`; project references omit versions.
 
 ## Localization

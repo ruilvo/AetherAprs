@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
+using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Afsk;
@@ -14,6 +16,7 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -57,18 +60,18 @@ public sealed class ModemFactory(
 
     private IPortModem CreateAprsIsModem(AprsIsSettings settings)
     {
-        var callsign = ResolveCallsign();
+        Callsign callsign = ResolveCallsign();
 
         // Resolve runtime-dependent filter directives (drop a no-op all-types t/,
         // and turn m/ into a fixed r/ range around the current position) just
         // before connecting, because the position moves between sessions.
-        var location = locationTrackingService?.CurrentLocation;
-        var filter = AprsIsFilter.NormalizeForConnection(
+        LocationData? location = locationTrackingService?.CurrentLocation;
+        string filter = AprsIsFilter.NormalizeForConnection(
             settings.Filter,
             location?.Location.Latitude,
             location?.Location.Longitude);
 
-        var modem = new AprsIsModem(
+        AprsIsModem modem = new(
             settings.Server,
             settings.ServerPort,
             callsign,
@@ -83,7 +86,7 @@ public sealed class ModemFactory(
         KissSettings settings,
         CancellationToken cancellationToken)
     {
-        var stream = await kissStreamFactory
+        Stream stream = await kissStreamFactory
             .OpenAsync(settings, cancellationToken)
             .ConfigureAwait(false);
 
@@ -100,7 +103,7 @@ public sealed class ModemFactory(
             throw;
         }
 
-        var modem = new AprsRfModem(kissModem, loggerFactory);
+        AprsRfModem modem = new(kissModem, loggerFactory);
 
         // The KISS modem owns the stream and must be disposed after the APRS
         // wrapper has unsubscribed and stopped.
@@ -109,7 +112,7 @@ public sealed class ModemFactory(
 
     private IPortModem CreateAfskModem(AfskSettings settings)
     {
-        var modem = new AfskModem(
+        AfskModem modem = new(
             audioStreamService,
             audioPlaybackService,
             pttService,
@@ -124,8 +127,8 @@ public sealed class ModemFactory(
         // The settings type validates the callsign when it is set, so the value
         // here is already a well-formed station identity or the modem start fails
         // with the same validation error the operator sees elsewhere.
-        var aprs = configurationService.Current.Aprs;
-        var ssid = (int)aprs.Ssid;
+        AprsSettings aprs = configurationService.Current.Aprs;
+        int ssid = (int)aprs.Ssid;
         return new Callsign(aprs.Callsign, ssid > 0 ? ssid : null);
     }
 }

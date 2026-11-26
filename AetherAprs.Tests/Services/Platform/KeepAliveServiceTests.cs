@@ -17,10 +17,10 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_FirstReason_StartsTheForegroundServiceAndReportsActive()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
-        var status = await service.AcquireAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.AcquireAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Active, status.State);
         Assert.Equal([ForegroundServiceType.ConnectedDevice], foreground.StartRequests);
@@ -31,8 +31,8 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_SameReasonTwice_StartsOnlyOnce()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         await service.AcquireAsync(KeepAliveReason.Ports);
@@ -44,11 +44,11 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_DistinctReasons_RefreshesDeclaredTypes()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
-        var status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        KeepAliveStatus status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
 
         Assert.Equal(
             [
@@ -67,14 +67,14 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_WhenThePlatformRejectsTheStart_RollsBackTheReason()
     {
-        var foreground = new ScriptedForegroundService
+        ScriptedForegroundService foreground = new()
         {
             RejectionReason = "The platform refused the request."
         };
-        var service = CreateService(foreground);
-        var states = RecordStates(service);
+        KeepAliveService service = CreateService(foreground);
+        List<KeepAliveState> states = RecordStates(service);
 
-        var status = await service.AcquireAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.AcquireAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Degraded, status.State);
         Assert.Equal("The platform refused the request.", status.DegradedReason);
@@ -87,13 +87,13 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_WhenARefreshIsRejected_KeepsTheEarlierHoldRunning()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         foreground.RejectionReason = "The platform refused the request.";
 
-        var status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        KeepAliveStatus status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
 
         // Only the refused reason is dropped: the hold that was already honoured
         // stays, and tearing the service down would be worse than the refusal.
@@ -107,14 +107,14 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ReleaseAsync_WhenTheTypeRefreshIsRejected_ReportsDegraded()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         await service.AcquireAsync(KeepAliveReason.LocationTracking);
         foreground.RejectionReason = "The platform refused the request.";
 
-        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.ReleaseAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Degraded, status.State);
         Assert.Equal([KeepAliveReason.LocationTracking], status.Reasons);
@@ -125,15 +125,15 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_AfterADegradedStart_RetriesTheHold()
     {
-        var foreground = new ScriptedForegroundService
+        ScriptedForegroundService foreground = new()
         {
             RejectionReason = "The platform refused the request."
         };
-        var service = CreateService(foreground);
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         foreground.RejectionReason = null;
-        var status = await service.AcquireAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.AcquireAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Active, status.State);
         Assert.Equal(2, foreground.StartRequests.Count);
@@ -142,13 +142,13 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task AcquireAsync_WhenThePlatformThrows_ReportsDegradedWithTheFailure()
     {
-        var foreground = new ScriptedForegroundService
+        ScriptedForegroundService foreground = new()
         {
             StartException = new InvalidOperationException("binder failed")
         };
-        var service = CreateService(foreground);
+        KeepAliveService service = CreateService(foreground);
 
-        var status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        KeepAliveStatus status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
 
         Assert.Equal(KeepAliveState.Degraded, status.State);
         Assert.Contains("binder failed", status.DegradedReason ?? string.Empty, StringComparison.Ordinal);
@@ -157,14 +157,14 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ReleaseAsync_WhileAnotherReasonIsHeld_KeepsTheServiceRunning()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         await service.AcquireAsync(KeepAliveReason.LocationTracking);
         foreground.StartRequests.Clear();
 
-        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.ReleaseAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Active, status.State);
         Assert.Equal(0, foreground.StopCount);
@@ -176,12 +176,12 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ReleaseAsync_LastReason_ReportsStoppingThenStopped()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
-        var states = RecordStates(service);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
+        List<KeepAliveState> states = RecordStates(service);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
-        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.ReleaseAsync(KeepAliveReason.Ports);
 
         Assert.Equal(
             [KeepAliveState.Active, KeepAliveState.Stopping, KeepAliveState.Stopped],
@@ -194,10 +194,10 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ReleaseAsync_WithoutAcquire_DoesNotTouchThePlatform()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
-        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.ReleaseAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Stopped, status.State);
         Assert.Empty(foreground.StartRequests);
@@ -207,13 +207,13 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ReleaseAsync_WhenThePlatformKeepsRunning_ReportsDegraded()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         foreground.KeepsRunningAfterStop = true;
 
-        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+        KeepAliveStatus status = await service.ReleaseAsync(KeepAliveReason.Ports);
 
         Assert.Equal(KeepAliveState.Degraded, status.State);
         Assert.Empty(status.Reasons);
@@ -223,19 +223,19 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ConcurrentAcquireAndRelease_ApplyInOrderAndConverge()
     {
-        var bridge = new TaskCompletionSource(
+        TaskCompletionSource bridge = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var foreground = new ScriptedForegroundService { StartGate = bridge };
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new() { StartGate = bridge };
+        KeepAliveService service = CreateService(foreground);
 
-        var acquire = service.AcquireAsync(KeepAliveReason.Ports);
+        Task<KeepAliveStatus> acquire = service.AcquireAsync(KeepAliveReason.Ports);
         await foreground.StartEntered.Task.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
 
         // The release arrives while the start is still in flight. It must wait,
         // never race the start with a stop.
-        var release = service.ReleaseAsync(KeepAliveReason.Ports);
+        Task<KeepAliveStatus> release = service.ReleaseAsync(KeepAliveReason.Ports);
         Assert.False(release.IsCompleted);
 
         bridge.SetResult();
@@ -252,8 +252,8 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task ConcurrentAcquiresForDistinctReasons_HoldEveryReasonOnce()
     {
-        var foreground = new ScriptedForegroundService();
-        var service = CreateService(foreground);
+        ScriptedForegroundService foreground = new();
+        KeepAliveService service = CreateService(foreground);
 
         await Task.WhenAll(
                 service.AcquireAsync(KeepAliveReason.Ports),
@@ -279,16 +279,16 @@ public sealed class KeepAliveServiceTests
     [Fact]
     public async Task DegradedTransition_IsRecordedInDiagnostics()
     {
-        var foreground = new ScriptedForegroundService { RejectionReason = "refused by policy" };
-        var diagnostics = new BoundedDiagnosticEventStore();
-        var service = new KeepAliveService(
+        ScriptedForegroundService foreground = new() { RejectionReason = "refused by policy" };
+        BoundedDiagnosticEventStore diagnostics = new();
+        KeepAliveService service = new(
             foreground,
             NullLogger<KeepAliveService>.Instance,
             diagnostics);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
 
-        var recorded = Assert.Single(diagnostics.Events);
+        DiagnosticEvent recorded = Assert.Single(diagnostics.Events);
         Assert.Equal("keepalive", recorded.Category, ignoreCase: true);
         Assert.Equal(DiagnosticSeverity.Warning, recorded.Severity);
         Assert.Equal(nameof(KeepAliveState.Degraded), recorded.State);
@@ -300,7 +300,7 @@ public sealed class KeepAliveServiceTests
 
     private static List<KeepAliveState> RecordStates(IKeepAliveService service)
     {
-        var states = new List<KeepAliveState>();
+        List<KeepAliveState> states = [];
         service.StatusChanged += (_, args) => states.Add(args.Status.State);
         return states;
     }

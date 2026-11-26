@@ -61,10 +61,10 @@ internal static class SourceSymbolSearch
             return false;
         }
 
-        var start = 0;
+        int start = 0;
         while (start <= text.Length - symbol.Length)
         {
-            var index = text.IndexOf(symbol, start, StringComparison.Ordinal);
+            int index = text.IndexOf(symbol, start, StringComparison.Ordinal);
             if (index < 0)
             {
                 return false;

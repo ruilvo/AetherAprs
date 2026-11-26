@@ -14,16 +14,16 @@ public sealed class UnsupportedBluetoothStubTests
     [Fact]
     public void ClassicDeviceProvider_IsUnsupported()
     {
-        var provider = new UnsupportedBluetoothClassicDeviceProvider();
+        UnsupportedBluetoothClassicDeviceProvider provider = new();
         Assert.False(provider.IsSupported);
     }
 
     [Fact]
     public async Task ClassicDeviceProvider_EnsurePermissionAsync_Throws()
     {
-        var provider = new UnsupportedBluetoothClassicDeviceProvider();
+        UnsupportedBluetoothClassicDeviceProvider provider = new();
 
-        var ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
+        PlatformNotSupportedException ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
             provider.EnsurePermissionAsync(TestContext.Current.CancellationToken));
 
         Assert.Contains("Bluetooth Classic", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -32,9 +32,9 @@ public sealed class UnsupportedBluetoothStubTests
     [Fact]
     public async Task ClassicDeviceProvider_GetBondedDevicesAsync_Throws()
     {
-        var provider = new UnsupportedBluetoothClassicDeviceProvider();
+        UnsupportedBluetoothClassicDeviceProvider provider = new();
 
-        var ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
+        PlatformNotSupportedException ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
             provider.GetBondedDevicesAsync(TestContext.Current.CancellationToken));
 
         Assert.Contains("Bluetooth Classic", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -43,16 +43,16 @@ public sealed class UnsupportedBluetoothStubTests
     [Fact]
     public void LeScanner_IsUnsupported()
     {
-        var scanner = new UnsupportedBluetoothLeScanner();
+        UnsupportedBluetoothLeScanner scanner = new();
         Assert.False(scanner.IsSupported);
     }
 
     [Fact]
     public async Task LeScanner_EnsurePermissionAsync_Throws()
     {
-        var scanner = new UnsupportedBluetoothLeScanner();
+        UnsupportedBluetoothLeScanner scanner = new();
 
-        var ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
+        PlatformNotSupportedException ex = await Assert.ThrowsAsync<PlatformNotSupportedException>(() =>
             scanner.EnsurePermissionAsync(TestContext.Current.CancellationToken));
 
         Assert.Contains("Bluetooth LE", ex.Message, StringComparison.OrdinalIgnoreCase);
@@ -61,9 +61,9 @@ public sealed class UnsupportedBluetoothStubTests
     [Fact]
     public void LeScanner_ScanAsync_Throws()
     {
-        var scanner = new UnsupportedBluetoothLeScanner();
+        UnsupportedBluetoothLeScanner scanner = new();
 
-        var ex = Assert.Throws<PlatformNotSupportedException>(() =>
+        PlatformNotSupportedException ex = Assert.Throws<PlatformNotSupportedException>(() =>
             scanner.ScanAsync(TestContext.Current.CancellationToken));
 
         Assert.Contains("Bluetooth LE", ex.Message, StringComparison.OrdinalIgnoreCase);

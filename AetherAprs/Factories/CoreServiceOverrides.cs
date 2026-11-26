@@ -38,7 +38,7 @@ public sealed class CoreServiceOverrides(IServiceCollection services)
         where TService : class
         where TImplementation : class, TService
     {
-        var index = FindLastRegistration(typeof(TService));
+        int index = FindLastRegistration(typeof(TService));
         if (index < 0)
         {
             throw new InvalidOperationException(
@@ -51,7 +51,7 @@ public sealed class CoreServiceOverrides(IServiceCollection services)
 
     private int FindLastRegistration(Type serviceType)
     {
-        for (var index = _services.Count - 1; index >= 0; index--)
+        for (int index = _services.Count - 1; index >= 0; index--)
         {
             if (_services[index].ServiceType == serviceType)
             {

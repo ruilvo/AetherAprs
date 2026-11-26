@@ -14,9 +14,9 @@ namespace AetherAprs.ViewModels.Components;
 /// ViewModel for map UI interactions (zoom, pan, center commands).
 /// Map layers are provided by services.
 /// </summary>
-public partial class MapViewModel : ViewModelBase
+public partial class MapViewModel(IUserLocationLayerService userLocationLayerService) : ViewModelBase
 {
-    private readonly IUserLocationLayerService _userLocationLayerService;
+    private readonly IUserLocationLayerService _userLocationLayerService = userLocationLayerService;
 
     public event EventHandler<MPoint>? CenterOnPointRequested;
 
@@ -49,15 +49,10 @@ public partial class MapViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool HasUserMovedMap { get; set; }
 
-    public MapViewModel(IUserLocationLayerService userLocationLayerService)
-    {
-        _userLocationLayerService = userLocationLayerService;
-    }
-
     [RelayCommand]
     public void CenterOnUser()
     {
-        var mapPoint = _userLocationLayerService.CurrentMapPoint;
+        MPoint? mapPoint = _userLocationLayerService.CurrentMapPoint;
         if (mapPoint != null)
         {
             // Enable follow mode and center on user

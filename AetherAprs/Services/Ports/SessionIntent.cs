@@ -19,15 +19,12 @@ namespace AetherAprs.Services.Ports;
 /// </remarks>
 public sealed class SessionIntent
 {
-    private SessionIntent(IReadOnlyList<Guid> portIds)
-    {
-        PortIds = portIds;
-    }
+    private SessionIntent(IReadOnlyList<Guid> portIds) => PortIds = portIds;
 
     /// <summary>
     /// No port is requested to run.
     /// </summary>
-    public static SessionIntent Disarmed { get; } = new(Array.Empty<Guid>());
+    public static SessionIntent Disarmed { get; } = new([]);
 
     /// <summary>
     /// The ports the operator asked to run, ordered and distinct.
@@ -40,10 +37,9 @@ public sealed class SessionIntent
     {
         ArgumentNullException.ThrowIfNull(portIds);
 
-        var distinct = portIds
+        Guid[] distinct = [.. portIds
             .Distinct()
-            .OrderBy(portId => portId)
-            .ToArray();
+            .OrderBy(portId => portId)];
 
         return distinct.Length == 0 ? Disarmed : new SessionIntent(Array.AsReadOnly(distinct));
     }

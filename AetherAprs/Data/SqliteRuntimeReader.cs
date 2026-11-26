@@ -24,15 +24,15 @@ internal sealed class SqliteRuntimeReader(IDbContextFactory<AppDbContext> dbCont
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
 
-        await using var context = await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var connection = new SqliteConnectionStringBuilder(context.Database.GetConnectionString())
+        await using AppDbContext context = await dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        SqliteConnectionStringBuilder connection = new(context.Database.GetConnectionString())
         {
             Mode = SqliteOpenMode.ReadOnly
         };
         context.Database.SetConnectionString(connection.ToString());
         context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
 
-        var result = await query(context, cancellationToken).ConfigureAwait(false);
+        T? result = await query(context, cancellationToken).ConfigureAwait(false);
         if (ReturnsDeferredQuery(result) || context.ChangeTracker.HasChanges())
         {
             throw new InvalidOperationException("SQLite queries must return materialized results without modifying the context.");

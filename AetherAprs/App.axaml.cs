@@ -95,13 +95,10 @@ public partial class App : Application, IDisposable
     }
 #endif
 
-    private MainView CreateMainView()
+    private MainView CreateMainView() => new()
     {
-        return new MainView
-        {
-            DataContext = ServiceProvider.GetRequiredService<MainViewModel>()
-        };
-    }
+        DataContext = ServiceProvider.GetRequiredService<MainViewModel>()
+    };
 
     /// <summary>
     /// Creates the platform bootstrap that resolves application data directories.
@@ -168,7 +165,7 @@ public partial class App : Application, IDisposable
     {
         try
         {
-            var report = await ServiceProvider.GetRequiredService<IApplicationStartup>().RunAsync(_shutdownCts.Token);
+            StartupReport report = await ServiceProvider.GetRequiredService<IApplicationStartup>().RunAsync(_shutdownCts.Token);
 
             if (!report.Succeeded && !report.WasCancelled)
             {
@@ -189,11 +186,11 @@ public partial class App : Application, IDisposable
     {
         try
         {
-            var appDataDirService = ServiceProvider.GetRequiredService<IAppDataDirProviderService>();
+            IAppDataDirProviderService appDataDirService = ServiceProvider.GetRequiredService<IAppDataDirProviderService>();
             // Tile images are implementation details and must stay out of
             // user-visible media storage, where gallery apps can index them.
-            var privateAppDataDir = appDataDirService.GetPrivateAppDataDirectory();
-            var cacheDir = Path.Combine(privateAppDataDir, "osm-tile-cache");
+            string privateAppDataDir = appDataDirService.GetPrivateAppDataDirectory();
+            string cacheDir = Path.Combine(privateAppDataDir, "osm-tile-cache");
             Directory.CreateDirectory(cacheDir);
             File.WriteAllText(Path.Combine(cacheDir, ".nomedia"), string.Empty);
             OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
@@ -210,7 +207,7 @@ public partial class App : Application, IDisposable
     /// </summary>
     private void ApplyRequestedThemeVariant()
     {
-        var themeMode = ServiceProvider.GetRequiredService<IConfigurationService>().Current.Theme;
+        ThemeMode themeMode = ServiceProvider.GetRequiredService<IConfigurationService>().Current.Theme;
         ApplyThemeMode(themeMode);
     }
 

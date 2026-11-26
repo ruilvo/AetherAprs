@@ -24,8 +24,8 @@ public partial class PacketsPage : UserControl
             return;
         }
 
-        var scrollViewer = PacketsScroll;
-        var distanceToBottom = scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y;
+        ScrollViewer scrollViewer = PacketsScroll;
+        double distanceToBottom = scrollViewer.Extent.Height - scrollViewer.Viewport.Height - scrollViewer.Offset.Y;
         if (distanceToBottom <= LoadMoreThreshold)
         {
             viewModel.LoadMoreCommand.Execute(null);

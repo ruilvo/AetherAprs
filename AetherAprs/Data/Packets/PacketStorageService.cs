@@ -15,6 +15,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace AetherAprs.Data.Packets;
 
@@ -49,7 +50,7 @@ internal sealed class PacketStorageService(
             logger.LogDebug("Storing {Direction} packet of type {Type}",
                 isOutbound ? "outbound" : "inbound", packet.GetType().Name);
 
-            var record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound);
+            PacketRecord record = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound);
             await writer.EnqueueAsync("packet.insert", async (context, token) =>
             {
                 context.Packets.Add(record);
@@ -87,11 +88,11 @@ internal sealed class PacketStorageService(
             throw new ArgumentException("A logical outbound message must have a message number.", nameof(packet));
         }
 
-        var newRecord = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: true);
-        var addressee = packet.Addressee;
-        var inserted = await writer.EnqueueAsync("packet.ensure-outbound-message", async (context, token) =>
+        PacketRecord newRecord = PacketRecordMapper.ToRecord(packet, portId, DateTimeOffset.UtcNow, isOutbound: true);
+        AprsAddress addressee = packet.Addressee;
+        bool inserted = await writer.EnqueueAsync("packet.ensure-outbound-message", async (context, token) =>
         {
-            var records = await FindOutboundMessage(context, addressee, number)
+            List<PacketRecord> records = await FindOutboundMessage(context, addressee, number)
                 .ToListAsync(token).ConfigureAwait(false);
             if (records.Count == 0)
             {
@@ -101,9 +102,9 @@ internal sealed class PacketStorageService(
             }
             else
             {
-                foreach (var record in records)
+                foreach (PacketRecord? record in records)
                 {
-                    var message = record.Message!;
+                    MessageDataRecord message = record.Message!;
                     if (message.DeliveryStatus == MessageDeliveryStatus.Pending && retryCount > message.RetryCount)
                     {
                         message.RetryCount = retryCount;
@@ -129,7 +130,7 @@ internal sealed class PacketStorageService(
             return;
         }
 
-        foreach (EventHandler handler in handlers.GetInvocationList())
+        foreach (EventHandler handler in handlers.GetInvocationList().Cast<EventHandler>())
         {
             try
             {
@@ -149,7 +150,7 @@ internal sealed class PacketStorageService(
             return;
         }
 
-        foreach (EventHandler<StoragePressureEventArgs> handler in handlers.GetInvocationList())
+        foreach (EventHandler<StoragePressureEventArgs> handler in handlers.GetInvocationList().Cast<EventHandler<StoragePressureEventArgs>>())
         {
             try
             {
@@ -171,13 +172,13 @@ internal sealed class PacketStorageService(
         CancellationToken cancellationToken = default)
         => writer.EnqueueAsync("packet.update-outbound-message", async (context, token) =>
     {
-        var records = await FindOutboundMessage(context, addressee, messageNumber)
+        List<PacketRecord> records = await FindOutboundMessage(context, addressee, messageNumber)
             .ToListAsync(token)
             .ConfigureAwait(false);
 
-        foreach (var record in records)
+        foreach (PacketRecord? record in records)
         {
-            var message = record.Message!;
+            MessageDataRecord message = record.Message!;
             if (message.DeliveryStatus != MessageDeliveryStatus.Pending)
             {
                 continue;
@@ -200,14 +201,14 @@ internal sealed class PacketStorageService(
     {
         try
         {
-            var retentionDays = configurationService.Current.Aprs.PacketRetentionDays;
-            var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+            int retentionDays = configurationService.Current.Aprs.PacketRetentionDays;
+            DateTime cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
-            var maximumRows = Math.Max(1, configurationService.Current.Aprs.PacketRetentionMaxRows);
-            var removedByAge = 0;
+            int maximumRows = Math.Max(1, configurationService.Current.Aprs.PacketRetentionMaxRows);
+            int removedByAge = 0;
             while (true)
             {
-                var removed = await writer.EnqueueAsync("packet.cleanup-age", (context, token) =>
+                int removed = await writer.EnqueueAsync("packet.cleanup-age", (context, token) =>
                     DeleteOldestEligibleBatchAsync(context, context.Packets.Where(packet => packet.Timestamp < cutoffDate),
                         CleanupBatchSize, token), cancellationToken).ConfigureAwait(false);
                 removedByAge += removed;
@@ -217,13 +218,13 @@ internal sealed class PacketStorageService(
                 }
             }
 
-            var removedByBound = 0;
+            int removedByBound = 0;
             while (true)
             {
-                var (excess, removed) = await writer.EnqueueAsync("packet.cleanup-bound", async (context, token) =>
+                (int excess, int removed) = await writer.EnqueueAsync("packet.cleanup-bound", async (context, token) =>
                 {
-                    var excess = await context.Packets.CountAsync(token).ConfigureAwait(false) - maximumRows;
-                    var deleted = excess <= 0 ? 0 : await DeleteOldestEligibleBatchAsync(context, context.Packets,
+                    int excess = await context.Packets.CountAsync(token).ConfigureAwait(false) - maximumRows;
+                    int deleted = excess <= 0 ? 0 : await DeleteOldestEligibleBatchAsync(context, context.Packets,
                         Math.Min(CleanupBatchSize, excess), token).ConfigureAwait(false);
                     return (excess, deleted);
                 }, cancellationToken).ConfigureAwait(false);
@@ -268,7 +269,7 @@ internal sealed class PacketStorageService(
         int batchSize,
         CancellationToken cancellationToken)
     {
-        var ids = await candidates
+        List<long> ids = await candidates
             .Where(IsSafeToDelete)
             .OrderBy(packet => packet.Timestamp)
             .ThenBy(packet => packet.Id)
@@ -290,7 +291,7 @@ internal sealed class PacketStorageService(
     private static IQueryable<PacketRecord> FindOutboundMessage(
         AppDbContext context, AprsAddress addressee, int messageNumber)
     {
-        var ssid = (AprsSsid)addressee.Ssid.GetValueOrDefault();
+        AprsSsid ssid = (AprsSsid)addressee.Ssid.GetValueOrDefault();
         return context.Packets.Where(packet =>
             packet.IsOutbound && packet.PacketType == PacketTypes.Message &&
             packet.Message != null && packet.Message.Number == messageNumber &&

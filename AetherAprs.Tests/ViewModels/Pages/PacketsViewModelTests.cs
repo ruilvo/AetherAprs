@@ -26,6 +26,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using System.Diagnostics;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
 
@@ -53,7 +54,7 @@ public class PacketsViewModelTests : TestFixtureBase
         _logger = Substitute.For<ILogger<PacketsViewModel>>();
 
         // Setup configuration service with default settings
-        var appSettings = new AppSettings
+        AppSettings appSettings = new()
         {
             Aprs = new AprsSettings
             {
@@ -63,11 +64,11 @@ public class PacketsViewModelTests : TestFixtureBase
         };
         _configurationService.Current.Returns(appSettings);
 
-        _storedPackets = new List<PacketRecord>();
+        _storedPackets = [];
         _packetQueryService.GetMostRecentPacketsAsync(Arg.Any<int>())
-            .Returns(callInfo => 
+            .Returns(callInfo =>
             {
-                var dict = _storedPackets.ToDictionary(p => $"{p.SourceBase}-{(int)p.SourceSsid}", p => p);
+                Dictionary<string, PacketRecord> dict = _storedPackets.ToDictionary(p => $"{p.SourceBase}-{(int)p.SourceSsid}", p => p);
                 return Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(dict);
             });
 
@@ -82,13 +83,13 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task Constructor_InitializesProperties()
     {
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert
         Assert.Equal(AetherAprs.Localization.Strings.Get("Packets"), viewModel.Title);
         Assert.NotNull(viewModel.Packets);
         Assert.False(viewModel.IsLoading);
-        
+
         viewModel.Dispose();
     }
 
@@ -96,7 +97,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task Constructor_LoadsPacketsFromDatabase()
     {
         // Arrange
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             Id = 1,
             SourceBase = "N0CALL",
@@ -115,14 +116,14 @@ public class PacketsViewModelTests : TestFixtureBase
         _storedPackets.Add(record);
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert
-        Assert.Single(viewModel.Packets);
-        var summary = viewModel.Packets[0];
+        PacketSummary item = Assert.Single(viewModel.Packets);
+        PacketSummary summary = item;
         Assert.Equal("N0CALL-1", summary.Source);
         Assert.Equal("Position", summary.PacketType);
-        
+
         viewModel.Dispose();
     }
 
@@ -130,10 +131,10 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task Constructor_SubscribesToPacketStored()
     {
         // Arrange
-        var viewModel = await CreateViewModelAsync();
-        var initialCount = viewModel.Packets.Count;
-        
-        var record = new PacketRecord
+        PacketsViewModel viewModel = await CreateViewModelAsync();
+        int initialCount = viewModel.Packets.Count;
+
+        PacketRecord record = new()
         {
             Id = 2,
             SourceBase = "K0OTH",
@@ -149,8 +150,8 @@ public class PacketsViewModelTests : TestFixtureBase
         _packetStorageService.PacketStored += Raise.EventWith(EventArgs.Empty);
 
         // Wait for the update to process - poll with timeout since ViewModel uses Dispatcher.UIThread.Post
-        var timeout = TimeSpan.FromSeconds(3);
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        TimeSpan timeout = TimeSpan.FromSeconds(3);
+        Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         while (viewModel.Packets.Count == initialCount && sw.Elapsed < timeout)
         {
             await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -159,7 +160,7 @@ public class PacketsViewModelTests : TestFixtureBase
         // Assert - Packets collection was updated with the new packet
         Assert.Equal(initialCount + 1, viewModel.Packets.Count);
         Assert.Contains(viewModel.Packets, p => p.Source == "K0OTH-1");
-        
+
         viewModel.Dispose();
     }
 
@@ -167,7 +168,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task LoadPacketsAsync_LoadsPositionPacket()
     {
         // Arrange
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             Id = 1,
             SourceBase = "N0CALL",
@@ -186,16 +187,16 @@ public class PacketsViewModelTests : TestFixtureBase
         _storedPackets.Add(record);
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert
-        Assert.Single(viewModel.Packets);
-        var summary = viewModel.Packets[0];
+        PacketSummary item = Assert.Single(viewModel.Packets);
+        PacketSummary summary = item;
         Assert.Equal("N0CALL-1", summary.Source);
         Assert.Equal("Position", summary.PacketType);
         Assert.Contains("45", summary.Preview);
         Assert.Contains("122", summary.Preview);
-        
+
         viewModel.Dispose();
     }
 
@@ -203,7 +204,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task LoadPacketsAsync_LoadsMessagePacket()
     {
         // Arrange
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             Id = 1,
             SourceBase = "N0CALL",
@@ -222,16 +223,16 @@ public class PacketsViewModelTests : TestFixtureBase
         _storedPackets.Add(record);
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert
-        Assert.Single(viewModel.Packets);
-        var summary = viewModel.Packets[0];
+        PacketSummary item = Assert.Single(viewModel.Packets);
+        PacketSummary summary = item;
         Assert.Equal("N0CALL-1", summary.Source);
         Assert.Equal("Message", summary.PacketType);
         Assert.Contains("K0OTH", summary.Preview);
         Assert.Contains("Hello from N0CALL", summary.Preview);
-        
+
         viewModel.Dispose();
     }
 
@@ -239,7 +240,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task LoadPacketsAsync_LoadsStatusPacket()
     {
         // Arrange
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             Id = 1,
             SourceBase = "N0CALL",
@@ -256,15 +257,15 @@ public class PacketsViewModelTests : TestFixtureBase
         _storedPackets.Add(record);
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert
-        Assert.Single(viewModel.Packets);
-        var summary = viewModel.Packets[0];
+        PacketSummary item = Assert.Single(viewModel.Packets);
+        PacketSummary summary = item;
         Assert.Equal("N0CALL-1", summary.Source);
         Assert.Equal("Status", summary.PacketType);
         Assert.Equal("Testing status packet", summary.Preview);
-        
+
         viewModel.Dispose();
     }
 
@@ -272,7 +273,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task LoadPacketsAsync_LoadsWeatherPacket()
     {
         // Arrange
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             Id = 1,
             SourceBase = "N0CALL",
@@ -289,15 +290,15 @@ public class PacketsViewModelTests : TestFixtureBase
         _storedPackets.Add(record);
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert
-        Assert.Single(viewModel.Packets);
-        var summary = viewModel.Packets[0];
+        PacketSummary item = Assert.Single(viewModel.Packets);
+        PacketSummary summary = item;
         Assert.Equal("N0CALL-1", summary.Source);
         Assert.Equal("Weather", summary.PacketType);
         Assert.Contains("72", summary.Preview);
-        
+
         viewModel.Dispose();
     }
 
@@ -370,7 +371,7 @@ public class PacketsViewModelTests : TestFixtureBase
             ]));
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert - station, object, and item all appear, newest first.
         Assert.Equal(3, viewModel.Packets.Count);
@@ -426,23 +427,23 @@ public class PacketsViewModelTests : TestFixtureBase
                 }
             ]));
 
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
         Assert.Equal(2, viewModel.Packets.Count);
 
         // Filter by callsign.
         viewModel.SearchQuery = "N0CALL";
-        Assert.Single(viewModel.Packets);
-        Assert.Equal("N0CALL-1", viewModel.Packets[0].Source);
+        PacketSummary item = Assert.Single(viewModel.Packets);
+        Assert.Equal("N0CALL-1", item.Source);
 
         // Filter by object name.
         viewModel.SearchQuery = "CMA1";
-        Assert.Single(viewModel.Packets);
-        Assert.Equal("CMA1", viewModel.Packets[0].Source);
+        PacketSummary item_2 = Assert.Single(viewModel.Packets);
+        Assert.Equal("CMA1", item_2.Source);
 
         // Filter by description text (object comment).
         viewModel.SearchQuery = "shelter";
-        Assert.Single(viewModel.Packets);
-        Assert.Equal("CMA1", viewModel.Packets[0].Source);
+        PacketSummary item_3 = Assert.Single(viewModel.Packets);
+        Assert.Equal("CMA1", item_3.Source);
 
         // No match shows the no-results empty state.
         viewModel.SearchQuery = "ZZZZ";
@@ -461,9 +462,9 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task OpenPacketDetailsCommand_ObjectNavigatesToObjectDetails()
     {
         // Arrange
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
-        var summary = new PacketSummary
+        PacketSummary summary = new()
         {
             Source = "CMA1",
             PacketType = "Object",
@@ -472,7 +473,7 @@ public class PacketsViewModelTests : TestFixtureBase
             IsObject = true
         };
 
-        var objectDetailsVm = Substitute.For<ObjectDetailsViewModel>(
+        ObjectDetailsViewModel objectDetailsVm = Substitute.For<ObjectDetailsViewModel>(
             _packetQueryService,
             Substitute.For<ILogger<ObjectDetailsViewModel>>());
 
@@ -493,7 +494,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task LoadPacketsAsync_SortsPacketsByMostRecentFirst()
     {
         // Arrange
-        var now = DateTime.UtcNow;
+        DateTime now = DateTime.UtcNow;
 
         _storedPackets.Add(new PacketRecord
         {
@@ -530,13 +531,13 @@ public class PacketsViewModelTests : TestFixtureBase
         });
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert - Most recent first
         Assert.Equal(2, viewModel.Packets.Count);
         Assert.Equal("K0OTH-2", viewModel.Packets[0].Source); // Newer packet first
         Assert.Equal("N0CALL-1", viewModel.Packets[1].Source);
-        
+
         viewModel.Dispose();
     }
 
@@ -546,7 +547,7 @@ public class PacketsViewModelTests : TestFixtureBase
         // Arrange - Add 150 packets
         for (int i = 0; i < 150; i++)
         {
-            var callsign = $"CAL{i:D3}";
+            string callsign = $"CAL{i:D3}";
             _storedPackets.Add(new PacketRecord
             {
                 Id = i + 1,
@@ -566,7 +567,7 @@ public class PacketsViewModelTests : TestFixtureBase
         }
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Assert - Only the first page is displayed until the user scrolls.
         Assert.Equal(50, viewModel.Packets.Count);
@@ -581,7 +582,7 @@ public class PacketsViewModelTests : TestFixtureBase
         // Arrange - Add 120 packets (three pages of 50, then 20)
         for (int i = 0; i < 120; i++)
         {
-            var callsign = $"CAL{i:D3}";
+            string callsign = $"CAL{i:D3}";
             _storedPackets.Add(new PacketRecord
             {
                 Id = i + 1,
@@ -601,7 +602,7 @@ public class PacketsViewModelTests : TestFixtureBase
         }
 
         // Act
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
         Assert.Equal(50, viewModel.Packets.Count);
 
         viewModel.LoadMoreCommand.Execute(null);
@@ -623,9 +624,9 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task OpenPacketDetailsCommand_NavigatesToPacketDetails()
     {
         // Arrange
-        var viewModel = await CreateViewModelAsync();
-        
-        var summary = new PacketSummary
+        PacketsViewModel viewModel = await CreateViewModelAsync();
+
+        PacketSummary summary = new()
         {
             Source = "N0CALL-1",
             PacketType = "Position",
@@ -633,7 +634,7 @@ public class PacketsViewModelTests : TestFixtureBase
             Preview = "Test preview"
         };
 
-        var detailsVm = Substitute.For<PacketDetailsViewModel>(
+        PacketDetailsViewModel detailsVm = Substitute.For<PacketDetailsViewModel>(
             _packetQueryService,
             _navigationService,
             Substitute.For<IConversationViewModelFactory>(),
@@ -649,7 +650,7 @@ public class PacketsViewModelTests : TestFixtureBase
         // Assert
         _packetDetailsFactory.Received(1).Create("N0CALL-1");
         _navigationService.Received(1).NavigateTo(detailsVm);
-        
+
         viewModel.Dispose();
     }
 
@@ -657,7 +658,7 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task OpenPacketDetailsCommand_WithNullSummary_DoesNotNavigate()
     {
         // Arrange
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Act
         viewModel.OpenPacketDetailsCommand.Execute(null);
@@ -665,7 +666,7 @@ public class PacketsViewModelTests : TestFixtureBase
         // Assert
         _packetDetailsFactory.DidNotReceiveWithAnyArgs().Create(default!);
         _navigationService.DidNotReceiveWithAnyArgs().NavigateTo(default!);
-        
+
         viewModel.Dispose();
     }
 
@@ -673,13 +674,13 @@ public class PacketsViewModelTests : TestFixtureBase
     public async Task Dispose_CleansUpResourcesAndUnsubscribes()
     {
         // Arrange
-        var viewModel = await CreateViewModelAsync();
+        PacketsViewModel viewModel = await CreateViewModelAsync();
 
         // Act
         viewModel.Dispose();
 
         // Trigger packet stored after disposal
-        var record = new PacketRecord
+        PacketRecord record = new()
         {
             Id = 999,
             SourceBase = "N0CALL",
@@ -691,7 +692,7 @@ public class PacketsViewModelTests : TestFixtureBase
         };
 
         // Add to stored packets so query service returns it
-        var initialCount = viewModel.Packets.Count;
+        int initialCount = viewModel.Packets.Count;
         _storedPackets.Add(record);
 
         // Raise PacketStored event - should be ignored after disposal
@@ -709,22 +710,22 @@ public class PacketsViewModelTests : TestFixtureBase
 
     private async Task<PacketsViewModel> CreateViewModelAsync()
     {
-        var objectsViewModel = new ObjectsViewModel(
+        ObjectsViewModel objectsViewModel = new(
             Substitute.For<IObjectService>(),
             _navigationService,
             Substitute.For<IObjectEditorViewModelFactory>(),
             Substitute.For<IConfirmationDialogService>());
-        
-        var searchViewModel = new SearchViewModel(
+
+        SearchViewModel searchViewModel = new(
             _packetQueryService,
             _navigationService,
             _packetDetailsFactory,
             Substitute.For<IObjectDetailsViewModelFactory>());
-        
-        var filterService = Substitute.For<IPacketViewFilterService>();
+
+        IPacketViewFilterService filterService = Substitute.For<IPacketViewFilterService>();
         filterService.GetCutoffTime().Returns((DateTimeOffset?)null);
-        
-        var viewModel = new PacketsViewModel(
+
+        PacketsViewModel viewModel = new(
             _packetQueryService,
             _packetStorageService,
             _navigationService,
@@ -736,10 +737,10 @@ public class PacketsViewModelTests : TestFixtureBase
             _logger,
             objectsViewModel,
             searchViewModel);
-        
+
         // Wait for initialization to complete
         await viewModel.InitializationTask;
-        
+
         return viewModel;
     }
 }

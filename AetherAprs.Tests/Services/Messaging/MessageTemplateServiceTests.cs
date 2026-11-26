@@ -23,7 +23,7 @@ public sealed class MessageTemplateServiceTests
 
     public MessageTemplateServiceTests()
     {
-        var configurationService = Substitute.For<IConfigurationService>();
+        IConfigurationService configurationService = Substitute.For<IConfigurationService>();
         configurationService.Current.Returns(_ => _settings);
         configurationService
             .UpdateAsync(
@@ -49,11 +49,11 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public async Task AddAsync_AppendsTemplate()
     {
-        var template = new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "{summit}" };
+        MessageTemplate template = new() { Name = "Spot", Destination = "SOTA", Body = "{summit}" };
 
         await _service.AddAsync(template, TestContext.Current.CancellationToken);
 
-        var stored = Assert.Single(_settings.MessageTemplates.Templates);
+        MessageTemplate stored = Assert.Single(_settings.MessageTemplates.Templates);
         Assert.Equal("Spot", stored.Name);
         Assert.Equal("SOTA", stored.Destination);
         Assert.Equal("{summit}", stored.Body);
@@ -78,7 +78,7 @@ public sealed class MessageTemplateServiceTests
             new MessageTemplate { Name = "Old", Destination = "SOTA", Body = "old body" });
         AddTemplate(
             new MessageTemplate { Name = "Other", Destination = "N0CALL", Body = "other body" });
-        var replacement = new MessageTemplate { Name = "New", Destination = "SOTA", Body = "new body" };
+        MessageTemplate replacement = new() { Name = "New", Destination = "SOTA", Body = "new body" };
 
         await _service.UpdateAsync("OLD", replacement, TestContext.Current.CancellationToken);
 
@@ -98,7 +98,7 @@ public sealed class MessageTemplateServiceTests
             "Missing",
             new MessageTemplate { Name = "Replacement", Destination = "N0CALL", Body = "replacement" }, TestContext.Current.CancellationToken);
 
-        var stored = Assert.Single(_settings.MessageTemplates.Templates);
+        MessageTemplate stored = Assert.Single(_settings.MessageTemplates.Templates);
         Assert.Equal("Existing", stored.Name);
         Assert.Equal("existing", stored.Body);
     }
@@ -113,7 +113,7 @@ public sealed class MessageTemplateServiceTests
 
         await _service.DeleteAsync("spot", TestContext.Current.CancellationToken);
 
-        var stored = Assert.Single(_settings.MessageTemplates.Templates);
+        MessageTemplate stored = Assert.Single(_settings.MessageTemplates.Templates);
         Assert.Equal("Other", stored.Name);
     }
 
@@ -125,22 +125,22 @@ public sealed class MessageTemplateServiceTests
 
         await _service.DeleteAsync("Missing", TestContext.Current.CancellationToken);
 
-        var stored = Assert.Single(_settings.MessageTemplates.Templates);
+        MessageTemplate stored = Assert.Single(_settings.MessageTemplates.Templates);
         Assert.Equal("Existing", stored.Name);
     }
 
     [Fact]
     public void Apply_ReplacesPlaceholdersCaseInsensitively()
     {
-        var template = new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "{summit} {freq} {mode}" };
-        var values = new Dictionary<string, string>
+        MessageTemplate template = new() { Name = "Spot", Destination = "SOTA", Body = "{summit} {freq} {mode}" };
+        Dictionary<string, string> values = new()
         {
             ["SUMMIT"] = "ON/ON-010",
             ["Freq"] = "144.320",
             ["mode"] = "SSB",
         };
 
-        var result = _service.Apply(template, values);
+        string? result = _service.Apply(template, values);
 
         Assert.Equal("ON/ON-010 144.320 SSB", result);
     }
@@ -148,14 +148,14 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void Apply_TrimsValues_AndBlanksBecomeEmpty()
     {
-        var template = new MessageTemplate { Name = "Spot", Body = "{freq} | {missing} | {blank}" };
-        var values = new Dictionary<string, string>
+        MessageTemplate template = new() { Name = "Spot", Body = "{freq} | {missing} | {blank}" };
+        Dictionary<string, string> values = new()
         {
             ["freq"] = "  144.320  ",
             ["blank"] = "   ",
         };
 
-        var result = _service.Apply(template, values);
+        string? result = _service.Apply(template, values);
 
         Assert.Equal("144.320 |  | ", result);
     }
@@ -163,10 +163,11 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void Apply_DoesNotResubstituteBracesInValues()
     {
-        var template = new MessageTemplate { Name = "Spot", Body = "{summit}" };
-        var values = new Dictionary<string, string> { ["summit"] = "a {freq} b" };
+        MessageTemplate template = new() { Name = "Spot", Body = "{summit}" };
+        Dictionary<string, string> values = new()
+        { ["summit"] = "a {freq} b" };
 
-        var result = _service.Apply(template, values);
+        string? result = _service.Apply(template, values);
 
         Assert.Equal("a {freq} b", result);
     }
@@ -174,10 +175,10 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void Apply_ReturnsNull_WhenResultExceeds67Chars()
     {
-        var template = new MessageTemplate { Name = "Spot", Body = "{msg}" };
+        MessageTemplate template = new() { Name = "Spot", Body = "{msg}" };
 
-        var atLimit = _service.Apply(template, new Dictionary<string, string> { ["msg"] = new string('x', 67) });
-        var overLimit = _service.Apply(template, new Dictionary<string, string> { ["msg"] = new string('x', 68) });
+        string? atLimit = _service.Apply(template, new Dictionary<string, string> { ["msg"] = new string('x', 67) });
+        string? overLimit = _service.Apply(template, new Dictionary<string, string> { ["msg"] = new string('x', 68) });
 
         Assert.NotNull(atLimit);
         Assert.Equal(67, atLimit!.Length);
@@ -187,38 +188,38 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void GetPlaceholderNames_ReturnsDistinctInOrder()
     {
-        var names = _service.GetPlaceholderNames("{b} {a} {b} text {c} {bad-name} {x.y} {a1_B}");
+        IReadOnlyList<string> names = _service.GetPlaceholderNames("{b} {a} {b} text {c} {bad-name} {x.y} {a1_B}");
 
-        Assert.Equal(new[] { "b", "a", "c", "a1_B" }, names);
+        Assert.Equal(["b", "a", "c", "a1_B"], names);
     }
 
     [Fact]
     public void GetTemplatesForPeer_MatchesBaseIgnoringSsid()
     {
-        Assert.True(AprsAddress.TryParse("SOTA-1", out var peer));
+        Assert.True(AprsAddress.TryParse("SOTA-1", out AprsAddress peer));
         AddTemplate(
             new MessageTemplate { Name = "Sota", Destination = "SOTA", Body = "x" });
         AddTemplate(
             new MessageTemplate { Name = "Other", Destination = "OTHER", Body = "y" });
 
-        var result = _service.GetTemplatesForPeer(peer);
+        IReadOnlyList<MessageTemplate> result = _service.GetTemplatesForPeer(peer);
 
-        var template = Assert.Single(result);
+        MessageTemplate template = Assert.Single(result);
         Assert.Equal("Sota", template.Name);
     }
 
     [Fact]
     public void GetTemplatesForPeer_MatchesATacticalAddress()
     {
-        Assert.True(AprsAddress.TryParse("APRS2SOTA", out var peer));
+        Assert.True(AprsAddress.TryParse("APRS2SOTA", out AprsAddress peer));
         AddTemplate(
             new MessageTemplate { Name = "Sota spot", Destination = "APRS2SOTA", Body = "x" });
         AddTemplate(
             new MessageTemplate { Name = "Other", Destination = "EMAIL", Body = "y" });
 
-        var result = _service.GetTemplatesForPeer(peer);
+        IReadOnlyList<MessageTemplate> result = _service.GetTemplatesForPeer(peer);
 
-        var template = Assert.Single(result);
+        MessageTemplate template = Assert.Single(result);
         Assert.Equal("Sota spot", template.Name);
     }
 
@@ -228,7 +229,7 @@ public sealed class MessageTemplateServiceTests
         AddTemplate(
             new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "x" });
 
-        var match = _service.GetByName("spot");
+        MessageTemplate? match = _service.GetByName("spot");
 
         Assert.NotNull(match);
         Assert.Equal("Spot", match!.Name);
@@ -241,11 +242,11 @@ public sealed class MessageTemplateServiceTests
         AddTemplate(
             new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "x" });
 
-        var templates = _service.Templates;
+        IReadOnlyList<MessageTemplate> templates = _service.Templates;
 
         Assert.NotSame(_settings.MessageTemplates.Templates, templates);
         Assert.Equal(
             _settings.MessageTemplates.Templates.Select(t => t.Name).ToList(),
-            templates.Select(t => t.Name).ToList());
+            [.. templates.Select(t => t.Name)]);
     }
 }

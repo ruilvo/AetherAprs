@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AetherAprs.Data;
@@ -28,25 +29,20 @@ public sealed class PacketQueryServiceTests : IDisposable
     {
         _db = TempAppDatabase.CreateEmpty();
         _reader = new SqliteRuntimeReader(_db.Factory);
-        using (var db = _db.CreateContext())
-        {
-            db.Database.EnsureCreated();
-        }
+        using AppDbContext db = _db.CreateContext();
+        db.Database.EnsureCreated();
     }
 
-    public void Dispose()
-    {
-        _db.Dispose();
-    }
+    public void Dispose() => _db.Dispose();
 
     [Fact]
     public async Task GetMostRecentPacketsAsync_EmptyDatabase_ReturnsEmptyDictionary()
     {
         // Arrange
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyDictionary<string, PacketRecord> result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Empty(result);
@@ -56,11 +52,11 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetMostRecentPacketsAsync_MultiplePacketsFromSameStation_ReturnsOnlyMostRecent()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
-            var oldTimestamp = DateTime.UtcNow.AddHours(-2);
-            var recentTimestamp = DateTime.UtcNow.AddHours(-1);
+            DateTime oldTimestamp = DateTime.UtcNow.AddHours(-2);
+            DateTime recentTimestamp = DateTime.UtcNow.AddHours(-1);
 
             context.Packets.Add(new PacketRecord
             {
@@ -111,14 +107,14 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyDictionary<string, PacketRecord> result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(result);
-        var packet = result["K0OTH-1"];
+        PacketRecord packet = result["K0OTH-1"];
         Assert.Equal("Recent position", packet.Position?.Comment);
     }
 
@@ -126,8 +122,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetMostRecentPacketsAsync_MultipleStations_ReturnsOnePerStation()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -169,10 +165,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyDictionary<string, PacketRecord> result = await service.GetMostRecentPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -184,8 +180,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetMostRecentPacketsAsync_EnforcesLimitParameter()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             for (int i = 0; i < 5; i++)
             {
@@ -211,10 +207,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentPacketsAsync(limit: 3, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyDictionary<string, PacketRecord> result = await service.GetMostRecentPacketsAsync(limit: 3, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(3, result.Count);
@@ -224,8 +220,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetMostRecentPositionPacketsAsync_FiltersNonPositionPackets()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -269,10 +265,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentPositionPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyDictionary<string, PacketRecord> result = await service.GetMostRecentPositionPacketsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(result);
@@ -284,10 +280,10 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetPacketsByPortAsync_FiltersCorrectly()
     {
         // Arrange
-        var port1 = Guid.NewGuid();
-        var port2 = Guid.NewGuid();
+        Guid port1 = Guid.NewGuid();
+        Guid port2 = Guid.NewGuid();
 
-        using (var context = _db.CreateContext())
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -330,14 +326,14 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPacketsByPortAsync(port1, limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPacketsByPortAsync(port1, limit: 500, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Single(result);
-        Assert.Equal("K0OTH", result[0].SourceBase);
+        PacketRecord item = Assert.Single(result);
+        Assert.Equal("K0OTH", item.SourceBase);
         Assert.Equal(AprsSsid.AdditionalStation1, result[0].SourceSsid);
     }
 
@@ -345,9 +341,9 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetPacketsByPortAsync_OrdersByIdDescending()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var baseTime = DateTime.UtcNow.AddHours(-10);
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        DateTime baseTime = DateTime.UtcNow.AddHours(-10);
+        using (AppDbContext context = _db.CreateContext())
         {
             // Create packets with deterministic timestamps that decrease
             context.Packets.Add(new PacketRecord
@@ -407,10 +403,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPacketsByPortAsync(portId, limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPacketsByPortAsync(portId, limit: 500, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(3, result.Count);
@@ -423,8 +419,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetPacketsByCallsignAsync_WithSsid_ReturnsMatchingPackets()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -467,22 +463,22 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPacketsByCallsignAsync("K0OTH-1", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPacketsByCallsignAsync("K0OTH-1", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Single(result);
-        Assert.Equal(AprsSsid.AdditionalStation1, result[0].SourceSsid);
+        PacketRecord item = Assert.Single(result);
+        Assert.Equal(AprsSsid.AdditionalStation1, item.SourceSsid);
     }
 
     [Fact]
     public async Task GetPacketsByCallsignAsync_WithoutSsid_ReturnsAllSsids()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -525,10 +521,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPacketsByCallsignAsync("K0OTH", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPacketsByCallsignAsync("K0OTH", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -538,8 +534,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetPacketsByCallsignAsync_InvalidSsidFormat_FallsBackToBaseCallsign()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -563,10 +559,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPacketsByCallsignAsync("K0OTH-99", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPacketsByCallsignAsync("K0OTH-99", limit: 500, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(result);
@@ -576,8 +572,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetPositionTrailPacketsAsync_NoCutoff_ReturnsAllPackets()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             for (int i = 0; i < 3; i++)
             {
@@ -603,10 +599,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPositionTrailPacketsAsync(cutoffTime: null, limit: 50000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPositionTrailPacketsAsync(cutoffTime: null, limit: 50000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(3, result.Count);
@@ -616,10 +612,10 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetPositionTrailPacketsAsync_WithCutoff_FiltersOldPackets()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var cutoff = DateTime.UtcNow.AddHours(-1.5);
+        Guid portId = Guid.NewGuid();
+        DateTime cutoff = DateTime.UtcNow.AddHours(-1.5);
 
-        using (var context = _db.CreateContext())
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -662,10 +658,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetPositionTrailPacketsAsync(cutoffTime: cutoff, limit: 50000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetPositionTrailPacketsAsync(cutoffTime: cutoff, limit: 50000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(result);
@@ -675,8 +671,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetMostRecentObjectsAsync_ReturnsLatestPerObjectName()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -723,22 +719,22 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentObjectsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetMostRecentObjectsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - only the latest (killed) object survives per name
-        Assert.Single(result);
-        Assert.False(result[0].Object?.IsLive);
+        PacketRecord item = Assert.Single(result);
+        Assert.False(item.Object?.IsLive);
     }
 
     [Fact]
     public async Task GetMostRecentItemsAsync_ReturnsLatestPerItemName()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -764,13 +760,13 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetMostRecentItemsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetMostRecentItemsAsync(limit: 1000, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        var item = Assert.Single(result);
+        PacketRecord item = Assert.Single(result);
         Assert.Equal("ITEM", item.Item?.Name);
     }
 
@@ -778,8 +774,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task GetBulletinsAsync_ReturnsNewestFirst()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             for (int i = 0; i < 3; i++)
             {
@@ -806,10 +802,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.GetBulletinsAsync(limit: 500, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.GetBulletinsAsync(limit: 500, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert - newest first (descending ID)
         Assert.Equal(3, result.Count);
@@ -822,7 +818,7 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task Dispose_CanBeCalledMultipleTimes()
     {
         // Arrange
-        var service = new PacketQueryService(_reader, _logger);
+        PacketQueryService service = new(_reader, _logger);
 
         // Act
         service.Dispose();
@@ -835,7 +831,7 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task MethodsAfterDispose_ThrowObjectDisposedException()
     {
         // Arrange
-        var service = new PacketQueryService(_reader, _logger);
+        PacketQueryService service = new(_reader, _logger);
         service.Dispose();
 
         // Act & Assert
@@ -847,10 +843,10 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_EmptyQuery_ReturnsEmptyList()
     {
         // Arrange
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.SearchStationsAsync("   ", cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.SearchStationsAsync("   ", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Empty(result);
@@ -860,8 +856,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_ExactCallsignMatch_ReturnsStation()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -904,13 +900,13 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        var station = Assert.Single(result);
+        PacketRecord station = Assert.Single(result);
         Assert.Equal("K0OTH", station.SourceBase);
     }
 
@@ -918,8 +914,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_PrefixMatch_ReturnsMatchingStations()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -981,10 +977,10 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.SearchStationsAsync("K0", cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.SearchStationsAsync("K0", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -995,8 +991,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_ObjectNameMatch_ReturnsObject()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -1022,13 +1018,13 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.SearchStationsAsync("SHEL", cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.SearchStationsAsync("SHEL", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        var obj = Assert.Single(result);
+        PacketRecord obj = Assert.Single(result);
         Assert.Equal("SHELTER1", obj.Object?.Name);
     }
 
@@ -1036,8 +1032,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_CaseInsensitive_MatchesUppercaseCallsign()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -1061,13 +1057,13 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.SearchStationsAsync("k0oth", cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.SearchStationsAsync("k0oth", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        var station = Assert.Single(result);
+        PacketRecord station = Assert.Single(result);
         Assert.Equal("K0OTH", station.SourceBase);
     }
 
@@ -1075,8 +1071,8 @@ public sealed class PacketQueryServiceTests : IDisposable
     public async Task SearchStationsAsync_MultiplePacketsSameStation_ReturnsOnlyMostRecent()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        using (var context = _db.CreateContext())
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
         {
             context.Packets.Add(new PacketRecord
             {
@@ -1114,13 +1110,13 @@ public sealed class PacketQueryServiceTests : IDisposable
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
-        using var service = new PacketQueryService(_reader, _logger);
+        using PacketQueryService service = new(_reader, _logger);
 
         // Act
-        var result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> result = await service.SearchStationsAsync("K0OTH", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        var station = Assert.Single(result);
+        PacketRecord station = Assert.Single(result);
         Assert.Equal(PacketTypes.Status, station.PacketType);
     }
 }

@@ -25,11 +25,15 @@ namespace AetherAprs.ViewModels.Pages;
 /// because <see cref="IObjectService.CreateOrUpdateAsync"/> always transmits a
 /// live object.
 /// </summary>
-public partial class ObjectEditorViewModel : ViewModelBase
+public partial class ObjectEditorViewModel(
+    IObjectService objectService,
+    INavigationService navigationService,
+    AprsSymbolPickerViewModel symbolPicker,
+    ILogger<ObjectEditorViewModel>? logger = null) : ViewModelBase
 {
-    private readonly IObjectService _objectService;
-    private readonly INavigationService _navigationService;
-    private readonly ILogger<ObjectEditorViewModel>? _logger;
+    private readonly IObjectService _objectService = objectService ?? throw new ArgumentNullException(nameof(objectService));
+    private readonly INavigationService _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    private readonly ILogger<ObjectEditorViewModel>? _logger = logger;
     private ObjectPacket? _existing;
 
     [ObservableProperty]
@@ -45,7 +49,7 @@ public partial class ObjectEditorViewModel : ViewModelBase
     public partial string? Comment { get; set; }
 
     [ObservableProperty]
-    public partial AprsSymbolPickerViewModel SymbolPicker { get; set; }
+    public partial AprsSymbolPickerViewModel SymbolPicker { get; set; } = symbolPicker ?? throw new ArgumentNullException(nameof(symbolPicker));
 
     [ObservableProperty]
     public partial bool KillObject { get; set; }
@@ -62,18 +66,6 @@ public partial class ObjectEditorViewModel : ViewModelBase
     public bool IsEditing => _existing is not null;
 
     public string Title => IsEditing ? Strings.Get("EditObject") : Strings.Get("AddObject");
-
-    public ObjectEditorViewModel(
-        IObjectService objectService,
-        INavigationService navigationService,
-        AprsSymbolPickerViewModel symbolPicker,
-        ILogger<ObjectEditorViewModel>? logger = null)
-    {
-        _objectService = objectService ?? throw new ArgumentNullException(nameof(objectService));
-        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
-        SymbolPicker = symbolPicker ?? throw new ArgumentNullException(nameof(symbolPicker));
-        _logger = logger;
-    }
 
     /// <summary>
     /// Initializes the editor with the object to edit (or null to add a new one).
@@ -110,10 +102,7 @@ public partial class ObjectEditorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Cancel()
-    {
-        _navigationService.GoBack();
-    }
+    private void Cancel() => _navigationService.GoBack();
 
     private bool CanSave() => !IsSaving;
 
@@ -126,7 +115,7 @@ public partial class ObjectEditorViewModel : ViewModelBase
         }
 
         ErrorMessage = null;
-        var name = Name?.Trim();
+        string? name = Name?.Trim();
         if (string.IsNullOrEmpty(name))
         {
             ErrorMessage = Strings.Get("ValidationObjectNameRequired");
@@ -148,13 +137,13 @@ public partial class ObjectEditorViewModel : ViewModelBase
             }
             else
             {
-                if (!TryParseCoordinate(LatitudeText, out var latitude))
+                if (!TryParseCoordinate(LatitudeText, out double latitude))
                 {
                     ErrorMessage = Strings.Get("ValidationObjectLatitudeInvalid");
                     return;
                 }
 
-                if (!TryParseCoordinate(LongitudeText, out var longitude))
+                if (!TryParseCoordinate(LongitudeText, out double longitude))
                 {
                     ErrorMessage = Strings.Get("ValidationObjectLongitudeInvalid");
                     return;
@@ -184,12 +173,9 @@ public partial class ObjectEditorViewModel : ViewModelBase
         }
     }
 
-    private static bool TryParseCoordinate(string? text, out double value)
-    {
-        return double.TryParse(
+    private static bool TryParseCoordinate(string? text, out double value) => double.TryParse(
             text,
             NumberStyles.Float,
             CultureInfo.InvariantCulture,
             out value);
-    }
 }

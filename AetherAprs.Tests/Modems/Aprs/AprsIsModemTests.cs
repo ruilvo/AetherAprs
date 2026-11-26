@@ -28,23 +28,17 @@ public class AprsIsModemTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Constructor_NullHost_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            new AprsIsModem(null!, 14580, Source, "12345"));
-    }
+    public void Constructor_NullHost_ThrowsArgumentNullException() => Assert.Throws<ArgumentNullException>(() =>
+                                                                               new AprsIsModem(null!, 14580, Source, "12345"));
 
     [Fact]
-    public void Constructor_EmptyHost_ThrowsArgumentException()
-    {
-        Assert.Throws<ArgumentException>(() =>
-            new AprsIsModem("", 14580, Source, "12345"));
-    }
+    public void Constructor_EmptyHost_ThrowsArgumentException() => Assert.Throws<ArgumentException>(() =>
+                                                                            new AprsIsModem("", 14580, Source, "12345"));
 
     [Fact]
     public async Task Constructor_ValidArgs_Succeeds()
     {
-        await using var modem = new AprsIsModem("rotate.aprs2.net", 14580, Source, "12345");
+        await using AprsIsModem modem = new("rotate.aprs2.net", 14580, Source, "12345");
         Assert.NotNull(modem);
     }
 
@@ -55,7 +49,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task Start_FirstCall_Succeeds()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
         modem.Start();
         // No exception is the assertion
     }
@@ -63,7 +57,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task Start_DoubleCall_ThrowsInvalidOperationException()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
         modem.Start();
         Assert.Throws<InvalidOperationException>(() => modem.Start());
     }
@@ -71,13 +65,13 @@ public class AprsIsModemTests
     [Fact]
     public async Task Start_ConcurrentCalls_OnlyOneSucceeds()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
 
         const int contenders = 8;
-        var started = 0;
-        var failures = 0;
+        int started = 0;
+        int failures = 0;
 
-        var threads = Enumerable.Range(0, contenders)
+        Thread[] threads = [.. Enumerable.Range(0, contenders)
             .Select(_ => new Thread(() =>
             {
                 try
@@ -89,15 +83,14 @@ public class AprsIsModemTests
                 {
                     Interlocked.Increment(ref failures);
                 }
-            }))
-            .ToArray();
+            }))];
 
-        foreach (var thread in threads)
+        foreach (Thread? thread in threads)
         {
             thread.Start();
         }
 
-        foreach (var thread in threads)
+        foreach (Thread? thread in threads)
         {
             thread.Join();
         }
@@ -111,7 +104,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task StopAsync_WithoutStart_IsNoOp()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
         await modem.StopAsync();
         // No exception is the assertion
     }
@@ -119,7 +112,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task StartThenStopAsync_CompletesCleanly()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
         modem.Start();
         await modem.StopAsync();
     }
@@ -131,9 +124,9 @@ public class AprsIsModemTests
     [Fact]
     public async Task SendAsync_NotStarted_ThrowsInvalidOperationException()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -149,7 +142,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task SendAsync_NullPacket_ThrowsArgumentNullException()
     {
-        await using var modem = new AprsIsModem("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             modem.SendAsync(null!, TestContext.Current.CancellationToken));
@@ -158,27 +151,27 @@ public class AprsIsModemTests
     [Fact]
     public async Task SendAsync_AfterVerifiedLogin_UsesQaoConstructor()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
 
-        var login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        string? login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
         Assert.Contains("filter", login);
 
         await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -189,7 +182,7 @@ public class AprsIsModemTests
 
         await modem.SendAsync(packet, TestContext.Current.CancellationToken);
 
-        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        string? transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
         Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
     }
 
@@ -199,23 +192,23 @@ public class AprsIsModemTests
         // Start() returns before the login response arrives. A send issued in that window
         // used to snapshot a null writer and throw "not connected" even though the
         // connection authenticated microseconds later.
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
 
         _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -224,7 +217,7 @@ public class AprsIsModemTests
             Precision = 2
         };
 
-        var send = modem.SendAsync(packet, TestContext.Current.CancellationToken);
+        Task send = modem.SendAsync(packet, TestContext.Current.CancellationToken);
         Assert.False(send.IsCompleted);
 
         await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
@@ -232,23 +225,23 @@ public class AprsIsModemTests
 
         await send;
 
-        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        string? transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
         Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
     }
 
     [Fact]
     public async Task SendAsync_RfReceivedPacket_UsesQarConstructorWithPath()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
@@ -266,7 +259,7 @@ public class AprsIsModemTests
 
         // A packet received over RF carries a non-empty RawFrameHex, which tells
         // the modem to emit qAR (not qAo) and preserve the digipeater path.
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -279,28 +272,28 @@ public class AprsIsModemTests
 
         await modem.SendAsync(packet, TestContext.Current.CancellationToken);
 
-        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        string? transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
         Assert.Equal("N0CALL>APZ001,WIDE1-1*,WIDE2-1,qAR:!3830.00N/00906.00W#", transmitted);
     }
 
     [Fact]
     public async Task Login_IncludesConfiguredSsid()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem(
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new(
             "127.0.0.1",
             endpoint.Port,
             new Callsign("N0CALL", 1),
             "12345");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
 
-        var login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        string? login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
 
         Assert.StartsWith("user N0CALL-1 pass 12345", login);
     }
@@ -314,16 +307,16 @@ public class AprsIsModemTests
     {
         // "unverified" is a successful READ-ONLY login (invalid/missing
         // passcode): the modem must accept it and keep transmitting.
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
@@ -332,7 +325,7 @@ public class AprsIsModemTests
         await writer.WriteLineAsync("# logresp N0CALL unverified, server TEST");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -343,26 +336,26 @@ public class AprsIsModemTests
 
         await modem.SendAsync(packet, TestContext.Current.CancellationToken);
 
-        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        string? transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
         Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
     }
 
     [Fact]
     public async Task Receive_AfterUnverifiedLogin_DeliversPackets()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
 
-        var received = new TaskCompletionSource<AprsPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<AprsPacket> received = new(TaskCreationOptions.RunContinuationsAsynchronously);
         modem.PacketReceived += (_, packet) => received.TrySetResult(packet);
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
@@ -373,8 +366,8 @@ public class AprsIsModemTests
         await writer.WriteLineAsync("N0CALL>APZ001:>Online via APRS");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var packet = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-        var status = Assert.IsType<StatusPacket>(packet);
+        AprsPacket packet = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        StatusPacket status = Assert.IsType<StatusPacket>(packet);
         Assert.Equal("Online via APRS", status.Text);
     }
 
@@ -382,16 +375,16 @@ public class AprsIsModemTests
     public async Task SendAsync_AfterFailedLogin_Throws()
     {
         // "failed" is the only true rejection: the modem must not proceed.
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
@@ -400,7 +393,7 @@ public class AprsIsModemTests
         await writer.WriteLineAsync("# logresp N0CALL failed, server TEST");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -409,7 +402,7 @@ public class AprsIsModemTests
             Precision = 2
         };
 
-        var ex = await Assert.ThrowsAnyAsync<Exception>(() =>
+        Exception ex = await Assert.ThrowsAnyAsync<Exception>(() =>
             modem.SendAsync(packet, TestContext.Current.CancellationToken));
         Assert.Contains("rejected", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -419,16 +412,16 @@ public class AprsIsModemTests
     {
         // The readiness signal is the only observable proof that the login reply was
         // consumed, so it must report a rejection instead of completing successfully.
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        var endpoint = (IPEndPoint)listener.LocalEndpoint;
-        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345");
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345");
 
         modem.Start();
-        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
-        await using var stream = server.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
         {
             NewLine = "\r\n"
         };
@@ -437,7 +430,7 @@ public class AprsIsModemTests
         await writer.WriteLineAsync("# logresp N0CALL failed, server TEST");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             modem.ConnectionReady.WaitAsync(
                 TimeSpan.FromSeconds(5),
                 TestContext.Current.CancellationToken));
@@ -452,11 +445,11 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_PositionPacket_ReturnsPositionPacket()
     {
-        var line = "N0CALL>APZ001:!3830.00N/00906.00E#Test";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001:!3830.00N/00906.00E#Test";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
         Assert.Equal(new Callsign("APZ001"), pos.Destination);
         Assert.Equal(38.5, pos.Location.Latitude, 6);
@@ -467,11 +460,11 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_MessagePacket_ReturnsMessagePacket()
     {
-        var line = "N0CALL>APZ001::OTHER   :Hello there";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001::OTHER   :Hello there";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var msg = Assert.IsType<MessagePacket>(result);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal(new Callsign("N0CALL"), msg.Source);
         Assert.Equal(AprsAddress.FromCallsign(new Callsign("OTHER")), msg.Addressee);
         Assert.Equal("Hello there", msg.Text);
@@ -480,22 +473,22 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_StatusPacket_ReturnsStatusPacket()
     {
-        var line = "N0CALL>APZ001:>Online via APRS";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001:>Online via APRS";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var status = Assert.IsType<StatusPacket>(result);
+        StatusPacket status = Assert.IsType<StatusPacket>(result);
         Assert.Equal("Online via APRS", status.Text);
     }
 
     [Fact]
     public void ParseIsLine_WeatherPacket_ReturnsWeatherPacket()
     {
-        var line = "N0CALL>APZ001:_c100s020g030t080h55b10100";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001:_c100s020g030t080h55b10100";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var w = Assert.IsType<WeatherPacket>(result);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(result);
         Assert.Equal(100, w.WindDirection);
         Assert.Equal(20, w.WindSpeed);
         Assert.Equal(30, w.WindGust);
@@ -504,11 +497,11 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_WithDigipeaters_ParsesCorrectly()
     {
-        var line = "N0CALL>APZ001,WIDE1-1,WIDE2-1:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001,WIDE1-1,WIDE2-1:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
         Assert.Equal(new Callsign("APZ001"), pos.Destination);
     }
@@ -516,22 +509,22 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_SetsRawPath_ToPathPortionBeforeColon()
     {
-        var line = "N0CALL>APZ001,WIDE1-1,WIDE2-1:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001,WIDE1-1,WIDE2-1:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal("N0CALL>APZ001,WIDE1-1,WIDE2-1", pos.RawPath);
     }
 
     [Fact]
     public void ParseIsLine_WithSSID_ParsesCorrectly()
     {
-        var line = "N0CALL-1>APZ001-5:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL-1>APZ001-5:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
-        var pos = Assert.IsType<PositionPacket>(result);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("N0CALL", 1), pos.Source);
         Assert.Equal(new Callsign("APZ001", 5), pos.Destination);
     }
@@ -539,8 +532,8 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_UnknownPacket_ReturnsUnknownPacket()
     {
-        var line = "N0CALL>APZ001:#some weird data";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001:#some weird data";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
         Assert.IsType<UnknownPacket>(result);
@@ -549,8 +542,8 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_NoColon_ReturnsNull()
     {
-        var line = "N0CALL>APZ001";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.Null(result);
     }
@@ -558,8 +551,8 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_NoArrow_ReturnsNull()
     {
-        var line = "N0CALL APZ001:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL APZ001:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.Null(result);
     }
@@ -567,8 +560,8 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_EmptyInfoField_ReturnsUnknownPacket()
     {
-        var line = "N0CALL>APZ001:";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APZ001:";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.NotNull(result);
         Assert.IsType<UnknownPacket>(result);
@@ -578,8 +571,8 @@ public class AprsIsModemTests
     public void ParseIsLine_InvalidCallsign_ReturnsNull()
     {
         // Too-short base callsign (single char)
-        var line = "X>APZ001:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "X>APZ001:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
         Assert.Null(result);
     }
@@ -587,10 +580,10 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_ExtendedSourceIdentifier_PreservesSourceAndDecodesPacket()
     {
-        var line = "7000tgi9>APHPIB,TCPIP*,qAC,T2CAEAST:;7000tgi9 *290819z0019.85S\\12017.83E!Earthquake";
-        var result = InvokeParseIsLine(line);
+        string line = "7000tgi9>APHPIB,TCPIP*,qAC,T2CAEAST:;7000tgi9 *290819z0019.85S\\12017.83E!Earthquake";
+        AprsPacket? result = InvokeParseIsLine(line);
 
-        var obj = Assert.IsType<ObjectPacket>(result);
+        ObjectPacket obj = Assert.IsType<ObjectPacket>(result);
         Assert.Equal(new Callsign("APRS"), obj.Source);
         Assert.Equal("7000TGI9", obj.RawSource);
         Assert.Equal("7000tgi9", obj.Name);
@@ -604,10 +597,10 @@ public class AprsIsModemTests
     [Fact]
     public void ParseIsLine_AlphaNumericSsid_PreservesSourceAndDecodesPacket()
     {
-        var line = "4K0WHX-N0>APWHXF:>2349-507H-VGF3-0395-WJ2F-RN0F-K0TJA.";
-        var result = InvokeParseIsLine(line);
+        string line = "4K0WHX-N0>APWHXF:>2349-507H-VGF3-0395-WJ2F-RN0F-K0TJA.";
+        AprsPacket? result = InvokeParseIsLine(line);
 
-        var status = Assert.IsType<StatusPacket>(result);
+        StatusPacket status = Assert.IsType<StatusPacket>(result);
         Assert.Equal(new Callsign("APRS"), status.Source);
         Assert.Equal("4K0WHX-N0", status.RawSource);
     }
@@ -617,10 +610,10 @@ public class AprsIsModemTests
     {
         // SSID 99 exceeds the 0-15 range. The invalid hop must be skipped
         // (ArgumentException caught) instead of aborting the whole line parse.
-        var line = "XX1XX-99>APRS,INVALID-99,WIDE1-1:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "XX1XX-99>APRS,INVALID-99,WIDE1-1:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
-        var position = Assert.IsType<PositionPacket>(result);
+        PositionPacket position = Assert.IsType<PositionPacket>(result);
         Assert.Equal(new Callsign("APRS"), position.Source);
     }
 
@@ -629,10 +622,10 @@ public class AprsIsModemTests
     {
         // qAR/qAo/qAS/qX (and qAC) are server-inserted APRS-IS markers,
         // not real digipeater hops — they must not pollute the parsed path.
-        var line = "N0CALL>APRS,TCPIP*,qAC,WIDE1-1,qAR,RELAY:!3830.00N/00906.00E#";
-        var result = InvokeParseIsLine(line);
+        string line = "N0CALL>APRS,TCPIP*,qAC,WIDE1-1,qAR,RELAY:!3830.00N/00906.00E#";
+        AprsPacket? result = InvokeParseIsLine(line);
 
-        var position = Assert.IsType<PositionPacket>(result);
+        PositionPacket position = Assert.IsType<PositionPacket>(result);
         Assert.Equal(2, position.Path.Count);
         Assert.Equal(new Callsign("WIDE1", 1), position.Path[0]);
         Assert.Equal(new Callsign("RELAY"), position.Path[1]);
@@ -642,9 +635,7 @@ public class AprsIsModemTests
     // Helper — invoke private static ParseIsLine via reflection
     // ---------------------------------------------------------------
 
-    private static AprsPacket? InvokeParseIsLine(string line)
-    {
+    private static AprsPacket? InvokeParseIsLine(string line) =>
         // ParseIsLine is now internal, accessible via InternalsVisibleTo
-        return AprsIsModem.ParseIsLine(line);
-    }
+        AprsIsModem.ParseIsLine(line);
 }

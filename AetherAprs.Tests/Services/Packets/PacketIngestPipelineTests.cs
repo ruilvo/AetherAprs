@@ -22,9 +22,9 @@ public sealed class PacketIngestPipelineTests
     [Fact]
     public async Task FullQueue_DropsTheNewestPacketAndCountsIt()
     {
-        var portId = Guid.NewGuid();
-        var storage = new GatedPacketStorage { GateFirstStore = true };
-        await using var pipeline = CreatePipeline(
+        Guid portId = Guid.NewGuid();
+        GatedPacketStorage storage = new() { GateFirstStore = true };
+        await using PacketIngestPipeline pipeline = CreatePipeline(
             storage,
             new PacketIngestOptions { QueueCapacity = 1 });
 
@@ -51,11 +51,11 @@ public sealed class PacketIngestPipelineTests
     [Fact]
     public async Task PacketStored_IsRaisedOnlyAfterThePacketIsDurable()
     {
-        var portId = Guid.NewGuid();
-        var storage = new GatedPacketStorage { GateFirstStore = true };
-        await using var pipeline = CreatePipeline(storage);
-        var publishedBeforeStorage = false;
-        var published = new TaskCompletionSource<PortPacketReceivedEventArgs>(
+        Guid portId = Guid.NewGuid();
+        GatedPacketStorage storage = new() { GateFirstStore = true };
+        await using PacketIngestPipeline pipeline = CreatePipeline(storage);
+        bool publishedBeforeStorage = false;
+        TaskCompletionSource<PortPacketReceivedEventArgs> published = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         pipeline.PacketStored += (_, args) =>
@@ -64,7 +64,7 @@ public sealed class PacketIngestPipelineTests
             published.TrySetResult(args);
         };
 
-        var packet = CreatePacket();
+        PositionPacket packet = CreatePacket();
         pipeline.Accept(portId, packet);
         await storage.FirstStoreEntered.WaitAsync(
             TestTimeouts.TestTimeout,
@@ -73,7 +73,7 @@ public sealed class PacketIngestPipelineTests
         Assert.False(published.Task.IsCompleted);
         storage.ReleaseFirstStore();
 
-        var args = await published.Task.WaitAsync(
+        PortPacketReceivedEventArgs args = await published.Task.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
         Assert.Same(packet, args.Packet);
@@ -84,13 +84,13 @@ public sealed class PacketIngestPipelineTests
     [Fact]
     public async Task StorageFailure_DropsThePacketWithoutPublishingIt()
     {
-        var portId = Guid.NewGuid();
-        var storage = new GatedPacketStorage
+        Guid portId = Guid.NewGuid();
+        GatedPacketStorage storage = new()
         {
             Failure = new InvalidOperationException("storage down")
         };
-        await using var pipeline = CreatePipeline(storage);
-        var published = 0;
+        await using PacketIngestPipeline pipeline = CreatePipeline(storage);
+        int published = 0;
         pipeline.PacketStored += (_, _) => Interlocked.Increment(ref published);
 
         pipeline.Accept(portId, CreatePacket());
@@ -118,8 +118,8 @@ public sealed class PacketIngestPipelineTests
     [Fact]
     public async Task Accept_BeforeStart_IsStoredOnceTheConsumerStarts()
     {
-        var storage = new GatedPacketStorage();
-        await using var pipeline = new PacketIngestPipeline(
+        GatedPacketStorage storage = new();
+        await using PacketIngestPipeline pipeline = new(
             storage,
             NullLogger<PacketIngestPipeline>.Instance,
             options: new PacketIngestOptions { QueueCapacity = 4 });
@@ -140,7 +140,7 @@ public sealed class PacketIngestPipelineTests
         IPacketStorageService storage,
         PacketIngestOptions? options = null)
     {
-        var pipeline = new PacketIngestPipeline(
+        PacketIngestPipeline pipeline = new(
             storage,
             NullLogger<PacketIngestPipeline>.Instance,
             options: options);
@@ -153,7 +153,7 @@ public sealed class PacketIngestPipelineTests
 
     private static async Task WaitForAsync(Func<bool> condition, string because)
     {
-        var deadline = DateTime.UtcNow + TestTimeouts.TestTimeout;
+        DateTime deadline = DateTime.UtcNow + TestTimeouts.TestTimeout;
         while (!condition())
         {
             if (DateTime.UtcNow >= deadline)

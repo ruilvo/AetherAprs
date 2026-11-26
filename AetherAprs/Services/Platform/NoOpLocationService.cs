@@ -17,10 +17,7 @@ namespace AetherAprs.Services.Platform;
 public sealed class NoOpLocationService : ILocationService
 {
     /// <inheritdoc/>
-    public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default)
-    {
-        throw new InvalidOperationException("Location services are not available on this platform.");
-    }
+    public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Location services are not available on this platform.");
 
     /// <inheritdoc/>
     public bool IsLocationAvailable() => false;

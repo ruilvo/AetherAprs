@@ -9,6 +9,7 @@ using AetherAprs.Services.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace AetherAprs.Services.Ports;
 
@@ -29,9 +30,9 @@ public class DigipeaterService(
     /// </summary>
     private static readonly TimeSpan DedupRetention = TimeSpan.FromSeconds(30);
 
-    private readonly object _dedupLock = new();
+    private readonly Lock _dedupLock = new();
     private readonly Queue<(int Key, DateTimeOffset Seen)> _dedupOrder = new();
-    private readonly Dictionary<int, DateTimeOffset> _dedupTable = new();
+    private readonly Dictionary<int, DateTimeOffset> _dedupTable = [];
 
     /// <inheritdoc />
     public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
@@ -40,7 +41,7 @@ public class DigipeaterService(
         bool sourcePortIsAprsIs,
         IReadOnlyList<PortInfo> availablePorts)
     {
-        var settings = configurationService.Current.Aprs;
+        AprsSettings settings = configurationService.Current.Aprs;
 
         // Check if digipeater is globally enabled
         if (!settings.EnableDigipeater)
@@ -59,7 +60,7 @@ public class DigipeaterService(
         // Never digipeat packets that originated from our own station: when our own
         // digipeated transmission is heard again by our TNC (normal APRS behavior),
         // re-digipeating it would create an unbounded RF loop.
-        var ownCallsign = BuildOwnCallsign(settings);
+        Callsign? ownCallsign = BuildOwnCallsign(settings);
         if (PacketIsFromOwnStation(packet, ownCallsign))
         {
             return [];
@@ -75,7 +76,7 @@ public class DigipeaterService(
             return [];
         }
 
-        var targets = new List<DigipeatTarget>();
+        List<DigipeatTarget> targets = [];
 
         // Determine gating rules
         bool isRfToAprsIs = !sourcePortIsAprsIs;
@@ -86,13 +87,13 @@ public class DigipeaterService(
         // suppressRfForwarding means the packet must not be digipeated on RF
         // (hops exhausted).
         bool suppressRfForwarding = false;
-        IReadOnlyList<Callsign> forwardedPath = Array.Empty<Callsign>();
+        IReadOnlyList<Callsign> forwardedPath = [];
         if (isRfToAprsIs)
         {
             forwardedPath = BuildForwardedPath(packet, ownCallsign, settings, out suppressRfForwarding);
         }
 
-        foreach (var port in availablePorts)
+        foreach (PortInfo port in availablePorts)
         {
             // Skip source port
             if (port.Id == sourcePortId)
@@ -184,12 +185,12 @@ public class DigipeaterService(
             return null;
         }
 
-        if (!Callsign.TryParse(settings.Callsign, out var callsign))
+        if (!Callsign.TryParse(settings.Callsign, out Callsign callsign))
         {
             return null;
         }
 
-        var ssid = (int)settings.Ssid;
+        int ssid = (int)settings.Ssid;
         return ssid > 0 ? new Callsign(callsign.Base, ssid) : callsign;
     }
 
@@ -225,12 +226,12 @@ public class DigipeaterService(
         // a hop), so a packet heard back after we digipeated it must still be
         // recognized as already seen rather than forwarded again. Hashing keeps the
         // bounded table independent of info-field length.
-        var key = HashCode.Combine(packet.Source, packet.Destination, packet.Raw);
-        var now = DateTimeOffset.UtcNow;
+        int key = HashCode.Combine(packet.Source, packet.Destination, packet.Raw);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
         lock (_dedupLock)
         {
-            if (_dedupTable.TryGetValue(key, out var seen) && now - seen < DedupRetention)
+            if (_dedupTable.TryGetValue(key, out DateTimeOffset seen) && now - seen < DedupRetention)
             {
                 // Refresh so a frequently repeated packet does not cycle back in.
                 _dedupTable[key] = now;
@@ -244,8 +245,8 @@ public class DigipeaterService(
             while (_dedupOrder.Count > 0
                 && (now - _dedupOrder.Peek().Seen >= DedupRetention || _dedupOrder.Count > DedupTableCapacity))
             {
-                var oldest = _dedupOrder.Dequeue();
-                _dedupTable.Remove(oldest.Key);
+                (int evictedKey, DateTimeOffset _) = _dedupOrder.Dequeue();
+                _dedupTable.Remove(evictedKey);
             }
 
             return false;
@@ -287,9 +288,9 @@ public class DigipeaterService(
             return [ownCallsign.Value];
         }
 
-        var forwarded = new List<Callsign>(packet.Path.Count + 1);
+        List<Callsign> forwarded = [with(packet.Path.Count + 1)];
 
-        foreach (var hop in packet.Path)
+        foreach (Callsign hop in packet.Path)
         {
             // A hop already marked "has been repeated" was serviced by an upstream
             // digipeater. Preserve it and keep scanning for the first unserviced hop

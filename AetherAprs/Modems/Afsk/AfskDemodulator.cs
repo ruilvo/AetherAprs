@@ -81,8 +81,8 @@ public sealed class AfskDemodulator
     /// <returns>The decoded frames, in order of completion.</returns>
     public IReadOnlyList<byte[]> Process(ReadOnlySpan<float> samples)
     {
-        var frames = new List<byte[]>();
-        foreach (var sample in samples)
+        List<byte[]> frames = [];
+        foreach (float sample in samples)
         {
             ProcessSample(sample, frames);
         }
@@ -98,7 +98,7 @@ public sealed class AfskDemodulator
     /// <returns>Any frames completed by the final bit.</returns>
     public IReadOnlyList<byte[]> Flush()
     {
-        var frames = new List<byte[]>();
+        List<byte[]> frames = [];
         if (_bitIndex >= 0 && _sampleInBit > 0)
         {
             FinalizeBit(frames);
@@ -160,7 +160,7 @@ public sealed class AfskDemodulator
 
         // NRZI: a tone change is a 0 bit, a held tone is a 1 bit.
         byte dataBit = toneIsMark == _previousToneMark ? (byte)1 : (byte)0;
-        var frame = _deframer.Feed(dataBit);
+        byte[]? frame = _deframer.Feed(dataBit);
         if (frame is not null)
         {
             frames.Add(frame);

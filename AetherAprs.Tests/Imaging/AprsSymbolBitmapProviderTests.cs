@@ -21,19 +21,19 @@ public sealed class AprsSymbolBitmapProviderTests
     public void PackedSpriteSheetMapsAsciiCodeToExpectedCell(char code, int expectedRow, int expectedColumn)
     {
         // GetCellPosition is now internal, accessible via InternalsVisibleTo
-        var symbolCode = code.ToSymbolCode();
-        var result = AprsSymbolBitmapProvider.GetCellPosition(symbolCode);
+        SymbolCode symbolCode = code.ToSymbolCode();
+        (int row, int col) = AprsSymbolBitmapProvider.GetCellPosition(symbolCode);
 
-        Assert.Equal(expectedRow, result.row);
-        Assert.Equal(expectedColumn, result.col);
+        Assert.Equal(expectedRow, row);
+        Assert.Equal(expectedColumn, col);
     }
 
     [Fact]
     public void PackedSpriteSheetRejectsSpaceBecauseItHasNoCell()
     {
         // GetCellPosition is now internal, accessible via InternalsVisibleTo
-        var symbolCode = SymbolCode.Space;
-        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+        SymbolCode symbolCode = SymbolCode.Space;
+        ArgumentOutOfRangeException exception = Assert.Throws<ArgumentOutOfRangeException>(
             () => AprsSymbolBitmapProvider.GetCellPosition(symbolCode));
 
         Assert.NotNull(exception);
@@ -46,13 +46,13 @@ public sealed class AprsSymbolBitmapProviderTests
         // GetCellPosition is now internal, accessible via InternalsVisibleTo
 
         // Test digit '5' which should map to a specific cell
-        var symbolCode = '5'.ToSymbolCode();
-        var result = AprsSymbolBitmapProvider.GetCellPosition(symbolCode);
-        
+        SymbolCode symbolCode = '5'.ToSymbolCode();
+        (int row, int col) = AprsSymbolBitmapProvider.GetCellPosition(symbolCode);
+
         // '5' is ASCII 0x35 (53), offset by 0x21 (33) = index 20
         // index 20 / 16 columns = row 1, 20 % 16 = column 4
-        Assert.Equal(1, result.row);
-        Assert.Equal(4, result.col);
+        Assert.Equal(1, row);
+        Assert.Equal(4, col);
     }
 
     [Fact]
@@ -61,12 +61,12 @@ public sealed class AprsSymbolBitmapProviderTests
         // GetCellPosition is now internal, accessible via InternalsVisibleTo
 
         // Test 'A' which is a common overlay character
-        var symbolCode = 'A'.ToSymbolCode();
-        var result = AprsSymbolBitmapProvider.GetCellPosition(symbolCode);
-        
+        SymbolCode symbolCode = 'A'.ToSymbolCode();
+        (int row, int col) = AprsSymbolBitmapProvider.GetCellPosition(symbolCode);
+
         // 'A' is ASCII 0x41 (65), offset by 0x21 (33) = index 32
         // index 32 / 16 columns = row 2, 32 % 16 = column 0
-        Assert.Equal(2, result.row);
-        Assert.Equal(0, result.col);
+        Assert.Equal(2, row);
+        Assert.Equal(0, col);
     }
 }

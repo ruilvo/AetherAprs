@@ -15,6 +15,7 @@ using AndroidX.Core.App;
 using AndroidX.Core.Content;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +28,7 @@ namespace AetherAprs.Android.Services.Platform;
 /// fast first fix even indoors) and falls back to a concurrent multi-provider
 /// race via Android's LocationManager on devices without Google Play Services.
 /// </summary>
-public class LocationService : ILocationService
+public class LocationService(ILogger<LocationService>? logger = null) : ILocationService
 {
     private const int LocationPermissionRequestCode = 1001;
     private static readonly string[] RequiredPermissions =
@@ -50,17 +51,12 @@ public class LocationService : ILocationService
     private static readonly TimeSpan FusedRequestTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan LocationManagerRequestTimeout = TimeSpan.FromSeconds(30);
 
-    private readonly ILogger<LocationService>? _logger;
-
-    public LocationService(ILogger<LocationService>? logger = null)
-    {
-        _logger = logger;
-    }
+    private readonly ILogger<LocationService>? _logger = logger;
 
     /// <inheritdoc/>
     public bool IsLocationAvailable()
     {
-        var context = global::Android.App.Application.Context;
+        Context context = global::Android.App.Application.Context;
 
         if (context.GetSystemService(Context.LocationService) is not LocationManager locationManager)
         {
@@ -68,8 +64,8 @@ public class LocationService : ILocationService
         }
 
         // Check if GPS or Network provider is enabled
-        var gpsEnabled = locationManager.IsProviderEnabled(LocationManager.GpsProvider);
-        var networkEnabled = locationManager.IsProviderEnabled(LocationManager.NetworkProvider);
+        bool gpsEnabled = locationManager.IsProviderEnabled(LocationManager.GpsProvider);
+        bool networkEnabled = locationManager.IsProviderEnabled(LocationManager.NetworkProvider);
 
         return gpsEnabled || networkEnabled;
     }
@@ -77,7 +73,7 @@ public class LocationService : ILocationService
     /// <inheritdoc/>
     public async Task<bool> RequestLocationPermissionAsync()
     {
-        var context = global::Android.App.Application.Context;
+        Context context = global::Android.App.Application.Context;
 
         // Check if we already have permission
         if (HasLocationPermission())
@@ -87,7 +83,7 @@ public class LocationService : ILocationService
 
         // Permissions are requested by MainActivity.OnResume()
         // If we get here and don't have permission, request it again
-        var activity = MainActivity.Instance;
+        MainActivity? activity = MainActivity.Instance;
         if (activity == null)
         {
             return false;
@@ -95,14 +91,14 @@ public class LocationService : ILocationService
 
         // TaskCreationOptions.RunContinuationsAsynchronously prevents the permission
         // callback thread from being hijacked by the awaiting continuation.
-        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         void OnPermissionResultHandler(int requestCode, string[] permissions, Permission[] grantResults)
         {
             if (requestCode == LocationPermissionRequestCode)
             {
                 MainActivity.OnPermissionResult -= OnPermissionResultHandler;
-                var granted = grantResults.Any(r => r == Permission.Granted);
+                bool granted = grantResults.Any(r => r == Permission.Granted);
                 tcs.TrySetResult(granted);
             }
         }
@@ -110,8 +106,8 @@ public class LocationService : ILocationService
         // If no callback ever arrives (e.g. activity recreated while the dialog was
         // pending), the handler must not leak in the static event invocation list and
         // the caller must not hang forever: cancel after a bounded wait.
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var registration = timeoutCts.Token.Register(() =>
+        using CancellationTokenSource timeoutCts = new(TimeSpan.FromSeconds(30));
+        await using CancellationTokenRegistration registration = timeoutCts.Token.Register(() =>
         {
             MainActivity.OnPermissionResult -= OnPermissionResultHandler;
             tcs.TrySetCanceled(timeoutCts.Token);
@@ -137,7 +133,7 @@ public class LocationService : ILocationService
             throw new InvalidOperationException("Location services are not enabled on this device.");
         }
 
-        var context = global::Android.App.Application.Context;
+        Context context = global::Android.App.Application.Context;
 
         if (context.GetSystemService(Context.LocationService) is not LocationManager locationManager)
         {
@@ -145,7 +141,7 @@ public class LocationService : ILocationService
         }
 
         // Try the last known location first for a quick response
-        var lastKnownLocation = GetLastKnownLocation(locationManager);
+        Location? lastKnownLocation = GetLastKnownLocation(locationManager);
         if (lastKnownLocation != null && IsFresh(lastKnownLocation))
         {
             return ConvertToLocationData(lastKnownLocation);
@@ -155,7 +151,7 @@ public class LocationService : ILocationService
         // positioning and typically reports a fix within seconds, even indoors.
         if (IsGooglePlayServicesAvailable())
         {
-            var fusedLocation = await TryGetCurrentLocationViaFusedAsync(cancellationToken);
+            LocationData? fusedLocation = await TryGetCurrentLocationViaFusedAsync(cancellationToken);
             if (fusedLocation != null)
             {
                 return fusedLocation;
@@ -170,9 +166,9 @@ public class LocationService : ILocationService
 
     private static bool HasLocationPermission()
     {
-        var context = global::Android.App.Application.Context;
-        var fineLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessFineLocation) == Permission.Granted;
-        var coarseLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessCoarseLocation) == Permission.Granted;
+        Context context = global::Android.App.Application.Context;
+        bool fineLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessFineLocation) == Permission.Granted;
+        bool coarseLocationGranted = ContextCompat.CheckSelfPermission(context, Manifest.Permission.AccessCoarseLocation) == Permission.Granted;
         return fineLocationGranted || coarseLocationGranted;
     }
 
@@ -180,7 +176,7 @@ public class LocationService : ILocationService
     {
         try
         {
-            var availability = GoogleApiAvailability.Instance;
+            GoogleApiAvailability availability = GoogleApiAvailability.Instance;
             if (availability == null)
             {
                 return false;
@@ -197,7 +193,7 @@ public class LocationService : ILocationService
 
     private static bool IsFresh(Location location)
     {
-        var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(location.Time);
+        TimeSpan age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(location.Time);
         return age.TotalSeconds < LastKnownMaxAgeSeconds;
     }
 
@@ -205,23 +201,23 @@ public class LocationService : ILocationService
     {
         try
         {
-            var fusedClient = LocationServices.GetFusedLocationProviderClient(global::Android.App.Application.Context);
+            IFusedLocationProviderClient fusedClient = LocationServices.GetFusedLocationProviderClient(global::Android.App.Application.Context);
 
-            var tcs = new TaskCompletionSource<Location>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var callback = new FirstFixLocationCallback(location => tcs.TrySetResult(location));
+            TaskCompletionSource<Location> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            FirstFixLocationCallback callback = new(location => tcs.TrySetResult(location));
 
-            var locationRequest = new global::Android.Gms.Location.LocationRequest.Builder(Priority.PriorityHighAccuracy, FusedIntervalMs)
+            global::Android.Gms.Location.LocationRequest locationRequest = new global::Android.Gms.Location.LocationRequest.Builder(Priority.PriorityHighAccuracy, FusedIntervalMs)
                 .SetWaitForAccurateLocation(false)
                 .Build();
 
-            await using var cancellationRegistration = cancellationToken.Register(() =>
+            await using CancellationTokenRegistration cancellationRegistration = cancellationToken.Register(() =>
                 tcs.TrySetCanceled(cancellationToken));
 
             try
             {
                 fusedClient.RequestLocationUpdates(locationRequest, callback, Looper.MainLooper);
 
-                var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(FusedRequestTimeout, CancellationToken.None));
+                Task completedTask = await Task.WhenAny(tcs.Task, Task.Delay(FusedRequestTimeout, CancellationToken.None));
 
                 if (completedTask != tcs.Task)
                 {
@@ -264,34 +260,26 @@ public class LocationService : ILocationService
     {
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // GetProviders is available on all Android API levels we support.
-        var providers = locationManager.GetProviders(enabledOnly: true)
-            .Where(p => p != LocationManager.PassiveProvider)
-            .ToList();
+        List<string> providers = [.. locationManager.GetProviders(enabledOnly: true).Where(p => p != LocationManager.PassiveProvider)];
 
         if (providers.Count == 0)
         {
             throw new InvalidOperationException("No location provider is available.");
         }
 
-        var tcs = new TaskCompletionSource<LocationData>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var listener = new SingleUpdateLocationListener(location =>
-        {
-            tcs.TrySetResult(ConvertToLocationData(location));
-        });
+        TaskCompletionSource<LocationData> tcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        SingleUpdateLocationListener listener = new(location => tcs.TrySetResult(ConvertToLocationData(location)));
 
         // Use cancellation token to allow cancelling the request.
         // Registration disposed via using so the lambda is not rooted for the token's lifetime.
-        await using var cancellationRegistration = cancellationToken.Register(() =>
-        {
-            tcs.TrySetCanceled(cancellationToken);
-        });
+        await using CancellationTokenRegistration cancellationRegistration = cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
 
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // RequestLocationUpdates is available on all Android API levels we support (API 23+).
         // The Looper.MainLooper call is also available on all supported API levels.
         try
         {
-            foreach (var provider in providers)
+            foreach (string provider in providers)
             {
                 locationManager.RequestLocationUpdates(
                     provider,
@@ -301,7 +289,7 @@ public class LocationService : ILocationService
                     Looper.MainLooper);
             }
 
-            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(LocationManagerRequestTimeout, CancellationToken.None));
+            Task completedTask = await Task.WhenAny(tcs.Task, Task.Delay(LocationManagerRequestTimeout, CancellationToken.None));
 
             if (completedTask != tcs.Task)
             {
@@ -331,12 +319,12 @@ public class LocationService : ILocationService
     {
         // SUPPRESSED WARNING CA1416: Platform compatibility
         // GetLastKnownLocation is available on all Android API levels we support.
-        var providers = locationManager.GetProviders(enabledOnly: true);
+        IList<string> providers = locationManager.GetProviders(enabledOnly: true);
         Location? bestLocation = null;
 
-        foreach (var provider in providers)
+        foreach (string provider in providers)
         {
-            var location = locationManager.GetLastKnownLocation(provider);
+            Location? location = locationManager.GetLastKnownLocation(provider);
             if (location != null && (bestLocation == null || location.Accuracy < bestLocation.Accuracy))
             {
                 bestLocation = location;
@@ -346,17 +334,14 @@ public class LocationService : ILocationService
         return bestLocation;
     }
 
-    private static LocationData ConvertToLocationData(Location location)
+    private static LocationData ConvertToLocationData(Location location) => new()
     {
-        return new LocationData
-        {
-            Location = new Geo.Coordinate(location.Latitude, location.Longitude),
-            Altitude = location.HasAltitude ? location.Altitude : null,
-            Accuracy = location.Accuracy,
-            Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(location.Time),
-            Bearing = location.HasBearing ? location.Bearing : null
-        };
-    }
+        Location = new Geo.Coordinate(location.Latitude, location.Longitude),
+        Altitude = location.HasAltitude ? location.Altitude : null,
+        Accuracy = location.Accuracy,
+        Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(location.Time),
+        Bearing = location.HasBearing ? location.Bearing : null
+    };
 
     private sealed class SingleUpdateLocationListener(Action<Location> onLocationReceived)
         : Java.Lang.Object, global::Android.Locations.ILocationListener
@@ -406,7 +391,7 @@ public class LocationService : ILocationService
                 return;
             }
 
-            var location = result?.LastLocation;
+            Location? location = result?.LastLocation;
             if (location != null)
             {
                 onFirstFix(location);

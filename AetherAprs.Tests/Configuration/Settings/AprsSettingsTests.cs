@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -14,7 +14,7 @@ public sealed class AprsSettingsTests
     [Fact]
     public void Callsign_Empty_IsRejected()
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
         Assert.Throws<ArgumentException>(() =>
         {
@@ -28,7 +28,7 @@ public sealed class AprsSettingsTests
     [InlineData("N0 CALL")]
     public void Callsign_Invalid_IsRejected(string callsign)
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
         Assert.Throws<ArgumentException>(() =>
         {
@@ -39,9 +39,9 @@ public sealed class AprsSettingsTests
     [Fact]
     public void Callsign_IsUppercased()
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
-        var updated = settings with { Callsign = "ct7alw" };
+        AprsSettings updated = settings with { Callsign = "ct7alw" };
 
         Assert.Equal("CT7ALW", updated.Callsign);
     }
@@ -49,7 +49,7 @@ public sealed class AprsSettingsTests
     [Fact]
     public void Ssid_Undefined_IsRejected()
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
@@ -60,7 +60,7 @@ public sealed class AprsSettingsTests
     [Fact]
     public void SymbolCode_Undefined_IsRejected()
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
@@ -71,7 +71,7 @@ public sealed class AprsSettingsTests
     [Fact]
     public void SymbolOverlay_Undefined_IsRejected()
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
         {
@@ -82,9 +82,9 @@ public sealed class AprsSettingsTests
     [Fact]
     public void Update_LeavesTheOriginalSnapshotUnchanged()
     {
-        var settings = new AprsSettings();
+        AprsSettings settings = new();
 
-        var updated = settings with { Callsign = "CT7ALW" };
+        AprsSettings updated = settings with { Callsign = "CT7ALW" };
 
         Assert.Equal("N0CALL", settings.Callsign);
         Assert.Equal("CT7ALW", updated.Callsign);

@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.Logging;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,29 +33,23 @@ namespace AetherAprs.Services.Platform;
 /// recorded about a choice the operator never made.
 /// </para>
 /// </remarks>
-public sealed class PermissionRequestQueue : IDisposable
+/// <remarks>
+/// Initializes a new instance of the <see cref="PermissionRequestQueue"/> class.
+/// </remarks>
+/// <param name="host">The object that shows the platform prompt.</param>
+/// <param name="logger">An optional logger.</param>
+public sealed class PermissionRequestQueue(
+    IPermissionPromptHost host,
+    ILogger<PermissionRequestQueue>? logger = null) : IDisposable
 {
-    private readonly IPermissionPromptHost _host;
-    private readonly ILogger<PermissionRequestQueue>? _logger;
+    private readonly IPermissionPromptHost _host = host ?? throw new ArgumentNullException(nameof(host));
+    private readonly ILogger<PermissionRequestQueue>? _logger = logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private PendingRequest? _pending;
     private int _lastRequestId;
     private bool _closed;
     private bool _disposed;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PermissionRequestQueue"/> class.
-    /// </summary>
-    /// <param name="host">The object that shows the platform prompt.</param>
-    /// <param name="logger">An optional logger.</param>
-    public PermissionRequestQueue(
-        IPermissionPromptHost host,
-        ILogger<PermissionRequestQueue>? logger = null)
-    {
-        _host = host ?? throw new ArgumentNullException(nameof(host));
-        _logger = logger;
-    }
 
     /// <summary>
     /// Gets the id of the request whose prompt is on screen, if any.
@@ -83,8 +78,8 @@ public sealed class PermissionRequestQueue : IDisposable
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            var requestId = Interlocked.Increment(ref _lastRequestId);
-            var pending = new PendingRequest(requestId);
+            int requestId = Interlocked.Increment(ref _lastRequestId);
+            PendingRequest pending = new(requestId);
             Volatile.Write(ref _pending, pending);
 
             try
@@ -98,7 +93,7 @@ public sealed class PermissionRequestQueue : IDisposable
                 return PermissionPromptResult.Abandoned;
             }
 
-            await using var registration = cancellationToken.Register(
+            await using ConfiguredAsyncDisposable registration = cancellationToken.Register(
                 () => pending.Completion.TrySetCanceled(cancellationToken)).ConfigureAwait(false);
 
             try
@@ -127,7 +122,7 @@ public sealed class PermissionRequestQueue : IDisposable
     /// </returns>
     public bool Complete(int requestId, bool granted)
     {
-        var pending = Volatile.Read(ref _pending);
+        PendingRequest? pending = Volatile.Read(ref _pending);
         if (pending is null || pending.RequestId != requestId)
         {
             // A prompt answered after teardown, or two overlapping requests whose
@@ -151,7 +146,7 @@ public sealed class PermissionRequestQueue : IDisposable
     {
         _closed = true;
 
-        var pending = Volatile.Read(ref _pending);
+        PendingRequest? pending = Volatile.Read(ref _pending);
         if (pending is null)
         {
             return;

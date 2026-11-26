@@ -22,43 +22,31 @@ public sealed class GattConnectionPolicyTests
     public void Classify_ErrorStatusWithAnyState_FailsPendingConnect(
         int status,
         bool isConnected,
-        bool isDisconnected)
-    {
-        Assert.Equal(
+        bool isDisconnected) => Assert.Equal(
             GattConnectionAction.Fail,
             GattConnectionPolicy.Classify(status, isConnected, isDisconnected));
-    }
 
     [Fact]
-    public void Classify_SuccessWithConnected_DiscoversServices()
-    {
-        Assert.Equal(
+    public void Classify_SuccessWithConnected_DiscoversServices() => Assert.Equal(
             GattConnectionAction.DiscoverServices,
             GattConnectionPolicy.Classify(
                 GattConnectionPolicy.SuccessStatus,
                 isConnected: true,
                 isDisconnected: false));
-    }
 
     [Fact]
-    public void Classify_SuccessWithDisconnected_FailsPendingConnect()
-    {
-        Assert.Equal(
+    public void Classify_SuccessWithDisconnected_FailsPendingConnect() => Assert.Equal(
             GattConnectionAction.Fail,
             GattConnectionPolicy.Classify(
                 GattConnectionPolicy.SuccessStatus,
                 isConnected: false,
                 isDisconnected: true));
-    }
 
     [Fact]
-    public void Classify_SuccessWithUnknownState_IsIgnored()
-    {
-        Assert.Equal(
+    public void Classify_SuccessWithUnknownState_IsIgnored() => Assert.Equal(
             GattConnectionAction.Ignore,
             GattConnectionPolicy.Classify(
                 GattConnectionPolicy.SuccessStatus,
                 isConnected: false,
                 isDisconnected: false));
-    }
 }

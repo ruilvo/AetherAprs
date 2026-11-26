@@ -17,7 +17,7 @@ namespace AetherAprs.Factories.Packets;
 /// <summary>
 /// Factory for creating APRS packets.
 /// </summary>
-public sealed class PacketFactory : IPacketFactory
+public sealed class PacketFactory(IConfigurationService configurationService) : IPacketFactory
 {
     /// <summary>
     /// AX.25 destination carried by every packet this application transmits.
@@ -31,12 +31,7 @@ public sealed class PacketFactory : IPacketFactory
     /// </remarks>
     private const string AprsSoftwareIdentifier = "APZAEP";
 
-    private readonly IConfigurationService _configurationService;
-
-    public PacketFactory(IConfigurationService configurationService)
-    {
-        _configurationService = configurationService;
-    }
+    private readonly IConfigurationService _configurationService = configurationService;
 
     public PositionPacket CreatePositionPacket(
         LocationData location,
@@ -46,16 +41,16 @@ public sealed class PacketFactory : IPacketFactory
         double? course = null,
         string? comment = null)
     {
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(callsign, settings, (source, destination, path) =>
         {
             // Use provided comment or fall back to configured default
-            var packetComment = string.IsNullOrWhiteSpace(comment)
+            string? packetComment = string.IsNullOrWhiteSpace(comment)
                 ? settings.BeaconComment
                 : comment;
 
-            var format = settings.PositionFormat;
+            PositionFormat format = settings.PositionFormat;
 
             return new PositionPacket
             {
@@ -79,7 +74,7 @@ public sealed class PacketFactory : IPacketFactory
         string messageText,
         int? messageNumber = null)
     {
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessagePacket
         {
@@ -97,7 +92,7 @@ public sealed class PacketFactory : IPacketFactory
         AprsAddress addressee,
         int messageNumber)
     {
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessageAckPacket
         {
@@ -114,7 +109,7 @@ public sealed class PacketFactory : IPacketFactory
         AprsAddress addressee,
         int messageNumber)
     {
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessageRejPacket
         {
@@ -137,7 +132,7 @@ public sealed class PacketFactory : IPacketFactory
     {
         AprsNameField.EnsureValid(name, nameof(name));
 
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ObjectPacket
         {
@@ -164,7 +159,7 @@ public sealed class PacketFactory : IPacketFactory
     {
         AprsNameField.EnsureValid(name, nameof(name));
 
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ItemPacket
         {
@@ -188,7 +183,7 @@ public sealed class PacketFactory : IPacketFactory
     {
         AprsNameField.EnsureValid(name, nameof(name));
 
-        var settings = _configurationService.Current.Aprs;
+        AprsSettings settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new BulletinPacket
         {
@@ -211,14 +206,14 @@ public sealed class PacketFactory : IPacketFactory
         AprsSettings settings,
         Func<Callsign, Callsign, IReadOnlyList<Callsign>, T> build)
     {
-        var source = ResolveSource(sourceCallsign);
+        Callsign source = ResolveSource(sourceCallsign);
 
         return build(source, new Callsign(AprsSoftwareIdentifier), ResolvePath(settings));
     }
 
     private static Callsign ResolveSource(string callsign)
     {
-        if (!Callsign.TryParse(callsign, out var source))
+        if (!Callsign.TryParse(callsign, out Callsign source))
         {
             throw new ArgumentException($"Invalid callsign format: {callsign}", nameof(callsign));
         }
@@ -228,10 +223,10 @@ public sealed class PacketFactory : IPacketFactory
 
     private static IReadOnlyList<Callsign> ResolvePath(AprsSettings settings)
     {
-        var pathString = settings.DigipeaterPath;
+        string? pathString = settings.DigipeaterPath;
 
         return string.IsNullOrWhiteSpace(pathString)
             ? Array.Empty<Callsign>()
-            : PathHelper.ParsePath(pathString).ToArray();
+            : [.. PathHelper.ParsePath(pathString)];
     }
 }

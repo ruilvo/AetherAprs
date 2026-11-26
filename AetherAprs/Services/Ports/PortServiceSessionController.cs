@@ -46,7 +46,7 @@ public sealed class PortServiceSessionController(IPortSessionRuntime sessionRunt
 {
     public async Task ConnectAsync(Guid portId, CancellationToken cancellationToken)
     {
-        var result = await sessionRuntime
+        PortSessionStartResult result = await sessionRuntime
             .StartSessionAsync(portId, cancellationToken)
             .ConfigureAwait(false);
 
@@ -68,13 +68,11 @@ public sealed class PortServiceSessionController(IPortSessionRuntime sessionRunt
             result.Error);
     }
 
-    public async Task DisconnectAsync(Guid portId, CancellationToken cancellationToken)
-    {
+    public async Task DisconnectAsync(Guid portId, CancellationToken cancellationToken) =>
         // A failed stop has already been reported by the session manager and has
         // released the port, so the coordinator only needs to know the session is
         // gone. Cancellation still propagates because the caller asked to stop waiting.
         await sessionRuntime
             .StopSessionAsync(portId, cancellationToken)
             .ConfigureAwait(false);
-    }
 }

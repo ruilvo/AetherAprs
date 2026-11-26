@@ -19,8 +19,5 @@ public sealed class NoOpAudioPlaybackService : IAudioPlaybackService
     public int SampleRate => 44100;
 
     /// <inheritdoc/>
-    public Task PlayAsync(ReadOnlyMemory<float> samples, CancellationToken cancellationToken = default)
-    {
-        return Task.CompletedTask;
-    }
+    public Task PlayAsync(ReadOnlyMemory<float> samples, CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

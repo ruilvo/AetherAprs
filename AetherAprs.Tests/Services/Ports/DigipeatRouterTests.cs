@@ -24,12 +24,12 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task QueueFull_DiscardsIncomingCandidateInsteadOfReplacingAnother()
     {
-        var source = CreatePort("RF");
-        var target = CreatePort("Target");
-        var sendEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseSend = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
+        TaskCompletionSource sendEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseSend = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var sessionManager = CreateSessionManager(source.Id, target.Id);
+        IPortSessionManager sessionManager = CreateSessionManager(source.Id, target.Id);
         sessionManager
             .SendAsync(target.Id, Arg.Any<AprsPacket>(), Arg.Any<CancellationToken>())
             .Returns(async _ =>
@@ -39,8 +39,8 @@ public sealed class DigipeatRouterTests
                 return PortSessionSendStatus.Sent;
             });
 
-        var digipeater = CreateDigipeater(target.Id);
-        await using var router = CreateRouter(
+        IDigipeaterService digipeater = CreateDigipeater(target.Id);
+        await using DigipeatRouter router = CreateRouter(
             source,
             target,
             sessionManager,
@@ -69,19 +69,19 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task StaleCandidate_IsDiscardedInsteadOfBeingReplayed()
     {
-        var source = CreatePort("RF");
-        var target = CreatePort("Target");
-        var time = new ManualTimeProvider(DateTimeOffset.UnixEpoch);
-        var firstDecisionEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseFirstDecision = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var decisionCount = 0;
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
+        ManualTimeProvider time = new(DateTimeOffset.UnixEpoch);
+        TaskCompletionSource firstDecisionEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFirstDecision = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        int decisionCount = 0;
 
-        var sessionManager = CreateSessionManager(source.Id, target.Id);
+        IPortSessionManager sessionManager = CreateSessionManager(source.Id, target.Id);
         sessionManager
             .SendAsync(Arg.Any<Guid>(), Arg.Any<AprsPacket>(), Arg.Any<CancellationToken>())
             .Returns(PortSessionSendStatus.Sent);
 
-        var digipeater = Substitute.For<IDigipeaterService>();
+        IDigipeaterService digipeater = Substitute.For<IDigipeaterService>();
         digipeater
             .GetDigipeatTargets(
                 Arg.Any<AprsPacket>(),
@@ -101,7 +101,7 @@ public sealed class DigipeatRouterTests
                 return [new DigipeatTarget(target.Id, callInfo.Arg<AprsPacket>())];
             });
 
-        await using var router = CreateRouter(
+        await using DigipeatRouter router = CreateRouter(
             source,
             target,
             sessionManager,
@@ -127,14 +127,14 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task TargetNotRunning_DiscardsTheForwardAndNeverStartsThePort()
     {
-        var source = CreatePort("RF");
-        var target = CreatePort("Target");
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
 
-        var sessionManager = Substitute.For<IPortSessionManager>();
+        IPortSessionManager sessionManager = Substitute.For<IPortSessionManager>();
         sessionManager.IsRunning(source.Id).Returns(true);
         sessionManager.IsRunning(target.Id).Returns(false);
 
-        await using var router = CreateRouter(
+        await using DigipeatRouter router = CreateRouter(
             source,
             target,
             sessionManager,
@@ -157,17 +157,17 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task RunningTarget_ReceivesTheForwardAndRaisesPacketForwarded()
     {
-        var source = CreatePort("RF");
-        var target = CreatePort("Target");
-        var forwarded = new TaskCompletionSource<PortPacketTransmittedEventArgs>(
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
+        TaskCompletionSource<PortPacketTransmittedEventArgs> forwarded = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var sessionManager = CreateSessionManager(source.Id, target.Id);
+        IPortSessionManager sessionManager = CreateSessionManager(source.Id, target.Id);
         sessionManager
             .SendAsync(Arg.Any<Guid>(), Arg.Any<AprsPacket>(), Arg.Any<CancellationToken>())
             .Returns(PortSessionSendStatus.Sent);
 
-        await using var router = CreateRouter(
+        await using DigipeatRouter router = CreateRouter(
             source,
             target,
             sessionManager,
@@ -176,7 +176,7 @@ public sealed class DigipeatRouterTests
         router.PacketForwarded += (_, args) => forwarded.TrySetResult(args);
         router.Enqueue(source.Id, CreatePacket());
 
-        var args = await forwarded.Task.WaitAsync(
+        PortPacketTransmittedEventArgs args = await forwarded.Task.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
 
@@ -188,16 +188,16 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task TransmitFailure_IsCountedAsFailedAndNotForwarded()
     {
-        var source = CreatePort("RF");
-        var target = CreatePort("Target");
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
 
-        var sessionManager = CreateSessionManager(source.Id, target.Id);
+        IPortSessionManager sessionManager = CreateSessionManager(source.Id, target.Id);
         sessionManager
             .SendAsync(Arg.Any<Guid>(), Arg.Any<AprsPacket>(), Arg.Any<CancellationToken>())
             .Returns<Task<PortSessionSendStatus>>(_ =>
                 Task.FromException<PortSessionSendStatus>(new InvalidOperationException("socket lost")));
 
-        await using var router = CreateRouter(
+        await using DigipeatRouter router = CreateRouter(
             source,
             target,
             sessionManager,
@@ -214,10 +214,10 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task SourcePortNoLongerConfigured_DiscardsTheCandidate()
     {
-        var source = CreatePort("RF");
-        var target = CreatePort("Target");
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
 
-        await using var router = CreateRouter(
+        await using DigipeatRouter router = CreateRouter(
             source,
             target,
             CreateSessionManager(source.Id, target.Id),
@@ -233,12 +233,12 @@ public sealed class DigipeatRouterTests
     [Fact]
     public async Task Enqueue_BeforeStart_IsForwardedOnceTheRouterStarts()
     {
-        var source = CreatePort("Source");
-        var target = CreatePort("Target");
-        var sessionManager = CreateSessionManager(source.Id, target.Id);
-        var digipeater = CreateDigipeater(target.Id);
+        PortConfig source = CreatePort("Source");
+        PortConfig target = CreatePort("Target");
+        IPortSessionManager sessionManager = CreateSessionManager(source.Id, target.Id);
+        IDigipeaterService digipeater = CreateDigipeater(target.Id);
 
-        await using var router = new DigipeatRouter(
+        await using DigipeatRouter router = new(
             new FakeConfigurationSource(source, target),
             sessionManager,
             digipeater,
@@ -268,7 +268,7 @@ public sealed class DigipeatRouterTests
         DigipeatRouterOptions? options = null,
         TimeProvider? timeProvider = null)
     {
-        var router = new DigipeatRouter(
+        DigipeatRouter router = new(
             new FakeConfigurationSource(source, target),
             sessionManager,
             digipeater,
@@ -284,7 +284,7 @@ public sealed class DigipeatRouterTests
 
     private static IPortSessionManager CreateSessionManager(Guid sourceId, Guid targetId)
     {
-        var sessionManager = Substitute.For<IPortSessionManager>();
+        IPortSessionManager sessionManager = Substitute.For<IPortSessionManager>();
         sessionManager.IsRunning(sourceId).Returns(true);
         sessionManager.IsRunning(targetId).Returns(true);
         return sessionManager;
@@ -292,7 +292,7 @@ public sealed class DigipeatRouterTests
 
     private static IDigipeaterService CreateDigipeater(Guid targetId)
     {
-        var digipeater = Substitute.For<IDigipeaterService>();
+        IDigipeaterService digipeater = Substitute.For<IDigipeaterService>();
         digipeater
             .GetDigipeatTargets(
                 Arg.Any<AprsPacket>(),
@@ -305,7 +305,7 @@ public sealed class DigipeatRouterTests
 
     private static async Task WaitForAsync(Func<bool> condition, string because)
     {
-        var deadline = DateTime.UtcNow + TestTimeouts.TestTimeout;
+        DateTime deadline = DateTime.UtcNow + TestTimeouts.TestTimeout;
         while (!condition())
         {
             if (DateTime.UtcNow >= deadline)

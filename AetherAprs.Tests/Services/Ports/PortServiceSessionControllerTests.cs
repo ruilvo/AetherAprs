@@ -9,6 +9,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Data;
+using AetherAprs.Data.Entities;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
@@ -33,21 +35,21 @@ public sealed class PortServiceSessionControllerTests
     [Fact]
     public async Task ConnectAsync_StartsModemWithoutPersistingEnabledIntent()
     {
-        var portId = Guid.NewGuid();
-        var port = CreatePort(portId, isEnabled: false);
-        using var db = TempAppDatabase.Create(port);
-        var factory = new TrackingKissStreamFactory();
-        await using var service = CreateService(db, factory);
+        Guid portId = Guid.NewGuid();
+        PortConfig port = CreatePort(portId, isEnabled: false);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        TrackingKissStreamFactory factory = new();
+        await using PortService service = CreateService(db, factory);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
-        var controller = new PortServiceSessionController(service);
+        PortServiceSessionController controller = new(service);
 
         await controller.ConnectAsync(portId, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, factory.OpenCount);
         Assert.False(service.Ports.Single(p => p.Id == portId).IsEnabled);
 
-        await using var verification = db.CreateContext();
-        var record = await verification.Ports.FindAsync([portId], TestContext.Current.CancellationToken);
+        await using AppDbContext verification = db.CreateContext();
+        PortRecord? record = await verification.Ports.FindAsync([portId], TestContext.Current.CancellationToken);
         Assert.NotNull(record);
         Assert.False(record.IsEnabled);
 
@@ -57,13 +59,13 @@ public sealed class PortServiceSessionControllerTests
     [Fact]
     public async Task DisconnectAsync_StopsModemWithoutClearingPersistedIntent()
     {
-        var portId = Guid.NewGuid();
-        var port = CreatePort(portId, isEnabled: true);
-        using var db = TempAppDatabase.Create(port);
-        var factory = new TrackingKissStreamFactory();
-        await using var service = CreateService(db, factory);
+        Guid portId = Guid.NewGuid();
+        PortConfig port = CreatePort(portId, isEnabled: true);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        TrackingKissStreamFactory factory = new();
+        await using PortService service = CreateService(db, factory);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
-        var controller = new PortServiceSessionController(service);
+        PortServiceSessionController controller = new(service);
 
         await controller.ConnectAsync(portId, TestContext.Current.CancellationToken);
         await controller.DisconnectAsync(portId, TestContext.Current.CancellationToken);
@@ -72,8 +74,8 @@ public sealed class PortServiceSessionControllerTests
         Assert.Equal(1, factory.StreamDisposeCount);
         Assert.True(service.Ports.Single(p => p.Id == portId).IsEnabled);
 
-        await using var verification = db.CreateContext();
-        var record = await verification.Ports.FindAsync([portId], TestContext.Current.CancellationToken);
+        await using AppDbContext verification = db.CreateContext();
+        PortRecord? record = await verification.Ports.FindAsync([portId], TestContext.Current.CancellationToken);
         Assert.NotNull(record);
         Assert.True(record.IsEnabled);
     }
@@ -81,12 +83,12 @@ public sealed class PortServiceSessionControllerTests
     [Fact]
     public async Task ConnectAsync_WhenTheStartFails_ThrowsWithTheOriginalException()
     {
-        var portId = Guid.NewGuid();
-        var failure = new InvalidOperationException("transport refused");
-        var controller = new PortServiceSessionController(
+        Guid portId = Guid.NewGuid();
+        InvalidOperationException failure = new("transport refused");
+        PortServiceSessionController controller = new(
             new StubSessionRuntime(PortSessionStartResult.Failed(portId, failure)));
 
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
+        InvalidOperationException thrown = await Assert.ThrowsAsync<InvalidOperationException>(
             () => controller.ConnectAsync(portId, TestContext.Current.CancellationToken));
 
         Assert.Same(failure, thrown.InnerException);
@@ -96,14 +98,14 @@ public sealed class PortServiceSessionControllerTests
     [Fact]
     public async Task ConnectAsync_WhenTheStartIsCancelled_RethrowsCancellation()
     {
-        var portId = Guid.NewGuid();
-        using var cts = new CancellationTokenSource();
+        Guid portId = Guid.NewGuid();
+        using CancellationTokenSource cts = new();
         await cts.CancelAsync();
-        var cancellation = new OperationCanceledException(cts.Token);
-        var controller = new PortServiceSessionController(
+        OperationCanceledException cancellation = new(cts.Token);
+        PortServiceSessionController controller = new(
             new StubSessionRuntime(PortSessionStartResult.Cancelled(portId, cancellation)));
 
-        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+        OperationCanceledException thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => controller.ConnectAsync(portId, cts.Token));
 
         // The coordinator's reconnect loop keys off cancellation, so the original
@@ -135,7 +137,7 @@ public sealed class PortServiceSessionControllerTests
 
     private static PortService CreateService(TempAppDatabase db, IKissStreamFactory kissStreamFactory)
     {
-        var digipeater = Substitute.For<IDigipeaterService>();
+        IDigipeaterService digipeater = Substitute.For<IDigipeaterService>();
         digipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
             Arg.Any<Guid>(),

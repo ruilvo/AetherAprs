@@ -26,17 +26,12 @@ public class AprsSsidExtensionsTests
     }
 
     [Fact]
-    public void FormatCallsign_ZeroCastToSsid_ReturnsBaseCallsign()
-    {
+    public void FormatCallsign_ZeroCastToSsid_ReturnsBaseCallsign() =>
         // SSIDs are 0-15, so the only zero value is PrimaryStation itself.
         Assert.Equal("N0CALL", AprsSsidExtensions.FormatCallsign("N0CALL", (AprsSsid)0));
-    }
 
     [Fact]
-    public void FormatCallsign_NamedNonPrimarySsid_AppendsNumericSsid()
-    {
-        Assert.Equal("N0CALL-7", AprsSsidExtensions.FormatCallsign("N0CALL", AprsSsid.HumanPortable));
-    }
+    public void FormatCallsign_NamedNonPrimarySsid_AppendsNumericSsid() => Assert.Equal("N0CALL-7", AprsSsidExtensions.FormatCallsign("N0CALL", AprsSsid.HumanPortable));
 
     [Theory]
     [InlineData(1)]

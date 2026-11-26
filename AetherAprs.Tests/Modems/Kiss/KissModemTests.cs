@@ -20,17 +20,14 @@ public class KissModemTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Constructor_NullStream_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => new KissModem(null!));
-    }
+    public void Constructor_NullStream_ThrowsArgumentNullException() => Assert.Throws<ArgumentNullException>(() => new KissModem(null!));
 
     [Fact]
     public void Constructor_NonReadableStream_ThrowsArgumentException()
     {
-        using var stream = new NonReadableStream();
+        using NonReadableStream stream = new();
 
-        var exception = Assert.Throws<ArgumentException>(() => new KissModem(stream));
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => new KissModem(stream));
 
         Assert.Contains("stream", exception.Message);
     }
@@ -38,9 +35,9 @@ public class KissModemTests
     [Fact]
     public void Constructor_NonWritableStream_ThrowsArgumentException()
     {
-        using var stream = new NonWritableStream();
+        using NonWritableStream stream = new();
 
-        var exception = Assert.Throws<ArgumentException>(() => new KissModem(stream));
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => new KissModem(stream));
 
         Assert.Contains("stream", exception.Message);
     }
@@ -52,14 +49,14 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_EmptyDataFrame_WritesEncodedFrame()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame(0x00, []);
+        KissFrame frame = new(0x00, []);
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
         // FEND + command(0x00) + FEND = 3 bytes
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(3, written.Length);
         Assert.Equal(0xC0, written[0]);
         Assert.Equal(0x00, written[1]);
@@ -69,14 +66,14 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_DataFrameWithPayload_WritesEscapedFrame()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame(0x00, [0x01, 0x02, 0x03]);
+        KissFrame frame = new(0x00, [0x01, 0x02, 0x03]);
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
         // FEND + cmd + 3 bytes data + FEND = 6
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(6, written.Length);
         Assert.Equal(0xC0, written[0]);
         Assert.Equal(0x00, written[1]);
@@ -89,14 +86,14 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_DataWithFEND_FrameEscapesTheBytes()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame(0x00, [0xC0]);
+        KissFrame frame = new(0x00, [0xC0]);
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
         // FEND + cmd + FESC(0xDB) + TFEND(0xDC) + FEND = 5
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(5, written.Length);
         Assert.Equal(0xC0, written[0]);
         Assert.Equal(0x00, written[1]);
@@ -108,14 +105,14 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_DataWithFESC_FrameEscapesTheBytes()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame(0x00, [0xDB]);
+        KissFrame frame = new(0x00, [0xDB]);
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
         // FEND + cmd + FESC(0xDB) + TFESC(0xDD) + FEND = 5
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(5, written.Length);
         Assert.Equal(0xC0, written[0]);
         Assert.Equal(0x00, written[1]);
@@ -127,13 +124,13 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_TXDelayCommand_EncodesCommandByte()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame((byte)KissCommandType.TXDelay, [0x05]);
+        KissFrame frame = new((byte)KissCommandType.TXDelay, [0x05]);
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(0x01, written[1]); // TXDelay = 0x01
         Assert.Equal(0x05, written[2]);
     }
@@ -141,23 +138,23 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_PortInUpperBits_CommandBytePreservesPort()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame(0x30, [0x01]); // port 3, DataFrame
+        KissFrame frame = new(0x30, [0x01]); // port 3, DataFrame
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(0x30, written[1]);
     }
 
     [Fact]
     public async Task SendAsync_FlushesStreamAfterWrite()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var frame = new KissFrame(0x00, [0x01]);
+        KissFrame frame = new(0x00, [0x01]);
         await modem.SendAsync(frame, TestContext.Current.CancellationToken);
 
         // For MemoryStream, ToArray() should return all data after flush
@@ -171,8 +168,8 @@ public class KissModemTests
     [Fact]
     public async Task SendAsync_AfterDispose_ThrowsObjectDisposedException()
     {
-        using var stream = new MemoryStream();
-        var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        KissModem modem = new(stream);
         await modem.DisposeAsync();
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => modem.SendAsync(new KissFrame(0x00, []), TestContext.Current.CancellationToken));
@@ -185,8 +182,8 @@ public class KissModemTests
     [Fact]
     public async Task Start_FirstCall_Succeeds()
     {
-        await using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        await using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
 
@@ -196,8 +193,8 @@ public class KissModemTests
     [Fact]
     public async Task Start_DoubleCall_ThrowsInvalidOperationException()
     {
-        await using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        await using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
 
@@ -207,8 +204,8 @@ public class KissModemTests
     [Fact]
     public async Task StopAsync_WithoutStart_IsNoOp()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
         // Should not throw
         await modem.StopAsync();
@@ -217,8 +214,8 @@ public class KissModemTests
     [Fact]
     public async Task StartThenStopAsync_CompletesCleanly()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
         await modem.StopAsync();
@@ -233,13 +230,13 @@ public class KissModemTests
     {
         // Regression: a restart used to reuse the cancelled CTS, so the new
         // read loop exited immediately and no frames were ever received.
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
         await modem.StopAsync();
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
@@ -247,7 +244,7 @@ public class KissModemTests
         // FEND + cmd(0x00) + data(0x01) + FEND
         stream.Enqueue([0xC0, 0x00, 0x01, 0xC0]);
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal([0x01], received.Data);
     }
@@ -255,8 +252,8 @@ public class KissModemTests
     [Fact]
     public async Task StopAsync_Twice_IsNoOpSecondTime()
     {
-        using var stream = new MemoryStream();
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        await using KissModem modem = new(stream);
 
         modem.Start();
         await modem.StopAsync();
@@ -271,15 +268,15 @@ public class KissModemTests
     public async Task FrameReceived_SingleDataFrame_ReceivesCorrectFrame()
     {
         // FEND + cmd(0x00) + data(0x01) + FEND
-        using var stream = new MemoryStream([0xC0, 0x00, 0x01, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0x01, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(0x00, received.Command);
         Assert.Equal([0x01], received.Data);
@@ -289,15 +286,15 @@ public class KissModemTests
     [Fact]
     public async Task FrameReceived_EmptyPayload_ReceivesFrameWithNoData()
     {
-        using var stream = new MemoryStream([0xC0, 0x00, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(0x00, received.Command);
         Assert.Empty(received.Data);
@@ -307,15 +304,15 @@ public class KissModemTests
     public async Task FrameReceived_FENDInPayload_ReceivesUnescapedData()
     {
         // FEND + cmd + FESC(0xDB) + TFEND(0xDC) + FEND
-        using var stream = new MemoryStream([0xC0, 0x00, 0xDB, 0xDC, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0xDB, 0xDC, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         // The data byte 0xC0 should be restored from the escape sequence
         Assert.Equal([0xC0], received.Data);
@@ -325,15 +322,15 @@ public class KissModemTests
     public async Task FrameReceived_FESCInPayload_ReceivesUnescapedData()
     {
         // FEND + cmd + FESC(0xDB) + TFESC(0xDD) + FEND
-        using var stream = new MemoryStream([0xC0, 0x00, 0xDB, 0xDD, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0xDB, 0xDD, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         // The data byte 0xDB should be restored from the escape sequence
         Assert.Equal([0xDB], received.Data);
@@ -343,12 +340,12 @@ public class KissModemTests
     public async Task FrameReceived_MultipleFramesInOneRead_ReceivesAll()
     {
         // Two frames: [FEND 0x00 0x01 FEND] [FEND 0x01 0x05 FEND]
-        using var stream = new MemoryStream([0xC0, 0x00, 0x01, 0xC0, 0xC0, 0x01, 0x05, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0x01, 0xC0, 0xC0, 0x01, 0x05, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var receivedFrames = new System.Collections.Generic.List<KissFrame>();
-        var tcs = new TaskCompletionSource<bool>();
-        var expectedCount = 2;
+        List<KissFrame> receivedFrames = [];
+        TaskCompletionSource<bool> tcs = new();
+        int expectedCount = 2;
 
         modem.FrameReceived += (_, frame) =>
         {
@@ -376,12 +373,12 @@ public class KissModemTests
     {
         // FEND + data(0x01) + FEND FEND + data(0x02) + FEND
         // The FEND-FEND boundary should not create an empty frame
-        using var stream = new MemoryStream([0xC0, 0x00, 0x01, 0xC0, 0xC0, 0x00, 0x02, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0x01, 0xC0, 0xC0, 0x00, 0x02, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var receivedFrames = new System.Collections.Generic.List<KissFrame>();
-        var tcs = new TaskCompletionSource<bool>();
-        var expectedCount = 2;
+        List<KissFrame> receivedFrames = [];
+        TaskCompletionSource<bool> tcs = new();
+        int expectedCount = 2;
 
         modem.FrameReceived += (_, frame) =>
         {
@@ -405,15 +402,15 @@ public class KissModemTests
     public async Task FrameReceived_NonZeroPort_ExtractsPort()
     {
         // Command = 0x31 → port 3 (upper nibble), TXDelay (lower nibble)
-        using var stream = new MemoryStream([0xC0, 0x31, 0x05, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x31, 0x05, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(KissCommandType.TXDelay, received.CommandType);
         Assert.Equal(3, received.Port);
@@ -424,15 +421,15 @@ public class KissModemTests
     {
         // Return (0xFF) uses all 8 bits. The lower 4 bits extract 0x0F = 15,
         // and port extracts upper nibble = 15.
-        await using var stream = new MemoryStream([0xC0, 0xFF, 0xC0]);
-        await using var modem = new KissModem(stream);
+        await using MemoryStream stream = new([0xC0, 0xFF, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(KissCommandType.Return, received.CommandType);
         Assert.Equal(15, received.Port);
@@ -442,11 +439,11 @@ public class KissModemTests
     public async Task FrameReceived_ConsecutiveFENDWithoutPayload_SkipsEmptyFrame()
     {
         // Two FENDs with nothing between them should not generate a frame
-        using var stream = new MemoryStream([0xC0, 0xC0, 0xC0, 0x00, 0x01, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0xC0, 0xC0, 0x00, 0x01, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var receivedFrames = new System.Collections.Generic.List<KissFrame>();
-        var tcs = new TaskCompletionSource<bool>();
+        List<KissFrame> receivedFrames = [];
+        TaskCompletionSource<bool> tcs = new();
 
         modem.FrameReceived += (_, frame) =>
         {
@@ -463,8 +460,8 @@ public class KissModemTests
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         // Only one frame should be received (with cmd=0x00, data=[0x01])
-        Assert.Single(receivedFrames);
-        Assert.Equal(0x00, receivedFrames[0].Command);
+        KissFrame item = Assert.Single(receivedFrames);
+        Assert.Equal(0x00, item.Command);
     }
 
     // ---------------------------------------------------------------
@@ -475,15 +472,15 @@ public class KissModemTests
     public async Task ReceiveError_InvalidEscapeSequence_FiresErrorEvent()
     {
         // FEND + cmd + FESC(0xDB) + 0x42(invalid) + FEND
-        using var stream = new MemoryStream([0xC0, 0x00, 0xDB, 0x42, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0xDB, 0x42, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> tcs = new();
         modem.ReceiveError += (_, ex) => tcs.TrySetResult(ex);
 
         modem.Start();
 
-        var error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.IsType<ArgumentException>(error);
         Assert.Contains("Invalid escape sequence", error.Message);
@@ -493,15 +490,15 @@ public class KissModemTests
     public async Task ReceiveError_IncompleteEscapeSequence_FiresErrorEvent()
     {
         // FEND + cmd + FESC(0xDB) + FEND (incomplete escape at end)
-        using var stream = new MemoryStream([0xC0, 0x00, 0xDB, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0xDB, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> tcs = new();
         modem.ReceiveError += (_, ex) => tcs.TrySetResult(ex);
 
         modem.Start();
 
-        var error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.IsType<ArgumentException>(error);
         Assert.Contains("Incomplete escape sequence", error.Message);
@@ -510,15 +507,15 @@ public class KissModemTests
     [Fact]
     public async Task ReceiveError_ReadError_FiresErrorEvent()
     {
-        using var stream = new FailingStream();
-        await using var modem = new KissModem(stream);
+        using FailingStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> tcs = new();
         modem.ReceiveError += (_, ex) => tcs.TrySetResult(ex);
 
         modem.Start();
 
-        var error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.IsType<IOException>(error);
         Assert.Contains("simulated", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -527,16 +524,16 @@ public class KissModemTests
     [Fact]
     public async Task ReceiveError_RemoteStreamClosure_FiresErrorEvent()
     {
-        using var stream = new RemoteClosedStream();
-        await using var modem = new KissModem(stream);
+        using RemoteClosedStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<Exception>(
+        TaskCompletionSource<Exception> tcs = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         modem.ReceiveError += (_, ex) => tcs.TrySetResult(ex);
 
         modem.Start();
 
-        var error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.IsType<IOException>(error);
         Assert.Contains("remote", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -549,13 +546,13 @@ public class KissModemTests
     [Fact]
     public async Task InvalidEscapeSequence_FrameReceivedNotFired()
     {
-        using var stream = new MemoryStream([0xC0, 0x00, 0xDB, 0x42, 0xC0]);
-        await using var modem = new KissModem(stream);
+        using MemoryStream stream = new([0xC0, 0x00, 0xDB, 0x42, 0xC0]);
+        await using KissModem modem = new(stream);
 
-        var frameReceived = false;
+        bool frameReceived = false;
         modem.FrameReceived += (_, _) => frameReceived = true;
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> errorTcs = new();
         modem.ReceiveError += (_, ex) => errorTcs.TrySetResult(ex);
 
         modem.Start();
@@ -586,8 +583,8 @@ public class KissModemTests
     [Fact]
     public async Task DisposeAsync_StopsReadLoop()
     {
-        using var stream = new MemoryStream();
-        var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        KissModem modem = new(stream);
 
         modem.Start();
         await modem.DisposeAsync();
@@ -599,8 +596,8 @@ public class KissModemTests
     [Fact]
     public async Task DisposeAsync_Idempotent_CanBeCalledMultipleTimes()
     {
-        using var stream = new MemoryStream();
-        var modem = new KissModem(stream);
+        using MemoryStream stream = new();
+        KissModem modem = new(stream);
 
         await modem.DisposeAsync();
         await modem.DisposeAsync(); // Should not throw
@@ -615,12 +612,12 @@ public class KissModemTests
     [Fact]
     public async Task StopAsync_WithABlockingNonCancellableRead_ClosesTheStreamBeforeWaiting()
     {
-        var stream = new BlockingRfcommStream();
-        var modem = new KissModem(stream);
+        BlockingRfcommStream stream = new();
+        KissModem modem = new(stream);
         modem.Start();
         await stream.WaitForReadAsync(TestContext.Current.CancellationToken);
 
-        var stopwatch = Stopwatch.StartNew();
+        Stopwatch stopwatch = Stopwatch.StartNew();
         await modem.StopAsync();
         stopwatch.Stop();
 
@@ -635,8 +632,8 @@ public class KissModemTests
     [Fact]
     public async Task DisposeAsync_WithABlockingNonCancellableRead_ClosesTheStreamBeforeWaiting()
     {
-        var stream = new BlockingRfcommStream();
-        var modem = new KissModem(stream);
+        BlockingRfcommStream stream = new();
+        KissModem modem = new(stream);
         modem.Start();
         await stream.WaitForReadAsync(TestContext.Current.CancellationToken);
 
@@ -648,12 +645,12 @@ public class KissModemTests
     [Fact]
     public async Task StopAsync_WhenTheNativeReadNeverUnwinds_StopsAfterTheBoundedWait()
     {
-        var stream = new BlockingRfcommStream(unwindsOnClose: false);
-        var modem = new KissModem(stream);
+        BlockingRfcommStream stream = new(unwindsOnClose: false);
+        KissModem modem = new(stream);
         modem.Start();
         await stream.WaitForReadAsync(TestContext.Current.CancellationToken);
 
-        var stopwatch = Stopwatch.StartNew();
+        Stopwatch stopwatch = Stopwatch.StartNew();
         await modem.StopAsync();
         stopwatch.Stop();
 
@@ -717,10 +714,7 @@ public class KissModemTests
         }
         public override void Flush() { }
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            throw new IOException("Simulated read failure.");
-        }
+        public override int Read(byte[] buffer, int offset, int count) => throw new IOException("Simulated read failure.");
 
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
@@ -766,7 +760,7 @@ public class KissModemTests
                 chunk = _pending.Dequeue();
             }
 
-            var toCopy = Math.Min(buffer.Length, chunk.Length);
+            int toCopy = Math.Min(buffer.Length, chunk.Length);
             chunk.AsSpan(0, toCopy).CopyTo(buffer.Span);
             if (toCopy < chunk.Length)
             {
@@ -784,7 +778,7 @@ public class KissModemTests
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            var memory = new Memory<byte>(buffer, offset, count);
+            Memory<byte> memory = new(buffer, offset, count);
             return ReadAsync(memory).AsTask().GetAwaiter().GetResult();
         }
 

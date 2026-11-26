@@ -28,8 +28,8 @@ public sealed class PortServiceSetPortEnabledTests
     public async Task SetPortEnabledAsync_DisablingRunningPort_StopsModem()
     {
         // Arrange
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -40,9 +40,9 @@ public sealed class PortServiceSetPortEnabledTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var factory = new TrackingKissStreamFactory();
-        var service = await CreateAndInitializeServiceAsync(db, factory);
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        TrackingKissStreamFactory factory = new();
+        PortService service = await CreateAndInitializeServiceAsync(db, factory);
 
         // Start the port
         await service.SetPortEnabledAsync(portId, true);
@@ -60,8 +60,8 @@ public sealed class PortServiceSetPortEnabledTests
     [Fact]
     public async Task SetPortEnabledAsync_EnablingPort_RequestsThePortsPermissions()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -72,11 +72,11 @@ public sealed class PortServiceSetPortEnabledTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var prompter = Substitute.For<IPortPermissionPrompter>();
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        IPortPermissionPrompter prompter = Substitute.For<IPortPermissionPrompter>();
         prompter.RequestForPortAsync(Arg.Any<PortConfig>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
-        var service = await CreateAndInitializeServiceAsync(
+        PortService service = await CreateAndInitializeServiceAsync(
             db,
             new TrackingKissStreamFactory(),
             prompter);
@@ -93,8 +93,8 @@ public sealed class PortServiceSetPortEnabledTests
     [Fact]
     public async Task SetPortEnabledAsync_PermissionPromptFails_StillEnablesThePort()
     {
-        var portId = Guid.NewGuid();
-        var port = new PortConfig
+        Guid portId = Guid.NewGuid();
+        PortConfig port = new()
         {
             Id = portId,
             Name = "KISS",
@@ -105,11 +105,11 @@ public sealed class PortServiceSetPortEnabledTests
                 Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
             }
         };
-        using var db = TempAppDatabase.Create(port);
-        var prompter = Substitute.For<IPortPermissionPrompter>();
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        IPortPermissionPrompter prompter = Substitute.For<IPortPermissionPrompter>();
         prompter.RequestForPortAsync(Arg.Any<PortConfig>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("prompt host is gone")));
-        var service = await CreateAndInitializeServiceAsync(
+        PortService service = await CreateAndInitializeServiceAsync(
             db,
             new TrackingKissStreamFactory(),
             prompter);
@@ -127,9 +127,9 @@ public sealed class PortServiceSetPortEnabledTests
         IPortPermissionPrompter? permissionPrompter = null)
     {
         kissStreamFactory ??= new KissStreamFactory([new TcpKissStreamConnector()]);
-        var mockPacketStorage = Substitute.For<IPacketStorageService>();
-        var mockKeepAliveService = Substitute.For<IKeepAliveService>();
-        var mockDigipeater = Substitute.For<IDigipeaterService>();
+        IPacketStorageService mockPacketStorage = Substitute.For<IPacketStorageService>();
+        IKeepAliveService mockKeepAliveService = Substitute.For<IKeepAliveService>();
+        IDigipeaterService mockDigipeater = Substitute.For<IDigipeaterService>();
         mockDigipeater.GetDigipeatTargets(
             Arg.Any<AprsPacket>(),
             Arg.Any<Guid>(),
@@ -154,7 +154,7 @@ public sealed class PortServiceSetPortEnabledTests
         IKissStreamFactory? kissStreamFactory = null,
         IPortPermissionPrompter? permissionPrompter = null)
     {
-        var service = CreateService(db, kissStreamFactory, permissionPrompter);
+        PortService service = CreateService(db, kissStreamFactory, permissionPrompter);
         await service.InitializeAsync(TestContext.Current.CancellationToken);
         return service;
     }
@@ -176,10 +176,7 @@ public sealed class PortServiceSetPortEnabledTests
             return Task.FromResult<Stream>(_lastStream);
         }
 
-        public void Dispose()
-        {
-            _lastStream?.Dispose();
-        }
+        public void Dispose() => _lastStream?.Dispose();
     }
 
     private sealed class TrackingStream : MemoryStream

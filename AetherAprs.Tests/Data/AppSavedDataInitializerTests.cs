@@ -18,16 +18,16 @@ public sealed class AppSavedDataInitializerTests
     [Fact]
     public void InitializeSeedsBeaconingDefaults()
     {
-        using var db = TempAppDatabase.CreateEmpty();
+        using TempAppDatabase db = TempAppDatabase.CreateEmpty();
 
-        var initializer = new AppSavedDataInitializer(
+        AppSavedDataInitializer initializer = new(
             db.Factory,
             NullLogger<AppSavedDataInitializer>.Instance);
 
         initializer.Initialize();
         initializer.Initialize(); // Second call should be idempotent
 
-        using var context = db.CreateContext();
+        using AppDbContext context = db.CreateContext();
         Assert.Equal(3, context.BeaconConfigs.Count());
         Assert.Equal(DynamicBeaconMode.Walk, Assert.Single(context.BeaconingState).ActiveMode);
     }
@@ -35,7 +35,7 @@ public sealed class AppSavedDataInitializerTests
     [Fact]
     public void InitializeDoesNotDuplicateBeaconingData()
     {
-        using var db = TempAppDatabase.CreateEmpty();
+        using TempAppDatabase db = TempAppDatabase.CreateEmpty();
 
         new AppSavedDataInitializer(
             db.Factory,
@@ -45,7 +45,7 @@ public sealed class AppSavedDataInitializerTests
             db.Factory,
             NullLogger<AppSavedDataInitializer>.Instance).Initialize();
 
-        using var reloaded = db.CreateContext();
+        using AppDbContext reloaded = db.CreateContext();
         Assert.Equal(3, reloaded.BeaconConfigs.Count());
         Assert.Single(reloaded.BeaconingState);
     }

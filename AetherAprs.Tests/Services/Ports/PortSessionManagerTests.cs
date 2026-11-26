@@ -31,11 +31,11 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task ConcurrentStarts_CreateOneModem()
     {
-        var factory = new ModemFactory(_ => new ScriptedModem());
-        await using var manager = TestSessionManager.Create(factory);
-        var port = CreateKissPort();
+        ModemFactory factory = new(_ => new ScriptedModem());
+        await using PortSessionManager manager = TestSessionManager.Create(factory);
+        PortConfig port = CreateKissPort();
 
-        var results = await Task.WhenAll(
+        PortSessionStartResult[] results = await Task.WhenAll(
             manager.StartAsync(port, TestContext.Current.CancellationToken),
             manager.StartAsync(port, TestContext.Current.CancellationToken));
 
@@ -48,18 +48,18 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task ConcurrentSendAndStop_NeverSendsThroughADisposedModem()
     {
-        var modem = new ScriptedModem { BlockSends = true };
-        await using var manager = TestSessionManager.Create(new ModemFactory(_ => modem));
-        var port = CreateKissPort();
+        ScriptedModem modem = new() { BlockSends = true };
+        await using PortSessionManager manager = TestSessionManager.Create(new ModemFactory(_ => modem));
+        PortConfig port = CreateKissPort();
         await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
-        var sendTask = manager.SendAsync(port.Id, CreatePacket(), TestContext.Current.CancellationToken);
+        Task<PortSessionSendStatus> sendTask = manager.SendAsync(port.Id, CreatePacket(), TestContext.Current.CancellationToken);
         await modem.SendEntered.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
 
         // The stop must not dispose the modem while a send is inside it.
-        var stopTask = manager.StopAsync(port.Id, TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        Task<PortSessionStopResult> stopTask = manager.StopAsync(port.Id, TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         Assert.Equal(0, modem.DisposeCount);
 
         modem.ReleaseSend();
@@ -68,7 +68,7 @@ public sealed class PortSessionManagerTests
             PortSessionSendStatus.Sent,
             await sendTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
 
-        var stop = await stopTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+        PortSessionStopResult stop = await stopTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStopStatus.Stopped, stop.Status);
         Assert.False(stop.SendDrainTimedOut);
@@ -79,18 +79,18 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task Stop_WaitsForAnInFlightSendUntilTheDeadline()
     {
-        var modem = new ScriptedModem { BlockSends = true };
-        await using var manager = TestSessionManager.Create(new ModemFactory(_ => modem));
-        var port = CreateKissPort();
+        ScriptedModem modem = new() { BlockSends = true };
+        await using PortSessionManager manager = TestSessionManager.Create(new ModemFactory(_ => modem));
+        PortConfig port = CreateKissPort();
         await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
-        var sendTask = manager.SendAsync(port.Id, CreatePacket(), TestContext.Current.CancellationToken);
+        Task<PortSessionSendStatus> sendTask = manager.SendAsync(port.Id, CreatePacket(), TestContext.Current.CancellationToken);
         await modem.SendEntered.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
 
-        var stopwatch = Stopwatch.StartNew();
-        var stop = await manager
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        PortSessionStopResult stop = await manager
             .StopAsync(port.Id, SendDrainDeadline, TestContext.Current.CancellationToken)
             .WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
         stopwatch.Stop();
@@ -112,18 +112,18 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task FailedStop_PermitsALaterStart()
     {
-        var modem = new ScriptedModem { ThrowOnStop = true };
-        await using var manager = TestSessionManager.Create(new ModemFactory(_ => modem));
-        var port = CreateKissPort();
+        ScriptedModem modem = new() { ThrowOnStop = true };
+        await using PortSessionManager manager = TestSessionManager.Create(new ModemFactory(_ => modem));
+        PortConfig port = CreateKissPort();
         await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
-        var stop = await manager.StopAsync(port.Id, null, TestContext.Current.CancellationToken);
+        PortSessionStopResult stop = await manager.StopAsync(port.Id, null, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStopStatus.Failed, stop.Status);
         Assert.NotNull(stop.Error);
         Assert.False(manager.IsRunning(port.Id));
 
-        var restart = await manager.StartAsync(port, TestContext.Current.CancellationToken);
+        PortSessionStartResult restart = await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStartStatus.Started, restart.Status);
         Assert.True(manager.IsRunning(port.Id));
@@ -132,32 +132,32 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task StopAll_AttemptsEverySessionAndReportsAggregateFailures()
     {
-        var modems = new Dictionary<Guid, ScriptedModem>();
-        var factory = new ModemFactory(port =>
+        Dictionary<Guid, ScriptedModem> modems = [];
+        ModemFactory factory = new(port =>
         {
-            var modem = new ScriptedModem { ThrowOnStop = port.Name == "Broken" };
+            ScriptedModem modem = new() { ThrowOnStop = port.Name == "Broken" };
             modems[port.Id] = modem;
             return modem;
         });
-        await using var manager = TestSessionManager.Create(factory);
+        await using PortSessionManager manager = TestSessionManager.Create(factory);
 
-        var ports = new[]
-        {
+        PortConfig[] ports =
+        [
             CreateKissPort("Healthy"),
             CreateKissPort("Broken"),
             CreateKissPort("Also healthy")
-        };
+        ];
 
-        foreach (var port in ports)
+        foreach (PortConfig? port in ports)
         {
             await manager.StartAsync(port, TestContext.Current.CancellationToken);
         }
 
-        var results = await manager.StopAllAsync(TestContext.Current.CancellationToken);
+        IReadOnlyList<PortSessionStopResult> results = await manager.StopAllAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(ports.Length, results.Count);
         Assert.Equal(2, results.Count(result => result.Status == PortSessionStopStatus.Stopped));
-        var failure = Assert.Single(results, result => result.Status == PortSessionStopStatus.Failed);
+        PortSessionStopResult failure = Assert.Single(results, result => result.Status == PortSessionStopStatus.Failed);
         Assert.Equal(ports[1].Id, failure.PortId);
         Assert.NotNull(failure.Error);
         Assert.All(modems.Values, modem => Assert.Equal(1, modem.DisposeCount));
@@ -167,12 +167,12 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task RemoveAsync_PrunesPerPortRuntimeState()
     {
-        var factory = new ModemFactory(_ => new ScriptedModem());
-        await using var manager = TestSessionManager.Create(factory);
-        var port = CreateKissPort();
+        ModemFactory factory = new(_ => new ScriptedModem());
+        await using PortSessionManager manager = TestSessionManager.Create(factory);
+        PortConfig port = CreateKissPort();
         await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
-        var removed = await manager.RemoveAsync(port.Id, TestContext.Current.CancellationToken);
+        PortSessionStopResult removed = await manager.RemoveAsync(port.Id, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStopStatus.Stopped, removed.Status);
         Assert.Equal(0, manager.TrackedPortCount);
@@ -190,12 +190,12 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task StopAsync_ForANonRunningPort_ReportsNotRunning()
     {
-        await using var manager = TestSessionManager.Create(new ModemFactory(_ => new ScriptedModem()));
-        var port = CreateKissPort();
+        await using PortSessionManager manager = TestSessionManager.Create(new ModemFactory(_ => new ScriptedModem()));
+        PortConfig port = CreateKissPort();
         await manager.StartAsync(port, TestContext.Current.CancellationToken);
         await manager.StopAsync(port.Id, null, TestContext.Current.CancellationToken);
 
-        var again = await manager.StopAsync(port.Id, null, TestContext.Current.CancellationToken);
+        PortSessionStopResult again = await manager.StopAsync(port.Id, null, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStopStatus.NotRunning, again.Status);
     }
@@ -203,10 +203,10 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task SendAsync_ForANonRunningPort_ReportsNotRunning()
     {
-        await using var manager = TestSessionManager.Create(new ModemFactory(_ => new ScriptedModem()));
-        var port = CreateKissPort();
+        await using PortSessionManager manager = TestSessionManager.Create(new ModemFactory(_ => new ScriptedModem()));
+        PortConfig port = CreateKissPort();
 
-        var status = await manager.SendAsync(port.Id, CreatePacket(), TestContext.Current.CancellationToken);
+        PortSessionSendStatus status = await manager.SendAsync(port.Id, CreatePacket(), TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionSendStatus.NotRunning, status);
     }
@@ -214,12 +214,12 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task StartAsync_WhenTheModemFails_AttachesTheOriginalException()
     {
-        var expected = new InvalidOperationException("transport refused");
-        await using var manager = TestSessionManager.Create(
+        InvalidOperationException expected = new("transport refused");
+        await using PortSessionManager manager = TestSessionManager.Create(
             new ModemFactory(_ => new ScriptedModem { StartException = expected }));
-        var port = CreateKissPort();
+        PortConfig port = CreateKissPort();
 
-        var result = await manager.StartAsync(port, TestContext.Current.CancellationToken);
+        PortSessionStartResult result = await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
         Assert.Equal(PortSessionStartStatus.Failed, result.Status);
         Assert.Same(expected, result.Error);
@@ -230,30 +230,30 @@ public sealed class PortSessionManagerTests
     [Fact]
     public async Task Subscribers_ReceivePacketsAndFaultsFromTheOwningPort()
     {
-        var modem = new ScriptedModem();
-        await using var manager = TestSessionManager.Create(new ModemFactory(_ => modem));
-        var port = CreateKissPort();
-        var packetArgs = new TaskCompletionSource<PortPacketReceivedEventArgs>(
+        ScriptedModem modem = new();
+        await using PortSessionManager manager = TestSessionManager.Create(new ModemFactory(_ => modem));
+        PortConfig port = CreateKissPort();
+        TaskCompletionSource<PortPacketReceivedEventArgs> packetArgs = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var faultArgs = new TaskCompletionSource<PortTransportFaultEventArgs>(
+        TaskCompletionSource<PortTransportFaultEventArgs> faultArgs = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         manager.PacketReceived += (_, args) => packetArgs.TrySetResult(args);
         manager.TransportFaulted += (_, args) => faultArgs.TrySetResult(args);
 
         await manager.StartAsync(port, TestContext.Current.CancellationToken);
 
-        var packet = CreatePacket();
+        PositionPacket packet = CreatePacket();
         modem.RaisePacketReceived(packet);
-        var fault = new InvalidOperationException("socket lost");
+        InvalidOperationException fault = new("socket lost");
         modem.RaiseReceiveError(fault);
 
-        var received = await packetArgs.Task.WaitAsync(
+        PortPacketReceivedEventArgs received = await packetArgs.Task.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
         Assert.Equal(port.Id, received.PortId);
         Assert.Same(packet, received.Packet);
 
-        var reported = await faultArgs.Task.WaitAsync(
+        PortTransportFaultEventArgs reported = await faultArgs.Task.WaitAsync(
             TestTimeouts.TestTimeout,
             TestContext.Current.CancellationToken);
         Assert.Equal(port.Id, reported.PortId);

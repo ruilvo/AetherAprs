@@ -29,8 +29,8 @@ public sealed class PermissionLoggingTests
     [Fact]
     public async Task RequestAsync_WhenADenialIsReported_LogsOnlyThePermissionAndItsConsequence()
     {
-        var logger = new CapturingLogger();
-        var permissions = Substitute.For<IPermissionService>();
+        CapturingLogger logger = new();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(
                 call.Arg<PermissionKind>() == PermissionKind.Notifications
@@ -43,14 +43,14 @@ public sealed class PermissionLoggingTests
             logger,
             TestContext.Current.CancellationToken);
 
-        var record = Assert.Single(logger.Records);
+        LogRecord record = Assert.Single(logger.Records);
         Assert.Equal(LogLevel.Warning, record.Level);
         Assert.Contains("Notifications", record.Message, StringComparison.Ordinal);
         Assert.Contains("denied", record.Message, StringComparison.Ordinal);
 
         // Neither the rendered message nor the structured state may carry the
         // operator's server, passcode, filter or port name.
-        foreach (var forbidden in new[] { SecretPasscode, SecretServer, SecretFilter, SecretPortName })
+        foreach (string? forbidden in new[] { SecretPasscode, SecretServer, SecretFilter, SecretPortName })
         {
             Assert.DoesNotContain(forbidden, record.Message, StringComparison.Ordinal);
             Assert.DoesNotContain(forbidden, record.State, StringComparison.Ordinal);
@@ -60,8 +60,8 @@ public sealed class PermissionLoggingTests
     [Fact]
     public async Task RequestAsync_WhenEveryPermissionIsGranted_LogsNothing()
     {
-        var logger = new CapturingLogger();
-        var permissions = Substitute.For<IPermissionService>();
+        CapturingLogger logger = new();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
 
@@ -115,10 +115,7 @@ public sealed class PermissionLoggingTests
             EventId eventId,
             TState state,
             Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            Records.Add(new LogRecord(logLevel, formatter(state, exception), state?.ToString() ?? string.Empty));
-        }
+            Func<TState, Exception?, string> formatter) => Records.Add(new LogRecord(logLevel, formatter(state, exception), state?.ToString() ?? string.Empty));
     }
 
     private sealed record LogRecord(LogLevel Level, string Message, string State);

@@ -31,9 +31,7 @@ public class ThemeModeConverter : IValueConverter
         };
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         // This converter is display-only; do not write the localized text back to the source.
-        return Avalonia.Data.BindingOperations.DoNothing;
-    }
+        Avalonia.Data.BindingOperations.DoNothing;
 }

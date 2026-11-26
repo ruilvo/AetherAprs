@@ -33,7 +33,7 @@ public sealed class PacketFactoryTests
         string beaconComment = DefaultBeaconComment,
         PositionFormat positionFormat = PositionFormat.Compressed)
     {
-        var configuration = Substitute.For<IConfigurationService>();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
@@ -49,22 +49,19 @@ public sealed class PacketFactoryTests
         return new PacketFactory(configuration);
     }
 
-    private static LocationData CreateLocation(double latitude = 38.5, double longitude = -9.0, double? altitude = 100)
+    private static LocationData CreateLocation(double latitude = 38.5, double longitude = -9.0, double? altitude = 100) => new()
     {
-        return new LocationData
-        {
-            Location = new Coordinate(latitude, longitude),
-            Altitude = altitude
-        };
-    }
+        Location = new Coordinate(latitude, longitude),
+        Altitude = altitude
+    };
 
     [Fact]
     public void CreatePositionPacket_ValidCallsign_BuildsPacket()
     {
-        var factory = CreateFactory();
-        var location = CreateLocation(latitude: 38.5, longitude: -9.0, altitude: 100);
+        IPacketFactory factory = CreateFactory();
+        LocationData location = CreateLocation(latitude: 38.5, longitude: -9.0, altitude: 100);
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             location,
             "N0CALL-7",
             SymbolTable.Primary,
@@ -85,9 +82,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_UncompressedFormat_UsesPrecision2()
     {
-        var factory = CreateFactory(positionFormat: PositionFormat.Uncompressed);
+        IPacketFactory factory = CreateFactory(positionFormat: PositionFormat.Uncompressed);
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -100,9 +97,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_MicEFormat_PropagatesFormat()
     {
-        var factory = CreateFactory(positionFormat: PositionFormat.MicE);
+        IPacketFactory factory = CreateFactory(positionFormat: PositionFormat.MicE);
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -115,10 +112,10 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_ConvertsAltitudeMetersToFeet()
     {
-        var factory = CreateFactory();
-        var location = CreateLocation(altitude: 100);
+        IPacketFactory factory = CreateFactory();
+        LocationData location = CreateLocation(altitude: 100);
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             location,
             "N0CALL",
             SymbolTable.Primary,
@@ -131,10 +128,10 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_NoAltitude_LeavesAltitudeNull()
     {
-        var factory = CreateFactory();
-        var location = CreateLocation(altitude: null);
+        IPacketFactory factory = CreateFactory();
+        LocationData location = CreateLocation(altitude: null);
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             location,
             "N0CALL",
             SymbolTable.Primary,
@@ -146,9 +143,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_NoComment_FallsBackToBeaconComment()
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -160,9 +157,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_WhitespaceComment_FallsBackToBeaconComment()
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -175,9 +172,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_ProvidedComment_OverridesBeaconComment()
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -190,9 +187,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_DigipeaterPathConfigured_AppliesParsedPath()
     {
-        var factory = CreateFactory(digipeaterPath: "WIDE1-1,WIDE2-1");
+        IPacketFactory factory = CreateFactory(digipeaterPath: "WIDE1-1,WIDE2-1");
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -206,9 +203,9 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreatePositionPacket_WhitespaceDigipeaterPath_YieldsEmptyPath()
     {
-        var factory = CreateFactory(digipeaterPath: "   ");
+        IPacketFactory factory = CreateFactory(digipeaterPath: "   ");
 
-        var packet = factory.CreatePositionPacket(
+        PositionPacket packet = factory.CreatePositionPacket(
             CreateLocation(),
             "N0CALL",
             SymbolTable.Primary,
@@ -222,7 +219,7 @@ public sealed class PacketFactoryTests
     [InlineData("NOT-VALID!")]
     public void CreatePositionPacket_InvalidCallsign_ThrowsArgumentException(string callsign)
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
             factory.CreatePositionPacket(
@@ -235,10 +232,10 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateMessagePacket_ValidInput_BuildsPacket()
     {
-        var factory = CreateFactory(digipeaterPath: "WIDE1-1");
-        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
+        IPacketFactory factory = CreateFactory(digipeaterPath: "WIDE1-1");
+        AprsAddress addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
 
-        var packet = factory.CreateMessagePacket("N0CALL-1", addressee, "Hello", messageNumber: 42);
+        MessagePacket packet = factory.CreateMessagePacket("N0CALL-1", addressee, "Hello", messageNumber: 42);
 
         Assert.Equal(new Callsign("N0CALL", 1), packet.Source);
         Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
@@ -252,7 +249,7 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateMessagePacket_InvalidCallsign_ThrowsArgumentException()
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
             factory.CreateMessagePacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello"));
@@ -261,10 +258,10 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateAckPacket_ValidInput_BuildsPacket()
     {
-        var factory = CreateFactory(digipeaterPath: "WIDE1-1");
-        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
+        IPacketFactory factory = CreateFactory(digipeaterPath: "WIDE1-1");
+        AprsAddress addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
 
-        var packet = factory.CreateAckPacket("N0CALL-1", addressee, 5);
+        MessageAckPacket packet = factory.CreateAckPacket("N0CALL-1", addressee, 5);
 
         Assert.Equal(new Callsign("N0CALL", 1), packet.Source);
         Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
@@ -277,7 +274,7 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateAckPacket_InvalidCallsign_ThrowsArgumentException()
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
             factory.CreateAckPacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), 1));
@@ -286,10 +283,10 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateRejPacket_ValidInput_BuildsPacket()
     {
-        var factory = CreateFactory(digipeaterPath: "WIDE1-1");
-        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
+        IPacketFactory factory = CreateFactory(digipeaterPath: "WIDE1-1");
+        AprsAddress addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
 
-        var packet = factory.CreateRejPacket("N0CALL-1", addressee, 6);
+        MessageRejPacket packet = factory.CreateRejPacket("N0CALL-1", addressee, 6);
 
         Assert.Equal(new Callsign("N0CALL", 1), packet.Source);
         Assert.Equal(new Callsign(ExpectedSoftwareIdentifier), packet.Destination);
@@ -302,7 +299,7 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateRejPacket_InvalidCallsign_ThrowsArgumentException()
     {
-        var factory = CreateFactory();
+        IPacketFactory factory = CreateFactory();
 
         Assert.Throws<ArgumentException>(() =>
             factory.CreateRejPacket("BAD!", AprsAddress.FromCallsign(new Callsign("K0OTH")), 1));
@@ -311,12 +308,12 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateEveryPacketType_UsesSoftwareIdentifierDestinationAndConfiguredPath()
     {
-        var factory = CreateFactory(digipeaterPath: "WIDE1-1,WIDE2-1");
-        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
-        var location = CreateLocation();
+        IPacketFactory factory = CreateFactory(digipeaterPath: "WIDE1-1,WIDE2-1");
+        AprsAddress addressee = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
+        LocationData location = CreateLocation();
 
-        var packets = new AprsPacket[]
-        {
+        AprsPacket[] packets =
+        [
             factory.CreatePositionPacket(
                 location, "N0CALL-1", SymbolTable.Primary, SymbolCode.HyphenMinus),
             factory.CreateMessagePacket("N0CALL-1", addressee, "Hello", messageNumber: 1),
@@ -327,11 +324,11 @@ public sealed class PacketFactoryTests
             factory.CreateItemPacket(
                 "N0CALL-1", "ITM", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus),
             factory.CreateBulletinPacket("N0CALL-1", "BLN0TEST", "Bulletin text")
-        };
+        ];
 
         Assert.Equal(7, packets.Length);
 
-        foreach (var packet in packets)
+        foreach (AprsPacket packet in packets)
         {
             // The AX.25 destination carries the APRS software identifier, not "APRS".
             Assert.Equal(ExpectedSoftwareIdentifier, packet.Destination.Base);
@@ -346,10 +343,10 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateObjectPacket_WhenTheNameIsNineCharacters_IsAccepted()
     {
-        var factory = CreateFactory();
-        var location = CreateLocation();
+        IPacketFactory factory = CreateFactory();
+        LocationData location = CreateLocation();
 
-        var packet = factory.CreateObjectPacket(
+        ObjectPacket packet = factory.CreateObjectPacket(
             "N0CALL-1", "APRS2SOTA", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus);
 
         Assert.Equal("APRS2SOTA", packet.Name);
@@ -358,8 +355,8 @@ public sealed class PacketFactoryTests
     [Fact]
     public void CreateNamedPacket_WhenTheNameIsWiderThanTheField_Throws()
     {
-        var factory = CreateFactory();
-        var location = CreateLocation();
+        IPacketFactory factory = CreateFactory();
+        LocationData location = CreateLocation();
 
         Assert.Throws<ArgumentException>(() => factory.CreateObjectPacket(
             "N0CALL-1", "TOOLONGNAME", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus));
@@ -374,12 +371,12 @@ public sealed class PacketFactoryTests
     {
         const string invalidCallsign = "BAD!";
 
-        var factory = CreateFactory();
-        var addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
-        var location = CreateLocation();
+        IPacketFactory factory = CreateFactory();
+        AprsAddress addressee = AprsAddress.FromCallsign(new Callsign("K0OTH"));
+        LocationData location = CreateLocation();
 
-        var cases = new (string PacketType, Func<AprsPacket> Create)[]
-        {
+        (string PacketType, Func<AprsPacket> Create)[] cases =
+        [
             ("position", () => factory.CreatePositionPacket(
                 location, invalidCallsign, SymbolTable.Primary, SymbolCode.HyphenMinus)),
             ("message", () => factory.CreateMessagePacket(invalidCallsign, addressee, "Hello")),
@@ -390,19 +387,19 @@ public sealed class PacketFactoryTests
             ("item", () => factory.CreateItemPacket(
                 invalidCallsign, "ITM", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus)),
             ("bulletin", () => factory.CreateBulletinPacket(invalidCallsign, "BLN0TEST", "Text"))
-        };
+        ];
 
         Assert.Equal(7, cases.Length);
 
-        foreach (var @case in cases)
+        foreach ((string? PacketType, Func<AprsPacket>? Create) in cases)
         {
-            var exception = Assert.Throws<ArgumentException>(() => @case.Create());
+            ArgumentException exception = Assert.Throws<ArgumentException>(() => Create());
 
             Assert.True(
                 exception.Message.StartsWith(
                     $"Invalid callsign format: {invalidCallsign}",
                     StringComparison.Ordinal),
-                $"{@case.PacketType} packet must keep the shared invalid-callsign message shape.");
+                $"{PacketType} packet must keep the shared invalid-callsign message shape.");
         }
     }
 }

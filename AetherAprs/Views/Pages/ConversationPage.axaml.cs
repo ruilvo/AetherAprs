@@ -1,8 +1,9 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models.Messaging;
+using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views.Components;
 using Avalonia.Controls;
@@ -14,10 +15,7 @@ namespace AetherAprs.Views.Pages;
 
 public partial class ConversationPage : UserControl
 {
-    public ConversationPage()
-    {
-        InitializeComponent();
-    }
+    public ConversationPage() => InitializeComponent();
 
     private async void OnTemplateButtonClick(object? sender, RoutedEventArgs e)
     {
@@ -28,8 +26,8 @@ public partial class ConversationPage : UserControl
                 return;
             }
 
-            var dialogViewModel = viewModel.CreateTemplateDialog();
-            var result = await DialogHost.Show(
+            MessageTemplateDialogViewModel dialogViewModel = viewModel.CreateTemplateDialog();
+            object? result = await DialogHost.Show(
                 new MessageTemplateDialogComponent { DataContext = dialogViewModel }, "MainDialogHost");
 
             if (result is MessageTemplateDialogResult templateResult)

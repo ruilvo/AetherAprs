@@ -45,7 +45,7 @@ public sealed class RedactedSupportReportService(
     {
         IReadOnlyList<PortSessionStatus> ports = coordinator.Ports;
 
-        var report = new JsonObject
+        JsonObject report = new()
         {
             ["schemaVersion"] = ReportSchemaVersion,
             ["generatedAtUtc"] = JsonValue.Create(DateTimeOffset.UtcNow),
@@ -83,20 +83,20 @@ public sealed class RedactedSupportReportService(
     public async Task WriteAsync(string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var directory = Path.GetDirectoryName(path);
+        string? directory = Path.GetDirectoryName(path);
         if (directory is not null)
         {
             Directory.CreateDirectory(directory);
         }
 
-        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        string temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
         await File.WriteAllTextAsync(temporaryPath, GenerateJson(), cancellationToken)
             .ConfigureAwait(false);
         File.Move(temporaryPath, path, overwrite: true);
     }
 
     private static JsonArray ToArray<T>(IEnumerable<T> items, Func<T, JsonNode?> map) =>
-        new([.. items.Select(map)]);
+        [with([.. items.Select(map)])];
 
     private static JsonObject BuildPort(PortSessionStatus port) => new()
     {
@@ -149,14 +149,14 @@ public sealed class RedactedSupportReportService(
     private static JsonObject BuildPacketIngest(
         IPortServiceTelemetry telemetry,
         IReadOnlyList<PortSessionStatus> ports) => new()
-    {
-        ["droppedPerPort"] = ToArray(ports, port => new JsonObject
         {
-            ["PortId"] = port.PortId,
-            ["dropped"] = telemetry.GetDroppedPacketCount(port.PortId),
-            ["droppedForwards"] = telemetry.GetDroppedForwardCount(port.PortId)
-        })
-    };
+            ["droppedPerPort"] = ToArray(ports, port => new JsonObject
+            {
+                ["PortId"] = port.PortId,
+                ["dropped"] = telemetry.GetDroppedPacketCount(port.PortId),
+                ["droppedForwards"] = telemetry.GetDroppedForwardCount(port.PortId)
+            })
+        };
 
     private static JsonNode? Optional(DateTimeOffset? value) =>
         value is { } present ? present : null;

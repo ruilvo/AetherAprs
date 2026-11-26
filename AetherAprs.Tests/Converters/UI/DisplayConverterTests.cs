@@ -20,9 +20,9 @@ public sealed class DisplayConverterTests
     [Fact]
     public void RssiFormatConverter_FormatsRssi()
     {
-        var converter = new RssiFormatConverter();
+        RssiFormatConverter converter = new();
 
-        var result = converter.Convert(-65, typeof(string), null, Culture);
+        object? result = converter.Convert(-65, typeof(string), null, Culture);
 
         Assert.Equal(string.Format(Culture, Strings.Get("RssiFormat", Culture), -65), result);
     }
@@ -30,9 +30,9 @@ public sealed class DisplayConverterTests
     [Fact]
     public void PacketDisplayTimeRangeConverter_FormatsKnownRange()
     {
-        var converter = new PacketDisplayTimeRangeConverter();
+        PacketDisplayTimeRangeConverter converter = new();
 
-        var result = converter.Convert(PacketDisplayTimeRange.LastWeek, typeof(string), null, Culture);
+        object? result = converter.Convert(PacketDisplayTimeRange.LastWeek, typeof(string), null, Culture);
 
         Assert.Equal(Strings.Get("TimeRangeLastWeek", Culture), result);
     }
@@ -40,9 +40,9 @@ public sealed class DisplayConverterTests
     [Fact]
     public void ThemeModeConverter_FormatsKnownMode()
     {
-        var converter = new ThemeModeConverter();
+        ThemeModeConverter converter = new();
 
-        var result = converter.Convert(ThemeMode.Dark, typeof(string), null, Culture);
+        object? result = converter.Convert(ThemeMode.Dark, typeof(string), null, Culture);
 
         Assert.Equal(Strings.Get("ThemeModeDark", Culture), result);
     }
@@ -50,9 +50,9 @@ public sealed class DisplayConverterTests
     [Fact]
     public void TileSourceTypeConverter_FormatsKnownSource()
     {
-        var converter = new TileSourceTypeConverter();
+        TileSourceTypeConverter converter = new();
 
-        var result = converter.Convert(TileSourceType.MbTilesOffline, typeof(string), null, Culture);
+        object? result = converter.Convert(TileSourceType.MbTilesOffline, typeof(string), null, Culture);
 
         Assert.Equal(Strings.Get("TileSourceMbTilesOffline", Culture), result);
     }
@@ -60,9 +60,9 @@ public sealed class DisplayConverterTests
     [Fact]
     public void TypeNameToIsVisibleConverter_MatchesTypeName()
     {
-        var converter = new TypeNameToIsVisibleConverter();
+        TypeNameToIsVisibleConverter converter = new();
 
-        var result = converter.Convert(typeof(TestType), typeof(bool), "TestType", Culture);
+        object? result = converter.Convert(typeof(TestType), typeof(bool), "TestType", Culture);
 
         Assert.Equal(true, result);
     }
@@ -70,9 +70,9 @@ public sealed class DisplayConverterTests
     [Fact]
     public void TypeNameToIsVisibleConverter_DoesNotMatchDifferentTypeName()
     {
-        var converter = new TypeNameToIsVisibleConverter();
+        TypeNameToIsVisibleConverter converter = new();
 
-        var result = converter.Convert(typeof(TestType), typeof(bool), "OtherType", Culture);
+        object? result = converter.Convert(typeof(TestType), typeof(bool), "OtherType", Culture);
 
         Assert.Equal(false, result);
     }
@@ -85,9 +85,9 @@ public sealed class DisplayConverterTests
     [InlineData(typeof(TypeNameToIsVisibleConverter))]
     public void DisplayConverters_ConvertBack_DoNothing(Type converterType)
     {
-        var converter = (IValueConverter)Activator.CreateInstance(converterType)!;
+        IValueConverter converter = (IValueConverter)Activator.CreateInstance(converterType)!;
 
-        var result = converter.ConvertBack("display text", typeof(object), null, Culture);
+        object? result = converter.ConvertBack("display text", typeof(object), null, Culture);
 
         Assert.Same(BindingOperations.DoNothing, result);
     }

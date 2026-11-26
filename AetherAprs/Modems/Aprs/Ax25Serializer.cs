@@ -28,8 +28,8 @@ public static class Ax25Serializer
     /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
     public static byte[] Serialize(AprsPacket packet)
     {
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
-        var destination = ResolveDestination(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        Callsign destination = ResolveDestination(packet);
         return BuildAx25Frame(destination, packet.Source, packet.Path, infoField);
     }
 
@@ -43,7 +43,7 @@ public static class Ax25Serializer
     /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
     public static byte[] Serialize(AprsPacket packet, Callsign source, Callsign destination)
     {
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         return BuildAx25Frame(destination, source, packet.Path, infoField);
     }
 
@@ -57,7 +57,7 @@ public static class Ax25Serializer
     /// <returns>AX.25 frame bytes (without CRC, for KISS).</returns>
     public static byte[] Serialize(AprsPacket packet, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
     {
-        var infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        string infoField = AprsInfoFieldSerializer.FormatInfoField(packet);
         return BuildAx25Frame(destination, source, path, infoField);
     }
 
@@ -70,28 +70,25 @@ public static class Ax25Serializer
     /// latitude into the destination address, so their configured destination is
     /// replaced with the Mic-E-encoded one.
     /// </summary>
-    internal static Callsign ResolveDestination(AprsPacket packet)
-    {
-        return packet is PositionPacket { Format: PositionFormat.MicE } position
+    internal static Callsign ResolveDestination(AprsPacket packet) => packet is PositionPacket { Format: PositionFormat.MicE } position
             ? MicESerializer.EncodeDestination(position)
             : packet.Destination;
-    }
 
     internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, IReadOnlyList<Callsign> path, string infoField)
     {
-        var infoBytes = Encoding.ASCII.GetBytes(infoField);
+        byte[] infoBytes = Encoding.ASCII.GetBytes(infoField);
         return BuildAx25Frame(destination, source, path, infoBytes);
     }
 
     internal static byte[] BuildAx25Frame(Callsign destination, Callsign source, IReadOnlyList<Callsign> path, byte[] infoBytes)
     {
-        var frame = new List<byte>();
-
-        // Destination address (7 bytes)
-        frame.AddRange(EncodeAddress(destination, isLast: false));
-
-        // Source address (7 bytes, marked as last if no path)
-        frame.AddRange(EncodeAddress(source, isLast: path.Count == 0));
+        List<byte> frame =
+        [
+            // Destination address (7 bytes)
+            .. EncodeAddress(destination, isLast: false),
+            // Source address (7 bytes, marked as last if no path)
+            .. EncodeAddress(source, isLast: path.Count == 0),
+        ];
 
         // Digipeater path addresses
         for (int i = 0; i < path.Count; i++)
@@ -119,10 +116,10 @@ public static class Ax25Serializer
             throw new ArgumentException("Callsign base must not be null or empty.", nameof(callsign));
         }
 
-        var bytes = new byte[AddressLength];
+        byte[] bytes = new byte[AddressLength];
 
         // Pad callsign base to 6 characters with spaces
-        var padded = callsign.Base.PadRight(6, ' ');
+        string padded = callsign.Base.PadRight(6, ' ');
 
         // Each character: ASCII value left-shifted by 1
         for (int i = 0; i < 6; i++)

@@ -37,11 +37,11 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
 
         try
         {
-            var cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
+            Cipher cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
             cipher.Init(CipherMode.EncryptMode, GetOrCreateKey());
-            var encrypted = cipher.DoFinal(Encoding.UTF8.GetBytes(secret))!;
-            var iv = cipher.GetIV()!;
-            var payload = new byte[iv.Length + encrypted.Length];
+            byte[] encrypted = cipher.DoFinal(Encoding.UTF8.GetBytes(secret))!;
+            byte[] iv = cipher.GetIV()!;
+            byte[] payload = new byte[iv.Length + encrypted.Length];
             Buffer.BlockCopy(iv, 0, payload, 0, iv.Length);
             Buffer.BlockCopy(encrypted, 0, payload, iv.Length, encrypted.Length);
             return Prefix + Base64.EncodeToString(payload, Base64Flags.NoWrap);
@@ -63,14 +63,14 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
 
         try
         {
-            var payload = Base64.Decode(protectedSecret[Prefix.Length..], Base64Flags.Default)!;
+            byte[] payload = Base64.Decode(protectedSecret[Prefix.Length..], Base64Flags.Default)!;
             const int ivLength = 12;
-            var iv = new byte[ivLength];
-            var encrypted = new byte[payload.Length - ivLength];
+            byte[] iv = new byte[ivLength];
+            byte[] encrypted = new byte[payload.Length - ivLength];
             Buffer.BlockCopy(payload, 0, iv, 0, ivLength);
             Buffer.BlockCopy(payload, ivLength, encrypted, 0, encrypted.Length);
 
-            var cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
+            Cipher cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
             cipher.Init(
                 CipherMode.DecryptMode,
                 GetOrCreateKey(),
@@ -94,7 +94,7 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
 
     private static IKey GetOrCreateKey()
     {
-        var keyStore = KeyStore.GetInstance(KeyStoreName)!;
+        KeyStore keyStore = KeyStore.GetInstance(KeyStoreName)!;
         keyStore.Load(null);
 
         if (keyStore.ContainsAlias(KeyAlias))
@@ -102,8 +102,8 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
             return keyStore.GetKey(KeyAlias, null)!;
         }
 
-        var generator = KeyGenerator.GetInstance(KeyProperties.KeyAlgorithmAes, KeyStoreName)!;
-        var spec = new KeyGenParameterSpec.Builder(
+        KeyGenerator generator = KeyGenerator.GetInstance(KeyProperties.KeyAlgorithmAes, KeyStoreName)!;
+        KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
                 KeyAlias,
                 KeyStorePurpose.Encrypt | KeyStorePurpose.Decrypt)
             .SetBlockModes(KeyProperties.BlockModeGcm)

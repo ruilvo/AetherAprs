@@ -22,8 +22,5 @@ public sealed class UnsupportedBluetoothLeKissStreamConnector : IKissStreamConne
     public bool IsSupported => false;
 
     /// <inheritdoc />
-    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default)
-    {
-        throw new PlatformNotSupportedException("Bluetooth LE KISS transport is not supported on this platform.");
-    }
+    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth LE KISS transport is not supported on this platform.");
 }

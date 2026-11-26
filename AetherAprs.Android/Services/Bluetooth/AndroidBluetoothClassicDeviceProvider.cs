@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.Bluetooth;
+using Android.Bluetooth;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,8 +27,8 @@ public sealed class AndroidBluetoothClassicDeviceProvider : IBluetoothClassicDev
     {
         await EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
-        var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
-        var bonded = adapter.BondedDevices;
+        BluetoothAdapter adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
+        ICollection<BluetoothDevice>? bonded = adapter.BondedDevices;
         if (bonded is null || bonded.Count == 0)
         {
             return [];

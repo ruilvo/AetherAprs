@@ -13,16 +13,11 @@ namespace AetherAprs.Services.Platform;
 public class AppDataDirProviderService : IAppDataDirProviderService
 {
     /// <inheritdoc/>
-    public string GetAppDataDirectory()
-    {
-        return AppContext.BaseDirectory;
-    }
+    public string GetAppDataDirectory() => AppContext.BaseDirectory;
 
     /// <inheritdoc/>
-    public string GetPrivateAppDataDirectory()
-    {
+    public string GetPrivateAppDataDirectory() =>
         // Desktop platforms have no app-sandboxed directory equivalent exposed
         // here; the base directory is already private to the installation.
-        return AppContext.BaseDirectory;
-    }
+        AppContext.BaseDirectory;
 }

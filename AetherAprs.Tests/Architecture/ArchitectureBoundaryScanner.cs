@@ -23,8 +23,9 @@ internal static class ArchitectureBoundaryScanner
     /// Files permitted to open a database context or mutate persisted state. These
     /// are the data infrastructure and the composition root, not feature services.
     /// </summary>
-    private static readonly HashSet<string> PersistenceOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> PersistenceOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Data/AppDbContext.cs",
         "AetherAprs/Data/AppDbContextFactory.cs",
         "AetherAprs/Data/AppSavedDataInitializer.cs",
@@ -37,46 +38,49 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Data/Beaconing/BeaconStateStore.cs",
         "AetherAprs/Factories/ServiceProviderFactory.cs",
         "AetherAprs/DesignData.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to marshal work onto the Avalonia UI thread. These are the
     /// presentation adapters for that concern.
     /// </summary>
-    private static readonly HashSet<string> UiThreadOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> UiThreadOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Services/UI/AvaloniaUiDispatcher.cs",
         "AetherAprs/Services/UI/SnackbarTransientFeedbackService.cs",
         "AetherAprs/Behaviors/ScrollToFocusedControlBehavior.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to construct a modem. Transport selection belongs to the
     /// modem factory, so no session or feature code may pick a transport itself.
     /// </summary>
-    private static readonly HashSet<string> ModemConstructionOwners = new(StringComparer.Ordinal)
-    {
-        "AetherAprs/Services/Ports/ModemFactory.cs"
-    };
+    private static readonly HashSet<string> ModemConstructionOwners =
+    [
+with(StringComparer.Ordinal),         "AetherAprs/Services/Ports/ModemFactory.cs"
+    ];
 
     /// <summary>
     /// Files permitted to name a port modem. Sessions are owned by the session
     /// manager, so no caller can hold, start, stop, or dispose a modem instance.
     /// </summary>
-    private static readonly HashSet<string> ModemAccessOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> ModemAccessOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Services/Ports/IModemFactory.cs",
         "AetherAprs/Services/Ports/ModemFactory.cs",
         "AetherAprs/Services/Ports/PortSessionManager.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to create a bounded work queue. A queue is a resource with a
     /// consumer and a drop policy, so it needs a named owner rather than being
     /// created wherever a burst happens to arrive.
     /// </summary>
-    private static readonly HashSet<string> BoundedQueueOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> BoundedQueueOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Services/Bluetooth/BluetoothAdvertisementBuffer.cs",
         "AetherAprs/Data/SqliteRuntimeWriter.cs",
         "AetherAprs/Services/Packets/PacketIngestPipeline.cs",
@@ -85,15 +89,16 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Services/Ports/SessionTelemetryIntake.cs",
         "AetherAprs/Services/Transmission/BeaconTransmitQueue.cs",
         "AetherAprs.Android/Services/Transports/BluetoothLeGattDuplexStream.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to name the platform foreground service. Keep-alive state
     /// is serialized by the keep-alive service, so feature code holds a reason
     /// instead of starting or stopping the platform service itself.
     /// </summary>
-    private static readonly HashSet<string> ForegroundServiceOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> ForegroundServiceOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Services/Platform/IForegroundService.cs",
         "AetherAprs/Services/Platform/NoOpForegroundService.cs",
         "AetherAprs/Services/Platform/KeepAliveService.cs",
@@ -101,52 +106,54 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs.Android/Application.cs",
         "AetherAprs/Factories/ServiceProviderFactory.cs",
         "AetherAprs/DesignData.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to name a settings document. Binding documents exist only so
     /// the configuration provider can assign values key by key; every other caller
     /// reads the immutable snapshot instead.
     /// </summary>
-    private static readonly HashSet<string> SettingsDocumentOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> SettingsDocumentOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Configuration/Settings/Documents/AppSettingsDocument.cs",
         "AetherAprs/Configuration/Settings/Documents/AprsSettingsDocument.cs",
         "AetherAprs/Configuration/Settings/Documents/MapSettingsDocument.cs",
         "AetherAprs/Configuration/Settings/Documents/MessageTemplatesSettingsDocument.cs",
         "AetherAprs/Configuration/Settings/Documents/MessageTemplateDocument.cs",
         "AetherAprs/Services/Configuration/ConfigurationService.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to declare a startup step. The sequence is a composition-root
     /// concern: a feature that needs work at startup asks the factory for a step, so
     /// the order stays in one reviewable place.
     /// </summary>
-    private static readonly HashSet<string> StartupSequenceOwners = new(StringComparer.Ordinal)
-    {
-        "AetherAprs/Factories/StartupStepFactory.cs"
-    };
+    private static readonly HashSet<string> StartupSequenceOwners =
+    [
+with(StringComparer.Ordinal),         "AetherAprs/Factories/StartupStepFactory.cs"
+    ];
 
     /// <summary>
     /// Files permitted to build a service provider. Only the composition root owns
     /// containers; a second container would hide registrations from validation.
     /// </summary>
-    private static readonly HashSet<string> ContainerOwners = new(StringComparer.Ordinal)
-    {
+    private static readonly HashSet<string> ContainerOwners =
+    [
+        with(StringComparer.Ordinal),
         "AetherAprs/Factories/ServiceProviderFactory.cs",
         "AetherAprs/DesignData.cs"
-    };
+    ];
 
     /// <summary>
     /// Files permitted to write to logcat directly. Android entry points log
     /// through <c>ILogger</c>; the logcat provider is the single adapter that
     /// translates those records for the platform before the container exists.
     /// </summary>
-    private static readonly HashSet<string> AndroidLogcatOwners = new(StringComparer.Ordinal)
-    {
-        "AetherAprs.Android/Services/Platform/AndroidLogcatLoggerProvider.cs"
-    };
+    private static readonly HashSet<string> AndroidLogcatOwners =
+    [
+with(StringComparer.Ordinal),         "AetherAprs.Android/Services/Platform/AndroidLogcatLoggerProvider.cs"
+    ];
 
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
@@ -278,25 +285,25 @@ internal static class ArchitectureBoundaryScanner
     public static IReadOnlyList<ArchitectureViolation> ScanAndroidIntentSurface(IEnumerable<ScannedSource> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);
-        var violations = new List<ArchitectureViolation>();
+        List<ArchitectureViolation> violations = [];
 
-        foreach (var source in sources)
+        foreach (ScannedSource source in sources)
         {
             if (!string.Equals(source.Project, "AetherAprs.Android", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            var text = SourceTextStripper.StripCommentsAndLiterals(source.Text);
+            string text = SourceTextStripper.StripCommentsAndLiterals(source.Text);
 
-            foreach (var attribute in AndroidComponentAttributes)
+            foreach (string attribute in AndroidComponentAttributes)
             {
-                var anchor = $"[{attribute}(";
-                var index = text.IndexOf(anchor, StringComparison.Ordinal);
+                string anchor = $"[{attribute}(";
+                int index = text.IndexOf(anchor, StringComparison.Ordinal);
                 while (index >= 0)
                 {
-                    var end = FindClosingParenthesis(text, index + anchor.Length - 1);
-                    var declaration = end < 0 ? text[index..] : text[index..end];
+                    int end = FindClosingParenthesis(text, index + anchor.Length - 1);
+                    string declaration = end < 0 ? text[index..] : text[index..end];
                     if (!declaration.Contains("Exported", StringComparison.Ordinal))
                     {
                         violations.Add(new ArchitectureViolation(
@@ -307,14 +314,14 @@ internal static class ArchitectureBoundaryScanner
                 }
             }
 
-            var pendingIndex = text.IndexOf(PendingIntentSymbol, StringComparison.Ordinal);
+            int pendingIndex = text.IndexOf(PendingIntentSymbol, StringComparison.Ordinal);
             while (pendingIndex >= 0)
             {
-                var statementEnd = text.IndexOf(';', pendingIndex);
-                var call = statementEnd < 0 ? text[pendingIndex..] : text[pendingIndex..statementEnd];
+                int statementEnd = text.IndexOf(';', pendingIndex);
+                string call = statementEnd < 0 ? text[pendingIndex..] : text[pendingIndex..statementEnd];
                 if (!call.Contains("Immutable", StringComparison.Ordinal))
                 {
-                    var nameEnd = call.IndexOf('(', StringComparison.Ordinal);
+                    int nameEnd = call.IndexOf('(', StringComparison.Ordinal);
                     violations.Add(new ArchitectureViolation(
                         "A015",
                         source.RelativePath,
@@ -327,7 +334,7 @@ internal static class ArchitectureBoundaryScanner
                     : text.IndexOf(PendingIntentSymbol, statementEnd, StringComparison.Ordinal);
             }
 
-            var acquireIndex = text.IndexOf(UnboundedWakeLockAcquire, StringComparison.Ordinal);
+            int acquireIndex = text.IndexOf(UnboundedWakeLockAcquire, StringComparison.Ordinal);
             while (acquireIndex >= 0)
             {
                 violations.Add(new ArchitectureViolation(
@@ -362,17 +369,17 @@ internal static class ArchitectureBoundaryScanner
         IEnumerable<ScannedSource> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);
-        var violations = new List<ArchitectureViolation>();
+        List<ArchitectureViolation> violations = [];
 
-        foreach (var source in sources)
+        foreach (ScannedSource source in sources)
         {
             if (!source.RelativePath.StartsWith(AndroidBluetoothPath, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            var text = SourceTextStripper.StripCommentsAndLiterals(source.Text);
-            foreach (var symbol in LocationFromScanSymbols)
+            string text = SourceTextStripper.StripCommentsAndLiterals(source.Text);
+            foreach (string symbol in LocationFromScanSymbols)
             {
                 if (text.Contains(symbol, StringComparison.Ordinal))
                 {
@@ -398,15 +405,15 @@ internal static class ArchitectureBoundaryScanner
         string relativePath = "AetherAprs.Android/Properties/AndroidManifest.xml")
     {
         ArgumentNullException.ThrowIfNull(manifestText);
-        var violations = new List<ArchitectureViolation>();
-        var declared = 0;
+        List<ArchitectureViolation> violations = [];
+        int declared = 0;
 
-        var index = manifestText.IndexOf(BluetoothScanPermission, StringComparison.Ordinal);
+        int index = manifestText.IndexOf(BluetoothScanPermission, StringComparison.Ordinal);
         while (index >= 0)
         {
             declared++;
-            var end = manifestText.IndexOf('>', index);
-            var element = end < 0 ? manifestText[index..] : manifestText[index..end];
+            int end = manifestText.IndexOf('>', index);
+            string element = end < 0 ? manifestText[index..] : manifestText[index..end];
             if (!element.Contains("neverForLocation", StringComparison.Ordinal))
             {
                 violations.Add(new ArchitectureViolation(
@@ -429,8 +436,8 @@ internal static class ArchitectureBoundaryScanner
 
     private static int FindClosingParenthesis(string text, int openIndex)
     {
-        var depth = 0;
-        for (var index = openIndex; index < text.Length; index++)
+        int depth = 0;
+        for (int index = openIndex; index < text.Length; index++)
         {
             if (text[index] == '(')
             {
@@ -449,13 +456,13 @@ internal static class ArchitectureBoundaryScanner
     public static IReadOnlyList<ArchitectureViolation> Scan(IEnumerable<ScannedSource> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);
-        var violations = new List<ArchitectureViolation>();
+        List<ArchitectureViolation> violations = [];
 
-        foreach (var source in sources)
+        foreach (ScannedSource source in sources)
         {
-            var probe = source with { Text = SourceTextStripper.StripCommentsAndLiterals(source.Text) };
+            ScannedSource probe = source with { Text = SourceTextStripper.StripCommentsAndLiterals(source.Text) };
 
-            foreach (var rule in Rules)
+            foreach (ArchitectureRule rule in Rules)
             {
                 if (rule.IsAllowed(source))
                 {

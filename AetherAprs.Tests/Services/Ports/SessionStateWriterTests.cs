@@ -17,8 +17,8 @@ public sealed class SessionStateWriterTests
     [Fact]
     public async Task BurstOfRequests_IsCoalescedIntoTheNewestSnapshot()
     {
-        var store = new GatedStateStore(blockFirstSave: true);
-        await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new(blockFirstSave: true);
+        await using SessionStateWriter writer = new(store, NullLogger.Instance);
         writer.Start();
 
         writer.Request(CreateSnapshot(1));
@@ -30,7 +30,7 @@ public sealed class SessionStateWriterTests
 
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var written = store.Written;
+        IReadOnlyList<SessionSnapshot> written = store.Written;
         Assert.Equal(2, written.Count);
         Assert.Equal(1, Marker(written[0]));
         Assert.Equal(3, Marker(written[^1]));
@@ -39,14 +39,14 @@ public sealed class SessionStateWriterTests
     [Fact]
     public async Task FlushAsync_CompletesOnlyAfterTheSnapshotIsWritten()
     {
-        var store = new GatedStateStore(blockFirstSave: true);
-        await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new(blockFirstSave: true);
+        await using SessionStateWriter writer = new(store, NullLogger.Instance);
         writer.Start();
 
         writer.Request(CreateSnapshot(1));
         await store.FirstSaveEntered;
 
-        var flush = writer.FlushAsync(TestContext.Current.CancellationToken);
+        Task flush = writer.FlushAsync(TestContext.Current.CancellationToken);
 
         Assert.False(flush.IsCompleted);
         Assert.Empty(store.Written);
@@ -60,8 +60,8 @@ public sealed class SessionStateWriterTests
     [Fact]
     public async Task FlushAsync_WithoutPendingWork_CompletesImmediately()
     {
-        var store = new GatedStateStore();
-        await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new();
+        await using SessionStateWriter writer = new(store, NullLogger.Instance);
         writer.Start();
 
         await writer.FlushAsync(TestContext.Current.CancellationToken);
@@ -72,13 +72,13 @@ public sealed class SessionStateWriterTests
     [Fact]
     public async Task FailedWrite_DoesNotStopLaterWrites()
     {
-        var store = new GatedStateStore { FailuresRemaining = 1 };
-        await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new() { FailuresRemaining = 1 };
+        await using SessionStateWriter writer = new(store, NullLogger.Instance);
         writer.Start();
 
         writer.Request(CreateSnapshot(1));
 
-        using (var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(200)))
+        using (CancellationTokenSource deadline = new(TimeSpan.FromMilliseconds(200)))
         {
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => writer.FlushAsync(deadline.Token));
@@ -89,29 +89,29 @@ public sealed class SessionStateWriterTests
         writer.Request(CreateSnapshot(2));
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var written = Assert.Single(store.Written);
+        SessionSnapshot written = Assert.Single(store.Written);
         Assert.Equal(2, Marker(written));
     }
 
     [Fact]
     public async Task DisposeAsync_DrainsThePendingWrite()
     {
-        var store = new GatedStateStore();
-        var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new();
+        SessionStateWriter writer = new(store, NullLogger.Instance);
         writer.Start();
 
         writer.Request(CreateSnapshot(4));
         await writer.DisposeAsync();
 
-        var written = Assert.Single(store.Written);
+        SessionSnapshot written = Assert.Single(store.Written);
         Assert.Equal(4, Marker(written));
     }
 
     [Fact]
     public async Task RequestsAfterDispose_AreIgnored()
     {
-        var store = new GatedStateStore();
-        var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new();
+        SessionStateWriter writer = new(store, NullLogger.Instance);
 
         await writer.DisposeAsync();
         writer.Request(CreateSnapshot(5));
@@ -122,8 +122,8 @@ public sealed class SessionStateWriterTests
     [Fact]
     public async Task Request_BeforeStart_IsWrittenOnceTheWriterStarts()
     {
-        var store = new GatedStateStore();
-        await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        GatedStateStore store = new();
+        await using SessionStateWriter writer = new(store, NullLogger.Instance);
 
         writer.Request(CreateSnapshot(7));
         await Task.Delay(50, TestContext.Current.CancellationToken);
@@ -135,7 +135,7 @@ public sealed class SessionStateWriterTests
         writer.Start();
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
-        var written = Assert.Single(store.Written);
+        SessionSnapshot written = Assert.Single(store.Written);
         Assert.Equal(7, Marker(written));
     }
 

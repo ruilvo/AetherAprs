@@ -42,7 +42,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         // disposed, which prevents deleting database files. Production wants the
         // pool; the test suite disables it so its temporary databases can be
         // removed.
-        var connectionString = pooling
+        string connectionString = pooling
             ? $"Data Source={databasePath}"
             : $"Data Source={databasePath};Pooling=False";
         return new DbContextOptionsBuilder<AppDbContext>()
@@ -67,10 +67,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.OwnsOne(port => port.Kiss, kiss =>
             {
                 kiss.Property(settings => settings.Transport).IsRequired().HasMaxLength(16);
-                kiss.OwnsOne(settings => settings.Tcp, tcp =>
-                {
-                    tcp.Property(transport => transport.Host).HasMaxLength(255);
-                });
+                kiss.OwnsOne(settings => settings.Tcp, tcp => tcp.Property(transport => transport.Host).HasMaxLength(255));
                 kiss.OwnsOne(settings => settings.BluetoothClassic, classic =>
                 {
                     classic.Property(transport => transport.DeviceAddress).HasMaxLength(64);
@@ -128,7 +125,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                     .HasConversion(new CoordinateValueConverter())
                     .HasColumnName("Location")
                     .IsRequired();
-                    
+
                 position.Property(p => p.SymbolTable).IsRequired();
                 position.Property(p => p.SymbolCode).IsRequired();
                 position.Property(p => p.Comment).HasMaxLength(43);
@@ -146,10 +143,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             });
 
             // Status data
-            entity.OwnsOne(packet => packet.Status, status =>
-            {
-                status.Property(s => s.Text).IsRequired().HasMaxLength(256);
-            });
+            entity.OwnsOne(packet => packet.Status, status => status.Property(s => s.Text).IsRequired().HasMaxLength(256));
 
             // Weather data
             entity.OwnsOne(packet => packet.Weather, weather =>
@@ -158,16 +152,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             });
 
             // Telemetry data (T#nnn): five nullable analog channels + digital value
-            entity.OwnsOne(packet => packet.Telemetry, telemetry =>
-            {
-                telemetry.Property(t => t.SequenceNumber).IsRequired();
-            });
+            entity.OwnsOne(packet => packet.Telemetry, telemetry => telemetry.Property(t => t.SequenceNumber).IsRequired());
 
             // Capabilities data
-            entity.OwnsOne(packet => packet.Capabilities, capabilities =>
-            {
-                capabilities.Property(c => c.Text).IsRequired().HasMaxLength(256);
-            });
+            entity.OwnsOne(packet => packet.Capabilities, capabilities => capabilities.Property(c => c.Text).IsRequired().HasMaxLength(256));
 
             // Object data (named position report)
             entity.OwnsOne(packet => packet.Object, obj =>

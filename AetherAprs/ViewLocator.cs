@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -19,39 +19,33 @@ namespace AetherAprs;
 /// </summary>
 public class ViewLocator : IDataTemplate
 {
-    public Control? Build(object? param)
+    public Control? Build(object? param) => param switch
     {
-        return param switch
-        {
-            MainViewModel => new MainView(),
-            HomeViewModel => new HomePage(),
-            MessagesViewModel => new MessagesPage(),
-            PacketsViewModel => new PacketsPage(),
-            PortsViewModel => new PortsPage(),
-            SettingsViewModel => new SettingsPage(),
-            DynamicBeaconingViewModel => new DynamicBeaconingPage(),
-            DownloadOfflineMapViewModel => new DownloadOfflineMapPage(),
-            AddEditPortViewModel => new AddEditPortPage(),
-            ConversationViewModel => new ConversationPage(),
-            MessageTemplatesViewModel => new MessageTemplatesPage(),
-            ObjectsViewModel => new ObjectsPage(),
-            ObjectEditorViewModel => new ObjectEditorPage(),
-            BulletinsViewModel => new BulletinsPage(),
-            SearchViewModel => new SearchPage(),
-            PacketDetailsViewModel => new PacketDetailsPage(),
-            ObjectDetailsViewModel => new ObjectDetailsPage(),
-            PortItemViewModel => new PortItemComponent(),
-            AprsSymbolPickerViewModel => new AprsSymbolPickerComponent(),
-            SymbolSelectorViewModel => new SymbolSelectorComponent(),
-            AprsIsFilterBuilderViewModel => new AprsIsFilterBuilderComponent(),
-            _ => param is null
-                ? null
-                : new TextBlock { Text = Strings.Format("ViewLocatorMissingView", param.GetType().Name) }
-        };
-    }
+        MainViewModel => new MainView(),
+        HomeViewModel => new HomePage(),
+        MessagesViewModel => new MessagesPage(),
+        PacketsViewModel => new PacketsPage(),
+        PortsViewModel => new PortsPage(),
+        SettingsViewModel => new SettingsPage(),
+        DynamicBeaconingViewModel => new DynamicBeaconingPage(),
+        DownloadOfflineMapViewModel => new DownloadOfflineMapPage(),
+        AddEditPortViewModel => new AddEditPortPage(),
+        ConversationViewModel => new ConversationPage(),
+        MessageTemplatesViewModel => new MessageTemplatesPage(),
+        ObjectsViewModel => new ObjectsPage(),
+        ObjectEditorViewModel => new ObjectEditorPage(),
+        BulletinsViewModel => new BulletinsPage(),
+        SearchViewModel => new SearchPage(),
+        PacketDetailsViewModel => new PacketDetailsPage(),
+        ObjectDetailsViewModel => new ObjectDetailsPage(),
+        PortItemViewModel => new PortItemComponent(),
+        AprsSymbolPickerViewModel => new AprsSymbolPickerComponent(),
+        SymbolSelectorViewModel => new SymbolSelectorComponent(),
+        AprsIsFilterBuilderViewModel => new AprsIsFilterBuilderComponent(),
+        _ => param is null
+            ? null
+            : new TextBlock { Text = Strings.Format("ViewLocatorMissingView", param.GetType().Name) }
+    };
 
-    public bool Match(object? data)
-    {
-        return data is ViewModelBase;
-    }
+    public bool Match(object? data) => data is ViewModelBase;
 }

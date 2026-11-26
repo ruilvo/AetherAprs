@@ -68,7 +68,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             return;
         }
 
-        var snapshot = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        BeaconStateSnapshot snapshot = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
         lock (_lock)
         {
             _walkConfig = snapshot.Walk;
@@ -207,7 +207,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         {
             lock (_lock)
             {
-                var decision = _currentDecision;
+                BeaconTransmitDecision? decision = _currentDecision;
                 if (decision is null || !decision.ShouldTransmit)
                 {
                     return;
@@ -215,7 +215,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
                 // Schedule a retry after the backoff window: wind LastTransmitTime back so
                 // the next evaluation reports ShouldTransmit only once the backoff elapses.
-                var remainingBackoff = Math.Max(0, decision.ActiveIntervalSeconds - TransmissionRetryBackoffSeconds);
+                int remainingBackoff = Math.Max(0, decision.ActiveIntervalSeconds - TransmissionRetryBackoffSeconds);
                 LastTransmitTime = DateTime.UtcNow - TimeSpan.FromSeconds(remainingBackoff);
 
                 _logger.LogWarning(
@@ -233,7 +233,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     {
         // Snapshot the token: the CTS is disposed after cancellation in
         // DisposeAsync, and a queued callback racing disposal must not touch it (M9).
-        var token = _disposalCts.Token;
+        CancellationToken token = _disposalCts.Token;
         if (token.IsCancellationRequested || _disposed)
             return;
 
@@ -259,7 +259,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
                 return;
             }
 
-            var decision = EvaluateLocationUpdateInternal(_currentLocation, _previousLocation);
+            BeaconTransmitDecision decision = EvaluateLocationUpdateInternal(_currentLocation, _previousLocation);
             _currentDecision = decision;
 
             _logger.LogDebug(
@@ -298,8 +298,8 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     private BeaconTransmitDecision EvaluateLocationUpdateInternal(LocationData currentLocation, LocationData? previousLocation)
     {
-        var timeSinceLastTransmit = DateTime.UtcNow - LastTransmitTime;
-        var config = _activeMode switch
+        TimeSpan timeSinceLastTransmit = DateTime.UtcNow - LastTransmitTime;
+        BeaconConfig config = _activeMode switch
         {
             DynamicBeaconMode.Walk => _walkConfig,
             DynamicBeaconMode.Drive => _driveConfig,
@@ -310,7 +310,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         // No previous location - can't calculate speed/course, use time-based decision
         if (previousLocation == null)
         {
-            var isTimeExpired = timeSinceLastTransmit.TotalSeconds >= config.SlowIntervalSeconds;
+            bool isTimeExpired = timeSinceLastTransmit.TotalSeconds >= config.SlowIntervalSeconds;
             return new BeaconTransmitDecision
             {
                 ShouldTransmit = isTimeExpired,
@@ -323,7 +323,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         }
 
         // Use Geo package to calculate distance and bearing
-        var line = _geodeticCalculator.CalculateOrthodromicLine(
+        GeodeticLine? line = _geodeticCalculator.CalculateOrthodromicLine(
             previousLocation.Location,
             currentLocation.Location);
 
@@ -339,8 +339,8 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             };
         }
 
-        var distanceMeters = line.Distance.SiValue;
-        var courseDegrees = line.Bearing12;
+        double distanceMeters = line.Distance.SiValue;
+        double courseDegrees = line.Bearing12;
 
         // Ignore if distance is below minimum threshold (GPS jitter)
         if (distanceMeters < config.MinimumDistanceMeters)
@@ -361,23 +361,23 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         // Calculate speed (time delta in seconds from location timestamps). The
         // distance is metres, so the quotient is metres per second; the conversion
         // to the configured unit is named rather than a bare 3.6.
-        var timeDelta = (currentLocation.Timestamp - previousLocation.Timestamp).TotalSeconds;
-        var speedKmh = timeDelta > 0
+        double timeDelta = (currentLocation.Timestamp - previousLocation.Timestamp).TotalSeconds;
+        double speedKmh = timeDelta > 0
             ? AprsUnits.MetersPerSecondToKilometersPerHour(distanceMeters / timeDelta)
             : 0;
 
-        var courseChangeThreshold = config.CourseChangeThresholdDegrees;
+        int courseChangeThreshold = config.CourseChangeThresholdDegrees;
 
         // Check if course changed significantly. Evaluation stays pure: course
         // state is only advanced below when a decision is final (M9) so that a
         // "not transmit" evaluation cannot consume/advance course state.
         if (_lastCourseDegrees.HasValue && courseChangeThreshold > 0)
         {
-            var courseDelta = Math.Abs(NormalizeAngleDifference(courseDegrees - _lastCourseDegrees.Value));
+            double courseDelta = Math.Abs(NormalizeAngleDifference(courseDegrees - _lastCourseDegrees.Value));
             if (courseDelta >= courseChangeThreshold)
             {
                 _lastCourseDegrees = courseDegrees;
-                var activeInterval = GetActiveInterval(config, speedKmh);
+                int activeInterval = GetActiveInterval(config, speedKmh);
 
                 return new BeaconTransmitDecision
                 {
@@ -400,8 +400,8 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         }
 
         // Check if time interval has expired
-        var activeInterval2 = GetActiveInterval(config, speedKmh);
-        var isTimeExpired2 = timeSinceLastTransmit.TotalSeconds >= activeInterval2;
+        int activeInterval2 = GetActiveInterval(config, speedKmh);
+        bool isTimeExpired2 = timeSinceLastTransmit.TotalSeconds >= activeInterval2;
 
         if (isTimeExpired2)
         {
@@ -422,7 +422,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         // No beacon needed yet. Only now — after a final "not transmit" decision —
         // is it safe to seed the reference course for the next delta computation.
         _lastCourseDegrees ??= courseDegrees;
-        var secondsUntilNext = Math.Max(1, activeInterval2 - (int)timeSinceLastTransmit.TotalSeconds);
+        int secondsUntilNext = Math.Max(1, activeInterval2 - (int)timeSinceLastTransmit.TotalSeconds);
         return new BeaconTransmitDecision
         {
             ShouldTransmit = false,

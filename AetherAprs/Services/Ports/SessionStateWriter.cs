@@ -82,7 +82,7 @@ internal sealed class SessionStateWriter : IAsyncDisposable
             return;
         }
 
-        var version = Interlocked.Increment(ref _requestedVersion);
+        long version = Interlocked.Increment(ref _requestedVersion);
         _requests.Writer.TryWrite(new WriteRequest(snapshot, version));
     }
 
@@ -94,7 +94,7 @@ internal sealed class SessionStateWriter : IAsyncDisposable
     /// </exception>
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
-        var target = Volatile.Read(ref _requestedVersion);
+        long target = Volatile.Read(ref _requestedVersion);
         if (target == 0)
         {
             return;
@@ -121,9 +121,9 @@ internal sealed class SessionStateWriter : IAsyncDisposable
     {
         while (await _requests.Reader.WaitToReadAsync().ConfigureAwait(false))
         {
-            var latest = default(WriteRequest);
-            var pending = false;
-            while (_requests.Reader.TryRead(out var request))
+            WriteRequest latest = default;
+            bool pending = false;
+            while (_requests.Reader.TryRead(out WriteRequest request))
             {
                 latest = request;
                 pending = true;
@@ -160,7 +160,7 @@ internal sealed class SessionStateWriter : IAsyncDisposable
             }
 
             _durableVersion = version;
-            var completed = _progress;
+            TaskCompletionSource<bool> completed = _progress;
             _progress = CreateProgressSource();
             completed.TrySetResult(true);
         }

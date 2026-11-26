@@ -12,7 +12,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Defaults_SelectAllPacketTypesAndUse100KmDistance()
     {
-        var vm = new AprsIsFilterBuilderViewModel();
+        AprsIsFilterBuilderViewModel vm = new();
 
         // All types selected is a no-op type filter, so only the distance is emitted.
         Assert.Equal("m/100", vm.Filter);
@@ -24,7 +24,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void SetMyRange_ProducesMyRangeDirective()
     {
-        var vm = new AprsIsFilterBuilderViewModel { MyRangeKm = "50" };
+        AprsIsFilterBuilderViewModel vm = new() { MyRangeKm = "50" };
 
         Assert.Equal("m/50", vm.Filter);
     }
@@ -32,7 +32,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void SetDistancePrefixesAndTypes_ProducesOnlySupportedDirectives()
     {
-        var vm = new AprsIsFilterBuilderViewModel
+        AprsIsFilterBuilderViewModel vm = new()
         {
             MyRangeKm = "50",
             Prefixes = "CT CU",
@@ -46,7 +46,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void SetPrefixes_ProducesPrefixDirective()
     {
-        var vm = new AprsIsFilterBuilderViewModel
+        AprsIsFilterBuilderViewModel vm = new()
         {
             Prefixes = "CT CU"
         };
@@ -57,7 +57,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void SetPacketTypes_ProducesTypeDirective()
     {
-        var vm = new AprsIsFilterBuilderViewModel
+        AprsIsFilterBuilderViewModel vm = new()
         {
             IncludePosition = true,
             IncludeObject = false,
@@ -77,7 +77,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Load_IgnoresPointAreaBuddyAndUnknownDirectives()
     {
-        var vm = new AprsIsFilterBuilderViewModel();
+        AprsIsFilterBuilderViewModel vm = new();
         vm.Load("r/38.7223/-9.1393/50 p/CT b/CT1ABC t/pm a/40/-10/37/-6 m/25 q/C");
 
         Assert.Equal("p/CT t/pm m/25", vm.Filter);
@@ -86,7 +86,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Load_EmptyString_ClearsAllFields()
     {
-        var vm = new AprsIsFilterBuilderViewModel { MyRangeKm = "50" };
+        AprsIsFilterBuilderViewModel vm = new() { MyRangeKm = "50" };
         vm.Load(string.Empty);
 
         Assert.Equal(string.Empty, vm.Filter);
@@ -96,7 +96,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Load_RangeDirective_DoesNotPopulatePointFields()
     {
-        var vm = new AprsIsFilterBuilderViewModel();
+        AprsIsFilterBuilderViewModel vm = new();
         vm.Load("r/38.7223/-9.1393/50");
 
         Assert.Equal(string.Empty, vm.Filter);
@@ -105,7 +105,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Load_PacketTypes_SetsIncludeFlags()
     {
-        var vm = new AprsIsFilterBuilderViewModel();
+        AprsIsFilterBuilderViewModel vm = new();
         vm.Load("t/pmw");
 
         Assert.True(vm.IncludePosition);
@@ -117,7 +117,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Load_ThenFilter_RoundTrips()
     {
-        var vm = new AprsIsFilterBuilderViewModel();
+        AprsIsFilterBuilderViewModel vm = new();
         vm.Load("r/38.7223/-9.1393/50 p/CT/CU b/CT1ABC t/pmw a/40/-10/37/-6 m/25");
 
         Assert.Equal("p/CT/CU t/pmw m/25", vm.Filter);
@@ -126,7 +126,7 @@ public class AprsIsFilterBuilderViewModelTests
     [Fact]
     public void Load_WithUnknownDirective_IgnoresIt()
     {
-        var vm = new AprsIsFilterBuilderViewModel();
+        AprsIsFilterBuilderViewModel vm = new();
         vm.Load("m/50 q/C");
 
         Assert.Equal("m/50", vm.Filter);

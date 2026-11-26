@@ -116,8 +116,8 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(packet);
 
-        var ax25Data = Ax25Serializer.Serialize(packet);
-        var kissFrame = new KissFrame((byte)KissCommandType.DataFrame, ax25Data);
+        byte[] ax25Data = Ax25Serializer.Serialize(packet);
+        KissFrame kissFrame = new((byte)KissCommandType.DataFrame, ax25Data);
         _logger.LogDebug(
             "Sending APRS packet via RF: Type={PacketType}, Source={Source}",
             packet.GetType().Name,
@@ -128,10 +128,7 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
     /// <summary>
     /// Stops the receive loop without disposing the underlying KISS modem.
     /// </summary>
-    public async ValueTask DisposeAsync()
-    {
-        await StopAsync();
-    }
+    public async ValueTask DisposeAsync() => await StopAsync();
 
     private void OnKissFrameReceived(object? sender, KissFrame frame)
     {
@@ -142,7 +139,7 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
 
         try
         {
-            var packet = Ax25Parser.ParseFrame(frame.Data);
+            AprsPacket packet = Ax25Parser.ParseFrame(frame.Data);
             if (packet is UnknownPacket unknown)
             {
                 _logger.LogWarning(
@@ -165,8 +162,5 @@ public sealed class AprsRfModem : IAprsModem, IAsyncDisposable
         }
     }
 
-    private void OnKissReceiveError(object? sender, Exception ex)
-    {
-        ReceiveError?.Invoke(this, ex);
-    }
+    private void OnKissReceiveError(object? sender, Exception ex) => ReceiveError?.Invoke(this, ex);
 }

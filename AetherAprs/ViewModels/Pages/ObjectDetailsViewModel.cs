@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Threading.Tasks;
@@ -20,10 +21,12 @@ namespace AetherAprs.ViewModels.Pages;
 /// ViewModel for the object/item details page showing the named report's current
 /// state (name, live/killed, symbol, location, comment) and its report history.
 /// </summary>
-public partial class ObjectDetailsViewModel : ViewModelBase
+public partial class ObjectDetailsViewModel(
+    IPacketQueryService packetQueryService,
+    ILogger<ObjectDetailsViewModel>? logger = null) : ViewModelBase
 {
-    private readonly IPacketQueryService _packetQueryService;
-    private readonly ILogger<ObjectDetailsViewModel>? _logger;
+    private readonly IPacketQueryService _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
+    private readonly ILogger<ObjectDetailsViewModel>? _logger = logger;
 
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -61,14 +64,6 @@ public partial class ObjectDetailsViewModel : ViewModelBase
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
-    public ObjectDetailsViewModel(
-        IPacketQueryService packetQueryService,
-        ILogger<ObjectDetailsViewModel>? logger = null)
-    {
-        _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
-        _logger = logger;
-    }
-
     public void Initialize(string name)
     {
         Name = name;
@@ -83,10 +78,10 @@ public partial class ObjectDetailsViewModel : ViewModelBase
         {
             IsLoading = true;
 
-            var reports = await _packetQueryService.GetPacketsByObjectNameAsync(Name, 500);
+            IReadOnlyList<PacketRecord> reports = await _packetQueryService.GetPacketsByObjectNameAsync(Name, 500);
 
             Reports.Clear();
-            foreach (var report in reports)
+            foreach (PacketRecord report in reports)
             {
                 Reports.Add(report);
             }

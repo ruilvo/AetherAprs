@@ -15,12 +15,12 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Initialize_PopulatesTemplates()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var templates = new List<MessageTemplate>
-        {
+        MessageTemplateDialogViewModel vm = new();
+        List<MessageTemplate> templates =
+        [
             new() { Name = "SOTA spot", Body = "SOTA {summit}" },
             new() { Name = "Generic", Body = "Hello" }
-        };
+        ];
 
         vm.Initialize(templates, null);
 
@@ -30,7 +30,7 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Initialize_WithTemplates_SetsHasTemplates()
     {
-        var vm = new MessageTemplateDialogViewModel();
+        MessageTemplateDialogViewModel vm = new();
 
         vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], null);
 
@@ -41,7 +41,7 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Initialize_WithNoTemplates_SetsEmptyState()
     {
-        var vm = new MessageTemplateDialogViewModel();
+        MessageTemplateDialogViewModel vm = new();
 
         vm.Initialize([], null);
 
@@ -52,8 +52,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void SelectTemplate_PopulatesFieldsInFirstOccurrenceOrder()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = "{b} {a} {b}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = "{b} {a} {b}" };
 
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
@@ -67,8 +67,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void SelectTemplate_WithoutCallerDestination_PrefillsDestinationFromTemplate()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Destination = "W7SUM", Body = "Hello" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Destination = "W7SUM", Body = "Hello" };
 
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
@@ -79,8 +79,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void SelectTemplate_UsesConfiguredFieldDefaults()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new()
         {
             Name = "APRS2SOTA",
             Body = "{summit} {freq} {mode} {comment}",
@@ -105,8 +105,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void SelectTemplate_WithCallerDestination_KeepsCallerDestination()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Destination = "W7SUM", Body = "Hello" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Destination = "W7SUM", Body = "Hello" };
 
         vm.Initialize([template], "K0PEER-1");
         vm.SelectedTemplate = template;
@@ -117,7 +117,7 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Initialize_WithCallerDestination_LocksDestination()
     {
-        var vm = new MessageTemplateDialogViewModel();
+        MessageTemplateDialogViewModel vm = new();
 
         vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], "K0PEER-1");
 
@@ -127,7 +127,7 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Initialize_WithoutCallerDestination_DoesNotLockDestination()
     {
-        var vm = new MessageTemplateDialogViewModel();
+        MessageTemplateDialogViewModel vm = new();
 
         vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], null);
 
@@ -137,8 +137,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void FieldEdit_UpdatesPreviewWithTrimmedCaseInsensitiveValues()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = "Summit {Summit} on {FREQ}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = "Summit {Summit} on {FREQ}" };
 
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
@@ -152,8 +152,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void FieldEdit_MissingOrBlankValue_BecomesEmptyString()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = "QTH {qth} de {call}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = "QTH {qth} de {call}" };
 
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
@@ -165,8 +165,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void CanConfirm_ExactlySixtySevenCharacters_IsTrue()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = new string('A', 60) + "{v}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = new string('A', 60) + "{v}" };
 
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
@@ -179,8 +179,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void CanConfirm_SixtyEightCharacters_IsFalseAndPreviewEmpty()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = new string('A', 60) + "{v}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = new string('A', 60) + "{v}" };
 
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
@@ -193,8 +193,8 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void NoSelection_CanConfirmIsFalse()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = "Hello" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = "Hello" };
 
         vm.Initialize([template], null);
 
@@ -206,14 +206,14 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Confirm_SetsResultAndRaisesCloseRequested()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = "Summit {summit}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = "Summit {summit}" };
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
         vm.Fields[0].Value = " W7/ON-001 ";
         vm.Destination = "K0PEER-1";
 
-        var closeCount = 0;
+        int closeCount = 0;
         object? closeSender = null;
         vm.CloseRequested += (sender, _) =>
         {
@@ -233,10 +233,10 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Confirm_WithoutSelection_DoesNotSetResultOrRaiseCloseRequested()
     {
-        var vm = new MessageTemplateDialogViewModel();
+        MessageTemplateDialogViewModel vm = new();
         vm.Initialize([new MessageTemplate { Name = "T", Body = "Hello" }], null);
 
-        var closeCount = 0;
+        int closeCount = 0;
         vm.CloseRequested += (_, _) => closeCount++;
 
         vm.ConfirmCommand.Execute(null);
@@ -248,13 +248,13 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void Confirm_WithOverLimitMessage_DoesNotSetResultOrRaiseCloseRequested()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var template = new MessageTemplate { Name = "T", Body = new string('A', 60) + "{v}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate template = new() { Name = "T", Body = new string('A', 60) + "{v}" };
         vm.Initialize([template], null);
         vm.SelectedTemplate = template;
         vm.Fields[0].Value = new string('B', 8);
 
-        var closeCount = 0;
+        int closeCount = 0;
         vm.CloseRequested += (_, _) => closeCount++;
 
         vm.ConfirmCommand.Execute(null);
@@ -266,16 +266,16 @@ public sealed class MessageTemplateDialogViewModelTests
     [Fact]
     public void ChangingSelection_UnsubscribesFromOldFieldNotifications()
     {
-        var vm = new MessageTemplateDialogViewModel();
-        var first = new MessageTemplate { Name = "First", Body = "A {x}" };
-        var second = new MessageTemplate { Name = "Second", Body = "B {y}" };
+        MessageTemplateDialogViewModel vm = new();
+        MessageTemplate first = new() { Name = "First", Body = "A {x}" };
+        MessageTemplate second = new() { Name = "Second", Body = "B {y}" };
 
         vm.Initialize([first, second], null);
         vm.SelectedTemplate = first;
-        var staleField = vm.Fields[0];
+        TemplateFieldViewModel staleField = vm.Fields[0];
         vm.SelectedTemplate = second;
 
-        var raised = new List<string>();
+        List<string> raised = [];
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName ?? string.Empty);
 
         staleField.Value = "trigger";

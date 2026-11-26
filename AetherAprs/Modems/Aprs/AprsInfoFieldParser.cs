@@ -91,14 +91,14 @@ public static class AprsInfoFieldParser
         {
             if (pos + 7 >= info.Length)
             {
-                return AsUnknown(info, source, dest, path.ToArray());
+                return AsUnknown(info, source, dest, [.. path]);
             }
 
             pos += 7; // skip DDHHMMz or DDHHMM/ (7 chars)
         }
 
         // Prefer compressed position (aprslib-style) before uncompressed.
-        if (TryParseCompressedPosition(info, pos, source, dest, path, out var compressed))
+        if (TryParseCompressedPosition(info, pos, source, dest, path, out PositionPacket? compressed))
         {
             return compressed;
         }
@@ -112,7 +112,7 @@ public static class AprsInfoFieldParser
 
         if (latEnd >= info.Length || latEnd - pos < 6)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         // Include direction char
@@ -120,7 +120,7 @@ public static class AprsInfoFieldParser
 
         if (!TryParseLatitude(info.AsSpan(pos, latEnd - pos), out double latitude, out int latPrecision))
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
         pos = latEnd;
 
@@ -135,7 +135,7 @@ public static class AprsInfoFieldParser
 
         if (pos >= info.Length)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         if (info[pos] == '/')
@@ -156,7 +156,7 @@ public static class AprsInfoFieldParser
 
             if (pos >= info.Length)
             {
-                return AsUnknown(info, source, dest, path.ToArray());
+                return AsUnknown(info, source, dest, [.. path]);
             }
 
             // Check if next char is explicit table indicator
@@ -188,7 +188,7 @@ public static class AprsInfoFieldParser
 
         if (lonEnd >= info.Length || lonEnd - pos < 7)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         // Include direction char
@@ -196,7 +196,7 @@ public static class AprsInfoFieldParser
 
         if (!TryParseLongitude(info.AsSpan(pos, lonEnd - pos), out double longitude, out int lonPrecision))
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
         pos = lonEnd;
 
@@ -266,7 +266,7 @@ public static class AprsInfoFieldParser
             return false;
         }
 
-        var span = info.AsSpan(pos, 13);
+        ReadOnlySpan<char> span = info.AsSpan(pos, 13);
 
         // Compressed shape: table/overlay + 8 base91 + symbol + csT (aprslib-style).
         char tableOrOverlay = span[0];
@@ -356,7 +356,7 @@ public static class AprsInfoFieldParser
         string? comment = null;
         if (info.Length > pos + 13)
         {
-            var remaining = info[(pos + 13)..];
+            string remaining = info[(pos + 13)..];
             if (remaining.Length > 0)
             {
                 comment = remaining;
@@ -437,15 +437,15 @@ public static class AprsInfoFieldParser
         // Object format: ;objectnam*DDHHMMz<position> (or '_' for a killed object).
         if (info.Length < 19 || (info[10] != '*' && info[10] != '_'))
         {
-            return AsUnknown(info, source, destination, path.ToArray());
+            return AsUnknown(info, source, destination, [.. path]);
         }
 
-        var name = info.AsSpan(1, 9).TrimEnd().ToString();
-        var isLive = info[10] == '*';
-        var rawTimestamp = info.Length >= 18 ? info.AsSpan(11, 7).ToString() : null;
+        string name = info.AsSpan(1, 9).TrimEnd().ToString();
+        bool isLive = info[10] == '*';
+        string? rawTimestamp = info.Length >= 18 ? info.AsSpan(11, 7).ToString() : null;
 
-        var positionInfo = "@" + info[11..];
-        var packet = ParsePosition(positionInfo, source, destination, path, hasTimestamp: true);
+        string positionInfo = "@" + info[11..];
+        AprsPacket packet = ParsePosition(positionInfo, source, destination, path, hasTimestamp: true);
 
         return packet is PositionPacket pos
             ? new ObjectPacket
@@ -489,17 +489,17 @@ public static class AprsInfoFieldParser
             }
         }
 
-        var nameLength = flagIndex - 1;
+        int nameLength = flagIndex - 1;
         if (nameLength < 3 || nameLength > 9 || flagIndex + 1 >= info.Length)
         {
-            return AsUnknown(info, source, destination, path.ToArray());
+            return AsUnknown(info, source, destination, [.. path]);
         }
 
-        var name = info.AsSpan(1, nameLength).ToString();
-        var isLive = info[flagIndex] == '!';
+        string name = info.AsSpan(1, nameLength).ToString();
+        bool isLive = info[flagIndex] == '!';
 
-        var positionInfo = "!" + info[(flagIndex + 1)..];
-        var packet = ParsePosition(positionInfo, source, destination, path, hasTimestamp: false);
+        string positionInfo = "!" + info[(flagIndex + 1)..];
+        AprsPacket packet = ParsePosition(positionInfo, source, destination, path, hasTimestamp: false);
 
         return packet is PositionPacket pos
             ? new ItemPacket
@@ -529,17 +529,14 @@ public static class AprsInfoFieldParser
     /// <param name="destination">The destination callsign.</param>
     /// <param name="path">The path of the packet.</param>
     /// <returns>The parsed third-party packet.</returns>
-    private static ThirdPartyPacket ParseThirdParty(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    private static ThirdPartyPacket ParseThirdParty(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path) => new()
     {
-        return new ThirdPartyPacket
-        {
-            Source = source,
-            Destination = destination,
-            Path = path,
-            Raw = info,
-            Encapsulated = info.Length > 1 ? info[1..] : string.Empty
-        };
-    }
+        Source = source,
+        Destination = destination,
+        Path = path,
+        Raw = info,
+        Encapsulated = info.Length > 1 ? info[1..] : string.Empty
+    };
 
     /// <summary>
     /// Parses an APRS query packet from the info field string.
@@ -549,17 +546,14 @@ public static class AprsInfoFieldParser
     /// <param name="destination">The destination callsign.</param>
     /// <param name="path">The path of the packet.</param>
     /// <returns>The parsed query packet.</returns>
-    private static QueryPacket ParseQuery(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    private static QueryPacket ParseQuery(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path) => new()
     {
-        return new QueryPacket
-        {
-            Source = source,
-            Destination = destination,
-            Path = path,
-            Raw = info,
-            Query = info.Length > 1 ? info[1..] : string.Empty
-        };
-    }
+        Source = source,
+        Destination = destination,
+        Path = path,
+        Raw = info,
+        Query = info.Length > 1 ? info[1..] : string.Empty
+    };
 
     /// <summary>
     /// Parses a raw GPS/NMEA packet from the info field string.
@@ -569,17 +563,14 @@ public static class AprsInfoFieldParser
     /// <param name="destination">The destination callsign.</param>
     /// <param name="path">The path of the packet.</param>
     /// <returns>The parsed raw GPS packet.</returns>
-    private static RawGpsPacket ParseRawGps(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path)
+    private static RawGpsPacket ParseRawGps(string info, Callsign source, Callsign destination, IReadOnlyList<Callsign> path) => new()
     {
-        return new RawGpsPacket
-        {
-            Source = source,
-            Destination = destination,
-            Path = path,
-            Raw = info,
-            Sentence = info.Length > 1 ? info[1..] : string.Empty
-        };
-    }
+        Source = source,
+        Destination = destination,
+        Path = path,
+        Raw = info,
+        Sentence = info.Length > 1 ? info[1..] : string.Empty
+    };
 
     private static bool TryParseLatitude(ReadOnlySpan<char> segment, out double latitude, out int precision)
     {
@@ -616,7 +607,7 @@ public static class AprsInfoFieldParser
         precision = decEnd - 5;
         if (precision == 0) { return false; }
 
-        var decimalPart = segment[5..decEnd];
+        ReadOnlySpan<char> decimalPart = segment[5..decEnd];
         if (!int.TryParse(decimalPart, NumberStyles.None, CultureInfo.InvariantCulture, out int decValue))
         {
             return false;
@@ -680,7 +671,7 @@ public static class AprsInfoFieldParser
         precision = decEnd - 6;
         if (precision == 0) { return false; }
 
-        var decimalPart = segment[6..decEnd];
+        ReadOnlySpan<char> decimalPart = segment[6..decEnd];
         if (!int.TryParse(decimalPart, NumberStyles.None, CultureInfo.InvariantCulture, out int decValue))
         {
             return false;
@@ -738,12 +729,12 @@ public static class AprsInfoFieldParser
         // Format: :ADDRESSEE :message text{msgid}
         // ACK format: :ADDRESSEE :ack{msgid}
         // REJ format: :ADDRESSEE :rej{msgid}
-        var addresseeStr = "APRS";
-        var addrEnd = info.IndexOf(':', 1);
+        string addresseeStr = "APRS";
+        int addrEnd = info.IndexOf(':', 1);
 
         if (addrEnd > 1)
         {
-            var addrLength = Math.Min(9, addrEnd - 1);
+            int addrLength = Math.Min(9, addrEnd - 1);
             addresseeStr = info.AsSpan(1, addrLength).TrimEnd().ToString();
         }
 
@@ -754,14 +745,14 @@ public static class AprsInfoFieldParser
 
         // Bulletins are broadcast messages addressed to a BLN-prefixed name
         // (e.g. BLN0SPCL). Capture the raw addressee before parsing.
-        var bulletinName = addresseeStr;
-        var isBulletin = addresseeStr.StartsWith("BLN", StringComparison.OrdinalIgnoreCase);
+        string bulletinName = addresseeStr;
+        bool isBulletin = addresseeStr.StartsWith("BLN", StringComparison.OrdinalIgnoreCase);
 
         // The addressee is arbitrary 9-character text per the APRS spec (e.g.
         // "EMAIL", "APRS2SOTA", bulletin names, third-party IDs).
         // Use AprsAddress which is more lenient than Callsign.
         AprsAddress addressee;
-        if (AprsAddress.TryParse(addresseeStr, out var parsedAddressee))
+        if (AprsAddress.TryParse(addresseeStr, out AprsAddress parsedAddressee))
         {
             addressee = parsedAddressee;
         }
@@ -770,19 +761,19 @@ public static class AprsInfoFieldParser
             addressee = new AprsAddress("APRS");
         }
 
-        var textStart = addrEnd >= 0 ? addrEnd + 1 : info.Length;
-        var text = textStart < info.Length ? info[textStart..] : string.Empty;
+        int textStart = addrEnd >= 0 ? addrEnd + 1 : info.Length;
+        string text = textStart < info.Length ? info[textStart..] : string.Empty;
 
         // Check for ACK format: ack{msgid} or ackN
         if (text.StartsWith("ack", StringComparison.OrdinalIgnoreCase))
         {
-            var ackNumStr = text[3..];
+            string ackNumStr = text[3..];
             if (ackNumStr.StartsWith('{') && ackNumStr.EndsWith('}') && ackNumStr.Length > 2)
             {
                 ackNumStr = ackNumStr[1..^1];
             }
 
-            if (int.TryParse(ackNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out var ackNum))
+            if (int.TryParse(ackNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out int ackNum))
             {
                 return new MessageAckPacket
                 {
@@ -799,13 +790,13 @@ public static class AprsInfoFieldParser
         // Check for REJ format: rej{msgid} or rejN
         if (text.StartsWith("rej", StringComparison.OrdinalIgnoreCase))
         {
-            var rejNumStr = text[3..];
+            string rejNumStr = text[3..];
             if (rejNumStr.StartsWith('{') && rejNumStr.EndsWith('}') && rejNumStr.Length > 2)
             {
                 rejNumStr = rejNumStr[1..^1];
             }
 
-            if (int.TryParse(rejNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out var rejNum))
+            if (int.TryParse(rejNumStr, NumberStyles.None, CultureInfo.InvariantCulture, out int rejNum))
             {
                 return new MessageRejPacket
                 {
@@ -822,11 +813,11 @@ public static class AprsInfoFieldParser
         int? msgNumber = null;
         if (text.Length > 0)
         {
-            var braceStart = text.LastIndexOf('{');
+            int braceStart = text.LastIndexOf('{');
             if (braceStart >= 0 && braceStart <= text.Length - 2 && text[^1] == '}')
             {
-                var suffix = text.AsSpan(braceStart + 1, text.Length - braceStart - 2);
-                if (int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+                ReadOnlySpan<char> suffix = text.AsSpan(braceStart + 1, text.Length - braceStart - 2);
+                if (int.TryParse(suffix, NumberStyles.None, CultureInfo.InvariantCulture, out int number))
                 {
                     msgNumber = number;
                     text = text[..braceStart];
@@ -836,11 +827,11 @@ public static class AprsInfoFieldParser
             // Check ack format: ...}{n}
             if (msgNumber is null && text.EndsWith('}'))
             {
-                var braceOpen = text.LastIndexOf('{');
+                int braceOpen = text.LastIndexOf('{');
                 if (braceOpen > 0 && braceOpen < text.Length - 2 && text[braceOpen - 1] == '}')
                 {
-                    var ackNumber = text.AsSpan(braceOpen + 1, text.Length - braceOpen - 2);
-                    if (int.TryParse(ackNumber, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+                    ReadOnlySpan<char> ackNumber = text.AsSpan(braceOpen + 1, text.Length - braceOpen - 2);
+                    if (int.TryParse(ackNumber, NumberStyles.None, CultureInfo.InvariantCulture, out int number))
                     {
                         msgNumber = number;
                         text = text[..(braceOpen - 1)];
@@ -907,7 +898,7 @@ public static class AprsInfoFieldParser
     /// <returns>The parsed APRS weather packet.</returns>
     private static WeatherPacket ParseWeather(string info, Callsign source, Callsign dest, IReadOnlyList<Callsign> path)
     {
-        var w = new WeatherPacket
+        WeatherPacket w = new()
         {
             Source = source,
             Destination = dest,
@@ -920,7 +911,7 @@ public static class AprsInfoFieldParser
             return w;
         }
 
-        var data = info.AsSpan(1);
+        ReadOnlySpan<char> data = info.AsSpan(1);
 
         int idx = 0;
         while (idx < data.Length)
@@ -939,7 +930,7 @@ public static class AprsInfoFieldParser
                 idx++;
             }
 
-            var numStr = data[numStart..idx];
+            ReadOnlySpan<char> numStr = data[numStart..idx];
             if (double.TryParse(numStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
             {
                 w = ApplyWeatherField(w, fieldId, value);
@@ -956,25 +947,22 @@ public static class AprsInfoFieldParser
     /// <param name="fieldId">The identifier of the weather field.</param>
     /// <param name="value">The value of the weather field.</param>
     /// <returns>The updated WeatherPacket.</returns>
-    private static WeatherPacket ApplyWeatherField(WeatherPacket w, char fieldId, double value)
+    private static WeatherPacket ApplyWeatherField(WeatherPacket w, char fieldId, double value) => fieldId switch
     {
-        return fieldId switch
-        {
-            'c' => w with { WindDirection = value },
-            's' => w with { WindSpeed = value },
-            'g' => w with { WindGust = value },
-            // Per the APRS weather spec, values above 500 encode sub-zero
-            // temperatures as 1000 - abs(temp): t995 means -5 °F.
-            't' => w with { Temperature = value > 500 ? value - 1000 : value },
-            'h' => w with { Humidity = value },
-            // Barometric pressure arrives in tenths of millibars.
-            'b' => w with { Pressure = value / 10 },
-            // Rain arrives in hundredths of an inch.
-            'r' => w with { Rain1h = value / 100 },
-            'p' => w with { Rain24h = value / 100 },
-            _ => w
-        };
-    }
+        'c' => w with { WindDirection = value },
+        's' => w with { WindSpeed = value },
+        'g' => w with { WindGust = value },
+        // Per the APRS weather spec, values above 500 encode sub-zero
+        // temperatures as 1000 - abs(temp): t995 means -5 °F.
+        't' => w with { Temperature = value > 500 ? value - 1000 : value },
+        'h' => w with { Humidity = value },
+        // Barometric pressure arrives in tenths of millibars.
+        'b' => w with { Pressure = value / 10 },
+        // Rain arrives in hundredths of an inch.
+        'r' => w with { Rain1h = value / 100 },
+        'p' => w with { Rain24h = value / 100 },
+        _ => w
+    };
 
     /// <summary>
     /// Parses an APRS MIC-E packet from the info field string.
@@ -992,13 +980,13 @@ public static class AprsInfoFieldParser
 
         if (info.Length < 9)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         // Decode latitude from destination address
-        if (!TryDecodeMicELatitude(dest.Base, out double latitude, out bool isNorth, out int offset))
+        if (!TryDecodeMicELatitude(dest.Base, out double latitude, out _, out int offset))
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         int pos = 1; // Skip data type indicator (' or `)
@@ -1006,7 +994,7 @@ public static class AprsInfoFieldParser
         // Decode longitude (3 bytes)
         if (pos + 3 > info.Length)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         int lonDeg = info[pos] - 28 + offset;
@@ -1022,7 +1010,7 @@ public static class AprsInfoFieldParser
         // Validate longitude degree is in valid range
         if (lonDeg < 0 || lonDeg >= 180)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         int lonMin = info[pos + 1] - 28;
@@ -1047,7 +1035,7 @@ public static class AprsInfoFieldParser
         // Decode speed and course (3 bytes)
         if (pos + 3 > info.Length)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         int sp = info[pos] - 28;
@@ -1073,7 +1061,7 @@ public static class AprsInfoFieldParser
         // Symbol table and code
         if (pos + 2 > info.Length)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         char symbolTableChar = info[pos];
@@ -1094,7 +1082,7 @@ public static class AprsInfoFieldParser
             // Try to extract altitude from comment (format: '}' + 3 base-91 chars).
             if (comment.Length >= 4 && comment[0] == '}')
             {
-                var altSpan = comment.AsSpan(1, 3);
+                ReadOnlySpan<char> altSpan = comment.AsSpan(1, 3);
                 if (TryDecodeBase91(altSpan, out int altFeet))
                 {
                     altitude = altFeet - 10000; // MIC-E altitude offset
@@ -1140,7 +1128,7 @@ public static class AprsInfoFieldParser
 
         // MIC-E latitude encoding in destination address (6 characters)
         // Each character encodes a digit and metadata bits
-        var digits = new int[6];
+        int[] digits = new int[6];
 
         for (int i = 0; i < 6; i++)
         {
@@ -1230,24 +1218,24 @@ public static class AprsInfoFieldParser
         // Format: T#nnn,v1,v2,v3,v4,v5,bbbbbbbb
         if (info.Length < 3)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
-        var parts = info[2..].Split(',');
+        string[] parts = info[2..].Split(',');
         if (parts.Length < 1)
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         if (!int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int seqNum))
         {
-            return AsUnknown(info, source, dest, path.ToArray());
+            return AsUnknown(info, source, dest, [.. path]);
         }
 
         // Channels are positional: an empty slot means the station did not
         // report that channel, and dropping it would shift every later value
         // into the wrong channel.
-        var analogValues = new List<double?>();
+        List<double?> analogValues = [];
         for (int i = 1; i < Math.Min(parts.Length, 6); i++)
         {
             if (double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
@@ -1290,14 +1278,11 @@ public static class AprsInfoFieldParser
     /// <param name="dest">The destination callsign.</param>
     /// <param name="path">The digipeater path.</param>
     /// <returns>The created UnknownPacket.</returns>
-    private static UnknownPacket AsUnknown(string info, Callsign source, Callsign dest, Callsign[] path)
+    private static UnknownPacket AsUnknown(string info, Callsign source, Callsign dest, Callsign[] path) => new()
     {
-        return new UnknownPacket
-        {
-            Source = source,
-            Destination = dest,
-            Path = path,
-            Raw = info
-        };
-    }
+        Source = source,
+        Destination = dest,
+        Path = path,
+        Raw = info
+    };
 }

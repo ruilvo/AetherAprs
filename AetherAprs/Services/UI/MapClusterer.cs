@@ -23,16 +23,16 @@ public static class MapClusterer
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(cellSize);
 
-        var groups = new Dictionary<(long CellX, long CellY), List<int>>();
+        Dictionary<(long CellX, long CellY), List<int>> groups = [];
 
-        for (var i = 0; i < points.Count; i++)
+        for (int i = 0; i < points.Count; i++)
         {
-            var point = points[i];
-            var cell = (
+            MPoint point = points[i];
+            (long CellX, long CellY) cell = (
                 CellX: (long)Math.Floor(point.X / cellSize),
                 CellY: (long)Math.Floor(point.Y / cellSize));
 
-            if (!groups.TryGetValue(cell, out var indices))
+            if (!groups.TryGetValue(cell, out List<int>? indices))
             {
                 indices = [];
                 groups[cell] = indices;
@@ -41,8 +41,6 @@ public static class MapClusterer
             indices.Add(i);
         }
 
-        return groups.Values
-            .Select(g => (IReadOnlyList<int>)g)
-            .ToList();
+        return [.. groups.Values.Select(g => (IReadOnlyList<int>)g)];
     }
 }

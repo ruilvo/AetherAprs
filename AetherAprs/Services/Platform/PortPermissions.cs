@@ -59,11 +59,11 @@ internal static class PortPermissions
         ArgumentNullException.ThrowIfNull(permissions);
         ArgumentNullException.ThrowIfNull(logger);
 
-        foreach (var kind in kinds)
+        foreach (PermissionKind kind in kinds)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var result = await permissions.RequestAsync(kind, cancellationToken).ConfigureAwait(false);
+            PermissionRequestResult result = await permissions.RequestAsync(kind, cancellationToken).ConfigureAwait(false);
             attention?.Report(result);
             LogOutcome(logger, result, Consequence(kind));
         }

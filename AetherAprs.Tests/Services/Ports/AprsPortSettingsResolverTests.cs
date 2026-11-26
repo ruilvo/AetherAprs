@@ -21,9 +21,9 @@ public class AprsPortSettingsResolverTests
     [Fact]
     public void GetSsid_ReturnsDefaultSsidWhenPositive()
     {
-        var config = CreateConfiguration();
+        TestConfigurationService config = CreateConfiguration();
         config.Current = config.Current with { Aprs = config.Current.Aprs with { Ssid = (AprsSsid)3 } };
-        var resolver = CreateResolver(config);
+        AprsPortSettingsResolver resolver = CreateResolver(config);
 
         Assert.Equal(3, resolver.GetSsid());
     }
@@ -31,8 +31,8 @@ public class AprsPortSettingsResolverTests
     [Fact]
     public void GetSsid_ReturnsNullWhenSsidIsZero()
     {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
+        TestConfigurationService config = CreateConfiguration();
+        AprsPortSettingsResolver resolver = CreateResolver(config);
 
         Assert.Null(resolver.GetSsid());
     }
@@ -40,9 +40,9 @@ public class AprsPortSettingsResolverTests
     [Fact]
     public void GetCallsign_AppendsSsidWhenPositive()
     {
-        var config = CreateConfiguration();
+        TestConfigurationService config = CreateConfiguration();
         config.Current = config.Current with { Aprs = config.Current.Aprs with { Ssid = (AprsSsid)7 } };
-        var resolver = CreateResolver(config);
+        AprsPortSettingsResolver resolver = CreateResolver(config);
 
         Assert.Equal("N0CALL-7", resolver.GetCallsign("N0CALL"));
     }
@@ -50,8 +50,8 @@ public class AprsPortSettingsResolverTests
     [Fact]
     public void GetCallsign_OmitsSsidWhenZero()
     {
-        var config = CreateConfiguration();
-        var resolver = CreateResolver(config);
+        TestConfigurationService config = CreateConfiguration();
+        AprsPortSettingsResolver resolver = CreateResolver(config);
 
         Assert.Equal("N0CALL", resolver.GetCallsign("N0CALL"));
     }
@@ -59,9 +59,9 @@ public class AprsPortSettingsResolverTests
     [Fact]
     public void GetSymbolTable_ReturnsDefault()
     {
-        var config = CreateConfiguration();
+        TestConfigurationService config = CreateConfiguration();
         config.Current = config.Current with { Aprs = config.Current.Aprs with { SymbolTable = AetherAprs.Models.Aprs.SymbolTable.Alternate } };
-        var resolver = CreateResolver(config);
+        AprsPortSettingsResolver resolver = CreateResolver(config);
 
         Assert.Equal(AetherAprs.Models.Aprs.SymbolTable.Alternate, resolver.GetSymbolTable());
     }
@@ -69,23 +69,17 @@ public class AprsPortSettingsResolverTests
     [Fact]
     public void GetSymbolCode_ReturnsDefault()
     {
-        var config = CreateConfiguration();
+        TestConfigurationService config = CreateConfiguration();
         config.Current = config.Current with { Aprs = config.Current.Aprs with { SymbolCode = SymbolCode.LatinSmallLetterK } };
-        var resolver = CreateResolver(config);
+        AprsPortSettingsResolver resolver = CreateResolver(config);
 
         Assert.Equal(SymbolCode.LatinSmallLetterK, resolver.GetSymbolCode());
     }
 
-    private static TestConfigurationService CreateConfiguration()
-    {
-        return new TestConfigurationService();
-    }
+    private static TestConfigurationService CreateConfiguration() => new();
 
     private static AprsPortSettingsResolver CreateResolver(
-        IConfigurationService? config = null)
-    {
-        return new AprsPortSettingsResolver(config ?? CreateConfiguration());
-    }
+        IConfigurationService? config = null) => new(config ?? CreateConfiguration());
 
     private sealed class TestConfigurationService : IConfigurationService
     {

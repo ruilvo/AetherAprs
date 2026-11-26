@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -65,7 +66,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
     {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
         while (!condition() && sw.ElapsedMilliseconds < timeoutMs)
         {
             await Task.Delay(10, TestContext.Current.CancellationToken);
@@ -75,19 +76,19 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public async Task SearchQuery_PopulatesStationResults()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.SearchStationsAsync("N0CALL", 100, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [StationPacket("N0CALL")]));
 
-        var vm = CreateViewModel(query: query);
+        SearchViewModel vm = CreateViewModel(query: query);
         vm.SearchQuery = "N0CALL";
         await WaitUntilAsync(() => vm.Results.Count > 0);
 
         Assert.True(vm.HasSearched);
         Assert.False(vm.ShowNoResults);
         Assert.True(vm.HasResults);
-        var result = Assert.Single(vm.Results);
+        SearchResultItem result = Assert.Single(vm.Results);
         Assert.Equal("N0CALL-1", result.Name);
         Assert.Equal("Station", result.Kind);
         Assert.Equal("N0CALL-1", result.Source);
@@ -97,16 +98,16 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public async Task SearchQuery_ObjectResult_ShowsReportedBy()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.SearchStationsAsync("SHELTER", 100, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [ObjectPacket("SHELTER1")]));
 
-        var vm = CreateViewModel(query: query);
+        SearchViewModel vm = CreateViewModel(query: query);
         vm.SearchQuery = "SHELTER";
         await WaitUntilAsync(() => vm.Results.Count > 0);
 
-        var result = Assert.Single(vm.Results);
+        SearchResultItem result = Assert.Single(vm.Results);
         Assert.Equal("SHELTER1", result.Name);
         Assert.Equal("Object", result.Kind);
         Assert.Equal("N0CALL", result.Source);
@@ -117,11 +118,11 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public async Task SearchQuery_NoMatches_SetsShowNoResults()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.SearchStationsAsync("ZZZ", 100, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
 
-        var vm = CreateViewModel(query: query);
+        SearchViewModel vm = CreateViewModel(query: query);
         vm.SearchQuery = "ZZZ";
         await WaitUntilAsync(() => vm.HasSearched);
 
@@ -133,8 +134,8 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public void SearchQuery_Empty_ClearsResultsAndFlags()
     {
-        var query = Substitute.For<IPacketQueryService>();
-        var vm = CreateViewModel(query: query);
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        SearchViewModel vm = CreateViewModel(query: query);
         vm.Results.Add(new SearchResultItem("N0CALL", "Station", "N0CALL", null));
         vm.HasSearched = true;
         vm.ShowNoResults = true;
@@ -150,8 +151,8 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public void Close_CallsNavigationGoBack()
     {
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigation: navigation);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        SearchViewModel vm = CreateViewModel(navigation: navigation);
 
         vm.CloseCommand.Execute(null);
 
@@ -161,22 +162,22 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public async Task StaleSearch_DoesNotReplaceNewerResultsOrHideItsSpinner()
     {
-        var query = Substitute.For<IPacketQueryService>();
-        var oldResult = new TaskCompletionSource<IReadOnlyList<PacketRecord>>(
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        TaskCompletionSource<IReadOnlyList<PacketRecord>> oldResult = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
-        var newResult = new TaskCompletionSource<IReadOnlyList<PacketRecord>>(
+        TaskCompletionSource<IReadOnlyList<PacketRecord>> newResult = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         query.SearchStationsAsync("OLD", 100, Arg.Any<CancellationToken>()).Returns(oldResult.Task);
         query.SearchStationsAsync("NEW", 100, Arg.Any<CancellationToken>()).Returns(newResult.Task);
 
-        var vm = CreateViewModel(query: query);
+        SearchViewModel vm = CreateViewModel(query: query);
 
         vm.SearchQuery = "OLD";
-        var oldSearch = vm.PendingSearch!;
+        Task oldSearch = vm.PendingSearch!;
         await WaitUntilAsync(() => HasQueryCall(query, "OLD"));
 
         vm.SearchQuery = "NEW";
-        var newSearch = vm.PendingSearch!;
+        Task newSearch = vm.PendingSearch!;
         await WaitUntilAsync(() => HasQueryCall(query, "NEW"));
         Assert.True(vm.IsLoading);
 
@@ -192,22 +193,22 @@ public sealed class SearchViewModelTests : TestFixtureBase
         await newSearch;
 
         Assert.False(vm.IsLoading);
-        var result = Assert.Single(vm.Results);
+        SearchResultItem result = Assert.Single(vm.Results);
         Assert.Equal("NEW-1", result.Name);
     }
 
     [Fact]
     public async Task ClearingQueryWhileSearchInFlight_DiscardsTheResult()
     {
-        var query = Substitute.For<IPacketQueryService>();
-        var inFlight = new TaskCompletionSource<IReadOnlyList<PacketRecord>>(
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        TaskCompletionSource<IReadOnlyList<PacketRecord>> inFlight = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         query.SearchStationsAsync("N0CALL", 100, Arg.Any<CancellationToken>()).Returns(inFlight.Task);
 
-        var vm = CreateViewModel(query: query);
+        SearchViewModel vm = CreateViewModel(query: query);
 
         vm.SearchQuery = "N0CALL";
-        var search = vm.PendingSearch!;
+        Task search = vm.PendingSearch!;
         await WaitUntilAsync(() => HasQueryCall(query, "N0CALL"));
 
         vm.SearchQuery = string.Empty;
@@ -239,11 +240,11 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public void OpenResult_NavigatesToStationDetails()
     {
-        var detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
-        var details = CreatePacketDetailsViewModel();
+        IPacketDetailsViewModelFactory detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        PacketDetailsViewModel details = CreatePacketDetailsViewModel();
         detailsFactory.Create("N0CALL-1").Returns(details);
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigation: navigation, detailsFactory: detailsFactory);
+        INavigationService navigation = Substitute.For<INavigationService>();
+        SearchViewModel vm = CreateViewModel(navigation: navigation, detailsFactory: detailsFactory);
 
         vm.OpenResultCommand.Execute(new SearchResultItem("N0CALL-1", "Station", "N0CALL-1", null));
 
@@ -254,12 +255,12 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public void OpenResult_Object_OpensObjectHistoryByIdentity()
     {
-        var detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
-        var objectFactory = Substitute.For<IObjectDetailsViewModelFactory>();
-        var objectDetails = new ObjectDetailsViewModel(Substitute.For<IPacketQueryService>());
+        IPacketDetailsViewModelFactory detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        IObjectDetailsViewModelFactory objectFactory = Substitute.For<IObjectDetailsViewModelFactory>();
+        ObjectDetailsViewModel objectDetails = new(Substitute.For<IPacketQueryService>());
         objectFactory.Create("SHELTER1").Returns(objectDetails);
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(
+        INavigationService navigation = Substitute.For<INavigationService>();
+        SearchViewModel vm = CreateViewModel(
             navigation: navigation,
             detailsFactory: detailsFactory,
             objectDetailsFactory: objectFactory);
@@ -275,9 +276,9 @@ public sealed class SearchViewModelTests : TestFixtureBase
     [Fact]
     public void OpenResult_Null_DoesNothing()
     {
-        var detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
-        var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigation: navigation, detailsFactory: detailsFactory);
+        IPacketDetailsViewModelFactory detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        INavigationService navigation = Substitute.For<INavigationService>();
+        SearchViewModel vm = CreateViewModel(navigation: navigation, detailsFactory: detailsFactory);
 
         vm.OpenResultCommand.Execute(null);
 

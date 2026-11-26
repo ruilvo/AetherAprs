@@ -49,19 +49,19 @@ public sealed class AndroidNotificationService : INotificationService
 
         // Deep-link to the conversation: launch MainActivity (SingleTop|ClearTop so
         // it is reused rather than stacked) with the peer callsign extra.
-        var contentIntent = new Intent(_context, typeof(MainActivity));
+        Intent contentIntent = new(_context, typeof(MainActivity));
         contentIntent.SetAction(Intent.ActionMain);
         contentIntent.AddCategory(Intent.CategoryLauncher);
         contentIntent.PutExtra(ConversationCallsignExtra, callsign);
         contentIntent.AddFlags(ActivityFlags.SingleTop | ActivityFlags.ClearTop);
 
-        var pendingIntent = PendingIntent.GetActivity(
+        PendingIntent? pendingIntent = PendingIntent.GetActivity(
             _context,
             StableNotificationId(conversationId),
             contentIntent,
             PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
-        var builder = new NotificationCompat.Builder(_context, ChannelId);
+        NotificationCompat.Builder builder = new(_context, ChannelId);
         builder.SetSmallIcon(Resource.Drawable.icon_400px);
         builder.SetContentTitle(callsign);
         builder.SetContentText(text);
@@ -70,14 +70,13 @@ public sealed class AndroidNotificationService : INotificationService
         builder.SetAutoCancel(true);
         builder.SetPriority(NotificationCompat.PriorityHigh);
 
-        var notification = builder.Build();
+        Notification? notification = builder.Build();
         if (notification == null)
         {
             return Task.CompletedTask;
         }
 
-        var notificationManager = _context.GetSystemService(Context.NotificationService) as NotificationManager;
-        if (notificationManager == null)
+        if (_context.GetSystemService(Context.NotificationService) is not NotificationManager notificationManager)
         {
             _logger?.LogWarning("NotificationManager unavailable; message notification for {Callsign} dropped", callsign);
             return Task.CompletedTask;
@@ -92,7 +91,7 @@ public sealed class AndroidNotificationService : INotificationService
 
     private void CreateNotificationChannel()
     {
-        var channel = new NotificationChannel(
+        NotificationChannel channel = new(
             ChannelId,
             Strings.Get(ChannelNameKey),
             NotificationImportance.High)
@@ -100,7 +99,7 @@ public sealed class AndroidNotificationService : INotificationService
             Description = Strings.Get(ChannelDescriptionKey)
         };
 
-        var notificationManager = _context.GetSystemService(Context.NotificationService) as NotificationManager;
+        NotificationManager? notificationManager = _context.GetSystemService(Context.NotificationService) as NotificationManager;
         notificationManager?.CreateNotificationChannel(channel);
     }
 
@@ -113,8 +112,8 @@ public sealed class AndroidNotificationService : INotificationService
     {
         unchecked
         {
-            var hash = 2166136261u;
-            foreach (var c in conversationId)
+            uint hash = 2166136261u;
+            foreach (char c in conversationId)
             {
                 hash ^= c;
                 hash *= 16777619u;

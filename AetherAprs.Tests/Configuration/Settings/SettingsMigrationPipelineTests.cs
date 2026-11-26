@@ -25,9 +25,10 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_AtTargetVersion_ChangesNothing()
     {
-        var values = new Dictionary<string, string?> { ["A"] = "1" };
+        Dictionary<string, string?> values = new()
+        { ["A"] = "1" };
 
-        var result = SettingsMigrationPipeline.Migrate(values, 3, 3, [], Logger);
+        int result = SettingsMigrationPipeline.Migrate(values, 3, 3, [], Logger);
 
         Assert.Equal(3, result);
         Assert.Single(values);
@@ -37,9 +38,10 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_AboveTargetVersion_DoesNotDowngrade()
     {
-        var values = new Dictionary<string, string?> { ["A"] = "1" };
+        Dictionary<string, string?> values = new()
+        { ["A"] = "1" };
 
-        var result = SettingsMigrationPipeline.Migrate(
+        int result = SettingsMigrationPipeline.Migrate(
             values,
             fromVersion: 7,
             targetVersion: 2,
@@ -53,12 +55,12 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_AppliesEveryMigrationInOrder()
     {
-        var values = new Dictionary<string, string?>();
-        var first = new RecordingMigration(0);
-        var second = new RecordingMigration(1);
-        var third = new RecordingMigration(2);
+        Dictionary<string, string?> values = [];
+        RecordingMigration first = new(0);
+        RecordingMigration second = new(1);
+        RecordingMigration third = new(2);
 
-        var result = SettingsMigrationPipeline.Migrate(
+        int result = SettingsMigrationPipeline.Migrate(
             values,
             fromVersion: 0,
             targetVersion: 3,
@@ -74,11 +76,11 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_PicksMigrationsByFromVersion_NotListOrder()
     {
-        var values = new Dictionary<string, string?>();
-        var second = new RecordingMigration(1);
-        var first = new RecordingMigration(0);
+        Dictionary<string, string?> values = [];
+        RecordingMigration second = new(1);
+        RecordingMigration first = new(0);
 
-        var result = SettingsMigrationPipeline.Migrate(
+        int result = SettingsMigrationPipeline.Migrate(
             values,
             fromVersion: 0,
             targetVersion: 2,
@@ -93,11 +95,11 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_StopsAtGapAndReportsReachedVersion()
     {
-        var values = new Dictionary<string, string?>();
-        var first = new RecordingMigration(0);
+        Dictionary<string, string?> values = [];
+        RecordingMigration first = new(0);
 
         // No migration from version 1, so the run must stop after version 0.
-        var result = SettingsMigrationPipeline.Migrate(
+        int result = SettingsMigrationPipeline.Migrate(
             values,
             fromVersion: 0,
             targetVersion: 3,
@@ -111,10 +113,10 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_StartingFromLegacyVersion_RunsChainFromZero()
     {
-        var values = new Dictionary<string, string?>();
-        var migration = new RecordingMigration(SettingsSchema.LegacyUnversionedVersion);
+        Dictionary<string, string?> values = [];
+        RecordingMigration migration = new(SettingsSchema.LegacyUnversionedVersion);
 
-        var result = SettingsMigrationPipeline.Migrate(
+        int result = SettingsMigrationPipeline.Migrate(
             values,
             fromVersion: SettingsSchema.LegacyUnversionedVersion,
             targetVersion: 1,
@@ -128,11 +130,11 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_DoesNotReapplyMigrationOnSecondRun()
     {
-        var values = new Dictionary<string, string?>();
-        var migration = new RecordingMigration(0);
+        Dictionary<string, string?> values = [];
+        RecordingMigration migration = new(0);
 
-        var first = SettingsMigrationPipeline.Migrate(values, 0, 1, [migration], Logger);
-        var second = SettingsMigrationPipeline.Migrate(values, first, 1, [migration], Logger);
+        int first = SettingsMigrationPipeline.Migrate(values, 0, 1, [migration], Logger);
+        int second = SettingsMigrationPipeline.Migrate(values, first, 1, [migration], Logger);
 
         Assert.Equal(1, first);
         Assert.Equal(1, second);
@@ -142,8 +144,9 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_MigrationCanMutateValues()
     {
-        var values = new Dictionary<string, string?> { ["OldKey"] = "legacy" };
-        var migration = new RecordingMigration(0, v =>
+        Dictionary<string, string?> values = new()
+        { ["OldKey"] = "legacy" };
+        RecordingMigration migration = new(0, v =>
         {
             v.Remove("OldKey");
             v["NewKey"] = "modern";
@@ -158,9 +161,10 @@ public sealed class SettingsMigrationPipelineTests
     [Fact]
     public void Migrate_EmptyMigrationsFromLegacy_LeavesVersionUnchanged()
     {
-        var values = new Dictionary<string, string?> { ["A"] = "1" };
+        Dictionary<string, string?> values = new()
+        { ["A"] = "1" };
 
-        var result = SettingsMigrationPipeline.Migrate(values, 0, 1, [], Logger);
+        int result = SettingsMigrationPipeline.Migrate(values, 0, 1, [], Logger);
 
         Assert.Equal(0, result);
         Assert.Equal("1", values["A"]);

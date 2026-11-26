@@ -19,15 +19,15 @@ public sealed class LocationTrackingServicePermissionTests
     [Fact]
     public async Task RequestPermissionAndStartTrackingAsync_WhenLocationIsDenied_ReportsAttentionAndDoesNotTrack()
     {
-        var locationService = CreateAvailableLocationService();
-        var permissions = Substitute.For<IPermissionService>();
+        ILocationService locationService = CreateAvailableLocationService();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(call.Arg<PermissionKind>() == PermissionKind.Location
                 ? PermissionRequestResult.Denied(PermissionKind.Location)
                 : PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
-        var attention = new PermissionAttentionService();
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        using var service = new LocationTrackingService(
+        PermissionAttentionService attention = new();
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        using LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance,
@@ -39,7 +39,7 @@ public sealed class LocationTrackingServicePermissionTests
         Assert.False(service.IsTracking);
         await keepAlive.DidNotReceive().AcquireAsync(Arg.Any<KeepAliveReason>());
 
-        var reported = Assert.Single(attention.Outstanding);
+        PermissionAttention reported = Assert.Single(attention.Outstanding);
         Assert.Equal(PermissionKind.Location, reported.Kind);
         Assert.False(reported.RequiresApplicationSettings);
     }
@@ -47,15 +47,15 @@ public sealed class LocationTrackingServicePermissionTests
     [Fact]
     public async Task RequestPermissionAndStartTrackingAsync_WhenALocationDenialIsPermanent_ReportsTheSettingsRecovery()
     {
-        var locationService = CreateAvailableLocationService();
-        var permissions = Substitute.For<IPermissionService>();
+        ILocationService locationService = CreateAvailableLocationService();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(call.Arg<PermissionKind>() == PermissionKind.Location
                 ? PermissionRequestResult.PermanentlyDenied(PermissionKind.Location)
                 : PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
-        var attention = new PermissionAttentionService();
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        using var service = new LocationTrackingService(
+        PermissionAttentionService attention = new();
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        using LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance,
@@ -65,7 +65,7 @@ public sealed class LocationTrackingServicePermissionTests
         await service.RequestPermissionAndStartTrackingAsync();
 
         Assert.False(service.IsTracking);
-        var reported = Assert.Single(attention.Outstanding);
+        PermissionAttention reported = Assert.Single(attention.Outstanding);
         Assert.Equal(PermissionKind.Location, reported.Kind);
         Assert.True(reported.RequiresApplicationSettings);
     }
@@ -73,13 +73,13 @@ public sealed class LocationTrackingServicePermissionTests
     [Fact]
     public async Task RequestPermissionAndStartTrackingAsync_WhenLocationIsGranted_ReportsAndStartsTracking()
     {
-        var locationService = CreateAvailableLocationService();
-        var permissions = Substitute.For<IPermissionService>();
+        ILocationService locationService = CreateAvailableLocationService();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
-        var attention = new PermissionAttentionService();
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        using var service = new LocationTrackingService(
+        PermissionAttentionService attention = new();
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        using LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance,
@@ -98,10 +98,10 @@ public sealed class LocationTrackingServicePermissionTests
     [Fact]
     public async Task RequestPermissionAndStartTrackingAsync_WithoutPermissionService_UsesTheLocationServiceDialog()
     {
-        var locationService = CreateAvailableLocationService();
+        ILocationService locationService = CreateAvailableLocationService();
         locationService.RequestLocationPermissionAsync().Returns(Task.FromResult(false));
-        var keepAlive = Substitute.For<IKeepAliveService>();
-        using var service = new LocationTrackingService(
+        IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
+        using LocationTrackingService service = new(
             locationService,
             keepAlive,
             NullLogger<LocationTrackingService>.Instance);
@@ -114,7 +114,7 @@ public sealed class LocationTrackingServicePermissionTests
 
     private static ILocationService CreateAvailableLocationService()
     {
-        var locationService = Substitute.For<ILocationService>();
+        ILocationService locationService = Substitute.For<ILocationService>();
         locationService.IsLocationAvailable().Returns(true);
         locationService.GetCurrentLocationAsync(Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult(new LocationData

@@ -110,9 +110,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial bool AllowDigipeat { get; set; } = true;
 
-    public ObservableCollection<BluetoothLeAdvertisement> BleDevices { get; } = new();
+    public ObservableCollection<BluetoothLeAdvertisement> BleDevices { get; } = [];
 
-    public ObservableCollection<BluetoothClassicDevice> SppDevices { get; } = new();
+    public ObservableCollection<BluetoothClassicDevice> SppDevices { get; } = [];
 
     public bool IsEditing => _existingConfig is not null;
 
@@ -143,7 +143,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         _logger = logger;
         _transientFeedbackService = transientFeedbackService;
 
-        var supported = kissStreamFactory.SupportedTransports;
+        IReadOnlyCollection<Type> supported = kissStreamFactory.SupportedTransports;
         AvailableKissTransportTypes = supported.Count > 0
             ? supported.ToArray()
             : [typeof(TcpKissTransportSettings)];
@@ -178,7 +178,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
     private string GenerateDefaultPortName()
     {
-        var key = SelectedPortSettingsType == typeof(AprsIsSettings)
+        string key = SelectedPortSettingsType == typeof(AprsIsSettings)
             ? "DefaultAprsIsPortName"
             : "DefaultKissPortName";
         return Strings.Format(key, _portNumber);
@@ -205,7 +205,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         {
             StopBleScan();
 
-            var config = BuildConfig();
+            PortConfig config = BuildConfig();
 
             if (_existingConfig != null)
             {
@@ -263,16 +263,16 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         // Cancel the previous scan and dispose its CTS only after any in-flight
         // loop has unwound; disposing while the loop still awaits the token throws
         // ObjectDisposedException instead of the expected OperationCanceledException.
-        var staleCts = _bleScanCts;
+        CancellationTokenSource? staleCts = _bleScanCts;
         _bleScanCts = new CancellationTokenSource();
-        var token = _bleScanCts.Token;
+        CancellationToken token = _bleScanCts.Token;
         IsBleScanning = true;
 
         try
         {
-            await foreach (var advertisement in _bleScanner.ScanAsync(token).ConfigureAwait(true))
+            await foreach (BluetoothLeAdvertisement? advertisement in _bleScanner.ScanAsync(token).ConfigureAwait(true))
             {
-                var existing = BleDevices.FirstOrDefault(device =>
+                BluetoothLeAdvertisement? existing = BleDevices.FirstOrDefault(device =>
                     string.Equals(device.Address, advertisement.Address, StringComparison.OrdinalIgnoreCase));
                 if (existing is not null)
                 {
@@ -302,7 +302,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
             // Retire our CTS only if this scan is still the active one; the stale
             // CTS is disposed unconditionally now that its loop has unwound.
-            if (ReferenceEquals(_bleScanCts, null) || !_bleScanCts.Token.Equals(token))
+            if (_bleScanCts is null || !_bleScanCts.Token.Equals(token))
             {
                 // This scan was superseded; it owns no live CTS.
             }
@@ -331,11 +331,11 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         try
         {
             await _classicDeviceProvider.EnsurePermissionAsync().ConfigureAwait(true);
-            var devices = await _classicDeviceProvider.GetBondedDevicesAsync().ConfigureAwait(true);
-            var selectedAddress = SelectedSppDevice?.Address;
+            IReadOnlyList<BluetoothClassicDevice> devices = await _classicDeviceProvider.GetBondedDevicesAsync().ConfigureAwait(true);
+            string? selectedAddress = SelectedSppDevice?.Address;
 
             SppDevices.Clear();
-            foreach (var device in devices)
+            foreach (BluetoothClassicDevice device in devices)
             {
                 SppDevices.Add(device);
             }
@@ -354,11 +354,11 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     partial void OnNameChanged(string value)
     {
         OnPropertyChanged(nameof(Title));
-        
+
         // Track if user manually edited the name (unless we're initializing)
         if (_portNumber > 0 && !string.IsNullOrEmpty(value))
         {
-            var expectedDefault = GenerateDefaultPortName();
+            string expectedDefault = GenerateDefaultPortName();
             if (value != expectedDefault)
             {
                 _isNameManuallyEdited = true;
@@ -380,7 +380,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         {
             StopBleScan();
         }
-        
+
         // Auto-update port name when type changes, but only if user hasn't manually edited it
         if (!_isNameManuallyEdited && _portNumber > 0)
         {
@@ -418,7 +418,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
         if (config.TypeSettings is KissSettings kiss)
         {
-            var transportType = kiss.Transport?.GetType();
+            Type? transportType = kiss.Transport?.GetType();
             if (transportType is not null && AvailableKissTransportTypes.Contains(transportType))
             {
                 SelectedKissTransportType = transportType;
@@ -432,7 +432,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                     break;
 
                 case BluetoothLeKissTransportSettings ble:
-                    var bleDevice = new BluetoothLeAdvertisement(
+                    BluetoothLeAdvertisement bleDevice = new(
                         ble.DeviceAddress,
                         ble.DeviceName,
                         0,
@@ -446,7 +446,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                     break;
 
                 case BluetoothClassicKissTransportSettings spp:
-                    var sppDevice = new BluetoothClassicDevice(spp.DeviceAddress, spp.DeviceName);
+                    BluetoothClassicDevice sppDevice = new(spp.DeviceAddress, spp.DeviceName);
                     SppDevices.Clear();
                     if (!string.IsNullOrWhiteSpace(spp.DeviceAddress))
                     {
@@ -460,7 +460,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
     internal PortConfig BuildConfig()
     {
-        var config = new PortConfig
+        PortConfig config = new()
         {
             Name = Name,
             IsRx = IsRx,
@@ -474,7 +474,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             // Saving the form without re-entering a lost passcode keeps the port
             // receive-only: persisting an empty passcode would look configured while
             // every login would be rejected, which is worse than the honest marker.
-            var credentialsMissing = HasUnavailableCredentials && string.IsNullOrWhiteSpace(Passcode);
+            bool credentialsMissing = HasUnavailableCredentials && string.IsNullOrWhiteSpace(Passcode);
             config.CredentialsUnavailable = credentialsMissing;
             config.TypeSettings = new AprsIsSettings
             {
@@ -508,9 +508,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
         if (SelectedKissTransportType == typeof(BluetoothLeKissTransportSettings))
         {
-            var serviceUuid = BluetoothLeKissTransportSettings.DefaultServiceUuid;
-            var rxCharacteristicUuid = BluetoothLeKissTransportSettings.DefaultRxCharacteristicUuid;
-            var txCharacteristicUuid = BluetoothLeKissTransportSettings.DefaultTxCharacteristicUuid;
+            Guid serviceUuid = BluetoothLeKissTransportSettings.DefaultServiceUuid;
+            Guid rxCharacteristicUuid = BluetoothLeKissTransportSettings.DefaultRxCharacteristicUuid;
+            Guid txCharacteristicUuid = BluetoothLeKissTransportSettings.DefaultTxCharacteristicUuid;
 
             if (SelectedBleDevice?.ServiceUuids.Contains(
                     BluetoothLeKissTransportSettings.LoRaAprsTrackerServiceUuid) == true)
@@ -548,7 +548,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         GC.SuppressFinalize(this);
 
         // Cancel any in-flight BLE scan; its finally block disposes the CTS.
-        var cts = _bleScanCts;
+        CancellationTokenSource? cts = _bleScanCts;
         _bleScanCts = null;
         cts?.Cancel();
     }

@@ -18,8 +18,8 @@ public class ServiceProviderFactoryTests
     [Fact]
     public void CreateServiceProvider_WithoutPlatformServices_ResolvesCoreDefaults()
     {
-        var bootstrap = new AppDataDirProviderService();
-        var provider = ServiceProviderFactory.CreateServiceProvider(bootstrap, _ => { }, _ => { });
+        AppDataDirProviderService bootstrap = new();
+        IServiceProvider provider = ServiceProviderFactory.CreateServiceProvider(bootstrap, _ => { }, _ => { });
 
         Assert.Same(bootstrap, provider.GetRequiredService<IAppDataDirProviderService>());
         Assert.IsType<NoOpLocationService>(provider.GetRequiredService<ILocationService>());
@@ -32,7 +32,7 @@ public class ServiceProviderFactoryTests
     [Fact]
     public void CreateServiceProvider_WithPlatformServices_PlatformOverridesDefaults()
     {
-        var provider = ServiceProviderFactory.CreateServiceProvider(
+        IServiceProvider provider = ServiceProviderFactory.CreateServiceProvider(
             new AppDataDirProviderService(),
             _ => { },
             overrides => overrides.Replace<ILocationService, TestLocationService>());
@@ -43,7 +43,7 @@ public class ServiceProviderFactoryTests
     [Fact]
     public void CreateServiceProvider_ReplacingAnUnregisteredService_IsRejected()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
             ServiceProviderFactory.CreateServiceProvider(
                 new AppDataDirProviderService(),
                 _ => { },
@@ -61,11 +61,8 @@ public class ServiceProviderFactoryTests
     }
 
     [Fact]
-    public void CreateServiceProvider_WithoutABootstrap_IsRejected()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-            ServiceProviderFactory.CreateServiceProvider(null!, _ => { }, _ => { }));
-    }
+    public void CreateServiceProvider_WithoutABootstrap_IsRejected() => Assert.Throws<ArgumentNullException>(() =>
+                                                                                 ServiceProviderFactory.CreateServiceProvider(null!, _ => { }, _ => { }));
 
     private sealed class TestLocationService : ILocationService
     {

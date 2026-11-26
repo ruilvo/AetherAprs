@@ -18,7 +18,7 @@ public sealed class KissStreamFactoryTests
     [Fact]
     public void SupportedTransports_PrefersSupportedConnectorWhenKindsCollide()
     {
-        var factory = new KissStreamFactory(
+        KissStreamFactory factory = new(
         [
             new StubConnector(typeof(TcpKissTransportSettings), isSupported: false),
             new StubConnector(typeof(TcpKissTransportSettings), isSupported: true),
@@ -32,11 +32,11 @@ public sealed class KissStreamFactoryTests
     [Fact]
     public async Task OpenAsync_UsesSupportedConnectorWhenKindsCollide()
     {
-        var supported = new StubConnector(typeof(TcpKissTransportSettings), isSupported: true);
-        var unsupported = new StubConnector(typeof(TcpKissTransportSettings), isSupported: false);
-        var factory = new KissStreamFactory([unsupported, supported]);
+        StubConnector supported = new(typeof(TcpKissTransportSettings), isSupported: true);
+        StubConnector unsupported = new(typeof(TcpKissTransportSettings), isSupported: false);
+        KissStreamFactory factory = new([unsupported, supported]);
 
-        await using var stream = await factory.OpenAsync(
+        await using Stream stream = await factory.OpenAsync(
             new KissSettings
             {
                 Transport = new TcpKissTransportSettings()
@@ -51,12 +51,12 @@ public sealed class KissStreamFactoryTests
     [Fact]
     public async Task OpenAsync_ForwardsCancellationTokenToBothBluetoothConnectors()
     {
-        var classic = new StubConnector(typeof(BluetoothClassicKissTransportSettings), isSupported: true);
-        var le = new StubConnector(typeof(BluetoothLeKissTransportSettings), isSupported: true);
-        var factory = new KissStreamFactory([classic, le]);
-        using var cts = new CancellationTokenSource();
+        StubConnector classic = new(typeof(BluetoothClassicKissTransportSettings), isSupported: true);
+        StubConnector le = new(typeof(BluetoothLeKissTransportSettings), isSupported: true);
+        KissStreamFactory factory = new([classic, le]);
+        using CancellationTokenSource cts = new();
 
-        await using (var stream = await factory.OpenAsync(
+        await using (Stream stream = await factory.OpenAsync(
             new KissSettings
             {
                 Transport = new BluetoothClassicKissTransportSettings()
@@ -66,7 +66,7 @@ public sealed class KissStreamFactoryTests
             Assert.Equal(cts.Token, classic.CapturedToken);
         }
 
-        await using (var stream = await factory.OpenAsync(
+        await using (Stream stream = await factory.OpenAsync(
             new KissSettings
             {
                 Transport = new BluetoothLeKissTransportSettings()
@@ -80,7 +80,7 @@ public sealed class KissStreamFactoryTests
     [Fact]
     public async Task OpenAsync_UnsupportedTransportType_ThrowsNotSupportedException()
     {
-        var factory = new KissStreamFactory([new TcpKissStreamConnector()]);
+        KissStreamFactory factory = new([new TcpKissStreamConnector()]);
 
         await Assert.ThrowsAsync<NotSupportedException>(() => factory.OpenAsync(
             new KissSettings
@@ -93,7 +93,7 @@ public sealed class KissStreamFactoryTests
     [Fact]
     public async Task OpenAsync_NullTransport_ThrowsInvalidOperationException()
     {
-        var factory = new KissStreamFactory([new TcpKissStreamConnector()]);
+        KissStreamFactory factory = new([new TcpKissStreamConnector()]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => factory.OpenAsync(
             new KissSettings
@@ -103,17 +103,11 @@ public sealed class KissStreamFactoryTests
             TestContext.Current.CancellationToken));
     }
 
-    private sealed class StubConnector : IKissStreamConnector
+    private sealed class StubConnector(Type settingsType, bool isSupported) : IKissStreamConnector
     {
-        public StubConnector(Type settingsType, bool isSupported)
-        {
-            SettingsType = settingsType;
-            IsSupported = isSupported;
-        }
+        public Type SettingsType { get; } = settingsType;
 
-        public Type SettingsType { get; }
-
-        public bool IsSupported { get; }
+        public bool IsSupported { get; } = isSupported;
 
         public int ConnectCount { get; private set; }
 

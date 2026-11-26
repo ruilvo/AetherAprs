@@ -52,8 +52,8 @@ public sealed class DatabaseMaintenanceWorker : IDatabaseMaintenanceWorker, IDis
         ArgumentNullException.ThrowIfNull(storage);
         ArgumentNullException.ThrowIfNull(logger);
 
-        var effectiveInterval = interval ?? DefaultInterval;
-        var effectiveInitialDelay = initialDelay ?? DefaultInitialDelay;
+        TimeSpan effectiveInterval = interval ?? DefaultInterval;
+        TimeSpan effectiveInitialDelay = initialDelay ?? DefaultInitialDelay;
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(effectiveInterval, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(effectiveInitialDelay, TimeSpan.Zero);
 

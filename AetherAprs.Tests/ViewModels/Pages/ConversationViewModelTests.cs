@@ -25,9 +25,9 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void Initialize_ReflectsExistingMessages()
     {
-        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
-        var messageService = new FakeMessageService();
-        var thread = messageService.GetOrCreateConversation(peer);
+        AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
+        FakeMessageService messageService = new();
+        ConversationThread thread = messageService.GetOrCreateConversation(peer);
         thread.Messages.Add(new StoredMessage
         {
             Peer = peer,
@@ -36,21 +36,21 @@ public sealed class ConversationViewModelTests : TestFixtureBase
             IsOutbound = false
         });
 
-        var vm = CreateViewModel(messageService);
+        ConversationViewModel vm = CreateViewModel(messageService);
         vm.Initialize(peer);
 
         Assert.Equal("K0PEER-1", vm.Title);
         Assert.False(vm.IsDestinationEditable);
-        Assert.Single(vm.Messages);
-        Assert.Equal("Hello", vm.Messages[0].Text);
+        StoredMessage item = Assert.Single(vm.Messages);
+        Assert.Equal("Hello", item.Text);
     }
 
     [Fact]
     public void Initialize_SubscribesToInboundMessagesWhileOpen()
     {
-        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
-        var messageService = new FakeMessageService();
-        var vm = CreateViewModel(messageService);
+        AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
+        FakeMessageService messageService = new();
+        ConversationViewModel vm = CreateViewModel(messageService);
         vm.Initialize(peer);
 
         messageService.GetOrCreateConversation(peer).Messages.Add(new StoredMessage
@@ -61,14 +61,14 @@ public sealed class ConversationViewModelTests : TestFixtureBase
             IsOutbound = false
         });
 
-        Assert.Single(vm.Messages);
-        Assert.Equal("Inbound", vm.Messages[0].Text);
+        StoredMessage item = Assert.Single(vm.Messages);
+        Assert.Equal("Inbound", item.Text);
     }
 
     [Fact]
     public async Task SendAsync_RejectsInvalidDestination()
     {
-        var vm = CreateViewModel(new FakeMessageService());
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService());
         vm.InitializeNew();
         vm.DestinationAddress = "@@@";
         vm.MessageText = "Hi";
@@ -82,21 +82,21 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_ExistingConversation_PassesPeerTemplatesAndDestination()
     {
-        var peer = new AprsAddress("SOTA", 1);
-        var templateService = Substitute.For<IMessageTemplateService>();
-        var expectedTemplates = new List<MessageTemplate> { new() { Name = "SOTA spot" } };
+        AprsAddress peer = new("SOTA", 1);
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> expectedTemplates = [new() { Name = "SOTA spot" }];
         templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
 
-        var dialog = new MessageTemplateDialogViewModel();
-        var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
+        MessageTemplateDialogViewModel dialog = new();
+        IMessageTemplateDialogViewModelFactory templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
         templateDialogFactory
             .Create(Arg.Any<IReadOnlyList<MessageTemplate>>(), Arg.Any<string?>())
             .Returns(dialog);
 
-        var vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
         vm.Initialize(peer);
 
-        var result = vm.CreateTemplateDialog();
+        MessageTemplateDialogViewModel result = vm.CreateTemplateDialog();
 
         Assert.Same(dialog, result);
         templateDialogFactory.Received().Create(expectedTemplates, "SOTA-1");
@@ -105,20 +105,20 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_NewConversationWithoutDestination_PassesAllTemplatesAndNullDestination()
     {
-        var templateService = Substitute.For<IMessageTemplateService>();
-        var allTemplates = new List<MessageTemplate> { new() { Name = "Generic" } };
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> allTemplates = [new() { Name = "Generic" }];
         templateService.Templates.Returns(allTemplates);
 
-        var dialog = new MessageTemplateDialogViewModel();
-        var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
+        MessageTemplateDialogViewModel dialog = new();
+        IMessageTemplateDialogViewModelFactory templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
         templateDialogFactory
             .Create(Arg.Any<IReadOnlyList<MessageTemplate>>(), Arg.Any<string?>())
             .Returns(dialog);
 
-        var vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
         vm.InitializeNew();
 
-        var result = vm.CreateTemplateDialog();
+        MessageTemplateDialogViewModel result = vm.CreateTemplateDialog();
 
         Assert.Same(dialog, result);
         templateDialogFactory.Received().Create(allTemplates, null);
@@ -127,22 +127,22 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_NewConversationWithTypedDestination_PassesPeerTemplatesAndNullDestination()
     {
-        var peer = new AprsAddress("K0PEER");
-        var templateService = Substitute.For<IMessageTemplateService>();
-        var expectedTemplates = new List<MessageTemplate> { new() { Name = "Peer spot" } };
+        AprsAddress peer = new("K0PEER");
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> expectedTemplates = [new() { Name = "Peer spot" }];
         templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
 
-        var dialog = new MessageTemplateDialogViewModel();
-        var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
+        MessageTemplateDialogViewModel dialog = new();
+        IMessageTemplateDialogViewModelFactory templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
         templateDialogFactory
             .Create(Arg.Any<IReadOnlyList<MessageTemplate>>(), Arg.Any<string?>())
             .Returns(dialog);
 
-        var vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
         vm.InitializeNew();
         vm.DestinationAddress = "K0PEER";
 
-        var result = vm.CreateTemplateDialog();
+        MessageTemplateDialogViewModel result = vm.CreateTemplateDialog();
 
         Assert.Same(dialog, result);
         templateDialogFactory.Received().Create(expectedTemplates, null);
@@ -151,22 +151,22 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_NewConversationWithTypedTacticalAddress_ScopesTemplatesToIt()
     {
-        var peer = new AprsAddress("APRS2SOTA");
-        var templateService = Substitute.For<IMessageTemplateService>();
-        var expectedTemplates = new List<MessageTemplate> { new() { Name = "SOTA spot" } };
+        AprsAddress peer = new("APRS2SOTA");
+        IMessageTemplateService templateService = Substitute.For<IMessageTemplateService>();
+        List<MessageTemplate> expectedTemplates = [new() { Name = "SOTA spot" }];
         templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
 
-        var dialog = new MessageTemplateDialogViewModel();
-        var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
+        MessageTemplateDialogViewModel dialog = new();
+        IMessageTemplateDialogViewModelFactory templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
         templateDialogFactory
             .Create(Arg.Any<IReadOnlyList<MessageTemplate>>(), Arg.Any<string?>())
             .Returns(dialog);
 
-        var vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
         vm.InitializeNew();
         vm.DestinationAddress = "APRS2SOTA";
 
-        var result = vm.CreateTemplateDialog();
+        MessageTemplateDialogViewModel result = vm.CreateTemplateDialog();
 
         Assert.Same(dialog, result);
         templateService.Received(1).GetTemplatesForPeer(peer);
@@ -176,7 +176,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void ApplyTemplateResult_EditableDestination_SetsMessageTextAndDestination()
     {
-        var vm = CreateViewModel(new FakeMessageService());
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService());
         vm.InitializeNew();
 
         vm.ApplyTemplateResult(new MessageTemplateDialogResult("Summit report", "W7SUM"));
@@ -188,8 +188,8 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void ApplyTemplateResult_LockedDestination_SetsOnlyMessageText()
     {
-        var peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
-        var vm = CreateViewModel(new FakeMessageService());
+        AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
+        ConversationViewModel vm = CreateViewModel(new FakeMessageService());
         vm.Initialize(peer);
 
         vm.ApplyTemplateResult(new MessageTemplateDialogResult("Summit report", "W7SUM"));
@@ -201,37 +201,34 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     private static ConversationViewModel CreateViewModel(
         IMessageService messageService,
         IMessageTemplateService? templateService = null,
-        IMessageTemplateDialogViewModelFactory? templateDialogFactory = null)
-    {
-        return new ConversationViewModel(
+        IMessageTemplateDialogViewModelFactory? templateDialogFactory = null) => new(
             messageService,
             templateService ?? Substitute.For<IMessageTemplateService>(),
             templateDialogFactory ?? Substitute.For<IMessageTemplateDialogViewModelFactory>(),
             NullLogger<ConversationViewModel>.Instance);
-    }
 
     private sealed class FakeMessageService : IMessageService
     {
-        private readonly ObservableCollection<ConversationThread> _conversations = new();
+        private readonly ObservableCollection<ConversationThread> _conversations = [];
 
         public ObservableCollection<ConversationThread> Conversations => _conversations;
 
         public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
-            foreach (var existing in _conversations)
+            foreach (ConversationThread existing in _conversations)
             {
                 if (existing.Peer.Equals(peer))
                     return existing;
             }
 
-            var thread = new ConversationThread(peer);
+            ConversationThread thread = new(peer);
             _conversations.Add(thread);
             return thread;
         }
 
         public Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default)
         {
-            var thread = GetOrCreateConversation(addressee);
+            ConversationThread thread = GetOrCreateConversation(addressee);
             thread.Messages.Add(new StoredMessage
             {
                 Peer = addressee,

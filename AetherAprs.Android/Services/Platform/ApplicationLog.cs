@@ -4,6 +4,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Threading;
 
 namespace AetherAprs.Android.Services.Platform;
@@ -42,7 +43,7 @@ public static class ApplicationLog
     {
         get
         {
-            var factory = Volatile.Read(ref _containerFactory);
+            ILoggerFactory? factory = Volatile.Read(ref _containerFactory);
             if (factory != null)
             {
                 return factory;
@@ -50,7 +51,7 @@ public static class ApplicationLog
 
             // The provider is unset until Avalonia finishes framework
             // initialization, and an activity can log before that.
-            var provider = (Avalonia.Application.Current as AetherAprs.App)?.ServiceProvider;
+            IServiceProvider? provider = (Avalonia.Application.Current as AetherAprs.App)?.ServiceProvider;
             if (provider?.GetService(typeof(ILoggerFactory)) is ILoggerFactory resolved)
             {
                 Volatile.Write(ref _containerFactory, resolved);

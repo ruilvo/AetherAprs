@@ -34,15 +34,15 @@ internal sealed class TempAppDatabase : IDisposable
 
     public static TempAppDatabase Create(params PortConfig[] ports)
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         System.IO.Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
-        var factory = new TestAppDbContextFactory(path);
+        string path = Path.Combine(directory, AppDbContext.DatabaseFileName);
+        TestAppDbContextFactory factory = new(path);
         try
         {
-            using var db = factory.CreateDbContext();
+            using AppDbContext db = factory.CreateDbContext();
             db.Database.EnsureCreated();
-            foreach (var port in ports)
+            foreach (PortConfig port in ports)
             {
                 db.Ports.Add(PortRecordMapper.ToRecord(port));
             }
@@ -60,21 +60,19 @@ internal sealed class TempAppDatabase : IDisposable
 
     public static TempAppDatabase CreateEmpty()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
+        string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         System.IO.Directory.CreateDirectory(directory);
-        var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
+        string path = Path.Combine(directory, AppDbContext.DatabaseFileName);
         return new TempAppDatabase(directory, new TestAppDbContextFactory(path));
     }
 
     public AppDbContext CreateContext() => Factory.CreateDbContext();
 
-    public void Dispose()
-    {
+    public void Dispose() =>
         // Idle pooled connections and in-flight background writes can keep the
         // SQLite file open, which makes the recursive delete fail on Windows.
         // Close idle pools, then retry briefly until the handle is released.
         DeleteDirectory(Directory);
-    }
 
     private static void DeleteDirectory(string directory)
     {
@@ -85,7 +83,7 @@ internal sealed class TempAppDatabase : IDisposable
             return;
         }
 
-        for (var attempt = 1; attempt <= DeleteAttempts; attempt++)
+        for (int attempt = 1; attempt <= DeleteAttempts; attempt++)
         {
             try
             {

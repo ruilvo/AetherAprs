@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -47,15 +47,15 @@ public static class DesignData
     private static readonly ServiceProvider _serviceProvider = CreateDesignTimeServiceProvider();
     private static ServiceProvider CreateDesignTimeServiceProvider()
     {
-        var services = new ServiceCollection();
+        ServiceCollection services = new();
 
         // Register services required by ViewModels
         services.AddSingleton<IAppDataDirProviderService, DesignTimeAppDataDirProviderService>();
         services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
         services.AddDbContextFactory<AppDbContext>((sp, options) =>
         {
-            var directory = sp.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
-            var path = Path.Combine(directory, AppDbContext.DatabaseFileName);
+            string directory = sp.GetRequiredService<IAppDataDirProviderService>().GetAppDataDirectory();
+            string path = Path.Combine(directory, AppDbContext.DatabaseFileName);
             options.UseSqlite($"Data Source={path}");
         });
         services.AddSingleton<AppSavedDataInitializer>();
@@ -167,7 +167,7 @@ public static class DesignData
 
         // The designer uses the same validation as the application so a broken
         // registration fails while designing a page instead of on a device.
-        var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
             ValidateScopes = true
@@ -186,17 +186,15 @@ public static class DesignData
 
         public Task<bool> RequestLocationPermissionAsync() => Task.FromResult(true);
 
-        public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default)
-        {
+        public Task<LocationData> GetCurrentLocationAsync(CancellationToken cancellationToken = default) =>
             // Return a fake location (Lisbon, Portugal coordinates as example)
-            return Task.FromResult(new LocationData
+            Task.FromResult(new LocationData
             {
                 Location = new Geo.Coordinate(38.7223, -9.1393),
                 Altitude = 100,
                 Accuracy = 10,
                 Timestamp = DateTimeOffset.Now
             });
-        }
     }
 
     /// <summary>
@@ -324,8 +322,8 @@ public static class DesignData
     {
         get
         {
-            var templateService = _serviceProvider.GetRequiredService<IMessageTemplateService>();
-            var factory = _serviceProvider.GetRequiredService<IMessageTemplateDialogViewModelFactory>();
+            IMessageTemplateService templateService = _serviceProvider.GetRequiredService<IMessageTemplateService>();
+            IMessageTemplateDialogViewModelFactory factory = _serviceProvider.GetRequiredService<IMessageTemplateDialogViewModelFactory>();
             return factory.Create(templateService.Templates, null);
         }
     }
@@ -349,7 +347,7 @@ public static class DesignData
     {
         get
         {
-            var symbolBitmapProvider = _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>();
+            IAprsSymbolBitmapProvider symbolBitmapProvider = _serviceProvider.GetRequiredService<IAprsSymbolBitmapProvider>();
             return new SymbolSelectorViewModel(symbolBitmapProvider, SymbolTable.Primary, SymbolCode.LeftSquareBracket);
         }
     }
@@ -358,9 +356,9 @@ public static class DesignData
     {
         get
         {
-            var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
-            var callsign = configService.Current.Aprs.Callsign;
-            var vm = new AddEditPortViewModel(
+            IConfigurationService configService = _serviceProvider.GetRequiredService<IConfigurationService>();
+            string callsign = configService.Current.Aprs.Callsign;
+            AddEditPortViewModel vm = new(
                 _serviceProvider.GetRequiredService<INavigationService>(),
                 _serviceProvider.GetRequiredService<IPortService>(),
                 _serviceProvider.GetRequiredService<IKissStreamFactory>(),

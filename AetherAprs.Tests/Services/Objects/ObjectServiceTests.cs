@@ -33,10 +33,10 @@ public sealed class ObjectServiceTests
     [Fact]
     public async Task CreateOrUpdateAsync_TransmitsLiveObjectOnTxPorts_AndStores()
     {
-        var port = CreateTxPort();
-        var portService = new FakePortService(port);
-        var storage = Substitute.For<IPacketStorageService>();
-        var service = CreateObjectService(portService, storage);
+        PortConfig port = CreateTxPort();
+        FakePortService portService = new(port);
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        ObjectService service = CreateObjectService(portService, storage);
 
         await service.CreateOrUpdateAsync(
             "OBJ1",
@@ -46,8 +46,8 @@ public sealed class ObjectServiceTests
             comment: "Test object",
             cancellationToken: TestContext.Current.CancellationToken);
 
-        var sent = Assert.Single(portService.SentPackets);
-        var packet = Assert.IsType<ObjectPacket>(sent);
+        AprsPacket sent = Assert.Single(portService.SentPackets);
+        ObjectPacket packet = Assert.IsType<ObjectPacket>(sent);
         Assert.Equal("OBJ1", packet.Name);
         Assert.True(packet.IsLive);
         Assert.Equal(38.5, packet.Location.Latitude);
@@ -65,7 +65,7 @@ public sealed class ObjectServiceTests
     [Fact]
     public async Task CreateOrUpdateAsync_NoTxPorts_Throws()
     {
-        var port = new PortConfig
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "RX-only",
@@ -74,7 +74,7 @@ public sealed class ObjectServiceTests
             IsRx = true,
             TypeSettings = new AprsIsSettings()
         };
-        var service = CreateObjectService(new FakePortService(port), Substitute.For<IPacketStorageService>());
+        ObjectService service = CreateObjectService(new FakePortService(port), Substitute.For<IPacketStorageService>());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.CreateOrUpdateAsync(
@@ -88,12 +88,12 @@ public sealed class ObjectServiceTests
     [Fact]
     public async Task KillAsync_TransmitsKilledObject_WithLastKnownPosition()
     {
-        var port = CreateTxPort();
-        var portService = new FakePortService(port);
-        var storage = Substitute.For<IPacketStorageService>();
+        PortConfig port = CreateTxPort();
+        FakePortService portService = new(port);
+        IPacketStorageService storage = Substitute.For<IPacketStorageService>();
 
         // Pre-populate the query service with a live object record.
-        var record = PacketRecordMapper.ToRecord(
+        PacketRecord record = PacketRecordMapper.ToRecord(
             new ObjectPacket
             {
                 Source = new Callsign("N0CALL", 1),
@@ -108,16 +108,16 @@ public sealed class ObjectServiceTests
             DateTimeOffset.UtcNow,
             isOutbound: true);
 
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetMostRecentObjectsAsync(Arg.Any<int>(), TestContext.Current.CancellationToken)
-            .Returns(new List<PacketRecord> { record });
+            .Returns([record]);
 
-        var service = CreateObjectService(portService, storage, query);
+        ObjectService service = CreateObjectService(portService, storage, query);
 
         await service.KillAsync("OBJ1", TestContext.Current.CancellationToken);
 
-        var sent = Assert.Single(portService.SentPackets);
-        var packet = Assert.IsType<ObjectPacket>(sent);
+        AprsPacket sent = Assert.Single(portService.SentPackets);
+        ObjectPacket packet = Assert.IsType<ObjectPacket>(sent);
         Assert.Equal("OBJ1", packet.Name);
         Assert.False(packet.IsLive);
         Assert.Equal(38.5, packet.Location.Latitude);
@@ -135,11 +135,11 @@ public sealed class ObjectServiceTests
     [Fact]
     public async Task KillAsync_UnknownName_Throws()
     {
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetMostRecentObjectsAsync(Arg.Any<int>(), TestContext.Current.CancellationToken)
-            .Returns(new List<PacketRecord>());
+            .Returns([]);
 
-        var service = CreateObjectService(
+        ObjectService service = CreateObjectService(
             new FakePortService(CreateTxPort()),
             Substitute.For<IPacketStorageService>(),
             query);
@@ -151,7 +151,7 @@ public sealed class ObjectServiceTests
     [Fact]
     public async Task GetObjectsAsync_ReturnsMappedPackets()
     {
-        var record = PacketRecordMapper.ToRecord(
+        PacketRecord record = PacketRecordMapper.ToRecord(
             new ObjectPacket
             {
                 Source = new Callsign("N0CALL", 1),
@@ -165,41 +165,38 @@ public sealed class ObjectServiceTests
             DateTimeOffset.UtcNow,
             isOutbound: false);
 
-        var query = Substitute.For<IPacketQueryService>();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetMostRecentObjectsAsync(Arg.Any<int>(), TestContext.Current.CancellationToken)
-            .Returns(new List<PacketRecord> { record });
+            .Returns([record]);
 
-        var service = CreateObjectService(
+        ObjectService service = CreateObjectService(
             new FakePortService(CreateTxPort()),
             Substitute.For<IPacketStorageService>(),
             query);
 
-        var objects = await service.GetObjectsAsync(TestContext.Current.CancellationToken);
+        IReadOnlyList<ObjectPacket> objects = await service.GetObjectsAsync(TestContext.Current.CancellationToken);
 
-        var packet = Assert.Single(objects);
+        ObjectPacket packet = Assert.Single(objects);
         Assert.Equal("OBJ1", packet.Name);
         Assert.False(packet.IsLive);
     }
 
-    private static PortConfig CreateTxPort()
+    private static PortConfig CreateTxPort() => new()
     {
-        return new PortConfig
-        {
-            Id = Guid.NewGuid(),
-            Name = "TX",
-            IsEnabled = true,
-            IsTx = true,
-            IsRx = true,
-            TypeSettings = new AprsIsSettings()
-        };
-    }
+        Id = Guid.NewGuid(),
+        Name = "TX",
+        IsEnabled = true,
+        IsTx = true,
+        IsRx = true,
+        TypeSettings = new AprsIsSettings()
+    };
 
     private static ObjectService CreateObjectService(
         IPortService portService,
         IPacketStorageService storage,
         IPacketQueryService? query = null)
     {
-        var configuration = Substitute.For<IConfigurationService>();
+        IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
@@ -209,7 +206,7 @@ public sealed class ObjectServiceTests
             }
         });
 
-        var resolver = Substitute.For<IAprsPortSettingsResolver>();
+        IAprsPortSettingsResolver resolver = Substitute.For<IAprsPortSettingsResolver>();
         resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
 
         return new ObjectService(
@@ -222,14 +219,9 @@ public sealed class ObjectServiceTests
             NullLogger<ObjectService>.Instance);
     }
 
-    private sealed class FakePortService : IPortService
+    private sealed class FakePortService(params PortConfig[] ports) : IPortService
     {
-        private readonly List<PortConfig> _ports;
-
-        public FakePortService(params PortConfig[] ports)
-        {
-            _ports = [.. ports];
-        }
+        private readonly List<PortConfig> _ports = [.. ports];
 
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged
@@ -267,24 +259,19 @@ public sealed class ObjectServiceTests
             SymbolTable symbolTable,
             SymbolCode symbolCode,
             double? course = null,
-            string? comment = null)
-        {
-            return new PositionPacket
+            string? comment = null) => new()
             {
                 Source = Parse(callsign),
                 Destination = new Callsign("APRS"),
                 Location = location.Location,
                 Symbol = new Symbol(symbolTable, symbolCode)
             };
-        }
 
         public MessagePacket CreateMessagePacket(
             string sourceCallsign,
             AprsAddress addressee,
             string messageText,
-            int? messageNumber = null)
-        {
-            return new MessagePacket
+            int? messageNumber = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -292,35 +279,28 @@ public sealed class ObjectServiceTests
                 Text = messageText,
                 MessageNumber = messageNumber
             };
-        }
 
         public MessageAckPacket CreateAckPacket(
             string sourceCallsign,
             AprsAddress addressee,
-            int messageNumber)
-        {
-            return new MessageAckPacket
+            int messageNumber) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
                 MessageNumber = messageNumber
             };
-        }
 
         public MessageRejPacket CreateRejPacket(
             string sourceCallsign,
             AprsAddress addressee,
-            int messageNumber)
-        {
-            return new MessageRejPacket
+            int messageNumber) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
                 Addressee = addressee,
                 MessageNumber = messageNumber
             };
-        }
 
         public ObjectPacket CreateObjectPacket(
             string sourceCallsign,
@@ -329,9 +309,7 @@ public sealed class ObjectServiceTests
             SymbolTable symbolTable,
             SymbolCode symbolCode,
             bool isLive = true,
-            string? comment = null)
-        {
-            return new ObjectPacket
+            string? comment = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -341,7 +319,6 @@ public sealed class ObjectServiceTests
                 Symbol = new Symbol(symbolTable, symbolCode),
                 Comment = comment
             };
-        }
 
         public ItemPacket CreateItemPacket(
             string sourceCallsign,
@@ -350,9 +327,7 @@ public sealed class ObjectServiceTests
             SymbolTable symbolTable,
             SymbolCode symbolCode,
             bool isLive = true,
-            string? comment = null)
-        {
-            return new ItemPacket
+            string? comment = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -362,15 +337,12 @@ public sealed class ObjectServiceTests
                 Symbol = new Symbol(symbolTable, symbolCode),
                 Comment = comment
             };
-        }
 
         public BulletinPacket CreateBulletinPacket(
             string sourceCallsign,
             string name,
             string text,
-            int? messageNumber = null)
-        {
-            return new BulletinPacket
+            int? messageNumber = null) => new()
             {
                 Source = Parse(sourceCallsign),
                 Destination = new Callsign("APRS"),
@@ -378,11 +350,10 @@ public sealed class ObjectServiceTests
                 Text = text,
                 MessageNumber = messageNumber
             };
-        }
 
         private static Callsign Parse(string callsign)
         {
-            var parts = callsign.Split('-');
+            string[] parts = callsign.Split('-');
             return parts.Length > 1
                 ? new Callsign(parts[0], int.Parse(parts[1]))
                 : new Callsign(parts[0]);

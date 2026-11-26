@@ -25,12 +25,12 @@ public sealed class RestartResumeTests
     [Fact]
     public async Task Restart_RestoresNothingLiveBeforeTheArm()
     {
-        var port = CreatePort("KISS", enabled: true);
-        var store = new InMemorySessionStateStore(new SessionSnapshot(
+        PortConfig port = CreatePort("KISS", enabled: true);
+        InMemorySessionStateStore store = new(new SessionSnapshot(
             SessionLifecycleState.Running,
             [new PortSessionStatus(port.Id, PortSessionState.Connected)]));
 
-        await using var coordinator = CreateCoordinator(store);
+        await using SessionCoordinator coordinator = CreateCoordinator(store);
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
 
         // The previous process left a connected session on disk. The new process
@@ -43,26 +43,26 @@ public sealed class RestartResumeTests
     [Fact]
     public async Task Restart_ArmsOnlyThePortsThatAreEnabledNow()
     {
-        var stillEnabled = CreatePort("Still enabled", enabled: true);
-        var disabledSince = CreatePort("Previously running, now disabled", enabled: false);
-        var store = new InMemorySessionStateStore(new SessionSnapshot(
+        PortConfig stillEnabled = CreatePort("Still enabled", enabled: true);
+        PortConfig disabledSince = CreatePort("Previously running, now disabled", enabled: false);
+        InMemorySessionStateStore store = new(new SessionSnapshot(
             SessionLifecycleState.Running,
             [
                 new PortSessionStatus(stillEnabled.Id, PortSessionState.Connected),
                 new PortSessionStatus(disabledSince.Id, PortSessionState.Connected)
             ]));
 
-        var controller = Substitute.For<ISessionPortController>();
+        ISessionPortController controller = Substitute.For<ISessionPortController>();
         controller.ConnectAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        await using var coordinator = CreateCoordinator(store, controller);
-        var portService = CreatePortService(stillEnabled, disabledSince);
-        await using var bridge = new SessionCoordinatorTelemetryBridge(
+        await using SessionCoordinator coordinator = CreateCoordinator(store, controller);
+        IPortService portService = CreatePortService(stillEnabled, disabledSince);
+        await using SessionCoordinatorTelemetryBridge bridge = new(
             portService,
             coordinator,
             NullLogger<SessionCoordinatorTelemetryBridge>.Instance);
-        var startup = new SessionStartup(
+        SessionStartup startup = new(
             portService,
             coordinator,
             bridge,
@@ -100,7 +100,7 @@ public sealed class RestartResumeTests
 
     private static IPortService CreatePortService(params PortConfig[] ports)
     {
-        var portService = Substitute.For<IPortService, IPortServiceTelemetry>();
+        IPortService portService = Substitute.For<IPortService, IPortServiceTelemetry>();
         ((IPortService)portService).Ports.Returns(ports);
         return portService;
     }
@@ -116,7 +116,7 @@ public sealed class RestartResumeTests
 
     private static async Task EventuallyAsync(Func<bool> condition)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
         while (!condition())
         {
             if (DateTime.UtcNow > deadline)

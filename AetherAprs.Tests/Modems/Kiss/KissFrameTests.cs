@@ -16,7 +16,7 @@ public class KissFrameTests
     [Fact]
     public void Constructor_CommandAndData_PropertiesAreSet()
     {
-        var frame = new KissFrame(0x12, [0x01, 0x02]);
+        KissFrame frame = new(0x12, [0x01, 0x02]);
 
         Assert.Equal(0x12, frame.Command);
         Assert.Equal([0x01, 0x02], frame.Data);
@@ -25,7 +25,7 @@ public class KissFrameTests
     [Fact]
     public void Constructor_EmptyData_SetsEmptyArray()
     {
-        var frame = new KissFrame(0x00, []);
+        KissFrame frame = new(0x00, []);
 
         Assert.Empty(frame.Data);
     }
@@ -37,7 +37,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_DataFrame_ReturnsDataFrame()
     {
-        var frame = new KissFrame(0x00, []);
+        KissFrame frame = new(0x00, []);
 
         Assert.Equal(KissCommandType.DataFrame, frame.CommandType);
     }
@@ -45,7 +45,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_TXDelay_ReturnsTXDelay()
     {
-        var frame = new KissFrame(0x01, []);
+        KissFrame frame = new(0x01, []);
 
         Assert.Equal(KissCommandType.TXDelay, frame.CommandType);
     }
@@ -53,7 +53,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_Persistence_ReturnsPersistence()
     {
-        var frame = new KissFrame(0x02, []);
+        KissFrame frame = new(0x02, []);
 
         Assert.Equal(KissCommandType.Persistence, frame.CommandType);
     }
@@ -61,7 +61,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_SlotTime_ReturnsSlotTime()
     {
-        var frame = new KissFrame(0x03, []);
+        KissFrame frame = new(0x03, []);
 
         Assert.Equal(KissCommandType.SlotTime, frame.CommandType);
     }
@@ -69,7 +69,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_TXTail_ReturnsTXTail()
     {
-        var frame = new KissFrame(0x04, []);
+        KissFrame frame = new(0x04, []);
 
         Assert.Equal(KissCommandType.TXTail, frame.CommandType);
     }
@@ -77,7 +77,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_FullDuplex_ReturnsFullDuplex()
     {
-        var frame = new KissFrame(0x05, []);
+        KissFrame frame = new(0x05, []);
 
         Assert.Equal(KissCommandType.FullDuplex, frame.CommandType);
     }
@@ -85,7 +85,7 @@ public class KissFrameTests
     [Fact]
     public void CommandType_SetHardware_ReturnsSetHardware()
     {
-        var frame = new KissFrame(0x06, []);
+        KissFrame frame = new(0x06, []);
 
         Assert.Equal(KissCommandType.SetHardware, frame.CommandType);
     }
@@ -95,7 +95,7 @@ public class KissFrameTests
     {
         // Return (0xFF) uses all 8 bits. The CommandType property
         // extracts the lower 4 bits: 0xFF & 0x0F = 0x0F = KissCommandType.Return.
-        var frame = new KissFrame(0xFF, []);
+        KissFrame frame = new(0xFF, []);
 
         Assert.Equal(KissCommandType.Return, frame.CommandType);
     }
@@ -108,7 +108,7 @@ public class KissFrameTests
     public void CommandType_LowerBitsOnly_IgnoresUpperNibble()
     {
         // Upper nibble = 0xA, lower nibble = TXDelay (0x01)
-        var frame = new KissFrame(0xA1, []);
+        KissFrame frame = new(0xA1, []);
 
         Assert.Equal(KissCommandType.TXDelay, frame.CommandType);
     }
@@ -117,7 +117,7 @@ public class KissFrameTests
     public void CommandType_HighUpperNibble_IgnoresUpperNibble()
     {
         // Upper nibble = 0xF, lower nibble = DataFrame (0x00)
-        var frame = new KissFrame(0xF0, []);
+        KissFrame frame = new(0xF0, []);
 
         Assert.Equal(KissCommandType.DataFrame, frame.CommandType);
     }
@@ -129,7 +129,7 @@ public class KissFrameTests
     [Fact]
     public void Port_DefaultPort0_Returns0()
     {
-        var frame = new KissFrame(0x00, []);
+        KissFrame frame = new(0x00, []);
 
         Assert.Equal(0, frame.Port);
     }
@@ -137,7 +137,7 @@ public class KissFrameTests
     [Fact]
     public void Port_UpperNibbleSet_ReturnsPortNumber()
     {
-        var frame = new KissFrame(0x10, []);
+        KissFrame frame = new(0x10, []);
 
         Assert.Equal(1, frame.Port);
     }
@@ -145,7 +145,7 @@ public class KissFrameTests
     [Fact]
     public void Port_MaxPort_Returns15()
     {
-        var frame = new KissFrame(0xF0, []);
+        KissFrame frame = new(0xF0, []);
 
         Assert.Equal(15, frame.Port);
     }
@@ -154,7 +154,7 @@ public class KissFrameTests
     public void Port_OnlyExtractsUpperNibble_IgnoresLowerNibble()
     {
         // Port 3 (0x30) | TXDelay (0x01) = 0x31
-        var frame = new KissFrame(0x31, []);
+        KissFrame frame = new(0x31, []);
 
         Assert.Equal(3, frame.Port);
     }
@@ -163,7 +163,7 @@ public class KissFrameTests
     public void Port_CommandByteWithFullMask_ExtractsPortCorrectly()
     {
         // Port 7 (0x70) | Return (0x0F) -- not a standard value but tests the mask
-        var frame = new KissFrame(0x7F, []);
+        KissFrame frame = new(0x7F, []);
 
         Assert.Equal(7, frame.Port);
     }
@@ -176,7 +176,7 @@ public class KissFrameTests
     public void Frame_WithPortAndCommand_ExtractsBoth()
     {
         // Upper nibble = port 3, lower nibble = Persistence (0x02)
-        var frame = new KissFrame(0x32, []);
+        KissFrame frame = new(0x32, []);
 
         Assert.Equal(3, frame.Port);
         Assert.Equal(KissCommandType.Persistence, frame.CommandType);
@@ -187,7 +187,7 @@ public class KissFrameTests
     {
         // Return (0xFF) uses all 8 bits. The lower 4 bits extract 0x0F = 15,
         // and the upper 4 bits extract 0x0F = port 15.
-        var frame = new KissFrame(0xFF, []);
+        KissFrame frame = new(0xFF, []);
 
         Assert.Equal(15, frame.Port);
         Assert.Equal(KissCommandType.Return, frame.CommandType);
@@ -202,8 +202,8 @@ public class KissFrameTests
     {
         // KissFrame is a record struct. For reference type fields (byte[]),
         // equality uses reference equality, not structural equality.
-        var frame1 = new KissFrame(0x12, [0x01, 0x02]);
-        var frame2 = new KissFrame(0x12, [0x01, 0x02]);
+        KissFrame frame1 = new(0x12, [0x01, 0x02]);
+        KissFrame frame2 = new(0x12, [0x01, 0x02]);
 
         Assert.NotEqual(frame1, frame2);
     }
@@ -211,8 +211,8 @@ public class KissFrameTests
     [Fact]
     public void Equals_DifferentCommand_AreNotEqual()
     {
-        var frame1 = new KissFrame(0x00, [0x01]);
-        var frame2 = new KissFrame(0x01, [0x01]);
+        KissFrame frame1 = new(0x00, [0x01]);
+        KissFrame frame2 = new(0x01, [0x01]);
 
         Assert.NotEqual(frame1, frame2);
     }
@@ -220,8 +220,8 @@ public class KissFrameTests
     [Fact]
     public void Equals_DifferentData_AreNotEqual()
     {
-        var frame1 = new KissFrame(0x00, [0x01]);
-        var frame2 = new KissFrame(0x00, [0x02]);
+        KissFrame frame1 = new(0x00, [0x01]);
+        KissFrame frame2 = new(0x00, [0x02]);
 
         Assert.NotEqual(frame1, frame2);
     }
@@ -235,8 +235,8 @@ public class KissFrameTests
     {
         // record structs with mutable reference types: the Data array
         // is shared, not defensively copied
-        var data = new byte[] { 0x01, 0x02 };
-        var frame = new KissFrame(0x00, data);
+        byte[] data = [0x01, 0x02];
+        KissFrame frame = new(0x00, data);
 
         data[0] = 0xFF;
 

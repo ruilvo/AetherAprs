@@ -48,8 +48,8 @@ public sealed class MainViewModelTests
     [Fact]
     public void Constructor_NavigatesToHome()
     {
-        var navigation = new TestNavigationService();
-        var fixture = CreateFixture(navigation);
+        TestNavigationService navigation = new();
+        MainViewModel fixture = CreateFixture(navigation);
 
         Assert.Equal(typeof(HomeViewModel), navigation.LastNavigatedType);
         Assert.Equal(0, fixture.SelectedTabIndex);
@@ -59,8 +59,8 @@ public sealed class MainViewModelTests
     [Fact]
     public void SelectedTabIndex_WithoutOverlay_NavigatesToMappedTab()
     {
-        var navigation = new TestNavigationService();
-        var fixture = CreateFixture(navigation);
+        TestNavigationService navigation = new();
+        MainViewModel fixture = CreateFixture(navigation);
 
         fixture.SelectedTabIndex = 2;
 
@@ -70,8 +70,8 @@ public sealed class MainViewModelTests
     [Fact]
     public void SelectedTabIndex_WithOverlay_DoesNotNavigate()
     {
-        var navigation = new TestNavigationService();
-        var fixture = CreateFixture(navigation);
+        TestNavigationService navigation = new();
+        MainViewModel fixture = CreateFixture(navigation);
         navigation.RaiseCurrentChanged(new OverlayStubViewModel());
         navigation.LastNavigatedType = null;
 
@@ -84,8 +84,8 @@ public sealed class MainViewModelTests
     [Fact]
     public void NavigationToTabType_ClearsOverlayAndSetsTabIndex()
     {
-        var navigation = new TestNavigationService();
-        var fixture = CreateFixture(navigation);
+        TestNavigationService navigation = new();
+        MainViewModel fixture = CreateFixture(navigation);
         navigation.RaiseCurrentChanged(new OverlayStubViewModel());
 
         navigation.RaiseCurrentChanged(fixture.SettingsViewModel);
@@ -98,9 +98,9 @@ public sealed class MainViewModelTests
     [Fact]
     public void NavigationToNonTab_SetsOverlay()
     {
-        var navigation = new TestNavigationService();
-        var fixture = CreateFixture(navigation);
-        var overlay = new OverlayStubViewModel();
+        TestNavigationService navigation = new();
+        MainViewModel fixture = CreateFixture(navigation);
+        OverlayStubViewModel overlay = new();
 
         navigation.RaiseCurrentChanged(overlay);
 
@@ -110,10 +110,10 @@ public sealed class MainViewModelTests
 
     private static MainViewModel CreateFixture(TestNavigationService navigation)
     {
-        var portService = new EmptyPortService();
-        var configuration = new TestConfigurationService();
-        var messageService = new FakeMessageService();
-        var services = new ServiceCollection();
+        EmptyPortService portService = new();
+        TestConfigurationService configuration = new();
+        FakeMessageService messageService = new();
+        ServiceCollection services = new();
         services.AddSingleton<IMessageService>(messageService);
         services.AddSingleton<INavigationService>(navigation);
         services.AddLogging();
@@ -121,30 +121,29 @@ public sealed class MainViewModelTests
         services.AddSingleton(Substitute.For<IMessageTemplateDialogViewModelFactory>());
         services.AddTransient<ConversationViewModel>();
         services.AddSingleton<IConversationViewModelFactory, ConversationViewModelFactory>();
-        var provider = services.BuildServiceProvider();
-        var conversationFactory = provider.GetRequiredService<IConversationViewModelFactory>();
+        ServiceProvider provider = services.BuildServiceProvider();
+        IConversationViewModelFactory conversationFactory = provider.GetRequiredService<IConversationViewModelFactory>();
+        _ = Substitute.For<IDbContextFactory<AppDbContext>>();
+        TestSymbolBitmapProvider symbolProvider = new();
+        IPacketQueryService packetQuery = Substitute.For<IPacketQueryService>();
+        IPacketStorageService packetStorage = Substitute.For<IPacketStorageService>();
 
-        var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
-        var symbolProvider = new TestSymbolBitmapProvider();
-        var packetQuery = Substitute.For<IPacketQueryService>();
-        var packetStorage = Substitute.For<IPacketStorageService>();
-        
         // Use services instead of ViewModels
-        var receivedBeaconsMapLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
-        var locationTracking = Substitute.For<ILocationTrackingService>();
-        var beaconTransmission = Substitute.For<IBeaconTransmissionService>();
-        var userLocationLayer = Substitute.For<IUserLocationLayerService>();
+        IReceivedBeaconsMapLayerService receivedBeaconsMapLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        IBeaconTransmissionService beaconTransmission = Substitute.For<IBeaconTransmissionService>();
+        IUserLocationLayerService userLocationLayer = Substitute.For<IUserLocationLayerService>();
 
-        var mapViewModel = new MapViewModel(userLocationLayer);
+        MapViewModel mapViewModel = new(userLocationLayer);
 
-        var packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
-        var objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
-        var navigationService = Substitute.For<INavigationService>();
+        IPacketDetailsViewModelFactory packetDetailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
+        IObjectDetailsViewModelFactory objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
+        INavigationService navigationService = Substitute.For<INavigationService>();
 
-        var mapTileSource = Substitute.For<IMapTileSourceService>();
+        IMapTileSourceService mapTileSource = Substitute.For<IMapTileSourceService>();
         mapTileSource.CreateBaseMapLayer().Returns(Substitute.For<ILayer>());
 
-        var home = new HomeViewModel(
+        HomeViewModel home = new(
             locationTracking,
             beaconTransmission,
             userLocationLayer,
@@ -159,15 +158,15 @@ public sealed class MainViewModelTests
             new PermissionAttentionService(),
             Substitute.For<IPermissionService>(),
             NullLogger<HomeViewModel>.Instance);
-        var messages = new MessagesViewModel(messageService, navigation, conversationFactory,
+        MessagesViewModel messages = new(messageService, navigation, conversationFactory,
             new BulletinsViewModel(
                 Substitute.For<IBulletinService>(),
                 navigation));
-        
-        var filterService = Substitute.For<IPacketViewFilterService>();
+
+        IPacketViewFilterService filterService = Substitute.For<IPacketViewFilterService>();
         filterService.GetCutoffTime().Returns((DateTimeOffset?)null);
-        
-        var packets = new PacketsViewModel(
+
+        PacketsViewModel packets = new(
             packetQuery,
             packetStorage,
             navigation,
@@ -187,10 +186,10 @@ public sealed class MainViewModelTests
                 navigation,
                 packetDetailsFactory,
                 Substitute.For<IObjectDetailsViewModelFactory>()));
-        var factory = Substitute.For<IAddEditPortViewModelFactory>();
-        var ports = new PortsViewModel(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
-        var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);
-        var settings = new SettingsViewModel(
+        IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
+        PortsViewModel ports = new(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
+        AprsSymbolPickerViewModel symbolPicker = new(symbolProvider);
+        SettingsViewModel settings = new(
             configuration, navigation, symbolPicker, new MessageTemplatesViewModel(
                 Substitute.For<IMessageTemplateService>(),
                 Substitute.For<IConfirmationDialogService>(),
@@ -213,10 +212,7 @@ public sealed class MainViewModelTests
         public event EventHandler? RequestAppExit;
 #pragma warning restore CS0067
 
-        public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase
-        {
-            LastNavigatedType = typeof(TViewModel);
-        }
+        public void NavigateTo<TViewModel>() where TViewModel : ViewModelBase => LastNavigatedType = typeof(TViewModel);
 
         public void NavigateTo(ViewModelBase viewModel)
         {
@@ -237,7 +233,7 @@ public sealed class MainViewModelTests
 
     private sealed class EmptyPortService : IPortService
     {
-        public IReadOnlyList<PortConfig> Ports { get; } = Array.Empty<PortConfig>();
+        public IReadOnlyList<PortConfig> Ports { get; } = [];
 #pragma warning disable CS0067
         public event EventHandler? PortsChanged;
         public event EventHandler<PortPacketReceivedEventArgs>? PacketReceived;
@@ -272,11 +268,11 @@ public sealed class MainViewModelTests
 
     private sealed class FakeMessageService : IMessageService
     {
-        public ObservableCollection<ConversationThread> Conversations { get; } = new();
+        public ObservableCollection<ConversationThread> Conversations { get; } = [];
 
         public ConversationThread GetOrCreateConversation(AprsAddress peer)
         {
-            var thread = new ConversationThread(peer);
+            ConversationThread thread = new(peer);
             Conversations.Add(thread);
             return thread;
         }

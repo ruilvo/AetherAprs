@@ -45,13 +45,13 @@ public sealed class MbTilesTileSource : ILocalTileSource
             Pooling = false
         }.ToString();
 
-        var metadata = ReadMetadata(_connectionString);
+        Dictionary<string, string> metadata = ReadMetadata(_connectionString);
 
-        var format = GetString(metadata, "format") ?? DefaultFormat;
-        var name = GetString(metadata, "name");
-        var attribution = GetString(metadata, "attribution");
-        var zoomLevels = ReadZoomLevels(metadata);
-        var extent = ReadExtent(metadata);
+        string format = GetString(metadata, "format") ?? DefaultFormat;
+        string? name = GetString(metadata, "name");
+        string? attribution = GetString(metadata, "attribution");
+        int[]? zoomLevels = ReadZoomLevels(metadata);
+        Extent extent = ReadExtent(metadata);
 
         Schema = new GlobalSphericalMercator(format, YAxis.TMS, zoomLevels, name, extent);
         Name = name ?? string.Empty;
@@ -70,32 +70,32 @@ public sealed class MbTilesTileSource : ILocalTileSource
     /// <inheritdoc />
     public async Task<byte[]?> GetTileAsync(TileInfo tileInfo)
     {
-        var index = tileInfo.Index;
+        TileIndex index = tileInfo.Index;
 
-        await using var connection = new SqliteConnection(_connectionString);
+        await using SqliteConnection connection = new(_connectionString);
         await connection.OpenAsync().ConfigureAwait(false);
 
-        await using var command = connection.CreateCommand();
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText =
             "SELECT tile_data FROM tiles WHERE zoom_level = $zoom AND tile_column = $column AND tile_row = $row;";
         command.Parameters.AddWithValue("$zoom", index.Level);
         command.Parameters.AddWithValue("$column", index.Col);
         command.Parameters.AddWithValue("$row", index.Row);
 
-        var result = await command.ExecuteScalarAsync().ConfigureAwait(false);
+        object? result = await command.ExecuteScalarAsync().ConfigureAwait(false);
         return result is byte[] data && data.Length > 0 ? data : null;
     }
 
     private static Dictionary<string, string> ReadMetadata(string connectionString)
     {
-        using var connection = new SqliteConnection(connectionString);
+        using SqliteConnection connection = new(connectionString);
         connection.Open();
 
-        using var command = connection.CreateCommand();
+        using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT name, value FROM metadata;";
 
-        using var reader = command.ExecuteReader();
-        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using SqliteDataReader reader = command.ExecuteReader();
+        Dictionary<string, string> metadata = [with(StringComparer.OrdinalIgnoreCase)];
         while (reader.Read())
         {
             metadata[reader.GetString(0)] = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
@@ -105,41 +105,41 @@ public sealed class MbTilesTileSource : ILocalTileSource
     }
 
     private static string? GetString(IReadOnlyDictionary<string, string> metadata, string key) =>
-        metadata.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value) ? value : null;
+        metadata.TryGetValue(key, out string? value) && !string.IsNullOrWhiteSpace(value) ? value : null;
 
     private static int[]? ReadZoomLevels(IReadOnlyDictionary<string, string> metadata)
     {
-        if (!int.TryParse(GetString(metadata, "minzoom"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var min) ||
-            !int.TryParse(GetString(metadata, "maxzoom"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var max) ||
+        if (!int.TryParse(GetString(metadata, "minzoom"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int min) ||
+            !int.TryParse(GetString(metadata, "maxzoom"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int max) ||
             min > max)
         {
             return null;
         }
 
-        return Enumerable.Range(min, max - min + 1).ToArray();
+        return [.. Enumerable.Range(min, max - min + 1)];
     }
 
     private static Extent ReadExtent(IReadOnlyDictionary<string, string> metadata)
     {
-        var bounds = GetString(metadata, "bounds");
+        string? bounds = GetString(metadata, "bounds");
         if (bounds is null)
         {
             return default;
         }
 
         // MBTiles bounds are "minLon,minLat,maxLon,maxLat" in WGS84.
-        var parts = bounds.Split(',');
+        string[] parts = bounds.Split(',');
         if (parts.Length != 4 ||
-            !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var minLon) ||
-            !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var minLat) ||
-            !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var maxLon) ||
-            !double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var maxLat))
+            !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double minLon) ||
+            !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double minLat) ||
+            !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double maxLon) ||
+            !double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double maxLat))
         {
             return default;
         }
 
-        var (minX, minY) = SphericalMercator.FromLonLat(minLon, minLat);
-        var (maxX, maxY) = SphericalMercator.FromLonLat(maxLon, maxLat);
+        (double minX, double minY) = SphericalMercator.FromLonLat(minLon, minLat);
+        (double maxX, double maxY) = SphericalMercator.FromLonLat(maxLon, maxLat);
         return new Extent(minX, minY, maxX, maxY);
     }
 }

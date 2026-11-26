@@ -22,30 +22,25 @@ namespace AetherAprs.Tests.Modems.Kiss;
 /// <see cref="Events"/> make that ordering assertable: a correct stop records
 /// <c>dispose</c> before <c>unwound</c>.
 /// </remarks>
-internal sealed class BlockingRfcommStream : Stream
+/// <remarks>
+/// Creates the double.
+/// </remarks>
+/// <param name="unwindsOnClose">
+/// <see langword="true"/> closes the read like a real socket does;
+/// <see langword="false"/> models a native read that stays wedged even after
+/// the handle is closed, which the modem's bounded wait must survive.
+/// </param>
+internal sealed class BlockingRfcommStream(bool unwindsOnClose = true) : Stream
 {
     private static readonly Task NeverCompletes = new TaskCompletionSource().Task;
 
-    private readonly bool _unwindsOnClose;
+    private readonly bool _unwindsOnClose = unwindsOnClose;
     private readonly Lock _gate = new();
     private readonly List<string> _events = [];
     private readonly TaskCompletionSource _readStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _unblocked = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TaskCompletionSource _readFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int _disposed;
-
-    /// <summary>
-    /// Creates the double.
-    /// </summary>
-    /// <param name="unwindsOnClose">
-    /// <see langword="true"/> closes the read like a real socket does;
-    /// <see langword="false"/> models a native read that stays wedged even after
-    /// the handle is closed, which the modem's bounded wait must survive.
-    /// </param>
-    public BlockingRfcommStream(bool unwindsOnClose = true)
-    {
-        _unwindsOnClose = unwindsOnClose;
-    }
 
     /// <summary>The call order recorded by the double, oldest first.</summary>
     public IReadOnlyList<string> Events

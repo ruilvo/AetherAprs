@@ -19,7 +19,7 @@ public sealed class DiagnosticsTests
     [Fact]
     public void EventStore_IsBounded_AndRedactsSensitiveValues()
     {
-        var store = new BoundedDiagnosticEventStore(maximumEvents: 2);
+        BoundedDiagnosticEventStore store = new(maximumEvents: 2);
 
         store.Record(
             "transport",
@@ -29,7 +29,7 @@ public sealed class DiagnosticsTests
         store.Record("session", DiagnosticSeverity.Information, "Running", "safe");
         store.Record("session", DiagnosticSeverity.Warning, "Degraded", "latest");
 
-        var events = store.Events;
+        IReadOnlyList<DiagnosticEvent> events = store.Events;
         Assert.Equal(2, events.Count);
         Assert.DoesNotContain(events, item => item.Reason.Contains("secret123", StringComparison.Ordinal));
         Assert.DoesNotContain(events, item => item.Reason.Contains("private message", StringComparison.Ordinal));
@@ -39,21 +39,21 @@ public sealed class DiagnosticsTests
     [Fact]
     public async Task SupportReport_ExcludesCredentialsPacketHistoryAndMessageText()
     {
-        var portId = Guid.NewGuid();
-        var store = new BoundedDiagnosticEventStore();
+        Guid portId = Guid.NewGuid();
+        BoundedDiagnosticEventStore store = new();
         store.Record(
             "transport",
             DiagnosticSeverity.Error,
             "Faulted",
             "password=topsecret N0CALL>APRS:do not export");
 
-        await using var coordinator = new SessionCoordinator(
+        await using SessionCoordinator coordinator = new(
             new FakePortController(),
             new FakeStateStore());
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
         await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
 
-        var report = new RedactedSupportReportService(store, coordinator).GenerateJson();
+        string report = new RedactedSupportReportService(store, coordinator).GenerateJson();
 
         Assert.Contains("\"schemaVersion\": 1", report, StringComparison.Ordinal);
         Assert.Contains("Faulted", report, StringComparison.Ordinal);
@@ -67,8 +67,8 @@ public sealed class DiagnosticsTests
     [Fact]
     public async Task SupportReport_IncludesAndroidLifecycleSnapshot_WithoutSensitiveValues()
     {
-        var store = new BoundedDiagnosticEventStore();
-        var lifecycle = new AndroidLifecycleState();
+        BoundedDiagnosticEventStore store = new();
+        AndroidLifecycleState lifecycle = new();
         lifecycle.ProcessStarted();
         lifecycle.ActivityCreated();
         lifecycle.ActivityResumed();
@@ -78,12 +78,12 @@ public sealed class DiagnosticsTests
         lifecycle.PermissionResult(AndroidPermission.Location, granted: true);
         lifecycle.PermissionResult(AndroidPermission.Notifications, granted: false);
 
-        await using var coordinator = new SessionCoordinator(
+        await using SessionCoordinator coordinator = new(
             new FakePortController(),
             new FakeStateStore());
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
 
-        var report = new RedactedSupportReportService(
+        string report = new RedactedSupportReportService(
             store,
             coordinator,
             portTelemetry: null,
@@ -101,11 +101,11 @@ public sealed class DiagnosticsTests
     [Fact]
     public async Task SupportReport_OmitsLifecycleSection_WhenStateIsNotProvided()
     {
-        await using var coordinator = new SessionCoordinator(
+        await using SessionCoordinator coordinator = new(
             new FakePortController(),
             new FakeStateStore());
 
-        var report = new RedactedSupportReportService(
+        string report = new RedactedSupportReportService(
             new BoundedDiagnosticEventStore(),
             coordinator).GenerateJson();
 
@@ -115,16 +115,16 @@ public sealed class DiagnosticsTests
     [Fact]
     public async Task SupportReport_IncludesTheKeepAliveHoldState()
     {
-        using var keepAlive = new KeepAliveService(
+        using KeepAliveService keepAlive = new(
             new StubForegroundService(),
             NullLogger<KeepAliveService>.Instance);
         await keepAlive.AcquireAsync(KeepAliveReason.LocationTracking);
 
-        await using var coordinator = new SessionCoordinator(
+        await using SessionCoordinator coordinator = new(
             new FakePortController(),
             new FakeStateStore());
 
-        var report = new RedactedSupportReportService(
+        string report = new RedactedSupportReportService(
             new BoundedDiagnosticEventStore(),
             coordinator,
             keepAlive: keepAlive).GenerateJson();

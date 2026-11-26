@@ -16,9 +16,9 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public async Task Publish_WhenTheConsumerFallsBehind_KeepsTheNewestAdvertisements()
     {
-        var buffer = new BluetoothAdvertisementBuffer(capacity: 3);
+        BluetoothAdvertisementBuffer buffer = new(capacity: 3);
 
-        for (var index = 1; index <= 5; index++)
+        for (int index = 1; index <= 5; index++)
         {
             buffer.Publish(Ad($"DEVICE-{index}"));
         }
@@ -26,12 +26,12 @@ public sealed class BluetoothAdvertisementBufferTests
         Assert.Equal(3, buffer.Capacity);
         Assert.Equal(2, buffer.DroppedCount);
 
-        var retained = new[]
-        {
+        BluetoothLeAdvertisement[] retained =
+        [
             await ReadAsync(buffer),
             await ReadAsync(buffer),
             await ReadAsync(buffer)
-        };
+        ];
 
         Assert.Equal(["DEVICE-3", "DEVICE-4", "DEVICE-5"], Array.ConvertAll(retained, ad => ad.Address));
     }
@@ -39,7 +39,7 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public async Task Publish_BelowCapacity_DropsNothing()
     {
-        var buffer = new BluetoothAdvertisementBuffer(capacity: 3);
+        BluetoothAdvertisementBuffer buffer = new(capacity: 3);
 
         Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, buffer.Publish(Ad("DEVICE-1")));
         Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, buffer.Publish(Ad("DEVICE-2")));
@@ -54,7 +54,7 @@ public sealed class BluetoothAdvertisementBufferTests
     {
         // Most KISS-over-BLE bridges reveal their services only after connecting,
         // so an advertisement without service UUIDs must still reach the picker.
-        var buffer = FilteredBuffer();
+        BluetoothAdvertisementBuffer buffer = FilteredBuffer();
 
         Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, buffer.Publish(Ad("BRIDGE")));
         Assert.Equal(0, buffer.RejectedCount);
@@ -63,9 +63,9 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public void Publish_WhenTheAdvertisementNamesASupportedService_IsBuffered()
     {
-        var buffer = FilteredBuffer();
+        BluetoothAdvertisementBuffer buffer = FilteredBuffer();
 
-        var result = buffer.Publish(Ad("TNC", BluetoothLeKissTransportSettings.DefaultServiceUuid));
+        BluetoothAdvertisementPublishResult result = buffer.Publish(Ad("TNC", BluetoothLeKissTransportSettings.DefaultServiceUuid));
 
         Assert.Equal(BluetoothAdvertisementPublishResult.Buffered, result);
         Assert.Equal(0, buffer.RejectedCount);
@@ -74,9 +74,9 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public void Publish_WhenTheAdvertisementNamesOnlyForeignServices_IsFiltered()
     {
-        var buffer = FilteredBuffer();
+        BluetoothAdvertisementBuffer buffer = FilteredBuffer();
 
-        var result = buffer.Publish(Ad("HEADPHONES", ForeignServiceUuid));
+        BluetoothAdvertisementPublishResult result = buffer.Publish(Ad("HEADPHONES", ForeignServiceUuid));
 
         Assert.Equal(BluetoothAdvertisementPublishResult.Filtered, result);
         Assert.Equal(1, buffer.RejectedCount);
@@ -86,7 +86,7 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public async Task Publish_WhenForeignAdvertisementsCompeteForCapacity_KeepsOnlySupportedOnes()
     {
-        var buffer = new BluetoothAdvertisementBuffer(
+        BluetoothAdvertisementBuffer buffer = new(
             capacity: 2,
             filter: BluetoothLeServiceFilter.SupportedTransports);
 
@@ -105,7 +105,7 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public void Publish_AfterCompletion_IsRefused()
     {
-        var buffer = new BluetoothAdvertisementBuffer();
+        BluetoothAdvertisementBuffer buffer = new();
 
         buffer.Complete();
 
@@ -115,7 +115,7 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public async Task Reader_EndsWhenTheBufferCompletes()
     {
-        var buffer = new BluetoothAdvertisementBuffer();
+        BluetoothAdvertisementBuffer buffer = new();
         buffer.Publish(Ad("DEVICE-1"));
         buffer.Complete();
 
@@ -127,11 +127,11 @@ public sealed class BluetoothAdvertisementBufferTests
     [Fact]
     public async Task Complete_WithAFailure_SurfacesItOnTheReader()
     {
-        var buffer = new BluetoothAdvertisementBuffer();
-        var failure = new InvalidOperationException("BLE scan failed: TooManyMatches");
+        BluetoothAdvertisementBuffer buffer = new();
+        InvalidOperationException failure = new("BLE scan failed: TooManyMatches");
         buffer.Complete(failure);
 
-        var thrown = await Assert.ThrowsAsync<ChannelClosedException>(async () =>
+        ChannelClosedException thrown = await Assert.ThrowsAsync<ChannelClosedException>(async () =>
             await buffer.Reader.ReadAsync(TestContext.Current.CancellationToken));
 
         Assert.Same(failure, thrown.InnerException);
@@ -140,10 +140,7 @@ public sealed class BluetoothAdvertisementBufferTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void Constructor_WithANonPositiveCapacity_Throws(int capacity)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new BluetoothAdvertisementBuffer(capacity));
-    }
+    public void Constructor_WithANonPositiveCapacity_Throws(int capacity) => Assert.Throws<ArgumentOutOfRangeException>(() => new BluetoothAdvertisementBuffer(capacity));
 
     private static readonly Guid ForeignServiceUuid = Guid.Parse("00001812-0000-1000-8000-00805F9B34FB");
 

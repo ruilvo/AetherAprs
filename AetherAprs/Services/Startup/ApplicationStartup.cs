@@ -71,11 +71,11 @@ public sealed class ApplicationStartup : IApplicationStartup
 
     private async Task<StartupReport> RunStepsAsync(CancellationToken cancellationToken)
     {
-        var results = new List<StartupStepResult>(_steps.Length);
-        var cancelled = false;
-        var stopped = false;
+        List<StartupStepResult> results = [with(_steps.Length)];
+        bool cancelled = false;
+        bool stopped = false;
 
-        foreach (var step in _steps)
+        foreach (StartupStep step in _steps)
         {
             if (stopped || cancellationToken.IsCancellationRequested)
             {
@@ -84,7 +84,7 @@ public sealed class ApplicationStartup : IApplicationStartup
                 continue;
             }
 
-            var startedAt = Stopwatch.GetTimestamp();
+            long startedAt = Stopwatch.GetTimestamp();
             StartupStepResult result;
 
             try
@@ -133,7 +133,7 @@ public sealed class ApplicationStartup : IApplicationStartup
             RaiseStepCompleted(result);
         }
 
-        var report = new StartupReport(results, cancelled);
+        StartupReport report = new(results, cancelled);
         Volatile.Write(ref _report, report);
 
         if (report.Succeeded)
@@ -154,7 +154,7 @@ public sealed class ApplicationStartup : IApplicationStartup
 
     private void RaiseStepCompleted(StartupStepResult result)
     {
-        var handler = StepCompleted;
+        EventHandler<StartupStepCompletedEventArgs>? handler = StepCompleted;
         if (handler is null)
         {
             return;

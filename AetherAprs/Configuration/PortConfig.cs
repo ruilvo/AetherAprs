@@ -74,7 +74,7 @@ public class PortConfig
     /// <summary>Returns a copy that differs only in <see cref="IsEnabled"/>.</summary>
     public PortConfig WithEnabled(bool enabled)
     {
-        var copy = Clone();
+        PortConfig copy = Clone();
         copy.IsEnabled = enabled;
         return copy;
     }
@@ -82,7 +82,7 @@ public class PortConfig
     /// <summary>Returns a copy that differs only in <see cref="ShowOnMap"/>.</summary>
     public PortConfig WithShowOnMap(bool showOnMap)
     {
-        var copy = Clone();
+        PortConfig copy = Clone();
         copy.ShowOnMap = showOnMap;
         return copy;
     }

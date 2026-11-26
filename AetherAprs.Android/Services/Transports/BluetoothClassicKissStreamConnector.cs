@@ -5,6 +5,7 @@
 using AetherAprs.Android.Services.Bluetooth;
 using AetherAprs.Configuration;
 using AetherAprs.Transports.Kiss;
+using Android.Bluetooth;
 using Java.Util;
 using System;
 using System.IO;
@@ -49,22 +50,22 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
 
         // Validate before requesting permissions or touching the adapter:
         // GetRemoteDevice throws IllegalArgumentException on a malformed address.
-        var deviceAddress = BluetoothDeviceAddress.Normalize(
+        string deviceAddress = BluetoothDeviceAddress.Normalize(
             classicSettings.DeviceAddress,
             nameof(settings));
 
         await BluetoothPermissionHelper.EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
 
-        var adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
+        BluetoothAdapter adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
 
         if (!adapter.IsEnabled)
         {
             throw new InvalidOperationException("Bluetooth is disabled.");
         }
 
-        var device = adapter.GetRemoteDevice(deviceAddress)
+        BluetoothDevice device = adapter.GetRemoteDevice(deviceAddress)
             ?? throw new InvalidOperationException($"Bluetooth device '{deviceAddress}' was not found.");
-        var socket = device.CreateRfcommSocketToServiceRecord(SppUuid)
+        BluetoothSocket socket = device.CreateRfcommSocketToServiceRecord(SppUuid)
             ?? throw new InvalidOperationException("Failed to create RFCOMM socket for SPP.");
         try
         {

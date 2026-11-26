@@ -33,10 +33,7 @@ public static class HdlcFramer
     /// </summary>
     /// <param name="data">The data bytes to protect.</param>
     /// <returns>The 16-bit FCS.</returns>
-    public static ushort ComputeFcs(ReadOnlySpan<byte> data)
-    {
-        return (ushort)(ComputeRawCrc(data) ^ 0xFFFF);
-    }
+    public static ushort ComputeFcs(ReadOnlySpan<byte> data) => (ushort)(ComputeRawCrc(data) ^ 0xFFFF);
 
     /// <summary>
     /// Encodes data into an HDLC bit stream: a leading flag, the bit-stuffed
@@ -49,31 +46,28 @@ public static class HdlcFramer
     {
         ushort fcs = ComputeFcs(data);
 
-        var payload = new byte[data.Length + 2];
+        byte[] payload = new byte[data.Length + 2];
         data.CopyTo(payload);
         payload[data.Length] = (byte)(fcs & 0xFF);
         payload[data.Length + 1] = (byte)(fcs >> 8);
 
-        var bits = new List<byte>((payload.Length * 9) + 16);
+        List<byte> bits = [with((payload.Length * 9) + 16)];
         AppendFlag(bits);
         AppendStuffed(bits, payload);
         AppendFlag(bits);
-        return bits.ToArray();
+        return [.. bits];
     }
 
     /// <summary>
     /// Validates a received frame (data plus trailing two FCS bytes) by
     /// recomputing the raw CRC and comparing it to the fixed residue.
     /// </summary>
-    internal static bool IsFcsValid(ReadOnlySpan<byte> frameWithFcs)
-    {
-        return frameWithFcs.Length >= 2 && ComputeRawCrc(frameWithFcs) == ValidResidue;
-    }
+    internal static bool IsFcsValid(ReadOnlySpan<byte> frameWithFcs) => frameWithFcs.Length >= 2 && ComputeRawCrc(frameWithFcs) == ValidResidue;
 
     private static ushort ComputeRawCrc(ReadOnlySpan<byte> data)
     {
         ushort crc = InitialValue;
-        foreach (var value in data)
+        foreach (byte value in data)
         {
             crc ^= value;
             for (int i = 0; i < 8; i++)
@@ -100,7 +94,7 @@ public static class HdlcFramer
     private static void AppendStuffed(List<byte> bits, ReadOnlySpan<byte> data)
     {
         int ones = 0;
-        foreach (var value in data)
+        foreach (byte value in data)
         {
             for (int i = 0; i < 8; i++)
             {
@@ -140,7 +134,7 @@ public sealed class HdlcDeframer
     /// </summary>
     private const int MaxFrameBits = 4096;
 
-    private readonly List<byte> _frame = new(256);
+    private readonly List<byte> _frame = [with(256)];
     private bool _inFrame;
     private int _ones;
 
@@ -219,10 +213,7 @@ public sealed class HdlcDeframer
     /// <summary>
     /// Resets the deframer to the searching-for-flag state.
     /// </summary>
-    public void Reset()
-    {
-        ResetFrame();
-    }
+    public void Reset() => ResetFrame();
 
     private byte[]? CompleteFrame()
     {
@@ -233,7 +224,7 @@ public sealed class HdlcDeframer
             _frame.RemoveAt(_frame.Count - 1);
         }
 
-        var payload = TryExtractPayload();
+        byte[]? payload = TryExtractPayload();
         _inFrame = false;
         _frame.Clear();
         _ones = 0;
@@ -255,7 +246,7 @@ public sealed class HdlcDeframer
             return null;
         }
 
-        var bytes = new byte[_frame.Count / 8];
+        byte[] bytes = new byte[_frame.Count / 8];
         for (int i = 0; i < bytes.Length; i++)
         {
             byte value = 0;

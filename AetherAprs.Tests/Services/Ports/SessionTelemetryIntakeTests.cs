@@ -16,8 +16,8 @@ public sealed class SessionTelemetryIntakeTests
     [Fact]
     public async Task Observations_AreDeliveredInOrder()
     {
-        var handled = new List<Guid>();
-        var intake = new SessionTelemetryIntake(
+        List<Guid> handled = [];
+        SessionTelemetryIntake intake = new(
             observation =>
             {
                 handled.Add(observation.PortId);
@@ -26,9 +26,9 @@ public sealed class SessionTelemetryIntakeTests
             NullLogger.Instance,
             queueCapacity: 8);
 
-        var first = Guid.NewGuid();
-        var second = Guid.NewGuid();
-        var third = Guid.NewGuid();
+        Guid first = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        Guid third = Guid.NewGuid();
 
         Assert.True(intake.Post(Receive(first)));
         Assert.True(intake.Post(Receive(second)));
@@ -43,16 +43,16 @@ public sealed class SessionTelemetryIntakeTests
     [Fact]
     public async Task FullQueue_DropsTheNewestObservationAndCountsIt()
     {
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var handled = new List<Guid>();
+        TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        List<Guid> handled = [];
 
-        var blocking = Guid.NewGuid();
-        var second = Guid.NewGuid();
-        var third = Guid.NewGuid();
-        var fourth = Guid.NewGuid();
+        Guid blocking = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        Guid third = Guid.NewGuid();
+        Guid fourth = Guid.NewGuid();
 
-        var intake = new SessionTelemetryIntake(
+        SessionTelemetryIntake intake = new(
             observation =>
             {
                 if (observation.PortId == blocking)
@@ -84,11 +84,11 @@ public sealed class SessionTelemetryIntakeTests
     [Fact]
     public async Task HandlerFailure_DoesNotStopLaterObservations()
     {
-        var failed = Guid.NewGuid();
-        var delivered = Guid.NewGuid();
-        var handled = new List<Guid>();
+        Guid failed = Guid.NewGuid();
+        Guid delivered = Guid.NewGuid();
+        List<Guid> handled = [];
 
-        var intake = new SessionTelemetryIntake(
+        SessionTelemetryIntake intake = new(
             observation =>
             {
                 if (observation.PortId == failed)
@@ -112,7 +112,7 @@ public sealed class SessionTelemetryIntakeTests
     [Fact]
     public async Task ObservationsAfterDispose_AreRejected()
     {
-        var intake = new SessionTelemetryIntake(
+        SessionTelemetryIntake intake = new(
             _ => Task.CompletedTask,
             NullLogger.Instance);
 
@@ -122,11 +122,8 @@ public sealed class SessionTelemetryIntakeTests
     }
 
     [Fact]
-    public void Constructor_RejectsNonPositiveCapacity()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(
+    public void Constructor_RejectsNonPositiveCapacity() => Assert.Throws<ArgumentOutOfRangeException>(
             () => new SessionTelemetryIntake(_ => Task.CompletedTask, NullLogger.Instance, 0));
-    }
 
     private static SessionTelemetryObservation Receive(Guid portId) =>
         new(portId, SessionTelemetryKind.Receive, Error: null);

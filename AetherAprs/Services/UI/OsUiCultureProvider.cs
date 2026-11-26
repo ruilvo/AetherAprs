@@ -11,8 +11,5 @@ namespace AetherAprs.Services.UI;
 /// </summary>
 public sealed class OsUiCultureProvider : IUiCultureProvider
 {
-    public CultureInfo GetUiCulture()
-    {
-        return CultureInfo.CurrentUICulture;
-    }
+    public CultureInfo GetUiCulture() => CultureInfo.CurrentUICulture;
 }

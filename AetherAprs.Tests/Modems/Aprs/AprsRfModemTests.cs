@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,10 +26,7 @@ public class AprsRfModemTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void Constructor_NullKissModem_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => new AprsRfModem(null!));
-    }
+    public void Constructor_NullKissModem_ThrowsArgumentNullException() => Assert.Throws<ArgumentNullException>(() => new AprsRfModem(null!));
 
     // ---------------------------------------------------------------
     // Lifecycle
@@ -37,9 +35,9 @@ public class AprsRfModemTests
     [Fact]
     public async Task Start_FirstCall_Succeeds()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
         aprsModem.Start();
         // No exception is the assertion
@@ -48,9 +46,9 @@ public class AprsRfModemTests
     [Fact]
     public async Task Start_DoubleCall_ThrowsInvalidOperationException()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
         aprsModem.Start();
         Assert.Throws<InvalidOperationException>(() => aprsModem.Start());
@@ -59,9 +57,9 @@ public class AprsRfModemTests
     [Fact]
     public async Task StopAsync_WithoutStart_IsNoOp()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
         await aprsModem.StopAsync();
         // No exception is the assertion
@@ -70,9 +68,9 @@ public class AprsRfModemTests
     [Fact]
     public async Task StartThenStopAsync_CompletesCleanly()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
         aprsModem.Start();
         await aprsModem.StopAsync();
@@ -85,11 +83,11 @@ public class AprsRfModemTests
     [Fact]
     public async Task SendAsync_PositionPacket_WritesKissFrame()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var packet = new PositionPacket
+        PositionPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -100,7 +98,7 @@ public class AprsRfModemTests
 
         await aprsModem.SendAsync(packet, TestContext.Current.CancellationToken);
 
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
 
         // Should start with FEND and end with FEND
         Assert.Equal(0xC0, written[0]);
@@ -113,11 +111,11 @@ public class AprsRfModemTests
     [Fact]
     public async Task SendAsync_MessagePacket_WritesKissFrame()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var packet = new MessagePacket
+        MessagePacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -127,7 +125,7 @@ public class AprsRfModemTests
 
         await aprsModem.SendAsync(packet, TestContext.Current.CancellationToken);
 
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(0xC0, written[0]);
         Assert.Equal(0x00, written[1]);
         Assert.Equal(0xC0, written[^1]);
@@ -136,11 +134,11 @@ public class AprsRfModemTests
     [Fact]
     public async Task SendAsync_StatusPacket_WritesKissFrame()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var packet = new StatusPacket
+        StatusPacket packet = new()
         {
             Source = Source,
             Destination = Dest,
@@ -149,7 +147,7 @@ public class AprsRfModemTests
 
         await aprsModem.SendAsync(packet, TestContext.Current.CancellationToken);
 
-        var written = stream.ToArray();
+        byte[] written = stream.ToArray();
         Assert.Equal(0xC0, written[0]);
         Assert.Equal(0x00, written[1]);
     }
@@ -157,9 +155,9 @@ public class AprsRfModemTests
     [Fact]
     public async Task SendAsync_NullPacket_ThrowsArgumentNullException()
     {
-        await using var stream = new MemoryStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             aprsModem.SendAsync(null!, TestContext.Current.CancellationToken));
@@ -173,20 +171,20 @@ public class AprsRfModemTests
     public async Task PacketReceived_PositionFrame_FiresEvent()
     {
         // Build AX.25 position frame wrapped in KISS
-        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
-        var kissBuffer = BuildKissFrame(ax25Data);
+        byte[] ax25Data = BuildAx25Frame("APZ001", "N0CALL", "!3830.00N/00906.00E#");
+        byte[] kissBuffer = BuildKissFrame(ax25Data);
 
-        await using var stream = new MemoryStream(kissBuffer);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new(kissBuffer);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var tcs = new TaskCompletionSource<AprsPacket>();
+        TaskCompletionSource<AprsPacket> tcs = new();
         aprsModem.PacketReceived += (_, packet) => tcs.TrySetResult(packet);
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
-        var pos = Assert.IsType<PositionPacket>(result);
+        AprsPacket result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(38.5, pos.Location.Latitude, 4);
         Assert.Equal(9.10, pos.Location.Longitude, 4);
         Assert.Equal(new Callsign("N0CALL"), pos.Source);
@@ -195,20 +193,20 @@ public class AprsRfModemTests
     [Fact]
     public async Task PacketReceived_MessageFrame_FiresEvent()
     {
-        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", ":OTHER   :Hello{5}");
-        var kissBuffer = BuildKissFrame(ax25Data);
+        byte[] ax25Data = BuildAx25Frame("APZ001", "N0CALL", ":OTHER   :Hello{5}");
+        byte[] kissBuffer = BuildKissFrame(ax25Data);
 
-        await using var stream = new MemoryStream(kissBuffer);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new(kissBuffer);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var tcs = new TaskCompletionSource<AprsPacket>();
+        TaskCompletionSource<AprsPacket> tcs = new();
         aprsModem.PacketReceived += (_, packet) => tcs.TrySetResult(packet);
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
-        var msg = Assert.IsType<MessagePacket>(result);
+        AprsPacket result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        MessagePacket msg = Assert.IsType<MessagePacket>(result);
         Assert.Equal("Hello", msg.Text);
         Assert.Equal(5, msg.MessageNumber);
     }
@@ -216,40 +214,40 @@ public class AprsRfModemTests
     [Fact]
     public async Task PacketReceived_StatusFrame_FiresEvent()
     {
-        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", ">Online via APRS");
-        var kissBuffer = BuildKissFrame(ax25Data);
+        byte[] ax25Data = BuildAx25Frame("APZ001", "N0CALL", ">Online via APRS");
+        byte[] kissBuffer = BuildKissFrame(ax25Data);
 
-        await using var stream = new MemoryStream(kissBuffer);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new(kissBuffer);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var tcs = new TaskCompletionSource<AprsPacket>();
+        TaskCompletionSource<AprsPacket> tcs = new();
         aprsModem.PacketReceived += (_, packet) => tcs.TrySetResult(packet);
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
-        var status = Assert.IsType<StatusPacket>(result);
+        AprsPacket result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        StatusPacket status = Assert.IsType<StatusPacket>(result);
         Assert.Equal("Online via APRS", status.Text);
     }
 
     [Fact]
     public async Task PacketReceived_WeatherFrame_FiresEvent()
     {
-        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", "_c100s020t080h55b10100");
-        var kissBuffer = BuildKissFrame(ax25Data);
+        byte[] ax25Data = BuildAx25Frame("APZ001", "N0CALL", "_c100s020t080h55b10100");
+        byte[] kissBuffer = BuildKissFrame(ax25Data);
 
-        await using var stream = new MemoryStream(kissBuffer);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new(kissBuffer);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var tcs = new TaskCompletionSource<AprsPacket>();
+        TaskCompletionSource<AprsPacket> tcs = new();
         aprsModem.PacketReceived += (_, packet) => tcs.TrySetResult(packet);
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
-        var w = Assert.IsType<WeatherPacket>(result);
+        AprsPacket result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        WeatherPacket w = Assert.IsType<WeatherPacket>(result);
         Assert.Equal(100, w.WindDirection);
         Assert.Equal(20, w.WindSpeed);
     }
@@ -257,19 +255,19 @@ public class AprsRfModemTests
     [Fact]
     public async Task PacketReceived_UnknownPacket_FiresEvent()
     {
-        var ax25Data = BuildAx25Frame("APZ001", "N0CALL", "#weird format data");
-        var kissBuffer = BuildKissFrame(ax25Data);
+        byte[] ax25Data = BuildAx25Frame("APZ001", "N0CALL", "#weird format data");
+        byte[] kissBuffer = BuildKissFrame(ax25Data);
 
-        await using var stream = new MemoryStream(kissBuffer);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new(kissBuffer);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var tcs = new TaskCompletionSource<AprsPacket>();
+        TaskCompletionSource<AprsPacket> tcs = new();
         aprsModem.PacketReceived += (_, packet) => tcs.TrySetResult(packet);
 
         aprsModem.Start();
 
-        var result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        AprsPacket result = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.IsType<UnknownPacket>(result);
     }
 
@@ -277,13 +275,13 @@ public class AprsRfModemTests
     public async Task PacketReceived_NonDataFrame_DoesNotFireEvent()
     {
         // KISS TXDelay command frame (not a data frame)
-        var kissBuffer = BuildKissFrame(0x01, [0x05]);
+        byte[] kissBuffer = BuildKissFrame(0x01, [0x05]);
 
-        await using var stream = new MemoryStream(kissBuffer);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new(kissBuffer);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var packetReceived = false;
+        bool packetReceived = false;
         aprsModem.PacketReceived += (_, _) => packetReceived = true;
 
         aprsModem.Start();
@@ -303,32 +301,32 @@ public class AprsRfModemTests
     public async Task ReceiveError_CorruptFrame_FiresErrorEvent()
     {
         // KISS frame with invalid escape sequence
-        await using var stream = new MemoryStream([0xC0, 0x00, 0xDB, 0x42, 0xC0]);
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using MemoryStream stream = new([0xC0, 0x00, 0xDB, 0x42, 0xC0]);
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> errorTcs = new();
         aprsModem.ReceiveError += (_, ex) => errorTcs.TrySetResult(ex);
 
         aprsModem.Start();
 
-        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.NotNull(error);
     }
 
     [Fact]
     public async Task ReceiveError_KissModemError_FiresErrorEvent()
     {
-        await using var stream = new FailingStream();
-        await using var kissModem = new KissModem(stream);
-        await using var aprsModem = new AprsRfModem(kissModem);
+        await using FailingStream stream = new();
+        await using KissModem kissModem = new(stream);
+        await using AprsRfModem aprsModem = new(kissModem);
 
-        var errorTcs = new TaskCompletionSource<Exception>();
+        TaskCompletionSource<Exception> errorTcs = new();
         aprsModem.ReceiveError += (_, ex) => errorTcs.TrySetResult(ex);
 
         aprsModem.Start();
 
-        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        Exception error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         Assert.IsType<IOException>(error);
     }
 
@@ -338,26 +336,26 @@ public class AprsRfModemTests
 
     private static byte[] BuildAx25Frame(string destination, string source, string infoField)
     {
-        var frame = new System.Collections.Generic.List<byte>();
-
-        // Destination address
-        frame.AddRange(EncodeAddress(destination));
-        // Source address (last in list)
-        frame.AddRange(EncodeAddress(source));
-
-        // Control: UI-frame
-        frame.Add(0x03);
-        // PID: no layer 3
-        frame.Add(0xF0);
-        // Info field
-        frame.AddRange(Encoding.ASCII.GetBytes(infoField));
+        List<byte> frame =
+        [
+            // Destination address
+            .. EncodeAddress(destination),
+            // Source address (last in list)
+            .. EncodeAddress(source),
+            // Control: UI-frame
+            0x03,
+            // PID: no layer 3
+            0xF0,
+            // Info field
+            .. Encoding.ASCII.GetBytes(infoField),
+        ];
 
         return [.. frame];
     }
 
     private static byte[] EncodeAddress(string callsign)
     {
-        var bytes = new byte[7];
+        byte[] bytes = new byte[7];
         string @base = callsign.Contains('-') ? callsign.Split('-')[0] : callsign;
         @base = @base.PadRight(6, ' ');
 
@@ -371,15 +369,9 @@ public class AprsRfModemTests
         return bytes;
     }
 
-    private static byte[] BuildKissFrame(byte[] ax25Data)
-    {
-        return BuildKissFrame(0x00, ax25Data);
-    }
+    private static byte[] BuildKissFrame(byte[] ax25Data) => BuildKissFrame(0x00, ax25Data);
 
-    private static byte[] BuildKissFrame(byte command, byte[] data)
-    {
-        return KissSerializer.EncodeFrame(new KissFrame(command, data));
-    }
+    private static byte[] BuildKissFrame(byte command, byte[] data) => KissSerializer.EncodeFrame(new KissFrame(command, data));
 
     private sealed class FailingStream : Stream
     {
@@ -394,10 +386,7 @@ public class AprsRfModemTests
         }
         public override void Flush() { }
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            throw new IOException("Simulated read failure.");
-        }
+        public override int Read(byte[] buffer, int offset, int count) => throw new IOException("Simulated read failure.");
 
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();

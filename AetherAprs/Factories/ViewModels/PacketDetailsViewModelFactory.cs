@@ -11,18 +11,13 @@ namespace AetherAprs.Factories.ViewModels;
 /// <summary>
 /// Factory implementation for creating and initializing PacketDetailsViewModel instances.
 /// </summary>
-public class PacketDetailsViewModelFactory : IPacketDetailsViewModelFactory
+public class PacketDetailsViewModelFactory(IServiceProvider serviceProvider) : IPacketDetailsViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public PacketDetailsViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider;
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
 
     public PacketDetailsViewModel Create(string source)
     {
-        var viewModel = _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
+        PacketDetailsViewModel viewModel = _serviceProvider.GetRequiredService<PacketDetailsViewModel>();
         viewModel.Initialize(source);
         return viewModel;
     }

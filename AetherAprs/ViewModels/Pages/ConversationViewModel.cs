@@ -47,7 +47,7 @@ public partial class ConversationViewModel(
     [ObservableProperty]
     public partial bool IsSending { get; set; }
 
-    public ObservableCollection<StoredMessage> Messages { get; } = new();
+    public ObservableCollection<StoredMessage> Messages { get; } = [];
 
     public void InitializeNew()
     {
@@ -80,7 +80,7 @@ public partial class ConversationViewModel(
     {
         ErrorMessage = null;
 
-        if (!AprsAddress.TryParse(DestinationAddress, out var addressee))
+        if (!AprsAddress.TryParse(DestinationAddress, out AprsAddress addressee))
         {
             ErrorMessage = Strings.Get("InvalidDestinationAddress");
             return;
@@ -97,7 +97,7 @@ public partial class ConversationViewModel(
         {
             await messageService.SendAsync(addressee, MessageText);
             logger?.LogInformation("Message sent to {Addressee}", addressee);
-            var thread = messageService.GetOrCreateConversation(addressee);
+            ConversationThread thread = messageService.GetOrCreateConversation(addressee);
             if (_isNewConversation)
             {
                 _isNewConversation = false;
@@ -141,7 +141,7 @@ public partial class ConversationViewModel(
     public MessageTemplateDialogViewModel CreateTemplateDialog()
     {
         IReadOnlyList<MessageTemplate> templates;
-        if (AprsAddress.TryParse(DestinationAddress, out var parsedPeer))
+        if (AprsAddress.TryParse(DestinationAddress, out AprsAddress parsedPeer))
         {
             templates = templateService.GetTemplatesForPeer(parsedPeer);
         }
@@ -174,7 +174,7 @@ public partial class ConversationViewModel(
     /// </summary>
     public void Detach()
     {
-        var peer = _thread?.Peer;
+        AprsAddress? peer = _thread?.Peer;
         DetachThread();
         _thread = null;
         if (peer.HasValue)
@@ -194,13 +194,8 @@ public partial class ConversationViewModel(
         SyncMessages();
     }
 
-    private void DetachThread()
-    {
-        if (_thread != null)
-        {
-            _thread.Messages.CollectionChanged -= OnThreadMessagesChanged;
-        }
-    }
+    private void DetachThread() =>
+        _thread?.Messages.CollectionChanged -= OnThreadMessagesChanged;
 
     private void OnThreadMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
         SyncMessages();
@@ -211,7 +206,7 @@ public partial class ConversationViewModel(
         if (_thread == null)
             return;
 
-        foreach (var message in _thread.Messages)
+        foreach (StoredMessage message in _thread.Messages)
         {
             Messages.Add(message);
         }

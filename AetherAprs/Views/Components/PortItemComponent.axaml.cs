@@ -8,8 +8,5 @@ namespace AetherAprs.Views.Components;
 
 public partial class PortItemComponent : UserControl
 {
-    public PortItemComponent()
-    {
-        InitializeComponent();
-    }
+    public PortItemComponent() => InitializeComponent();
 }

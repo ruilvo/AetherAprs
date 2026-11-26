@@ -8,6 +8,7 @@ using Android.Hardware;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace AetherAprs.Android.Services.Platform;
 
@@ -25,10 +26,10 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
     private readonly float[] _geomagnetic = new float[3];
     private readonly float[] _rotationMatrix = new float[9];
     private readonly float[] _orientation = new float[3];
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
-    private Sensor? _accelerometer;
-    private Sensor? _magnetometer;
+    private readonly Sensor? _accelerometer;
+    private readonly Sensor? _magnetometer;
     private bool _hasGravity;
     private bool _hasGeomagnetic;
     private bool _disposed;
@@ -115,8 +116,8 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
 
         // _orientation[0] is azimuth in radians: 0 = north, positive eastward.
         // Convert to degrees clockwise from north and normalize to [0, 360).
-        var azimuthDegrees = _orientation[0] * (180.0 / Math.PI);
-        var heading = (azimuthDegrees + 360.0) % 360.0;
+        double azimuthDegrees = _orientation[0] * (180.0 / Math.PI);
+        double heading = (azimuthDegrees + 360.0) % 360.0;
 
         lock (_lock)
         {
@@ -145,8 +146,8 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
 
     private static void CopyValues(IList<float> source, float[] destination)
     {
-        var count = Math.Min(source.Count, destination.Length);
-        for (var i = 0; i < count; i++)
+        int count = Math.Min(source.Count, destination.Length);
+        for (int i = 0; i < count; i++)
         {
             destination[i] = source[i];
         }

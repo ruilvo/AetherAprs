@@ -57,16 +57,21 @@ public interface ILocationTrackingService : IDisposable
 /// <summary>
 /// Implementation of location tracking service.
 /// </summary>
-public sealed class LocationTrackingService : ILocationTrackingService
+public sealed class LocationTrackingService(
+    ILocationService locationService,
+    IKeepAliveService keepAliveService,
+    ILogger<LocationTrackingService> logger,
+    IPermissionService? permissionService = null,
+    IPermissionAttentionReporter? permissionAttention = null) : ILocationTrackingService
 {
     private const int PollingIntervalSeconds = 5;
     private const int ErrorRetryIntervalSeconds = 10;
 
-    private readonly ILocationService _locationService;
-    private readonly IKeepAliveService _keepAliveService;
-    private readonly ILogger<LocationTrackingService> _logger;
-    private readonly IPermissionService? _permissionService;
-    private readonly IPermissionAttentionReporter? _permissionAttention;
+    private readonly ILocationService _locationService = locationService;
+    private readonly IKeepAliveService _keepAliveService = keepAliveService;
+    private readonly ILogger<LocationTrackingService> _logger = logger;
+    private readonly IPermissionService? _permissionService = permissionService;
+    private readonly IPermissionAttentionReporter? _permissionAttention = permissionAttention;
     private readonly Lock _stateLock = new();
     private CancellationTokenSource? _locationUpdateCancellation;
     private Task? _updateLoopTask;
@@ -79,20 +84,6 @@ public sealed class LocationTrackingService : ILocationTrackingService
     public bool IsLocationAvailable => _locationService.IsLocationAvailable();
 
     public event EventHandler<LocationData>? LocationUpdated;
-
-    public LocationTrackingService(
-        ILocationService locationService,
-        IKeepAliveService keepAliveService,
-        ILogger<LocationTrackingService> logger,
-        IPermissionService? permissionService = null,
-        IPermissionAttentionReporter? permissionAttention = null)
-    {
-        _locationService = locationService;
-        _keepAliveService = keepAliveService;
-        _logger = logger;
-        _permissionService = permissionService;
-        _permissionAttention = permissionAttention;
-    }
 
     public async Task StartTrackingAsync()
     {
@@ -169,7 +160,7 @@ public sealed class LocationTrackingService : ILocationTrackingService
             }
         }
 
-        var locationPermission = await RequestLocationPermissionAsync().ConfigureAwait(false);
+        PermissionRequestResult locationPermission = await RequestLocationPermissionAsync().ConfigureAwait(false);
         if (!locationPermission.IsGranted)
         {
             _logger.LogWarning(
@@ -185,7 +176,7 @@ public sealed class LocationTrackingService : ILocationTrackingService
         {
             try
             {
-                var exemption = await _permissionService
+                PermissionRequestResult exemption = await _permissionService
                     .RequestAsync(PermissionKind.BatteryOptimization)
                     .ConfigureAwait(false);
 
@@ -214,13 +205,13 @@ public sealed class LocationTrackingService : ILocationTrackingService
     {
         if (_permissionService is null)
         {
-            var granted = await _locationService.RequestLocationPermissionAsync().ConfigureAwait(false);
+            bool granted = await _locationService.RequestLocationPermissionAsync().ConfigureAwait(false);
             return granted
                 ? PermissionRequestResult.Granted(PermissionKind.Location)
                 : PermissionRequestResult.Denied(PermissionKind.Location);
         }
 
-        var result = await _permissionService
+        PermissionRequestResult result = await _permissionService
             .RequestAsync(PermissionKind.Location)
             .ConfigureAwait(false);
 
@@ -264,7 +255,7 @@ public sealed class LocationTrackingService : ILocationTrackingService
             {
                 try
                 {
-                    var location = await _locationService.GetCurrentLocationAsync(cancellationToken);
+                    LocationData location = await _locationService.GetCurrentLocationAsync(cancellationToken);
 
                     _currentLocation = location;
                     LocationUpdated?.Invoke(this, location);

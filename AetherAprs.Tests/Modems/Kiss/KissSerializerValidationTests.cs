@@ -26,13 +26,11 @@ public class KissSerializerValidationTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public void EncodeFrame_CommandByteFEND_ThrowsArgumentException()
-    {
+    public void EncodeFrame_CommandByteFEND_ThrowsArgumentException() =>
         // A command byte of 0xC0 IS a FEND: EncodeFrame would emit it raw
         // and the resulting frame is unrepresentable/corrupt on the wire.
         Assert.Throws<ArgumentException>(
             () => KissSerializer.EncodeFrame(new KissFrame(0xC0, [0x01])));
-    }
 
     // ---------------------------------------------------------------
     // Bug: command byte 0xDB (FESC) is emitted unescaped while the
@@ -46,17 +44,17 @@ public class KissSerializerValidationTests
         // The command byte is transmitted unescaped per the KISS spec, so a
         // frame with a 0xDB (FESC) command byte must round-trip unchanged.
         // The receive path must therefore unescape only the payload.
-        using var stream = new BlockingDuplexStream();
-        await using var modem = new KissModem(stream);
+        using BlockingDuplexStream stream = new();
+        await using KissModem modem = new(stream);
 
-        var tcs = new TaskCompletionSource<KissFrame>();
+        TaskCompletionSource<KissFrame> tcs = new();
         modem.FrameReceived += (_, frame) => tcs.TrySetResult(frame);
 
         modem.Start();
 
         stream.Enqueue(KissSerializer.EncodeFrame(new KissFrame(0xDB, [0xDC])));
 
-        var received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        KissFrame received = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         Assert.Equal(0xDB, received.Command);
         Assert.Equal([0xDC], received.Data);
@@ -98,7 +96,7 @@ public class KissSerializerValidationTests
                 chunk = _pending.Dequeue();
             }
 
-            var toCopy = Math.Min(buffer.Length, chunk.Length);
+            int toCopy = Math.Min(buffer.Length, chunk.Length);
             chunk.AsSpan(0, toCopy).CopyTo(buffer.Span);
             if (toCopy < chunk.Length)
             {
@@ -115,7 +113,7 @@ public class KissSerializerValidationTests
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            var memory = new Memory<byte>(buffer, offset, count);
+            Memory<byte> memory = new(buffer, offset, count);
             return ReadAsync(memory).AsTask().GetAwaiter().GetResult();
         }
 

@@ -16,13 +16,7 @@ public sealed class UnsupportedBluetoothLeScanner : IBluetoothLeScanner
 {
     public bool IsSupported => false;
 
-    public Task EnsurePermissionAsync(CancellationToken cancellationToken = default)
-    {
-        throw new PlatformNotSupportedException("Bluetooth LE scanning is not supported on this platform.");
-    }
+    public Task EnsurePermissionAsync(CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth LE scanning is not supported on this platform.");
 
-    public IAsyncEnumerable<BluetoothLeAdvertisement> ScanAsync(CancellationToken cancellationToken = default)
-    {
-        throw new PlatformNotSupportedException("Bluetooth LE scanning is not supported on this platform.");
-    }
+    public IAsyncEnumerable<BluetoothLeAdvertisement> ScanAsync(CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth LE scanning is not supported on this platform.");
 }

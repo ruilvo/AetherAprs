@@ -48,7 +48,7 @@ internal static class SourceScanner
     /// <summary>Locates the repository root by walking up for the solution file.</summary>
     public static string FindRepositoryRoot()
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
         while (directory is not null)
         {
             if (File.Exists(Path.Combine(directory.FullName, "AetherAprs.slnx")))
@@ -68,18 +68,18 @@ internal static class SourceScanner
 
     public static IReadOnlyList<ScannedSource> ReadProductionSources(string repositoryRoot)
     {
-        var sources = new List<ScannedSource>();
-        foreach (var project in ScannedProjects)
+        List<ScannedSource> sources = [];
+        foreach (string project in ScannedProjects)
         {
-            var directory = Path.Combine(repositoryRoot, project);
+            string directory = Path.Combine(repositoryRoot, project);
             if (!Directory.Exists(directory))
             {
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            foreach (string file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
             {
-                var relativePath = Path.GetRelativePath(repositoryRoot, file).Replace('\\', '/');
+                string relativePath = Path.GetRelativePath(repositoryRoot, file).Replace('\\', '/');
                 if (ExcludedSegments.Any(segment => $"/{relativePath}".Contains(segment, StringComparison.OrdinalIgnoreCase)))
                 {
                     continue;

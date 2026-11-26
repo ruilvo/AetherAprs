@@ -14,22 +14,22 @@ public sealed class PortConfigExtensionsTests
     [Fact]
     public void GetAprsIsSettings_ReturnsNullForNonAprsIsPort()
     {
-        var port = new PortConfig { Name = "RF", TypeSettings = new KissSettings() };
+        PortConfig port = new() { Name = "RF", TypeSettings = new KissSettings() };
         Assert.Null(port.GetAprsIsSettings());
     }
 
     [Fact]
     public void GetAprsIsSettingsOrThrow_ThrowsForNonAprsIsPort()
     {
-        var port = new PortConfig { Name = "RF", TypeSettings = new KissSettings() };
+        PortConfig port = new() { Name = "RF", TypeSettings = new KissSettings() };
         Assert.Throws<InvalidOperationException>(() => port.GetAprsIsSettingsOrThrow());
     }
 
     [Fact]
     public void EnsureAprsIsSettings_CreatesDefaultsWhenMissing()
     {
-        var port = new PortConfig { Name = "IS" };
-        var settings = port.EnsureAprsIsSettings();
+        PortConfig port = new() { Name = "IS" };
+        AprsIsSettings settings = port.EnsureAprsIsSettings();
         Assert.Same(settings, port.TypeSettings);
         Assert.Same(settings, port.GetAprsIsSettingsOrThrow());
     }
@@ -37,8 +37,8 @@ public sealed class PortConfigExtensionsTests
     [Fact]
     public void EnsureKissSettings_CreatesDefaultTcpTransportWhenMissing()
     {
-        var port = new PortConfig { Name = "RF" };
-        var settings = port.EnsureKissSettings();
+        PortConfig port = new() { Name = "RF" };
+        KissSettings settings = port.EnsureKissSettings();
         Assert.IsType<TcpKissTransportSettings>(settings.Transport);
         Assert.Same(settings, port.GetKissSettingsOrThrow());
     }
@@ -46,7 +46,7 @@ public sealed class PortConfigExtensionsTests
     [Fact]
     public void GetKissSettingsOrThrow_ThrowsForAprsIsPort()
     {
-        var port = new PortConfig { Name = "IS", TypeSettings = new AprsIsSettings() };
+        PortConfig port = new() { Name = "IS", TypeSettings = new AprsIsSettings() };
         Assert.Throws<InvalidOperationException>(() => port.GetKissSettingsOrThrow());
     }
 }

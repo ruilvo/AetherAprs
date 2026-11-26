@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -26,10 +27,10 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public async Task Restart_ReturnsInterruptedSendToQueuedState()
     {
-        using var fixture = new QueueFixture();
-        var now = DateTimeOffset.UtcNow;
+        using QueueFixture fixture = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
         BeaconQueueItem item;
-        using (var first = CreateQueue(fixture.Path))
+        using (FileBeaconTransmitQueue first = CreateQueue(fixture.Path))
         {
             item = first.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
             first.MarkSending(item.Id);
@@ -39,9 +40,9 @@ public sealed class BeaconTransmitQueueTests
                 TestContext.Current.CancellationToken);
         }
 
-        using var recovered = CreateQueue(fixture.Path);
+        using FileBeaconTransmitQueue recovered = CreateQueue(fixture.Path);
 
-        var pending = Assert.Single(recovered.Reconcile(now.AddMinutes(1)));
+        BeaconQueueItem pending = Assert.Single(recovered.Reconcile(now.AddMinutes(1)));
         Assert.Equal(item.Id, pending.Id);
         Assert.Equal(BeaconQueueStatus.Queued, Assert.Single(recovered.Snapshot).Status);
     }
@@ -49,14 +50,14 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public void Reconcile_ExpiresStaleBeaconWithTerminalStatus()
     {
-        using var fixture = new QueueFixture();
-        var now = DateTimeOffset.UtcNow;
-        using var queue = CreateQueue(fixture.Path);
-        var item = queue.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
+        using QueueFixture fixture = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        using FileBeaconTransmitQueue queue = CreateQueue(fixture.Path);
+        BeaconQueueItem item = queue.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
 
         Assert.Empty(queue.Reconcile(now.Add(FileBeaconTransmitQueue.DefaultExpiry).AddSeconds(1)));
 
-        var expired = Assert.Single(queue.Snapshot);
+        BeaconQueueItem expired = Assert.Single(queue.Snapshot);
         Assert.Equal(item.Id, expired.Id);
         Assert.Equal(BeaconQueueStatus.Expired, expired.Status);
     }
@@ -64,16 +65,16 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public async Task FailedAttempts_BecomeTerminalAfterBoundedRetryCount()
     {
-        using var fixture = new QueueFixture();
-        var now = DateTimeOffset.UtcNow;
-        using var queue = CreateQueue(fixture.Path);
-        var item = queue.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
+        using QueueFixture fixture = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        using FileBeaconTransmitQueue queue = CreateQueue(fixture.Path);
+        BeaconQueueItem item = queue.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
 
         queue.MarkAttemptFailed(item.Id, "offline", now);
         queue.MarkAttemptFailed(item.Id, "offline", now);
         queue.MarkAttemptFailed(item.Id, "offline", now);
 
-        var failed = Assert.Single(queue.Snapshot);
+        BeaconQueueItem failed = Assert.Single(queue.Snapshot);
         Assert.Equal(BeaconQueueStatus.Failed, failed.Status);
         Assert.Equal(FileBeaconTransmitQueue.MaximumAttempts, failed.AttemptCount);
         Assert.Empty(queue.Reconcile(now));
@@ -87,16 +88,16 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public async Task Enqueue_WhenFull_EvictsOldestQueuedBeaconWithoutThrowing()
     {
-        using var fixture = new QueueFixture();
-        var now = DateTimeOffset.UtcNow;
-        using var queue = CreateQueue(fixture.Path, maximumItems: 1);
+        using QueueFixture fixture = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        using FileBeaconTransmitQueue queue = CreateQueue(fixture.Path, maximumItems: 1);
 
-        var first = queue.Enqueue(Guid.NewGuid(), Location(now), now);
+        BeaconEnqueueResult first = queue.Enqueue(Guid.NewGuid(), Location(now), now);
         Assert.Equal(BeaconQueueStatus.Queued, first.Status);
         Assert.NotNull(first.Queued);
         Assert.Null(first.Dropped);
 
-        var second = queue.Enqueue(Guid.NewGuid(), Location(now), now);
+        BeaconEnqueueResult second = queue.Enqueue(Guid.NewGuid(), Location(now), now);
         Assert.Equal(BeaconQueueStatus.Queued, second.Status);
         Assert.NotNull(second.Queued);
         Assert.NotNull(second.Dropped);
@@ -110,7 +111,7 @@ public sealed class BeaconTransmitQueueTests
             fixture.Path,
             TestContext.Current.CancellationToken);
 
-        var persisted = await ReadSnapshotAsync(fixture.Path, TestContext.Current.CancellationToken);
+        List<BeaconQueueItem>? persisted = await ReadSnapshotAsync(fixture.Path, TestContext.Current.CancellationToken);
         Assert.NotNull(persisted);
         Assert.Contains(persisted!, entry =>
             entry.Id == second.Dropped!.Id && entry.Status == BeaconQueueStatus.Dropped);
@@ -121,11 +122,11 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public void EmptyPortId_RepresentsBeaconWaitingForAnyUsableRoute()
     {
-        using var fixture = new QueueFixture();
-        var now = DateTimeOffset.UtcNow;
-        using var queue = CreateQueue(fixture.Path);
+        using QueueFixture fixture = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        using FileBeaconTransmitQueue queue = CreateQueue(fixture.Path);
 
-        var item = queue.Enqueue(Guid.Empty, Location(now), now).Queued!;
+        BeaconQueueItem item = queue.Enqueue(Guid.Empty, Location(now), now).Queued!;
 
         Assert.Equal(Guid.Empty, item.PortId);
         Assert.Single(queue.Reconcile(now));
@@ -134,17 +135,17 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public void CorruptFile_IsQuarantinedAndReportedWithWarning()
     {
-        using var fixture = new QueueFixture();
+        using QueueFixture fixture = new();
         const string corruptJson = "{ not valid json";
         File.WriteAllText(fixture.Path, corruptJson);
-        var logger = new RecordingLogger<FileBeaconTransmitQueue>();
+        RecordingLogger<FileBeaconTransmitQueue> logger = new();
 
-        using var queue = new FileBeaconTransmitQueue(fixture.Path, logger);
+        using FileBeaconTransmitQueue queue = new(fixture.Path, logger);
 
         Assert.Empty(queue.Snapshot);
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning);
 
-        var quarantinePath = Assert.Single(
+        string quarantinePath = Assert.Single(
             Directory.GetFiles(fixture.Directory, "beacons.json.corrupt-*"));
         Assert.Equal(corruptJson, File.ReadAllText(quarantinePath));
         Assert.False(File.Exists(fixture.Path));
@@ -153,12 +154,12 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public async Task RapidTransitions_CoalesceIntoFewWritesAndPersistLatestSnapshot()
     {
-        using var fixture = new QueueFixture();
-        var now = DateTimeOffset.UtcNow;
-        using var queue = CreateQueue(fixture.Path);
-        var item = queue.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
+        using QueueFixture fixture = new();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        using FileBeaconTransmitQueue queue = CreateQueue(fixture.Path);
+        BeaconQueueItem item = queue.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
 
-        for (var attempt = 0; attempt < 50; attempt++)
+        for (int attempt = 0; attempt < 50; attempt++)
         {
             queue.MarkSending(item.Id);
             queue.MarkAttemptFailed(item.Id, "offline", now);
@@ -170,7 +171,7 @@ public sealed class BeaconTransmitQueueTests
             fixture.Path,
             TestContext.Current.CancellationToken);
 
-        var written = Assert.Single(queue.Snapshot);
+        BeaconQueueItem written = Assert.Single(queue.Snapshot);
         Assert.Equal(item.Id, written.Id);
         Assert.Equal(BeaconQueueStatus.Sent, written.Status);
         Assert.Equal(50, written.AttemptCount);
@@ -182,10 +183,10 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public async Task DisposeWhilePersistInProgress_CompletesWithoutDeadlock()
     {
-        using var fixture = new QueueFixture();
-        var queue = CreateQueue(fixture.Path);
-        var writeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var releaseWrite = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using QueueFixture fixture = new();
+        FileBeaconTransmitQueue queue = CreateQueue(fixture.Path);
+        TaskCompletionSource writeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseWrite = new(TaskCreationOptions.RunContinuationsAsynchronously);
         queue.PersistBarrierForTests = async cancellationToken =>
         {
             writeStarted.TrySetResult();
@@ -194,13 +195,13 @@ public sealed class BeaconTransmitQueueTests
 
         try
         {
-            var now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
             queue.Enqueue(Guid.NewGuid(), Location(now), now);
             await writeStarted.Task.WaitAsync(
                 TimeSpan.FromSeconds(5),
                 TestContext.Current.CancellationToken);
 
-            var disposeTask = Task.Run(queue.Dispose, TestContext.Current.CancellationToken);
+            Task disposeTask = Task.Run(queue.Dispose, TestContext.Current.CancellationToken);
             releaseWrite.TrySetResult();
             await disposeTask.WaitAsync(
                 TimeSpan.FromSeconds(5),
@@ -216,10 +217,10 @@ public sealed class BeaconTransmitQueueTests
     [Fact]
     public async Task DisposeWithStuckPersist_StopsWithinBoundedTimeout()
     {
-        using var fixture = new QueueFixture();
-        var queue = CreateQueue(fixture.Path);
+        using QueueFixture fixture = new();
+        FileBeaconTransmitQueue queue = CreateQueue(fixture.Path);
         queue.PersistShutdownTimeout = TimeSpan.FromMilliseconds(250);
-        var writeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource writeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         queue.PersistBarrierForTests = async cancellationToken =>
         {
             writeStarted.TrySetResult();
@@ -228,13 +229,13 @@ public sealed class BeaconTransmitQueueTests
 
         try
         {
-            var now = DateTimeOffset.UtcNow;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
             queue.Enqueue(Guid.NewGuid(), Location(now), now);
             await writeStarted.Task.WaitAsync(
                 TimeSpan.FromSeconds(5),
                 TestContext.Current.CancellationToken);
 
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
             await Task.Run(queue.Dispose, TestContext.Current.CancellationToken).WaitAsync(
                 TimeSpan.FromSeconds(5),
                 TestContext.Current.CancellationToken);
@@ -274,20 +275,20 @@ public sealed class BeaconTransmitQueueTests
         string path,
         CancellationToken cancellationToken)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
-        var expected = queue.Snapshot.ToList();
-        var lastJson = "<no file>";
+        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        List<BeaconQueueItem> expected = [.. queue.Snapshot];
+        string lastJson = "<no file>";
         while (DateTimeOffset.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            expected = queue.Snapshot.ToList();
-            var rawJson = await ReadRawAsync(path, cancellationToken).ConfigureAwait(false);
+            expected = [.. queue.Snapshot];
+            string? rawJson = await ReadRawAsync(path, cancellationToken).ConfigureAwait(false);
             if (rawJson is not null)
             {
                 lastJson = rawJson;
             }
 
-            var actual = Deserialize(rawJson);
+            List<BeaconQueueItem>? actual = Deserialize(rawJson);
             if (actual is not null && actual.SequenceEqual(expected))
             {
                 return;
@@ -308,14 +309,14 @@ public sealed class BeaconTransmitQueueTests
         {
             // Share delete so the atomic temp-file move can replace the file while
             // the test is reading it (Windows otherwise reports a sharing violation).
-            await using var stream = new FileStream(
+            await using FileStream stream = new(
                 path,
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete,
                 bufferSize: 4096,
                 useAsync: true);
-            using var reader = new StreamReader(stream);
+            using StreamReader reader = new(stream);
             return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (IOException)

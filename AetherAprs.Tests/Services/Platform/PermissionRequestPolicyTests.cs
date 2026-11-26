@@ -13,7 +13,7 @@ public sealed class PermissionRequestPolicyTests
     [Fact]
     public void Evaluate_AGrantedPermission_IsGrantedRegardlessOfTheOtherFacts()
     {
-        var result = PermissionRequestPolicy.Evaluate(
+        PermissionRequestResult result = PermissionRequestPolicy.Evaluate(
             PermissionKind.Location,
             granted: true,
             rationaleSuggested: true,
@@ -29,7 +29,7 @@ public sealed class PermissionRequestPolicyTests
     [Fact]
     public void Evaluate_AnUnsupportedPermission_IsUnavailableEvenWhenDenied()
     {
-        var result = PermissionRequestPolicy.Evaluate(
+        PermissionRequestResult result = PermissionRequestPolicy.Evaluate(
             PermissionKind.Notifications,
             granted: false,
             rationaleSuggested: false,
@@ -45,7 +45,7 @@ public sealed class PermissionRequestPolicyTests
     [Fact]
     public void Evaluate_ADenialThatStillSuggestsARationale_CanBePromptedAgain()
     {
-        var result = PermissionRequestPolicy.Evaluate(
+        PermissionRequestResult result = PermissionRequestPolicy.Evaluate(
             PermissionKind.Audio,
             granted: false,
             rationaleSuggested: true,
@@ -61,7 +61,7 @@ public sealed class PermissionRequestPolicyTests
     {
         // Before any request the platform also reports "no rationale", so the flag
         // alone cannot mean the prompt will never appear again.
-        var result = PermissionRequestPolicy.Evaluate(
+        PermissionRequestResult result = PermissionRequestPolicy.Evaluate(
             PermissionKind.Bluetooth,
             granted: false,
             rationaleSuggested: false,
@@ -75,7 +75,7 @@ public sealed class PermissionRequestPolicyTests
     [Fact]
     public void Evaluate_ADenialWithoutRationaleAfterAnEarlierRequest_NeedsApplicationSettings()
     {
-        var result = PermissionRequestPolicy.Evaluate(
+        PermissionRequestResult result = PermissionRequestPolicy.Evaluate(
             PermissionKind.Bluetooth,
             granted: false,
             rationaleSuggested: false,
@@ -103,13 +103,12 @@ public sealed class PermissionRequestPolicyTests
         Assert.Equal(PermissionKind.BatteryOptimization, results[2].Kind);
         Assert.Equal(PermissionKind.Audio, results[3].Kind);
         Assert.Equal(
-            new[]
-            {
+            [
                 PermissionOutcome.Granted,
                 PermissionOutcome.Denied,
                 PermissionOutcome.PermanentlyDenied,
                 PermissionOutcome.Unavailable
-            },
+            ],
             Array.ConvertAll(results, result => result.Outcome));
     }
 }

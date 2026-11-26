@@ -17,25 +17,20 @@ namespace AetherAprs.Factories.ViewModels;
 /// Factory implementation that creates AddEditPortViewModel instances from the DI container
 /// and initializes them with context-specific data.
 /// </summary>
-public class AddEditPortViewModelFactory : IAddEditPortViewModelFactory
+public class AddEditPortViewModelFactory(IServiceProvider serviceProvider) : IAddEditPortViewModelFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-
-    public AddEditPortViewModelFactory(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-    }
+    private readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
     public AddEditPortViewModel CreateForAdd(string callsign, int portNumber)
     {
-        var vm = _serviceProvider.GetRequiredService<AddEditPortViewModel>();
+        AddEditPortViewModel vm = _serviceProvider.GetRequiredService<AddEditPortViewModel>();
         vm.Initialize(callsign, portNumber);
         return vm;
     }
 
     public AddEditPortViewModel CreateForEdit(string callsign, int portNumber, PortConfig existingConfig)
     {
-        var vm = _serviceProvider.GetRequiredService<AddEditPortViewModel>();
+        AddEditPortViewModel vm = _serviceProvider.GetRequiredService<AddEditPortViewModel>();
         vm.Initialize(callsign, portNumber, existingConfig);
         return vm;
     }

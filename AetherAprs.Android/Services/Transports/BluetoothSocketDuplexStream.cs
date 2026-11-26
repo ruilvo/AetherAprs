@@ -14,19 +14,12 @@ namespace AetherAprs.Android.Services.Transports;
 /// Duplex stream over a connected Bluetooth Classic RFCOMM socket.
 /// Owns and disposes the underlying <see cref="BluetoothSocket"/>.
 /// </summary>
-internal sealed class BluetoothSocketDuplexStream : Stream
+internal sealed class BluetoothSocketDuplexStream(BluetoothSocket socket) : Stream
 {
-    private readonly BluetoothSocket _socket;
-    private readonly Stream _input;
-    private readonly Stream _output;
+    private readonly BluetoothSocket _socket = socket ?? throw new ArgumentNullException(nameof(socket));
+    private readonly Stream _input = socket.InputStream ?? throw new InvalidOperationException("Bluetooth socket input stream is unavailable.");
+    private readonly Stream _output = socket.OutputStream ?? throw new InvalidOperationException("Bluetooth socket output stream is unavailable.");
     private bool _disposed;
-
-    public BluetoothSocketDuplexStream(BluetoothSocket socket)
-    {
-        _socket = socket ?? throw new ArgumentNullException(nameof(socket));
-        _input = socket.InputStream ?? throw new InvalidOperationException("Bluetooth socket input stream is unavailable.");
-        _output = socket.OutputStream ?? throw new InvalidOperationException("Bluetooth socket output stream is unavailable.");
-    }
 
     public override bool CanRead => !_disposed;
 

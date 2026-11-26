@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
+using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models.Aprs;
@@ -24,33 +26,22 @@ namespace AetherAprs.Services.Objects;
 /// Transmits via <see cref="IPortService"/> and persists via
 /// <see cref="IPacketStorageService"/>; reads via <see cref="IPacketQueryService"/>.
 /// </summary>
-public sealed class ObjectService : IObjectService
+public sealed class ObjectService(
+    IPortService portService,
+    IPacketStorageService packetStorageService,
+    IPacketQueryService packetQueryService,
+    IConfigurationService configurationService,
+    IAprsPortSettingsResolver portSettingsResolver,
+    IPacketFactory packetFactory,
+    ILogger<ObjectService> logger) : IObjectService
 {
-    private readonly IPortService _portService;
-    private readonly IPacketStorageService _packetStorageService;
-    private readonly IPacketQueryService _packetQueryService;
-    private readonly IConfigurationService _configurationService;
-    private readonly IAprsPortSettingsResolver _portSettingsResolver;
-    private readonly IPacketFactory _packetFactory;
-    private readonly ILogger<ObjectService> _logger;
-
-    public ObjectService(
-        IPortService portService,
-        IPacketStorageService packetStorageService,
-        IPacketQueryService packetQueryService,
-        IConfigurationService configurationService,
-        IAprsPortSettingsResolver portSettingsResolver,
-        IPacketFactory packetFactory,
-        ILogger<ObjectService> logger)
-    {
-        _portService = portService;
-        _packetStorageService = packetStorageService;
-        _packetQueryService = packetQueryService;
-        _configurationService = configurationService;
-        _portSettingsResolver = portSettingsResolver;
-        _packetFactory = packetFactory;
-        _logger = logger;
-    }
+    private readonly IPortService _portService = portService;
+    private readonly IPacketStorageService _packetStorageService = packetStorageService;
+    private readonly IPacketQueryService _packetQueryService = packetQueryService;
+    private readonly IConfigurationService _configurationService = configurationService;
+    private readonly IAprsPortSettingsResolver _portSettingsResolver = portSettingsResolver;
+    private readonly IPacketFactory _packetFactory = packetFactory;
+    private readonly ILogger<ObjectService> _logger = logger;
 
     public async Task CreateOrUpdateAsync(
         string name,
@@ -60,7 +51,7 @@ public sealed class ObjectService : IObjectService
         string? comment = null,
         CancellationToken cancellationToken = default)
     {
-        var packet = BuildPacket(name, location, symbolTable, symbolCode, isLive: true, comment);
+        ObjectPacket packet = BuildPacket(name, location, symbolTable, symbolCode, isLive: true, comment);
         await TransmitAndStoreAsync(packet, cancellationToken).ConfigureAwait(false);
     }
 
@@ -68,9 +59,9 @@ public sealed class ObjectService : IObjectService
     {
         // Find the most recent packet for this object name to reuse its last
         // known position, symbol, and comment on the killed report.
-        var objects = await _packetQueryService.GetMostRecentObjectsAsync(cancellationToken: cancellationToken)
+        IReadOnlyList<PacketRecord> objects = await _packetQueryService.GetMostRecentObjectsAsync(cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        var existing = objects.FirstOrDefault(p =>
+        PacketRecord? existing = objects.FirstOrDefault(p =>
             p.Object != null &&
             string.Equals(p.Object.Name, name, StringComparison.Ordinal));
 
@@ -79,7 +70,7 @@ public sealed class ObjectService : IObjectService
             throw new InvalidOperationException($"No object named '{name}' is known.");
         }
 
-        var packet = BuildPacket(
+        ObjectPacket packet = BuildPacket(
             name,
             existing.Object.Location,
             existing.Object.SymbolTable,
@@ -92,11 +83,11 @@ public sealed class ObjectService : IObjectService
 
     public async Task<IReadOnlyList<ObjectPacket>> GetObjectsAsync(CancellationToken cancellationToken = default)
     {
-        var records = await _packetQueryService.GetMostRecentObjectsAsync(cancellationToken: cancellationToken)
+        IReadOnlyList<PacketRecord> records = await _packetQueryService.GetMostRecentObjectsAsync(cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
-        var result = new List<ObjectPacket>(records.Count);
-        foreach (var record in records)
+        List<ObjectPacket> result = [with(records.Count)];
+        foreach (PacketRecord record in records)
         {
             if (PacketRecordMapper.MapToPacket(record, _logger) is ObjectPacket packet)
             {
@@ -115,8 +106,8 @@ public sealed class ObjectService : IObjectService
         bool isLive,
         string? comment)
     {
-        var baseCallsign = _configurationService.Current.Aprs.Callsign;
-        var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
+        string baseCallsign = _configurationService.Current.Aprs.Callsign;
+        string callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
 
         return _packetFactory.CreateObjectPacket(
             callsignString,
@@ -130,13 +121,13 @@ public sealed class ObjectService : IObjectService
 
     private async Task TransmitAndStoreAsync(ObjectPacket packet, CancellationToken cancellationToken = default)
     {
-        var txPorts = _portService.Ports.Where(p => p.IsEnabled && p.IsTx).ToList();
+        List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
             throw new InvalidOperationException("No enabled TX ports available to transmit the object.");
         }
 
-        foreach (var port in txPorts)
+        foreach (PortConfig port in txPorts)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await _portService.SendPacketAsync(port.Id, packet).ConfigureAwait(false);

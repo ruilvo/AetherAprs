@@ -9,14 +9,11 @@ namespace AetherAprs.Data.Mappers;
 
 internal static class PortRecordMapper
 {
-    public static PortRecord ToRecord(PortConfig port)
-    {
-        return ToRecord(port, (port.TypeSettings as AprsIsSettings)?.Passcode);
-    }
+    public static PortRecord ToRecord(PortConfig port) => ToRecord(port, (port.TypeSettings as AprsIsSettings)?.Passcode);
 
     public static PortRecord ToRecord(PortConfig port, string? protectedPasscode)
     {
-        var record = new PortRecord
+        PortRecord record = new()
         {
             Id = port.Id,
             Name = port.Name,
@@ -30,25 +27,19 @@ internal static class PortRecordMapper
         return record;
     }
 
-    public static PortConfig ToConfig(PortRecord record)
+    public static PortConfig ToConfig(PortRecord record) => new()
     {
-        return new PortConfig
-        {
-            Id = record.Id,
-            Name = record.Name,
-            IsEnabled = record.IsEnabled,
-            IsRx = record.IsRx,
-            IsTx = record.IsTx,
-            ShowOnMap = record.ShowOnMap,
-            AllowDigipeat = record.AllowDigipeat,
-            TypeSettings = ToTypeSettings(record)
-        };
-    }
+        Id = record.Id,
+        Name = record.Name,
+        IsEnabled = record.IsEnabled,
+        IsRx = record.IsRx,
+        IsTx = record.IsTx,
+        ShowOnMap = record.ShowOnMap,
+        AllowDigipeat = record.AllowDigipeat,
+        TypeSettings = ToTypeSettings(record)
+    };
 
-    public static void CopyTo(PortRecord target, PortConfig port)
-    {
-        CopyTo(target, port, (port.TypeSettings as AprsIsSettings)?.Passcode);
-    }
+    public static void CopyTo(PortRecord target, PortConfig port) => CopyTo(target, port, (port.TypeSettings as AprsIsSettings)?.Passcode);
 
     public static void CopyTo(PortRecord target, PortConfig port, string? protectedPasscode)
     {

@@ -50,14 +50,11 @@ public abstract class BeaconTransmitReason
         public double ActualDistanceMeters { get; init; }
         public double MinimumDistanceMeters { get; init; }
 
-        public override string GetLocalizedString()
-        {
-            return string.Format(
+        public override string GetLocalizedString() => string.Format(
                 CultureInfo.CurrentUICulture,
                 Strings.Get("ReasonDistanceBelowMinimum"),
                 ActualDistanceMeters,
                 MinimumDistanceMeters);
-        }
     }
 
     /// <summary>
@@ -67,13 +64,10 @@ public abstract class BeaconTransmitReason
     {
         public double CourseDeltaDegrees { get; init; }
 
-        public override string GetLocalizedString()
-        {
-            return string.Format(
+        public override string GetLocalizedString() => string.Format(
                 CultureInfo.CurrentUICulture,
                 Strings.Get("ReasonCourseChanged"),
                 CourseDeltaDegrees);
-        }
     }
 
     /// <summary>
@@ -83,13 +77,10 @@ public abstract class BeaconTransmitReason
     {
         public int IntervalSeconds { get; init; }
 
-        public override string GetLocalizedString()
-        {
-            return string.Format(
+        public override string GetLocalizedString() => string.Format(
                 CultureInfo.CurrentUICulture,
                 Strings.Get("ReasonIntervalExceeded"),
                 IntervalSeconds);
-        }
     }
 
     /// <summary>
@@ -99,12 +90,9 @@ public abstract class BeaconTransmitReason
     {
         public int SecondsUntilNext { get; init; }
 
-        public override string GetLocalizedString()
-        {
-            return string.Format(
+        public override string GetLocalizedString() => string.Format(
                 CultureInfo.CurrentUICulture,
                 Strings.Get("ReasonWaitingForNextInterval"),
                 SecondsUntilNext);
-        }
     }
 }

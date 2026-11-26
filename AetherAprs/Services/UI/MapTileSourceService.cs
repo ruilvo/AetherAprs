@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Services.Configuration;
 using Mapsui.Layers;
 using Mapsui.Tiling;
@@ -17,27 +18,21 @@ namespace AetherAprs.Services.UI;
 /// Default implementation of <see cref="IMapTileSourceService"/>. Selects between the
 /// online OpenStreetMap source and an offline MBTiles package based on settings.
 /// </summary>
-public sealed class MapTileSourceService : IMapTileSourceService
+public sealed class MapTileSourceService(
+    IConfigurationService configurationService,
+    ILogger<MapTileSourceService> logger) : IMapTileSourceService
 {
     // OSM requires an identifiable User-Agent; generic defaults get blocked.
     private const string OsmUserAgent =
         "AetherAprs/1.0 (+https://github.com/ruilvo/AetherAprs)";
 
-    private readonly IConfigurationService _configurationService;
-    private readonly ILogger<MapTileSourceService> _logger;
-
-    public MapTileSourceService(
-        IConfigurationService configurationService,
-        ILogger<MapTileSourceService> logger)
-    {
-        _configurationService = configurationService;
-        _logger = logger;
-    }
+    private readonly IConfigurationService _configurationService = configurationService;
+    private readonly ILogger<MapTileSourceService> _logger = logger;
 
     /// <inheritdoc />
     public ILayer CreateBaseMapLayer()
     {
-        var map = _configurationService.Current.Map;
+        MapSettings map = _configurationService.Current.Map;
 
         if (map.TileSource == TileSourceType.MbTilesOffline &&
             !string.IsNullOrWhiteSpace(map.MbTilesFilePath))
@@ -52,9 +47,11 @@ public sealed class MapTileSourceService : IMapTileSourceService
 
             try
             {
-                var source = new MbTilesTileSource(map.MbTilesFilePath);
-                var layer = new TileLayer(source);
-                layer.Name = string.IsNullOrEmpty(source.Name) ? "MBTiles" : source.Name;
+                MbTilesTileSource source = new(map.MbTilesFilePath);
+                TileLayer layer = new(source)
+                {
+                    Name = string.IsNullOrEmpty(source.Name) ? "MBTiles" : source.Name
+                };
                 return layer;
             }
             catch (Exception ex)

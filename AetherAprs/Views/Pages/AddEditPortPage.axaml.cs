@@ -21,11 +21,8 @@ public partial class AddEditPortPage : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         // Dispose previous ViewModel to cancel BLE scans and cleanup resources
-        if (_currentViewModel != null)
-        {
-            _currentViewModel.Dispose();
-            _currentViewModel = null;
-        }
+        _currentViewModel?.Dispose();
+        _currentViewModel = null;
 
         // Track new ViewModel
         _currentViewModel = DataContext as AddEditPortViewModel;

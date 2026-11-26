@@ -18,8 +18,8 @@ public sealed class PortPermissionPrompterTests
     [Fact]
     public async Task RequestForPortAsync_BluetoothPort_RequestsNotificationAndBluetoothOnly()
     {
-        var permissions = AllowAll();
-        var prompter = CreatePrompter(permissions);
+        IPermissionService permissions = AllowAll();
+        PortPermissionPrompter prompter = CreatePrompter(permissions);
 
         await prompter.RequestForPortAsync(
             CreateKissPort(new BluetoothLeKissTransportSettings()),
@@ -33,8 +33,8 @@ public sealed class PortPermissionPrompterTests
     [Fact]
     public async Task RequestForPortAsync_AfskPort_RequestsNotificationAndAudioOnly()
     {
-        var permissions = AllowAll();
-        var prompter = CreatePrompter(permissions);
+        IPermissionService permissions = AllowAll();
+        PortPermissionPrompter prompter = CreatePrompter(permissions);
 
         await prompter.RequestForPortAsync(
             new PortConfig
@@ -54,8 +54,8 @@ public sealed class PortPermissionPrompterTests
     [Fact]
     public async Task RequestForPortAsync_NetworkPort_RequestsOnlyNotification()
     {
-        var permissions = AllowAll();
-        var prompter = CreatePrompter(permissions);
+        IPermissionService permissions = AllowAll();
+        PortPermissionPrompter prompter = CreatePrompter(permissions);
 
         await prompter.RequestForPortAsync(
             CreateKissPort(new TcpKissTransportSettings()),
@@ -69,17 +69,17 @@ public sealed class PortPermissionPrompterTests
     [Fact]
     public async Task RequestForPortAsync_WhenADenialIsPermanent_ReportsItForTheOperator()
     {
-        var permissions = AllowAll();
+        IPermissionService permissions = AllowAll();
         permissions.RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(PermissionRequestResult.PermanentlyDenied(PermissionKind.Bluetooth)));
-        var attention = new PermissionAttentionService();
-        var prompter = CreatePrompter(permissions, attention);
+        PermissionAttentionService attention = new();
+        PortPermissionPrompter prompter = CreatePrompter(permissions, attention);
 
         await prompter.RequestForPortAsync(
             CreateKissPort(new BluetoothClassicKissTransportSettings()),
             TestContext.Current.CancellationToken);
 
-        var reported = Assert.Single(attention.Outstanding);
+        PermissionAttention reported = Assert.Single(attention.Outstanding);
         Assert.Equal(PermissionKind.Bluetooth, reported.Kind);
         Assert.True(reported.RequiresApplicationSettings);
     }
@@ -87,14 +87,14 @@ public sealed class PortPermissionPrompterTests
     [Fact]
     public async Task RequestForPortAsync_WhenTheOperatorGrantsAfterADenial_ClearsTheAttention()
     {
-        var permissions = AllowAll();
+        IPermissionService permissions = AllowAll();
         permissions.RequestAsync(PermissionKind.Audio, Arg.Any<CancellationToken>())
             .Returns(
                 Task.FromResult(PermissionRequestResult.Denied(PermissionKind.Audio)),
                 Task.FromResult(PermissionRequestResult.Granted(PermissionKind.Audio)));
-        var attention = new PermissionAttentionService();
-        var prompter = CreatePrompter(permissions, attention);
-        var port = new PortConfig
+        PermissionAttentionService attention = new();
+        PortPermissionPrompter prompter = CreatePrompter(permissions, attention);
+        PortConfig port = new()
         {
             Id = Guid.NewGuid(),
             Name = "AFSK",
@@ -116,7 +116,7 @@ public sealed class PortPermissionPrompterTests
 
     private static IPermissionService AllowAll()
     {
-        var permissions = Substitute.For<IPermissionService>();
+        IPermissionService permissions = Substitute.For<IPermissionService>();
         permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
         return permissions;

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace AetherAprs.Services.Diagnostics;
 
@@ -41,7 +42,7 @@ public interface IDiagnosticEventSink
 
 public sealed class BoundedDiagnosticEventStore : IDiagnosticEventSink
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly Queue<DiagnosticEvent> _events = new();
 
     public BoundedDiagnosticEventStore()

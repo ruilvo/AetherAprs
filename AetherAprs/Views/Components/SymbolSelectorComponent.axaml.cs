@@ -27,8 +27,5 @@ public partial class SymbolSelectorComponent : UserControl
         }
     }
 
-    private void OnCancelClick(object? sender, RoutedEventArgs e)
-    {
-        CancelRequested?.Invoke(this, EventArgs.Empty);
-    }
+    private void OnCancelClick(object? sender, RoutedEventArgs e) => CancelRequested?.Invoke(this, EventArgs.Empty);
 }

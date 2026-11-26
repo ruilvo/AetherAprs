@@ -16,7 +16,7 @@ public sealed class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbConte
     {
         // Use a temp path so `dotnet ef` does not drop a stray aetheraprs.db in
         // the working directory (L2).
-        var tempPath = Path.Combine(Path.GetTempPath(), AppDbContext.DatabaseFileName);
+        string tempPath = Path.Combine(Path.GetTempPath(), AppDbContext.DatabaseFileName);
         return new AppDbContext(AppDbContext.CreateOptions(tempPath));
     }
 }

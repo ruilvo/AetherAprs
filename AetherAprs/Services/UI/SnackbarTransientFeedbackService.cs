@@ -9,9 +9,6 @@ namespace AetherAprs.Services.UI;
 
 public sealed class SnackbarTransientFeedbackService : ITransientFeedbackService
 {
-    public void Show(string message)
-    {
-        Dispatcher.UIThread.Post(
+    public void Show(string message) => Dispatcher.UIThread.Post(
             () => SnackbarHost.Post(message, "MainSnackbarHost", DispatcherPriority.Normal));
-    }
 }

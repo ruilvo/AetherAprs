@@ -25,13 +25,13 @@ public static class Ax25Parser
     /// <exception cref="ArgumentException">Thrown if the data is too short or malformed.</exception>
     public static AprsPacket ParseFrame(byte[] ax25Data)
     {
-        var (source, dest, path, infoBytes) = DecodeAx25(ax25Data);
-        var info = Encoding.ASCII.GetString(infoBytes);
-        var packet = AprsInfoFieldParser.ParseInfoField(info, source, dest, path);
+        (Callsign source, Callsign dest, Callsign[]? path, byte[]? infoBytes) = DecodeAx25(ax25Data);
+        string info = Encoding.ASCII.GetString(infoBytes);
+        AprsPacket packet = AprsInfoFieldParser.ParseInfoField(info, source, dest, path);
 
         // Persist the raw frame (hex) and the textual path portion so downstream
         // consumers can reconstruct exactly what was received over the air.
-        var pathString = path.Length == 0
+        string pathString = path.Length == 0
             ? $"{source}>{dest}"
             : $"{source}>{dest},{PathHelper.FormatPath(path)}";
 
@@ -53,13 +53,13 @@ public static class Ax25Parser
             throw new ArgumentException($"AX.25 frame too short: {data.Length} bytes.", nameof(data));
         }
 
-        var (destination, _) = DecodeAddress(data, 0);
-        var (source, _) = DecodeAddress(data, 7);
+        (Callsign destination, bool _) = DecodeAddress(data, 0);
+        (Callsign source, bool _) = DecodeAddress(data, 7);
 
         // Walk through address fields to find where the control field starts.
         // Addresses are 7 bytes each; the last byte of each address has
         // bit 0 (the HDLC extension bit) = 1 for the final address in the list.
-        var path = new List<Callsign>();
+        List<Callsign> path = [];
         int addrEnd = 14;
         while (addrEnd < data.Length)
         {
@@ -79,7 +79,7 @@ public static class Ax25Parser
             // Only digipeater path addresses carry the H ("has been repeated") bit.
             // The source address's bit 7 is the command/response bit, so it is
             // intentionally not surfaced as HasBeenRepeated.
-            var (hop, hasBeenRepeated) = DecodeAddress(data, addrEnd);
+            (Callsign hop, bool hasBeenRepeated) = DecodeAddress(data, addrEnd);
             path.Add(new Callsign(hop.Base, hop.Ssid, hasBeenRepeated));
             addrEnd += 7;
         }
@@ -105,7 +105,7 @@ public static class Ax25Parser
             return (source, destination, [.. path], []);
         }
 
-        var info = new byte[infoLength];
+        byte[] info = new byte[infoLength];
         Array.Copy(data, infoOffset, info, 0, infoLength);
 
         return (source, destination, [.. path], info);
@@ -124,7 +124,7 @@ public static class Ax25Parser
             chars[i] = c >= ' ' && c < 0x7F ? c : ' ';
         }
 
-        var callsignBase = new string(chars).TrimEnd();
+        string callsignBase = new string(chars).TrimEnd();
 
         // SSID byte: bits 1-4 contain the SSID (shifted left by 1),
         // bit 7 is the "has been repeated" (H) flag.

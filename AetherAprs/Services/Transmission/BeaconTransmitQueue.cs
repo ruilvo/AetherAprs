@@ -169,12 +169,12 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
         lock (_gate)
         {
             ReconcileLocked(now);
-            var activeCount = _items.Count(item =>
+            int activeCount = _items.Count(item =>
                 item.Status is BeaconQueueStatus.Queued or BeaconQueueStatus.Sending);
             BeaconQueueItem? dropped = null;
             if (activeCount >= _maximumItems)
             {
-                var droppedIndex = _items.FindIndex(item => item.Status == BeaconQueueStatus.Queued);
+                int droppedIndex = _items.FindIndex(item => item.Status == BeaconQueueStatus.Queued);
                 if (droppedIndex < 0)
                 {
                     // Every slot is held by an in-flight send; reject the new beacon
@@ -191,7 +191,7 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
             }
 
             // The newest location wins: evict the oldest queued beacon to admit it.
-            var item = new BeaconQueueItem(
+            BeaconQueueItem item = new(
                 Guid.NewGuid(),
                 portId,
                 location.Location.Latitude,
@@ -214,28 +214,22 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
         }
     }
 
-    public void MarkSending(Guid id)
-    {
-        Update(id, item => item with { Status = BeaconQueueStatus.Sending });
-    }
+    public void MarkSending(Guid id) => Update(id, item => item with { Status = BeaconQueueStatus.Sending });
 
-    public void MarkSent(Guid id)
-    {
-        Update(id, item => item with { Status = BeaconQueueStatus.Sent });
-    }
+    public void MarkSent(Guid id) => Update(id, item => item with { Status = BeaconQueueStatus.Sent });
 
     public void MarkAttemptFailed(Guid id, string failureReason, DateTimeOffset now)
     {
         lock (_gate)
         {
-            var index = _items.FindIndex(item => item.Id == id);
+            int index = _items.FindIndex(item => item.Id == id);
             if (index < 0)
             {
                 return;
             }
 
-            var item = _items[index];
-            var attempts = item.AttemptCount + 1;
+            BeaconQueueItem item = _items[index];
+            int attempts = item.AttemptCount + 1;
             _items[index] = item with
             {
                 AttemptCount = attempts,
@@ -250,10 +244,10 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
     private void ReconcileLocked(DateTimeOffset now)
     {
-        var changed = false;
-        for (var index = 0; index < _items.Count; index++)
+        bool changed = false;
+        for (int index = 0; index < _items.Count; index++)
         {
-            var item = _items[index];
+            BeaconQueueItem item = _items[index];
             if (item.Status == BeaconQueueStatus.Sending)
             {
                 _items[index] = item with { Status = BeaconQueueStatus.Queued };
@@ -283,7 +277,7 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
     {
         lock (_gate)
         {
-            var index = _items.FindIndex(item => item.Id == id);
+            int index = _items.FindIndex(item => item.Id == id);
             if (index >= 0)
             {
                 _items[index] = update(_items[index]);
@@ -307,7 +301,7 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
     private async Task PersistLoopAsync()
     {
-        var cancellationToken = _disposalCts.Token;
+        CancellationToken cancellationToken = _disposalCts.Token;
         try
         {
             while (await _persistSignal.Reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
@@ -403,13 +397,13 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
     private async Task WriteSnapshotAsync(string json, CancellationToken cancellationToken)
     {
-        var directory = Path.GetDirectoryName(_path);
+        string? directory = Path.GetDirectoryName(_path);
         if (directory is not null)
         {
             Directory.CreateDirectory(directory);
         }
 
-        var temporaryPath = $"{_path}.{Guid.NewGuid():N}.tmp";
+        string temporaryPath = $"{_path}.{Guid.NewGuid():N}.tmp";
         try
         {
             await File.WriteAllTextAsync(temporaryPath, json, cancellationToken).ConfigureAwait(false);
@@ -457,7 +451,7 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
         try
         {
-            var quarantinePath = BuildQuarantinePath();
+            string quarantinePath = BuildQuarantinePath();
             File.Move(_path, quarantinePath);
             _logger.LogWarning(
                 "Corrupt beacon outbox moved to {QuarantinePath}.",
@@ -475,11 +469,11 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
     private string BuildQuarantinePath()
     {
-        var timestamp = DateTimeOffset.UtcNow.ToString(
+        string timestamp = DateTimeOffset.UtcNow.ToString(
             "yyyyMMddHHmmssfff",
             CultureInfo.InvariantCulture);
-        var candidate = $"{_path}.corrupt-{timestamp}";
-        var suffix = 1;
+        string candidate = $"{_path}.corrupt-{timestamp}";
+        int suffix = 1;
         while (File.Exists(candidate))
         {
             candidate = $"{_path}.corrupt-{timestamp}-{suffix}";

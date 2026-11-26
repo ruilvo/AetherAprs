@@ -94,7 +94,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     /// <inheritdoc />
     public Task<PortSessionStartResult> StartSessionAsync(Guid portId, CancellationToken cancellationToken)
     {
-        var port = _configuration.Find(portId);
+        PortConfig? port = _configuration.Find(portId);
         if (port is null)
         {
             return Task.FromResult(PortSessionStartResult.UnknownPort(portId));
@@ -113,17 +113,17 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(updatedPort);
 
-        var stored = _configuration.Find(updatedPort.Id);
+        PortConfig? stored = _configuration.Find(updatedPort.Id);
         if (stored is null)
         {
             return;
         }
 
-        var storedIsEnabled = stored.IsEnabled;
+        bool storedIsEnabled = stored.IsEnabled;
 
         // Ask the manager before the write so the restart decision reflects the
         // session that is actually running, not the newly published intent.
-        var wasRunning = _sessionManager.IsRunning(updatedPort.Id);
+        bool wasRunning = _sessionManager.IsRunning(updatedPort.Id);
 
         if (!await _configuration.UpdateAsync(updatedPort, CancellationToken.None).ConfigureAwait(false))
         {
@@ -153,7 +153,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
             if (updatedPort.IsEnabled)
             {
-                var start = await _sessionManager
+                PortSessionStartResult start = await _sessionManager
                     .StartAsync(updatedPort.Clone(), CancellationToken.None)
                     .ConfigureAwait(false);
 
@@ -187,7 +187,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     public async Task SetPortEnabledAsync(Guid id, bool enabled)
     {
-        var current = _configuration.Find(id);
+        PortConfig? current = _configuration.Find(id);
         if (current is null)
         {
             return;
@@ -217,7 +217,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             // launch is asked about now, not only during the startup burst.
             await RequestPortPermissionsAsync(current).ConfigureAwait(false);
 
-            var start = await _sessionManager
+            PortSessionStartResult start = await _sessionManager
                 .StartAsync(current, CancellationToken.None)
                 .ConfigureAwait(false);
 
@@ -291,13 +291,13 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         // Nothing is running. Only an enabled port may be brought up implicitly,
         // and the manager decides atomically whether that start actually yields a
         // session this send can use.
-        var portToStart = _configuration.Find(id);
+        PortConfig? portToStart = _configuration.Find(id);
         if (portToStart is null || !portToStart.IsEnabled)
         {
             throw new InvalidOperationException($"Port {id} is not running.");
         }
 
-        var start = await _sessionManager
+        PortSessionStartResult start = await _sessionManager
             .StartAsync(portToStart, CancellationToken.None)
             .ConfigureAwait(false);
         if (!start.IsRunning)
@@ -319,11 +319,11 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     public async Task StopAllPortsAsync()
     {
-        var results = await _sessionManager
+        IReadOnlyList<PortSessionStopResult> results = await _sessionManager
             .StopAllAsync(CancellationToken.None)
             .ConfigureAwait(false);
 
-        var failures = results.Count(result => result.Status == PortSessionStopStatus.Failed);
+        int failures = results.Count(result => result.Status == PortSessionStopStatus.Failed);
         if (failures > 0)
         {
             _logger.LogWarning(
@@ -416,10 +416,10 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         // Stop sessions through the manager that owns them, bounded so a transport
         // that never answers cannot make disposal hang. A port that cannot be
         // reached is reported rather than allowed to block shutdown.
-        using (var teardown = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+        using (CancellationTokenSource teardown = new(TimeSpan.FromSeconds(10)))
         {
-            var stops = await _sessionManager.StopAllAsync(teardown.Token).ConfigureAwait(false);
-            foreach (var failed in stops.Where(stop => stop.Status == PortSessionStopStatus.Failed))
+            IReadOnlyList<PortSessionStopResult> stops = await _sessionManager.StopAllAsync(teardown.Token).ConfigureAwait(false);
+            foreach (PortSessionStopResult? failed in stops.Where(stop => stop.Status == PortSessionStopStatus.Failed))
             {
                 _logger.LogWarning(
                     failed.Error,

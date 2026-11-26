@@ -45,10 +45,7 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
     /// <summary>
     /// Disposes the underlying <see cref="HttpClient"/>.
     /// </summary>
-    public void Dispose()
-    {
-        _httpClient.Dispose();
-    }
+    public void Dispose() => _httpClient.Dispose();
 
     /// <inheritdoc />
     public async Task DownloadRegionAsync(
@@ -63,40 +60,38 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
 
         TryDeleteFile(outputPath);
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+        string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
         if (!string.IsNullOrEmpty(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        var totalTiles = CountTiles(region);
-        var completed = 0;
+        int totalTiles = CountTiles(region);
+        int completed = 0;
 
         try
         {
-            await using (var connection = await OpenPackageAsync(region, outputPath, cancellationToken).ConfigureAwait(false))
+            await using SqliteConnection connection = await OpenPackageAsync(region, outputPath, cancellationToken).ConfigureAwait(false);
+            for (int zoom = region.MinZoom; zoom <= region.MaxZoom; zoom++)
             {
-                for (var zoom = region.MinZoom; zoom <= region.MaxZoom; zoom++)
+                cancellationToken.ThrowIfCancellationRequested();
+                TileRange range = GetTileRange(region, zoom);
+
+                for (int x = range.MinX; x <= range.MaxX; x++)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var range = GetTileRange(region, zoom);
-
-                    for (var x = range.MinX; x <= range.MaxX; x++)
+                    for (int y = range.MinY; y <= range.MaxY; y++)
                     {
-                        for (var y = range.MinY; y <= range.MaxY; y++)
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        byte[]? data = await DownloadTileAsync(zoom, x, y, cancellationToken).ConfigureAwait(false);
+                        if (data is not null)
                         {
-                            cancellationToken.ThrowIfCancellationRequested();
-
-                            var data = await DownloadTileAsync(zoom, x, y, cancellationToken).ConfigureAwait(false);
-                            if (data is not null)
-                            {
-                                var tmsRow = (1 << zoom) - 1 - y;
-                                await InsertTileAsync(connection, zoom, x, tmsRow, data, cancellationToken).ConfigureAwait(false);
-                            }
-
-                            completed++;
-                            progress?.Report(new OfflineDownloadProgress(completed, totalTiles));
+                            int tmsRow = (1 << zoom) - 1 - y;
+                            await InsertTileAsync(connection, zoom, x, tmsRow, data, cancellationToken).ConfigureAwait(false);
                         }
+
+                        completed++;
+                        progress?.Report(new OfflineDownloadProgress(completed, totalTiles));
                     }
                 }
             }
@@ -130,9 +125,9 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
 
     private async Task<byte[]?> DownloadTileAsync(int zoom, int x, int y, CancellationToken cancellationToken)
     {
-        var url = string.Format(CultureInfo.InvariantCulture, TileUrlFormat, zoom, x, y);
+        string url = string.Format(CultureInfo.InvariantCulture, TileUrlFormat, zoom, x, y);
 
-        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+        using HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             // Tile outside OSM coverage — skip rather than fail the whole download.
@@ -141,7 +136,7 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
 
         response.EnsureSuccessStatusCode();
 
-        var data = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        byte[] data = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         return data.Length == 0 ? null : data;
     }
 
@@ -150,14 +145,14 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
         string outputPath,
         CancellationToken cancellationToken)
     {
-        var connectionString = new SqliteConnectionStringBuilder
+        string connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = outputPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Pooling = false
         }.ToString();
 
-        var connection = new SqliteConnection(connectionString);
+        SqliteConnection connection = new(connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
         await ExecuteAsync(connection, "CREATE TABLE metadata (name TEXT, value TEXT);", cancellationToken).ConfigureAwait(false);
@@ -181,10 +176,10 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
 
     private static int CountTiles(OfflineDownloadRegion region)
     {
-        var total = 0;
-        for (var zoom = region.MinZoom; zoom <= region.MaxZoom; zoom++)
+        int total = 0;
+        for (int zoom = region.MinZoom; zoom <= region.MaxZoom; zoom++)
         {
-            var range = GetTileRange(region, zoom);
+            TileRange range = GetTileRange(region, zoom);
             total += (range.MaxX - range.MinX + 1) * (range.MaxY - range.MinY + 1);
         }
 
@@ -193,25 +188,25 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
 
     private static TileRange GetTileRange(OfflineDownloadRegion region, int zoom)
     {
-        var n = 1 << zoom;
-        var minX = Math.Clamp(LongitudeToTileX(region.MinLongitude, zoom), 0, n - 1);
-        var maxX = Math.Clamp(LongitudeToTileX(region.MaxLongitude, zoom), 0, n - 1);
+        int n = 1 << zoom;
+        int minX = Math.Clamp(LongitudeToTileX(region.MinLongitude, zoom), 0, n - 1);
+        int maxX = Math.Clamp(LongitudeToTileX(region.MaxLongitude, zoom), 0, n - 1);
         // Latitude decreases as tile Y increases: the northern bound yields the smaller row.
-        var minY = Math.Clamp(LatitudeToTileY(region.MaxLatitude, zoom), 0, n - 1);
-        var maxY = Math.Clamp(LatitudeToTileY(region.MinLatitude, zoom), 0, n - 1);
+        int minY = Math.Clamp(LatitudeToTileY(region.MaxLatitude, zoom), 0, n - 1);
+        int maxY = Math.Clamp(LatitudeToTileY(region.MinLatitude, zoom), 0, n - 1);
         return new TileRange(minX, minY, maxX, maxY);
     }
 
     private static int LongitudeToTileX(double longitude, int zoom)
     {
-        var n = 1 << zoom;
+        int n = 1 << zoom;
         return (int)Math.Floor((longitude + 180.0) / 360.0 * n);
     }
 
     private static int LatitudeToTileY(double latitude, int zoom)
     {
-        var n = 1 << zoom;
-        var latRad = latitude * Math.PI / 180.0;
+        int n = 1 << zoom;
+        double latRad = latitude * Math.PI / 180.0;
         return (int)Math.Floor((1.0 - Math.Log(Math.Tan(latRad) + 1.0 / Math.Cos(latRad)) / Math.PI) / 2.0 * n);
     }
 
@@ -223,7 +218,7 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
         byte[] data,
         CancellationToken cancellationToken)
     {
-        await using var command = connection.CreateCommand();
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText =
             "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES ($zoom, $column, $row, $data);";
         command.Parameters.AddWithValue("$zoom", zoom);
@@ -239,7 +234,7 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
         string value,
         CancellationToken cancellationToken)
     {
-        await using var command = connection.CreateCommand();
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "INSERT INTO metadata (name, value) VALUES ($name, $value);";
         command.Parameters.AddWithValue("$name", name);
         command.Parameters.AddWithValue("$value", value);
@@ -251,7 +246,7 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
         string sql,
         CancellationToken cancellationToken)
     {
-        await using var command = connection.CreateCommand();
+        await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = sql;
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }

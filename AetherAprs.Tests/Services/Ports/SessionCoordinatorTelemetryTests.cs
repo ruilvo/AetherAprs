@@ -21,14 +21,14 @@ public sealed class SessionCoordinatorTelemetryTests
     [Fact]
     public async Task TransportTelemetry_UpdatesStatus_ReconnectsAndNotifiesObservers()
     {
-        var portId = Guid.NewGuid();
-        var controller = new RecordingPortController();
-        var store = new RecordingStateStore();
-        var portService = new FakePortService();
-        var states = new ConcurrentQueue<SessionSnapshot>();
-        var delays = new ConcurrentQueue<TimeSpan>();
+        Guid portId = Guid.NewGuid();
+        RecordingPortController controller = new();
+        RecordingStateStore store = new();
+        FakePortService portService = new();
+        ConcurrentQueue<SessionSnapshot> states = new();
+        ConcurrentQueue<TimeSpan> delays = new();
 
-        await using var coordinator = new SessionCoordinator(
+        await using SessionCoordinator coordinator = new(
             controller,
             store,
             delayAsync: (delay, _) =>
@@ -39,7 +39,7 @@ public sealed class SessionCoordinatorTelemetryTests
             jitter: () => 0,
             initialBackoff: TimeSpan.FromSeconds(1),
             maximumBackoff: TimeSpan.FromSeconds(3));
-        await using var bridge = new SessionCoordinatorTelemetryBridge(
+        await using SessionCoordinatorTelemetryBridge bridge = new(
             portService,
             coordinator,
             NullLogger<SessionCoordinatorTelemetryBridge>.Instance);
@@ -59,7 +59,7 @@ public sealed class SessionCoordinatorTelemetryTests
             {
                 // Poll with plain booleans: an assertion inside this predicate would
                 // throw on the first attempt instead of retrying.
-                var ports = coordinator.Ports;
+                IReadOnlyList<PortSessionStatus> ports = coordinator.Ports;
                 return ports.Count == 1
                     && ports[0].LastReceiveUtc is not null
                     && ports[0].LastTransmitUtc is not null;
@@ -68,7 +68,7 @@ public sealed class SessionCoordinatorTelemetryTests
         portService.RaiseTransportFault(portId, new InvalidOperationException("transport lost"));
         await EventuallyAsync(() => controller.ConnectAttempts == 2);
 
-        var finalStatus = Assert.Single(coordinator.Ports);
+        PortSessionStatus finalStatus = Assert.Single(coordinator.Ports);
         Assert.Equal(PortSessionState.Connected, finalStatus.State);
         Assert.Equal(SessionLifecycleState.Running, coordinator.State);
         Assert.Contains(states, snapshot =>
@@ -85,13 +85,13 @@ public sealed class SessionCoordinatorTelemetryTests
     [Fact]
     public async Task RepeatedPacketsWithoutStateChange_DoNotRewriteSessionState()
     {
-        var portId = Guid.NewGuid();
-        var controller = new RecordingPortController();
-        var store = new RecordingStateStore();
-        var portService = new FakePortService();
+        Guid portId = Guid.NewGuid();
+        RecordingPortController controller = new();
+        RecordingStateStore store = new();
+        FakePortService portService = new();
 
-        await using var coordinator = new SessionCoordinator(controller, store);
-        await using var bridge = new SessionCoordinatorTelemetryBridge(
+        await using SessionCoordinator coordinator = new(controller, store);
+        await using SessionCoordinatorTelemetryBridge bridge = new(
             portService,
             coordinator,
             NullLogger<SessionCoordinatorTelemetryBridge>.Instance);
@@ -105,11 +105,11 @@ public sealed class SessionCoordinatorTelemetryTests
             Packet = null!
         });
         await EventuallyAsync(() => store.SaveCalls > 0);
-        var savesAfterTransition = store.SaveCalls;
+        int savesAfterTransition = store.SaveCalls;
 
         // A busy feed produces thousands of packets; none of them may trigger a
         // full session-state rewrite, a UI event or a diagnostic.
-        for (var i = 0; i < 200; i++)
+        for (int i = 0; i < 200; i++)
         {
             portService.RaisePacketReceived(new PortPacketReceivedEventArgs
             {
@@ -125,7 +125,7 @@ public sealed class SessionCoordinatorTelemetryTests
 
     private static async Task EventuallyAsync(Func<bool> condition)
     {
-        for (var attempt = 0; attempt < 100; attempt++)
+        for (int attempt = 0; attempt < 100; attempt++)
         {
             if (condition())
             {

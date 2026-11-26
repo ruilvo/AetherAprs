@@ -23,7 +23,8 @@ namespace AetherAprs.ViewModels.Components;
 /// </summary>
 public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
 {
-    private static readonly Regex PlaceholderRegex = new(@"\{([A-Za-z0-9_]+)\}", RegexOptions.Compiled);
+    [GeneratedRegex(@"\{([A-Za-z0-9_]+)\}", RegexOptions.Compiled)]
+    private static partial Regex PlaceholderRegex { get; }
 
     private bool _hasCallerDestination;
 
@@ -70,7 +71,7 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
     /// <summary>
     /// Gets the fields for the selected template's placeholders.
     /// </summary>
-    public ObservableCollection<TemplateFieldViewModel> Fields { get; } = new();
+    public ObservableCollection<TemplateFieldViewModel> Fields { get; } = [];
 
     /// <summary>
     /// Gets the template body with the current field values applied,
@@ -108,7 +109,7 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
 
     private void RebuildFields(MessageTemplate? template)
     {
-        foreach (var field in Fields)
+        foreach (TemplateFieldViewModel field in Fields)
         {
             field.PropertyChanged -= OnFieldPropertyChanged;
         }
@@ -117,10 +118,10 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
 
         if (template != null)
         {
-            foreach (var name in GetPlaceholderNames(template.Body))
+            foreach (string name in GetPlaceholderNames(template.Body))
             {
-                var field = new TemplateFieldViewModel(name);
-                if (template.FieldDefaults.TryGetValue(name, out var defaultValue))
+                TemplateFieldViewModel field = new(name);
+                if (template.FieldDefaults.TryGetValue(name, out string? defaultValue))
                 {
                     field.Value = defaultValue;
                 }
@@ -158,8 +159,8 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
             return null;
         }
 
-        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var field in Fields)
+        Dictionary<string, string> values = [with(StringComparer.OrdinalIgnoreCase)];
+        foreach (TemplateFieldViewModel field in Fields)
         {
             values[field.Name] = field.Value;
         }
@@ -170,7 +171,7 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
     [RelayCommand]
     private void Confirm()
     {
-        var applied = ApplyCurrent();
+        string? applied = ApplyCurrent();
         if (applied == null)
         {
             return;
@@ -182,7 +183,7 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
 
     private static IReadOnlyList<string> GetPlaceholderNames(string body)
     {
-        var names = new List<string>();
+        List<string> names = [];
         if (string.IsNullOrEmpty(body))
         {
             return names;
@@ -190,7 +191,7 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
 
         foreach (Match match in PlaceholderRegex.Matches(body))
         {
-            var name = match.Groups[1].Value;
+            string name = match.Groups[1].Value;
             if (!names.Contains(name))
             {
                 names.Add(name);
@@ -202,11 +203,11 @@ public sealed partial class MessageTemplateDialogViewModel : ViewModelBase
 
     private static string? ApplyTemplate(MessageTemplate template, IReadOnlyDictionary<string, string> values)
     {
-        var result = template.Body;
-        foreach (var name in GetPlaceholderNames(result))
+        string result = template.Body;
+        foreach (string name in GetPlaceholderNames(result))
         {
-            values.TryGetValue(name, out var raw);
-            var value = !string.IsNullOrWhiteSpace(raw) ? raw.Trim() : string.Empty;
+            values.TryGetValue(name, out string? raw);
+            string value = !string.IsNullOrWhiteSpace(raw) ? raw.Trim() : string.Empty;
             result = result.Replace("{" + name + "}", value, StringComparison.OrdinalIgnoreCase);
         }
 

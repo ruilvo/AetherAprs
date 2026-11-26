@@ -102,7 +102,7 @@ public sealed class PositionDataRecord
     /// Geographic coordinate (latitude, longitude) using the Geo library.
     /// </summary>
     public Coordinate Location { get; set; } = new Coordinate();
-    
+
     public double? Altitude { get; set; }
     public double? Course { get; set; }
     public double? Speed { get; set; }
