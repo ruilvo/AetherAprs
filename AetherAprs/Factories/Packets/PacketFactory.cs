@@ -19,8 +19,6 @@ namespace AetherAprs.Factories.Packets;
 /// </summary>
 public sealed class PacketFactory : IPacketFactory
 {
-    private const double MetersToFeet = 3.28084;
-
     /// <summary>
     /// AX.25 destination carried by every packet this application transmits.
     /// </summary>
@@ -65,7 +63,7 @@ public sealed class PacketFactory : IPacketFactory
                 Destination = destination,
                 Path = path,
                 Location = location.Location,
-                Altitude = location.Altitude.HasValue ? location.Altitude.Value * MetersToFeet : null,
+                Altitude = location.Altitude.HasValue ? AprsUnits.MetersToFeet(location.Altitude.Value) : null,
                 Course = course,
                 Symbol = new Symbol(symbolTable, symbolCode),
                 Comment = packetComment,

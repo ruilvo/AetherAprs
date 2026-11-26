@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
 using Geo.Abstractions.Interfaces;
 using Geo.Geodesy;
 using Microsoft.Extensions.Logging;
@@ -41,7 +42,6 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
 
-    private const double MetersPerSecondToKilometersPerHour = 3.6;
     private const int EvaluationIntervalMilliseconds = 1000; // Check every second
 
     public BeaconService(ILogger<BeaconService>? logger = null)
@@ -358,9 +358,13 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             };
         }
 
-        // Calculate speed (time delta in seconds from location timestamps)
+        // Calculate speed (time delta in seconds from location timestamps). The
+        // distance is metres, so the quotient is metres per second; the conversion
+        // to the configured unit is named rather than a bare 3.6.
         var timeDelta = (currentLocation.Timestamp - previousLocation.Timestamp).TotalSeconds;
-        var speedKmh = timeDelta > 0 ? (distanceMeters / timeDelta) * MetersPerSecondToKilometersPerHour : 0;
+        var speedKmh = timeDelta > 0
+            ? AprsUnits.MetersPerSecondToKilometersPerHour(distanceMeters / timeDelta)
+            : 0;
 
         var courseChangeThreshold = config.CourseChangeThresholdDegrees;
 

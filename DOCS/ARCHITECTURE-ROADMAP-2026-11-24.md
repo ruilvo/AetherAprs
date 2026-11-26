@@ -1391,8 +1391,7 @@ close the ticket without refactoring unrelated code.
 > `AddEditPortViewModelTests` covers a denied save (general error set, Bluetooth
 > status untouched, no navigation) and a retry that clears the previous error.
 
-> **Status: sparse telemetry channels preserved; repeated path flags and
-> UTC-at-the-UI-boundary verified (2026-11-26); encoded units still open.**
+> **Status: all four behaviors in this row implemented and covered (2026-11-26).**
 > Telemetry channels are positional, and the parser was compacting them: an empty or
 > unparsable analog slot was skipped, so `T#005,,,42.5,7` reported channel 3's reading
 > as channel 1. `TelemetryPacket.AnalogValues` is now `IReadOnlyList<double?>`, the
@@ -1414,8 +1413,20 @@ close the ticket without refactoring unrelated code.
 > digipeater and path tests already assert the repeated flag after decrementing.
 > Reverting the parser to skip a missing channel makes the two telemetry cases fail.
 >
-> Still open for this row: explicit units at conversions and coverage for encoded
-> units (`m-15`, `m-47`).
+> Unit conversions now have one named home. `AprsUnits` holds the metre/foot,
+> knot/metre-per-second and knot/kilometre-per-hour factors plus the compressed
+> altitude and speed formulas, so the parser and the serializer can no longer encode
+> the same wire rule twice, and a bare `3.28084` or `3.6` no longer sits in a factory
+> or a service. Encoding a non-positive altitude or a negative speed now throws
+> instead of producing a value the format cannot express; the serializer treats a
+> non-positive altitude as absent and falls back to the course/speed form.
+>
+> Tests: `AprsUnitsTests` pins each factor against an independent definition (the
+> international foot, one nautical mile per hour, one knot as 1852 m in 3600 s) and
+> round-trips both compressed encodings within their quantisation step. Reverting the
+> altitude encoding to a 90-step slot makes the four altitude cases fail.
+>
+> Remaining for this row: nothing at the source level.
 
 > **Status: callsign, addressee and object name types audited and separated (2026-11-26).**
 > The app now states which of the three it means at each boundary. `Callsign` (two to

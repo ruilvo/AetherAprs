@@ -344,12 +344,12 @@ public static class AprsInfoFieldParser
         {
             if ((ctype & 0x18) == 0x10)
             {
-                altitude = Math.Pow(1.002, c1 * 91 + s1);
+                altitude = AprsUnits.DecodeCompressedAltitude(c1, s1);
             }
             else if (c1 is >= 0 and <= 89)
             {
                 course = c1 == 0 ? 360 : c1 * 4.0;
-                speed = Math.Pow(1.08, s1) - 1.0;
+                speed = AprsUnits.DecodeCompressedSpeed(s1);
             }
         }
 

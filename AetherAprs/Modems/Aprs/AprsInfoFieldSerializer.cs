@@ -148,22 +148,22 @@ public static class AprsInfoFieldSerializer
     /// </summary>
     private static string FormatCompressedCsT(PositionPacket packet)
     {
-        if (packet.Altitude.HasValue)
+        if (packet.Altitude is > 0)
         {
-            // Altitude mode: c1*91 + s1 encodes log1.002(altitude).
-            int combined = (int)Math.Round(Math.Log(packet.Altitude.Value) / Math.Log(1.002), MidpointRounding.AwayFromZero);
-            char c1 = (char)(combined / 91 + 33);
-            char s1 = (char)(combined % 91 + 33);
+            // Altitude mode: c1*91 + s1 encodes log1.002(altitude in feet).
+            var (c1Value, s1Value) = AprsUnits.EncodeCompressedAltitude(packet.Altitude.Value);
+            char c1 = (char)(c1Value + 33);
+            char s1 = (char)(s1Value + 33);
             char ctype = (char)(0x10 + 33); // altitude flag set (bit 4)
             return $"{c1}{s1}{ctype}";
         }
 
         if (packet.Course.HasValue && packet.Speed.HasValue)
         {
-            // Course in units of 4 degrees (c1==0 means 360), speed as 1.08^s1 - 1.
+            // Course in units of 4 degrees (c1==0 means 360), speed as 1.08^s1 - 1 knots.
             int course = (int)Math.Round(packet.Course.Value, MidpointRounding.AwayFromZero);
             int c1 = course >= 360 ? 0 : (int)Math.Round(course / 4.0, MidpointRounding.AwayFromZero);
-            int s1 = (int)Math.Round(Math.Log(packet.Speed.Value + 1.0) / Math.Log(1.08), MidpointRounding.AwayFromZero);
+            int s1 = AprsUnits.EncodeCompressedSpeed(packet.Speed.Value);
             char c = (char)(c1 + 33);
             char s = (char)(s1 + 33);
             char ctype = (char)33; // no altitude flag
