@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -217,28 +218,23 @@ public partial class DownloadOfflineMapPage : UserControl, IDisposable
         _drawing = false;
         _drawStartWorld = null;
 
-        MPoint end = e.WorldPosition;
-        double minX = Math.Min(start.X, end.X);
-        double minY = Math.Min(start.Y, end.Y);
-        double maxX = Math.Max(start.X, end.X);
-        double maxY = Math.Max(start.Y, end.Y);
-
-        // A tap (no drag distance) is not a selection; clear any stale rectangle.
-        if (maxX - minX <= double.Epsilon || maxY - minY <= double.Epsilon)
+        if (MapSelectionDrag.Complete(start, e.WorldPosition) is not { } selection)
         {
+            // A tap (no drag distance) is not a selection; clear any stale rectangle.
             ClearSelectionLayer();
             return;
         }
 
-        (double minLongitude, double minLatitude) = SphericalMercator.ToLonLat(minX, minY);
-        (double maxLongitude, double maxLatitude) = SphericalMercator.ToLonLat(maxX, maxY);
-
-        _currentViewModel!.SetSelection(minLongitude, minLatitude, maxLongitude, maxLatitude);
+        _currentViewModel?.SetSelection(
+            selection.MinLongitude,
+            selection.MinLatitude,
+            selection.MaxLongitude,
+            selection.MaxLatitude);
 
         // A completed drag ends draw mode, returning the map to pan navigation.
-        if (_currentViewModel.IsDrawMode)
+        if (_currentViewModel is { IsDrawMode: true } viewModel)
         {
-            _currentViewModel.ToggleDrawModeCommand.Execute(null);
+            viewModel.ToggleDrawModeCommand.Execute(null);
         }
     }
 

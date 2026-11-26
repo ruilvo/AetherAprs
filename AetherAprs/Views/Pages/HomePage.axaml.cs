@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
@@ -267,61 +268,31 @@ public partial class HomePage : UserControl
         }
 
         Viewport viewport = MapControl.Map.Navigator.Viewport;
+        MapTapResult result = MapTapResolver.Resolve(
+            MapControl.Map.Layers,
+            e.WorldPosition,
+            viewport.Resolution);
 
-        // Query features at the tapped position (with tolerance). e.WorldPosition is
-        // already converted from screen to world coordinates by the MapControl.
-        double tolerance = viewport.Resolution * 20; // 20 pixel tolerance
-        List<IFeature> clickedFeatures = [.. MapControl.Map.Layers
-            .SelectMany(layer => layer.GetFeatures(new MRect(
-                e.WorldPosition.X - tolerance,
-                e.WorldPosition.Y - tolerance,
-                e.WorldPosition.X + tolerance,
-                e.WorldPosition.Y + tolerance), viewport.Resolution))];
-
-        // Find the first cluster, object, or beacon feature at the tap point.
-        foreach (IFeature feature in clickedFeatures)
+        switch (result)
         {
-            if (feature.Fields == null)
-            {
-                continue;
-            }
-
-            // Cluster click: zoom in (animated), centered on the cluster centroid.
-            if (feature.Fields.Contains("Cluster") && feature is PointFeature clusterFeature)
-            {
+            case MapTapResult.ZoomToCluster cluster:
                 MapControl.Map.Navigator.CenterOnAndZoomTo(
-                    clusterFeature.Point,
-                    viewport.Resolution * 0.5,
+                    cluster.Center,
+                    cluster.Resolution,
                     350,
                     Easing.CubicOut);
                 e.Handled = true;
-                return;
-            }
+                break;
 
-            // Object/item click: open the object details page.
-            if (feature.Fields.Contains("ObjectName"))
-            {
-                string? objectName = feature["ObjectName"] as string;
-                if (!string.IsNullOrEmpty(objectName))
-                {
-                    _currentViewModel.OnObjectClicked(objectName);
-                    e.Handled = true;
-                    return;
-                }
-            }
+            case MapTapResult.OpenObject openObject:
+                _currentViewModel.OnObjectClicked(openObject.Name);
+                e.Handled = true;
+                break;
 
-            // Beacon click: open station details.
-            if (feature.Fields.Contains("Callsign"))
-            {
-                string? callsign = feature["Callsign"] as string;
-                if (!string.IsNullOrEmpty(callsign))
-                {
-                    // Delegate to ViewModel for navigation
-                    _currentViewModel.OnBeaconClicked(callsign);
-                    e.Handled = true;
-                    return;
-                }
-            }
+            case MapTapResult.OpenBeacon openBeacon:
+                _currentViewModel.OnBeaconClicked(openBeacon.Callsign);
+                e.Handled = true;
+                break;
         }
     }
 }
