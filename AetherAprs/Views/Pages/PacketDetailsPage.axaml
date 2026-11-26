@@ -101,15 +101,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" Margin="8,8,8,0">
         <!-- History tab -->
         <TabItem Header="{loc:Loc PacketDetailsTabHistory}">
-          <ScrollViewer Classes="PageContent">
-            <StackPanel Classes="PageContainer">
-              <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <StackPanel Spacing="8" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
+          <Grid>
+            <ListBox x:Name="HistoryList"
+                     Classes="PacketCardList"
+                     ItemsSource="{Binding Packets}"
+                     ScrollViewer.ScrollChanged="OnListScrollChanged">
+                <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="data:PacketRecord">
                     <controls:Card Classes="StandardCard">
                       <StackPanel Spacing="8">
@@ -164,28 +161,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       </StackPanel>
                     </controls:Card>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
-              <!-- Empty state -->
-              <TextBlock Text="{loc:Loc NoPacketsFound}"
-                         Classes="EmptyState"
-                         IsVisible="{Binding !HasPackets}" />
-            </StackPanel>
-          </ScrollViewer>
+            <!-- Empty state -->
+            <TextBlock Text="{loc:Loc NoPacketsFound}"
+                       Classes="EmptyState"
+                       IsVisible="{Binding !HasPackets}" />
+          </Grid>
         </TabItem>
 
         <!-- Position tab -->
         <TabItem Header="{loc:Loc PacketDetailsTabPosition}">
-          <ScrollViewer Classes="PageContent">
-            <StackPanel Classes="PageContainer">
-              <ItemsControl ItemsSource="{Binding PositionHistory}" Classes="CardList">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <StackPanel Spacing="8" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
+          <Grid>
+            <ListBox x:Name="PositionList"
+                     Classes="PacketCardList"
+                     ItemsSource="{Binding PositionHistory}"
+                     ScrollViewer.ScrollChanged="OnListScrollChanged">
+                <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="data:PacketRecord">
                     <controls:Card Classes="StandardCard">
                       <StackPanel Spacing="4">
@@ -209,27 +202,23 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       </StackPanel>
                     </controls:Card>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
-              <TextBlock Text="{loc:Loc NoPositionHistory}"
-                         Classes="EmptyState"
-                         IsVisible="{Binding !HasPositionHistory}" />
-            </StackPanel>
-          </ScrollViewer>
+            <TextBlock Text="{loc:Loc NoPositionHistory}"
+                       Classes="EmptyState"
+                       IsVisible="{Binding !HasPositionHistory}" />
+          </Grid>
         </TabItem>
 
         <!-- Raw tab -->
         <TabItem Header="{loc:Loc PacketDetailsTabRaw}">
-          <ScrollViewer Classes="PageContent">
-            <StackPanel Classes="PageContainer">
-              <ItemsControl ItemsSource="{Binding Packets}" Classes="CardList">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <StackPanel Spacing="8" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
+          <Grid>
+            <ListBox x:Name="RawList"
+                     Classes="PacketCardList"
+                     ItemsSource="{Binding Packets}"
+                     ScrollViewer.ScrollChanged="OnListScrollChanged">
+                <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="data:PacketRecord">
                     <controls:Card Classes="StandardCard">
                       <StackPanel Spacing="4">
@@ -255,27 +244,23 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       </StackPanel>
                     </controls:Card>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
-              <TextBlock Text="{loc:Loc NoPacketsFound}"
-                         Classes="EmptyState"
-                         IsVisible="{Binding !HasPackets}" />
-            </StackPanel>
-          </ScrollViewer>
+            <TextBlock Text="{loc:Loc NoPacketsFound}"
+                       Classes="EmptyState"
+                       IsVisible="{Binding !HasPackets}" />
+          </Grid>
         </TabItem>
 
         <!-- Telemetry tab -->
         <TabItem Header="{loc:Loc PacketDetailsTabTelemetry}">
-          <ScrollViewer Classes="PageContent">
-            <StackPanel Classes="PageContainer">
-              <ItemsControl ItemsSource="{Binding WeatherStatusTelemetry}" Classes="CardList">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <StackPanel Spacing="8" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
+          <Grid>
+            <ListBox x:Name="TelemetryList"
+                     Classes="PacketCardList"
+                     ItemsSource="{Binding WeatherStatusTelemetry}"
+                     ScrollViewer.ScrollChanged="OnListScrollChanged">
+                <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="data:PacketRecord">
                     <controls:Card Classes="StandardCard">
                       <StackPanel Spacing="4">
@@ -369,14 +354,13 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       </StackPanel>
                     </controls:Card>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ListBox.ItemTemplate>
+            </ListBox>
 
-              <TextBlock Text="{loc:Loc NoWeatherTelemetry}"
-                         Classes="EmptyState"
-                         IsVisible="{Binding !HasWeatherStatusTelemetry}" />
-            </StackPanel>
-          </ScrollViewer>
+            <TextBlock Text="{loc:Loc NoWeatherTelemetry}"
+                       Classes="EmptyState"
+                       IsVisible="{Binding !HasWeatherStatusTelemetry}" />
+          </Grid>
         </TabItem>
       </TabControl>
     </Grid>

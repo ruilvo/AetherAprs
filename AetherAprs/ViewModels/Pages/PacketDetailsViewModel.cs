@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
@@ -38,8 +39,17 @@ public partial class PacketDetailsViewModel(
     ICompassService compassService,
     ILogger<PacketDetailsViewModel> logger) : ViewModelBase, IOverlayRetireable
 {
+    private const int PageSize = 50;
+
     private readonly IGeodeticCalculator _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
     private double? _bearingDegrees;
+
+    // A station can have thousands of rows. The page loads one page at a time using
+    // the id of the oldest loaded row as a cursor, so the view can virtualize the
+    // lists instead of materializing the entire history up front.
+    private long? _oldestLoadedId;
+    private bool _isLoadingPage;
+    private bool _retired;
 
     [ObservableProperty]
     public partial string Callsign { get; set; } = string.Empty;
@@ -80,6 +90,13 @@ public partial class PacketDetailsViewModel(
     [ObservableProperty]
     public partial double RelativeBearingDegrees { get; set; }
 
+    /// <summary>
+    /// True while older packets remain, so the page can request the next page when the
+    /// list reaches its end.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasMore { get; set; }
+
     public void Initialize(string callsign)
     {
         logger.LogInformation("Initializing PacketDetailsViewModel with callsign: {Callsign}", callsign);
@@ -90,12 +107,15 @@ public partial class PacketDetailsViewModel(
         compassService.HeadingUpdated += OnHeadingUpdated;
         compassService.StartListening();
 
-        _ = LoadPacketsAsync();
+        _retired = false;
+        HasMore = true;
+        _ = LoadNextPageAsync();
     }
 
     /// <inheritdoc />
     public void OnRetiredFromOverlay()
     {
+        _retired = true;
         locationTrackingService.LocationUpdated -= OnLocationUpdated;
         compassService.HeadingUpdated -= OnHeadingUpdated;
         compassService.StopListening();
@@ -105,52 +125,85 @@ public partial class PacketDetailsViewModel(
 
     private void OnHeadingUpdated(object? sender, double heading) => UpdateDistanceAndBearing();
 
-    private async Task LoadPacketsAsync()
+    /// <summary>
+    /// Appends the next page of packets. Invoked by the page when a list reaches its end.
+    /// </summary>
+    [RelayCommand]
+    private Task LoadMoreAsync() => LoadNextPageAsync();
+
+    private async Task LoadNextPageAsync()
     {
+        if (_isLoadingPage || !HasMore)
+        {
+            return;
+        }
+
+        _isLoadingPage = true;
+        IsLoading = true;
         try
         {
-            IsLoading = true;
+            logger.LogInformation("Loading packets for callsign: {Callsign} before id {BeforeId}", Callsign, _oldestLoadedId);
 
-            logger.LogInformation("Loading packets for callsign: {Callsign}", Callsign);
+            IReadOnlyList<PacketRecord> page = await packetQueryService
+                .GetPacketsByCallsignPageAsync(Callsign, _oldestLoadedId, PageSize);
 
-            IReadOnlyList<PacketRecord> packets = await packetQueryService.GetPacketsByCallsignAsync(Callsign, 500);
-
-            logger.LogInformation("Found {Count} packets for callsign {Callsign}", packets.Count, Callsign);
-
-            Packets.Clear();
-            PositionHistory.Clear();
-            WeatherStatusTelemetry.Clear();
-            foreach (PacketRecord packet in packets)
+            // The overlay may have been dismissed while the query was running; the
+            // collection must not grow after the page stops observing it.
+            if (_retired)
             {
-                Packets.Add(packet);
-
-                if (packet.Position != null)
-                {
-                    PositionHistory.Add(packet);
-                }
-
-                if (packet.Weather != null || packet.Status != null
-                    || packet.Telemetry != null || packet.Capabilities != null)
-                {
-                    WeatherStatusTelemetry.Add(packet);
-                }
+                return;
             }
 
-            UpdateDistanceAndBearing();
+            logger.LogInformation("Found {Count} packets for callsign {Callsign}", page.Count, Callsign);
 
-            logger.LogInformation("Added {Count} packets to observable collection", Packets.Count);
+            AppendPage(page);
+
+            // A short page means the history is exhausted. Any full page may be the
+            // last, so the next request cheaply confirms it with one extra empty page.
+            HasMore = page.Count == PageSize;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to load packets for {Callsign}", Callsign);
+            HasMore = false;
         }
         finally
         {
+            _isLoadingPage = false;
+            IsLoading = false;
             OnPropertyChanged(nameof(HasPackets));
             OnPropertyChanged(nameof(HasPositionHistory));
             OnPropertyChanged(nameof(HasWeatherStatusTelemetry));
-            IsLoading = false;
         }
+    }
+
+    private void AppendPage(IReadOnlyList<PacketRecord> page)
+    {
+        long? oldest = null;
+        foreach (PacketRecord packet in page)
+        {
+            Packets.Add(packet);
+
+            if (packet.Position != null)
+            {
+                PositionHistory.Add(packet);
+            }
+
+            if (packet.Weather != null || packet.Status != null
+                || packet.Telemetry != null || packet.Capabilities != null)
+            {
+                WeatherStatusTelemetry.Add(packet);
+            }
+
+            oldest = oldest.HasValue ? Math.Min(oldest.Value, packet.Id) : packet.Id;
+        }
+
+        if (oldest is { } cursor)
+        {
+            _oldestLoadedId = cursor;
+        }
+
+        UpdateDistanceAndBearing();
     }
 
     private void UpdateDistanceAndBearing()

@@ -73,7 +73,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public async Task Initialize_PartitionsPacketsIntoTabs()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
             [
                 PositionPacket(38.5, -9.0, 1),
@@ -118,7 +118,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public async Task Initialize_WithoutPackets_KeepsEveryTabInItsEmptyState()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
 
         ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
@@ -141,7 +141,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public async Task DistanceAndBearing_ComputedFromUserLocation()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
@@ -165,7 +165,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public async Task RelativeBearing_WithHeading_SubtractsCompassHeading()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
@@ -186,7 +186,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public async Task NoDistance_WhenUserLocationUnavailable()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
@@ -208,7 +208,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     public async Task LocationUpdated_RecomputesDistance()
     {
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
-        query.GetPacketsByCallsignAsync("N0CALL-1", 500, Arg.Any<CancellationToken>())
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
                 [PositionPacket(38.5, -9.01, 1)]));
 
@@ -252,5 +252,122 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         locationTracking.LocationUpdated += Raise.Event<EventHandler<LocationData>>(
             locationTracking, CreateLocation(38.5, -9.0));
         compass.HeadingUpdated += Raise.Event<EventHandler<double>>(compass, 45.0);
+    }
+
+    private static IReadOnlyList<PacketRecord> CreatePage(long newestId, int count)
+    {
+        List<PacketRecord> page = [];
+        for (int index = 0; index < count; index++)
+        {
+            page.Add(PositionPacket(38.5, -9.0, newestId - index));
+        }
+
+        return page;
+    }
+
+    [Fact]
+    public async Task Initialize_LoadsOnlyTheFirstPage()
+    {
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CreatePage(newestId: 100, count: 50)));
+
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        ICompassService compass = Substitute.For<ICompassService>();
+
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        // A full history is not materialized at once: the page holds one page of rows
+        // and asks for the rest only when a list reaches its end.
+        Assert.Equal(50, vm.Packets.Count);
+        Assert.Equal(50, vm.PositionHistory.Count);
+        Assert.True(vm.HasMore);
+    }
+
+    [Fact]
+    public async Task LoadMore_AppendsTheNextPageFromTheOldestLoadedId()
+    {
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CreatePage(newestId: 100, count: 50)));
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", 51, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CreatePage(newestId: 50, count: 50)));
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", 1, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
+
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        ICompassService compass = Substitute.For<ICompassService>();
+
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        // The cursor is the oldest id already shown, so pages neither repeat nor skip
+        // a row even when several packets share a timestamp.
+        await query.Received(1).GetPacketsByCallsignPageAsync(
+            "N0CALL-1", 51, 50, Arg.Any<CancellationToken>());
+        Assert.Equal(100, vm.Packets.Count);
+        Assert.Equal(100, vm.PositionHistory.Count);
+        Assert.Equal(1, vm.Packets[^1].Id);
+        Assert.True(vm.HasMore);
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        // A short page ends the history; the list keeps everything already shown.
+        Assert.Equal(100, vm.Packets.Count);
+        Assert.False(vm.HasMore);
+    }
+
+    [Fact]
+    public async Task LoadMore_AfterAShortPage_DoesNotQueryAgain()
+    {
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(CreatePage(newestId: 3, count: 3)));
+
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        ICompassService compass = Substitute.For<ICompassService>();
+
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        Assert.False(vm.HasMore);
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        await query.Received(1).GetPacketsByCallsignPageAsync(
+            "N0CALL-1", Arg.Any<long?>(), 50, Arg.Any<CancellationToken>());
+        Assert.Equal(3, vm.Packets.Count);
+    }
+
+    [Fact]
+    public async Task RetiredOverlay_DoesNotAppendALatePage()
+    {
+        TaskCompletionSource<IReadOnlyList<PacketRecord>> pending = new();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(pending.Task);
+
+        ILocationTrackingService locationTracking = Substitute.For<ILocationTrackingService>();
+        locationTracking.CurrentLocation.Returns((LocationData?)null);
+        ICompassService compass = Substitute.For<ICompassService>();
+
+        PacketDetailsViewModel vm = CreateViewModel(query, locationTracking, compass);
+        vm.Initialize("N0CALL-1");
+        vm.OnRetiredFromOverlay();
+
+        pending.SetResult(CreatePage(newestId: 5, count: 5));
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        Assert.Empty(vm.Packets);
+        Assert.False(vm.HasPackets);
     }
 }

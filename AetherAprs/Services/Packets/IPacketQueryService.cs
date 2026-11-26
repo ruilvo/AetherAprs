@@ -48,6 +48,20 @@ public interface IPacketQueryService
     Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignAsync(string callsign, int limit = 500, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves one page of historical packets for a specific callsign, ordered by
+    /// most recent first. The row id is unique and monotonic with receipt time, so it
+    /// is a stable cursor: a page never repeats or skips a row, even when several
+    /// packets share a timestamp.
+    /// </summary>
+    /// <param name="callsign">The source callsign to query.</param>
+    /// <param name="beforeId">
+    /// The id of the oldest row already shown, or <see langword="null"/> for the first page.
+    /// </param>
+    /// <param name="pageSize">Maximum number of packets in the page.</param>
+    /// <returns>A page of packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignPageAsync(string callsign, long? beforeId = null, int pageSize = 50, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves position packets for trail display in a single bulk query,
     /// ordered newest first. Callers group the results by source callsign.
     /// </summary>

@@ -70,26 +70,24 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByCallsignAsync), async (context, ct) =>
         {
-            string baseCallsign = callsign;
-            AprsSsid? ssid = null;
-            int dashIndex = callsign.IndexOf('-');
-            if (dashIndex > 0 && dashIndex < callsign.Length - 1)
-            {
-                baseCallsign = callsign[..dashIndex];
-                if (int.TryParse(callsign.AsSpan(dashIndex + 1), out int parsedSsid) && parsedSsid is >= MinSsid and <= MaxSsid)
-                {
-                    ssid = (AprsSsid)parsedSsid;
-                }
-                // Invalid SSIDs still fall back to matching the base callsign.
-            }
-
-            IQueryable<PacketRecord> query = context.Packets.Where(packet => packet.SourceBase == baseCallsign);
-            if (ssid is { } sourceSsid)
-            {
-                query = query.Where(packet => packet.SourceSsid == sourceSsid);
-            }
-
+            IQueryable<PacketRecord> query = FilterByCallsign(context.Packets, callsign);
             return await GetLatestAsync(query, limit, ct).ConfigureAwait(false);
+        }, cancellationToken);
+
+    public Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignPageAsync(
+        string callsign,
+        long? beforeId = null,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default) =>
+        ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByCallsignPageAsync), async (context, ct) =>
+        {
+            IQueryable<PacketRecord> query = FilterByCallsign(context.Packets, callsign);
+            if (beforeId is { } cursor)
+            {
+                query = query.Where(packet => packet.Id < cursor);
+            }
+
+            return await GetLatestAsync(query, pageSize, ct).ConfigureAwait(false);
         }, cancellationToken);
 
     public Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(
@@ -252,6 +250,30 @@ internal sealed class PacketQueryService(
             logger.LogError(ex, "Packet query {Operation} failed", operation);
             throw;
         }
+    }
+
+    private static IQueryable<PacketRecord> FilterByCallsign(IQueryable<PacketRecord> packets, string callsign)
+    {
+        string baseCallsign = callsign;
+        AprsSsid? ssid = null;
+        int dashIndex = callsign.IndexOf('-');
+        if (dashIndex > 0 && dashIndex < callsign.Length - 1)
+        {
+            baseCallsign = callsign[..dashIndex];
+            if (int.TryParse(callsign.AsSpan(dashIndex + 1), out int parsedSsid) && parsedSsid is >= MinSsid and <= MaxSsid)
+            {
+                ssid = (AprsSsid)parsedSsid;
+            }
+            // Invalid SSIDs still fall back to matching the base callsign.
+        }
+
+        IQueryable<PacketRecord> query = packets.Where(packet => packet.SourceBase == baseCallsign);
+        if (ssid is { } sourceSsid)
+        {
+            query = query.Where(packet => packet.SourceSsid == sourceSsid);
+        }
+
+        return query;
     }
 
     private static Task<List<PacketRecord>> GetLatestByIdsAsync(

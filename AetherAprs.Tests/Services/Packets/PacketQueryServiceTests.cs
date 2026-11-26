@@ -569,6 +569,57 @@ public sealed class PacketQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPacketsByCallsignPageAsync_PagesNewestFirstWithAStableCursor()
+    {
+        // Arrange
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
+        {
+            for (int index = 0; index < 3; index++)
+            {
+                context.Packets.Add(new PacketRecord
+                {
+                    SourceBase = "K0OTH",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    DestinationBase = "APRS",
+                    DestinationSsid = AprsSsid.PrimaryStation,
+                    Timestamp = DateTime.UtcNow.AddMinutes(-index),
+                    PortId = portId,
+                    PacketType = PacketTypes.Position,
+                    RawInfo = $"!3745.5{index}N/12159.5{index}W-",
+                    IsOutbound = false,
+                    Position = new PositionDataRecord
+                    {
+                        Location = new Coordinate(37.758333, -121.991667),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.HyphenMinus
+                    }
+                });
+            }
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using PacketQueryService service = new(_reader, _logger);
+
+        // Act
+        IReadOnlyList<PacketRecord> first = await service.GetPacketsByCallsignPageAsync(
+            "K0OTH-1", pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> second = await service.GetPacketsByCallsignPageAsync(
+            "K0OTH-1", beforeId: first[^1].Id, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> third = await service.GetPacketsByCallsignPageAsync(
+            "K0OTH-1", beforeId: second[^1].Id, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, first.Count);
+        PacketRecord remaining = Assert.Single(second);
+        Assert.Empty(third);
+        Assert.True(first[0].Id > first[1].Id);
+        Assert.True(first[^1].Id > remaining.Id);
+        Assert.Empty(first.Select(packet => packet.Id).Intersect(second.Select(packet => packet.Id)));
+    }
+
+    [Fact]
     public async Task GetPositionTrailPacketsAsync_NoCutoff_ReturnsAllPackets()
     {
         // Arrange

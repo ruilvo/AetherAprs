@@ -41,13 +41,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
              UseFloatingPlaceholder="True"
              MinHeight="48" />
 
-    <ScrollViewer Grid.Row="2" Classes="PageContent" Margin="16,8,16,0">
-      <StackPanel>
-        <!-- Loading indicator -->
-        <ProgressBar IsIndeterminate="True"
-                     IsVisible="{Binding IsLoading}"
-                     Margin="0,8" />
+    <Grid Grid.Row="2" Margin="16,8,16,0" RowDefinitions="Auto,*">
+      <!-- Loading indicator -->
+      <ProgressBar Grid.Row="0"
+                   IsIndeterminate="True"
+                   IsVisible="{Binding IsLoading}"
+                   Margin="0,8" />
 
+      <Grid Grid.Row="1">
         <!-- Initial prompt (before any search) -->
         <TextBlock Text="{loc:Loc SearchInitialPrompt}"
                    Classes="EmptyState"
@@ -58,16 +59,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
                    Classes="EmptyState"
                    IsVisible="{Binding ShowNoResults}" />
 
-        <!-- Results -->
-        <ItemsControl ItemsSource="{Binding Results}"
-                      Classes="CardList"
-                      IsVisible="{Binding HasResults}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel Spacing="8" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
+        <!-- Results: a ListBox virtualizes its items, so a long result set does not
+             realize every card at once. -->
+        <ListBox x:Name="ResultsList"
+                 Classes="PacketCardList"
+                 Padding="0"
+                 ItemsSource="{Binding Results}"
+                 IsVisible="{Binding HasResults}">
+          <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:SearchResultItem">
               <controls:Card Classes="ClickableCard">
                 <Button Command="{Binding $parent[UserControl].((vm:SearchViewModel)DataContext).OpenResultCommand}"
@@ -91,9 +90,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 </Button>
               </controls:Card>
             </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-      </StackPanel>
-    </ScrollViewer>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Grid>
   </Grid>
 </UserControl>
