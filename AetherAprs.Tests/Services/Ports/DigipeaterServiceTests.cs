@@ -13,6 +13,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
+using AetherAprs.Tests.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -93,14 +94,31 @@ public sealed class DigipeaterServiceTests
     [Fact]
     public void GetDigipeatTargets_DuplicateWithinRetentionWindow_IsSuppressed()
     {
-        DigipeaterService service = CreateService();
+        TestClock clock = new();
+        DigipeaterService service = CreateService(timeProvider: clock);
         PositionPacket packet = CreatePositionPacket();
 
         IReadOnlyList<DigipeatTarget> first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        clock.Advance(TimeSpan.FromSeconds(29));
         IReadOnlyList<DigipeatTarget> second = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
 
         Assert.NotEmpty(first);
         Assert.Empty(second);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_DuplicateAfterRetentionWindow_IsDigipeatedAgain()
+    {
+        TestClock clock = new();
+        DigipeaterService service = CreateService(timeProvider: clock);
+        PositionPacket packet = CreatePositionPacket();
+
+        IReadOnlyList<DigipeatTarget> first = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+        clock.Advance(TimeSpan.FromSeconds(31));
+        IReadOnlyList<DigipeatTarget> again = service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: true, CreatePorts());
+
+        Assert.NotEmpty(first);
+        Assert.NotEmpty(again);
     }
 
     [Fact]
@@ -448,7 +466,8 @@ public sealed class DigipeaterServiceTests
         bool respondToWide1 = false,
         bool respondToWide2 = true,
         bool respondToTrace = false,
-        bool digipeaterInsertCallsign = true)
+        bool digipeaterInsertCallsign = true,
+        TimeProvider? timeProvider = null)
     {
         AppSettings settings = new()
         {
@@ -468,7 +487,8 @@ public sealed class DigipeaterServiceTests
 
         return new DigipeaterService(
             new TestConfigurationService(settings),
-            NullLogger<DigipeaterService>.Instance);
+            NullLogger<DigipeaterService>.Instance,
+            timeProvider);
     }
 
     private sealed class TestConfigurationService(AppSettings settings) : IConfigurationService

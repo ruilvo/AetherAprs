@@ -25,15 +25,16 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private readonly ILogger<BeaconService> _logger;
     private readonly IBeaconStateStore? _stateStore;
     private readonly IGeodeticCalculator _geodeticCalculator;
+    private readonly TimeProvider _timeProvider;
     private readonly Lock _lock = new();
-    private readonly Timer _evaluationTimer;
+    private readonly ITimer _evaluationTimer;
     private readonly CancellationTokenSource _disposalCts = new();
 
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
     private BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
-    internal DateTime LastTransmitTime { get; set; } = DateTime.UtcNow;
+    internal DateTime LastTransmitTime { get; set; }
     private double? _lastCourseDegrees;
     private LocationData? _currentLocation;
     private LocationData? _previousLocation;
@@ -44,22 +45,27 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     private const int EvaluationIntervalMilliseconds = 1000; // Check every second
 
-    public BeaconService(ILogger<BeaconService>? logger = null)
+    public BeaconService(ILogger<BeaconService>? logger = null, TimeProvider? timeProvider = null)
+        : this(stateStore: null, logger, timeProvider)
     {
-        _logger = logger ?? NullLogger<BeaconService>.Instance;
-        _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
-        _evaluationTimer = new Timer(OnEvaluationTimer, null, EvaluationIntervalMilliseconds, EvaluationIntervalMilliseconds);
     }
 
     public BeaconService(
-        IBeaconStateStore stateStore,
-        ILogger<BeaconService> logger)
+        IBeaconStateStore? stateStore,
+        ILogger<BeaconService>? logger,
+        TimeProvider? timeProvider = null)
     {
         _stateStore = stateStore;
         _logger = logger ?? NullLogger<BeaconService>.Instance;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
-        _evaluationTimer = new Timer(OnEvaluationTimer, null, EvaluationIntervalMilliseconds, EvaluationIntervalMilliseconds);
+        LastTransmitTime = UtcNow;
+        TimeSpan interval = TimeSpan.FromMilliseconds(EvaluationIntervalMilliseconds);
+        _evaluationTimer = _timeProvider.CreateTimer(OnEvaluationTimer, null, interval, interval);
     }
+
+    /// <summary>The current instant from the injected clock, as a UTC instant.</summary>
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
@@ -147,7 +153,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         {
             _logger.LogInformation("Beacon mode changed from {PreviousMode} to {NewMode}", _activeMode, mode);
             _activeMode = mode;
-            LastTransmitTime = DateTime.UtcNow;
+            LastTransmitTime = UtcNow;
         }
     }
 
@@ -216,7 +222,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
                 // Schedule a retry after the backoff window: wind LastTransmitTime back so
                 // the next evaluation reports ShouldTransmit only once the backoff elapses.
                 int remainingBackoff = Math.Max(0, decision.ActiveIntervalSeconds - TransmissionRetryBackoffSeconds);
-                LastTransmitTime = DateTime.UtcNow - TimeSpan.FromSeconds(remainingBackoff);
+                LastTransmitTime = UtcNow - TimeSpan.FromSeconds(remainingBackoff);
 
                 _logger.LogWarning(
                     "Beacon transmission failed; retry scheduled in {RetrySeconds}s",
@@ -271,7 +277,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             if (decision.ShouldTransmit)
             {
                 // Reset timer automatically when beacon is requested
-                LastTransmitTime = DateTime.UtcNow;
+                LastTransmitTime = UtcNow;
 
                 // Prepare event args to raise outside the lock
                 eventArgs = new BeaconRequestedEventArgs
@@ -298,7 +304,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     private BeaconTransmitDecision EvaluateLocationUpdateInternal(LocationData currentLocation, LocationData? previousLocation)
     {
-        TimeSpan timeSinceLastTransmit = DateTime.UtcNow - LastTransmitTime;
+        TimeSpan timeSinceLastTransmit = UtcNow - LastTransmitTime;
         BeaconConfig config = _activeMode switch
         {
             DynamicBeaconMode.Walk => _walkConfig,

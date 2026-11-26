@@ -48,17 +48,60 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly IPacketQueryService? _packetQueryService;
     private readonly INotificationService? _notificationService;
     private readonly IUiDispatcher _uiDispatcher;
+    private readonly TimeProvider _timeProvider;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = [];
     private readonly Lock _dedupLock = new();
     private readonly Queue<(string Key, DateTimeOffset Seen)> _dedupOrder = new();
     private readonly Dictionary<string, DateTimeOffset> _dedupTable = [];
-    private readonly Timer _retryTimer;
+    private readonly ITimer _retryTimer;
+    private readonly Lock _persistLock = new();
+    private TaskCompletionSource _persistSignal = CreatePersistSignal();
+    private int _pendingPersists;
     private AprsAddress? _activeConversationPeer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
     public ObservableCollection<ConversationThread> Conversations { get; } = [];
+
+    /// <summary>
+    /// How many outbound messages are still waiting for an ACK or a retry; exposed
+    /// for tests that assert terminal work leaves the retry queue.
+    /// </summary>
+    internal int PendingOutboundCount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _pendingMessages.Count;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Completes once every status change queued for background persistence before
+    /// this call has been written. Lets tests assert the durable state without
+    /// polling the database.
+    /// </summary>
+    internal async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            Task idle;
+            lock (_persistLock)
+            {
+                idle = _persistSignal.Task;
+            }
+
+            if (Volatile.Read(ref _pendingPersists) == 0)
+            {
+                return;
+            }
+
+            await idle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     public MessageService(
         IPortService portService,
@@ -69,7 +112,8 @@ public sealed class MessageService : IMessageService, IDisposable
         ILogger<MessageService> logger,
         IUiDispatcher uiDispatcher,
         IPacketQueryService? packetQueryService = null,
-        INotificationService? notificationService = null)
+        INotificationService? notificationService = null,
+        TimeProvider? timeProvider = null)
     {
         _portService = portService;
         _packetStorageService = packetStorageService;
@@ -80,8 +124,10 @@ public sealed class MessageService : IMessageService, IDisposable
         _uiDispatcher = uiDispatcher;
         _packetQueryService = packetQueryService;
         _notificationService = notificationService;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _portService.PacketReceived += OnPacketReceived;
-        _retryTimer = new Timer(ProcessRetries, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        TimeSpan retryInterval = TimeSpan.FromSeconds(5);
+        _retryTimer = _timeProvider.CreateTimer(ProcessRetries, null, retryInterval, retryInterval);
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default) => await LoadMessagesAsync(cancellationToken).ConfigureAwait(false);
@@ -127,7 +173,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         int messageNumber = Interlocked.Increment(ref _nextMessageNumber);
-        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+        DateTimeOffset timestamp = _timeProvider.GetUtcNow();
         AprsSettings settings = _configurationService.Current.Aprs;
 
         StoredMessage stored = new()
@@ -155,7 +201,7 @@ public sealed class MessageService : IMessageService, IDisposable
         {
             // Keep the item queued in memory. It becomes recoverable across
             // restarts once the outbox write succeeds.
-            stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(
+            stored.NextRetryTime = _timeProvider.GetUtcNow().AddSeconds(
                 settings.MessageRetryTimeoutSeconds);
             throw;
         }
@@ -332,7 +378,7 @@ public sealed class MessageService : IMessageService, IDisposable
         {
             Peer = peer,
             Text = message.Text,
-            Timestamp = message.Timestamp ?? DateTimeOffset.UtcNow,
+            Timestamp = message.Timestamp ?? _timeProvider.GetUtcNow(),
             IsOutbound = false,
             MessageNumber = message.MessageNumber,
             PortId = portId
@@ -447,7 +493,7 @@ public sealed class MessageService : IMessageService, IDisposable
             return;
         }
 
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = _timeProvider.GetUtcNow();
         AprsSettings settings = _configurationService.Current.Aprs;
         List<StoredMessage> toRetry = [];
         List<StoredMessage> timedOut = [];
@@ -518,17 +564,41 @@ public sealed class MessageService : IMessageService, IDisposable
     /// which is safe because status transitions only move forward once removed from
     /// <see cref="_pendingMessages"/>.
     /// </summary>
-    private void PersistMessageStatusInBackground(StoredMessage message) => _ = Task.Run(async () =>
-                                                                                 {
-                                                                                     try
-                                                                                     {
-                                                                                         await UpdateMessageStatusAsync(message).ConfigureAwait(false);
-                                                                                     }
-                                                                                     catch (Exception ex)
-                                                                                     {
-                                                                                         _logger.LogError(ex, "Failed to persist message status for {Peer}", message.Peer);
-                                                                                     }
-                                                                                 });
+    private void PersistMessageStatusInBackground(StoredMessage message)
+    {
+        Interlocked.Increment(ref _pendingPersists);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await UpdateMessageStatusAsync(message).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist message status for {Peer}", message.Peer);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _pendingPersists);
+                SignalPersistIdle();
+            }
+        });
+    }
+
+    private static TaskCompletionSource CreatePersistSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private void SignalPersistIdle()
+    {
+        TaskCompletionSource signal;
+        lock (_persistLock)
+        {
+            signal = _persistSignal;
+            _persistSignal = CreatePersistSignal();
+        }
+
+        signal.TrySetResult();
+    }
 
     private async Task UpdateMessageStatusAsync(StoredMessage message)
     {
@@ -591,7 +661,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private bool IsDuplicateMessage(Callsign source, int messageNumber)
     {
         string key = $"{source}|{messageNumber}";
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = _timeProvider.GetUtcNow();
 
         lock (_dedupLock)
         {

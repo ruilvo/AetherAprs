@@ -126,11 +126,11 @@ public sealed class SessionStateWriterTests
         await using SessionStateWriter writer = new(store, NullLogger.Instance);
 
         writer.Request(CreateSnapshot(7));
-        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         // Construction only wires the queue: nothing is written until the
         // coordinator's initialize phase starts the loop.
         Assert.Empty(store.Written);
+        Assert.Equal(0, writer.DurableVersion);
 
         writer.Start();
         await writer.FlushAsync(TestContext.Current.CancellationToken);

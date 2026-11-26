@@ -125,10 +125,11 @@ public sealed class PacketIngestPipelineTests
             options: new PacketIngestOptions { QueueCapacity = 4 });
 
         pipeline.Accept(Guid.NewGuid(), CreatePacket());
-        await Task.Delay(50, TestContext.Current.CancellationToken);
 
-        // Construction only wires the queue; the startup phase starts the drain.
+        // Construction only wires the queue; the startup phase starts the drain, so
+        // nothing can be stored before StartAsync runs.
         Assert.Empty(storage.StoredPackets);
+        Assert.Equal(0, pipeline.GetMetrics().Stored);
 
         await pipeline.StartAsync(TestContext.Current.CancellationToken);
         await WaitForAsync(

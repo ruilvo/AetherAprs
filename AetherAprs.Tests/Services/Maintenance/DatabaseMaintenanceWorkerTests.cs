@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Services.Maintenance;
 using AetherAprs.Services.Packets;
+using AetherAprs.Tests.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -28,51 +28,77 @@ public sealed class DatabaseMaintenanceWorkerTests
                 return Task.CompletedTask;
             });
 
+        TestClock clock = new();
         await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
+            clock,
             interval: TimeSpan.FromHours(1),
             initialDelay: TimeSpan.Zero);
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        await swept.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await swept.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.True(worker.IsRunning);
         await storage.Received(1).CleanupOldPacketsAsync(Arg.Any<CancellationToken>());
+
+        // The sweep is done; the only progress left is the interval delay.
+        await clock.WaitForTimerAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, clock.PendingTimerCount);
     }
 
     [Fact]
     public async Task StartAsync_DoesNotSweepBeforeTheInitialDelay()
     {
         IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        TaskCompletionSource swept = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        storage.CleanupOldPacketsAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                swept.TrySetResult();
+                return Task.CompletedTask;
+            });
 
+        TestClock clock = new();
         await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
-            interval: TimeSpan.FromHours(1),
+            clock,
+            interval: TimeSpan.FromHours(2),
             initialDelay: TimeSpan.FromHours(1));
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        await Task.Delay(100, TestContext.Current.CancellationToken);
 
+        // The loop created its delay timer, so time is the only thing that can
+        // make it sweep. No real waiting is involved.
+        await clock.WaitForTimerAsync(TestContext.Current.CancellationToken);
         Assert.True(worker.IsRunning);
         await storage.DidNotReceive().CleanupOldPacketsAsync(Arg.Any<CancellationToken>());
+
+        clock.Advance(TimeSpan.FromHours(1) - TimeSpan.FromSeconds(1));
+        await storage.DidNotReceive().CleanupOldPacketsAsync(Arg.Any<CancellationToken>());
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await swept.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+        await storage.Received(1).CleanupOldPacketsAsync(Arg.Any<CancellationToken>());
+        Assert.Equal(clock.UtcNow, TestClock.DefaultStart.AddHours(1));
     }
 
     [Fact]
     public async Task StartAsync_Twice_KeepsOneLoop()
     {
         IPacketStorageService storage = Substitute.For<IPacketStorageService>();
-
+        TestClock clock = new();
         await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
+            clock,
             interval: TimeSpan.FromHours(1),
-            initialDelay: TimeSpan.Zero);
+            initialDelay: TimeSpan.FromHours(1));
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        await EventuallyAsync(() => storage.ReceivedCalls().Any());
-        await Task.Delay(50, TestContext.Current.CancellationToken);
 
-        await storage.Received(1).CleanupOldPacketsAsync(Arg.Any<CancellationToken>());
+        await clock.WaitForTimerAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, clock.PendingTimerCount);
+        Assert.True(worker.IsRunning);
     }
 
     [Fact]
@@ -93,32 +119,44 @@ public sealed class DatabaseMaintenanceWorkerTests
                 return Task.CompletedTask;
             });
 
+        TestClock clock = new();
         await using DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
-            interval: TimeSpan.FromMilliseconds(25),
+            clock,
+            interval: TimeSpan.FromMinutes(5),
             initialDelay: TimeSpan.Zero);
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        await secondSweep.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // The first sweep fails synchronously, then the loop waits one interval.
+        await clock.WaitForTimerAsync(TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromMinutes(5));
+        await secondSweep.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
         Assert.True(worker.IsRunning);
+        Assert.Equal(2, sweeps);
     }
 
     [Fact]
     public async Task DisposeAsync_StopsTheLoop()
     {
         IPacketStorageService storage = Substitute.For<IPacketStorageService>();
+        TestClock clock = new();
         DatabaseMaintenanceWorker worker = CreateWorker(
             storage,
+            clock,
             interval: TimeSpan.FromSeconds(1),
             initialDelay: TimeSpan.FromHours(1));
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
+        await clock.WaitForTimerAsync(TestContext.Current.CancellationToken);
         Assert.True(worker.IsRunning);
 
         await worker.DisposeAsync();
 
         Assert.False(worker.IsRunning);
+        clock.Advance(TimeSpan.FromHours(1));
+        await storage.DidNotReceive().CleanupOldPacketsAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -126,6 +164,7 @@ public sealed class DatabaseMaintenanceWorkerTests
     {
         DatabaseMaintenanceWorker worker = CreateWorker(
             Substitute.For<IPacketStorageService>(),
+            new TestClock(),
             interval: TimeSpan.FromHours(1),
             initialDelay: TimeSpan.FromHours(1));
 
@@ -150,21 +189,13 @@ public sealed class DatabaseMaintenanceWorkerTests
 
     private static DatabaseMaintenanceWorker CreateWorker(
         IPacketStorageService storage,
+        TimeProvider timeProvider,
         TimeSpan interval,
         TimeSpan initialDelay) =>
-        new(storage, NullLogger<DatabaseMaintenanceWorker>.Instance, interval: interval, initialDelay: initialDelay);
-
-    private static async Task EventuallyAsync(Func<bool> condition)
-    {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-        while (!condition())
-        {
-            if (DateTime.UtcNow > deadline)
-            {
-                throw new TimeoutException("The condition was not met before the deadline.");
-            }
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
-    }
+        new(
+            storage,
+            NullLogger<DatabaseMaintenanceWorker>.Instance,
+            timeProvider,
+            interval: interval,
+            initialDelay: initialDelay);
 }

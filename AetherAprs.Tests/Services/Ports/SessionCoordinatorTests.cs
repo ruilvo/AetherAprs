@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Services.Ports;
+using AetherAprs.Tests.Helpers;
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;
@@ -135,10 +136,12 @@ public sealed class SessionCoordinatorTests
     {
         Guid portId = Guid.NewGuid();
         RecordingStateStore store = new();
+        TestClock clock = new();
         await using SessionCoordinator coordinator = CreateCoordinator(
             new FakePortController(),
             store,
-            diagnosticPersistInterval: TimeSpan.FromMilliseconds(50));
+            timeProvider: clock,
+            diagnosticPersistInterval: TimeSpan.FromMinutes(1));
 
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
         await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
@@ -146,12 +149,17 @@ public sealed class SessionCoordinatorTests
         int savesAfterStart = store.SaveCalls;
 
         await coordinator.ReportReceiveAsync(portId, TestContext.Current.CancellationToken);
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
 
-        await EventuallyAsync(
-            () => store is { SaveCalls: > 0, LastSnapshot.Ports: [var latest] }
-                && latest.LastReceiveUtc is not null);
+        // A receive timestamp is diagnostic state: the transition path must not rewrite
+        // the session file for it.
+        Assert.Equal(savesAfterStart, store.SaveCalls);
 
-        Assert.True(store.SaveCalls > savesAfterStart);
+        clock.Advance(TimeSpan.FromMinutes(1));
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(savesAfterStart + 1, store.SaveCalls);
+        Assert.NotNull(Assert.Single(store.LastSnapshot!.Ports).LastReceiveUtc);
     }
 
     [Fact]
@@ -258,30 +266,17 @@ public sealed class SessionCoordinatorTests
         RecordingStateStore store,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         TimeSpan? teardownTimeout = null,
-        TimeSpan? diagnosticPersistInterval = null) => new(
+        TimeSpan? diagnosticPersistInterval = null,
+        TimeProvider? timeProvider = null) => new(
             controller,
             store,
+            timeProvider: timeProvider,
             delayAsync: delay ?? ((_, _) => Task.CompletedTask),
             jitter: () => 0,
             initialBackoff: TimeSpan.FromSeconds(1),
             maximumBackoff: TimeSpan.FromSeconds(2),
             teardownTimeout: teardownTimeout,
             diagnosticPersistInterval: diagnosticPersistInterval ?? TimeSpan.Zero);
-
-    private static async Task EventuallyAsync(Func<bool> condition)
-    {
-        for (int attempt = 0; attempt < 100; attempt++)
-        {
-            if (condition())
-            {
-                return;
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(10), TestContext.Current.CancellationToken);
-        }
-
-        Assert.True(condition(), "The expected session telemetry state was not observed.");
-    }
 
     private sealed class FakePortController : ISessionPortController
     {

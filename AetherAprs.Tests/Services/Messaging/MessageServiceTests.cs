@@ -36,6 +36,13 @@ namespace AetherAprs.Tests.Services.Messaging;
 
 public sealed class MessageServiceTests
 {
+    // Defaults from AprsSettings: five retries and a 30 s initial backoff that
+    // doubles per attempt. The expiry tick lands one initial interval after the
+    // summed schedule.
+    private const int RetryTimeoutSeconds = 30;
+    private const int MaxRetries = 5;
+    private const int ExpirySeconds = RetryTimeoutSeconds * (1 << MaxRetries);
+
     [Fact]
     public async Task SendAsync_SendsMessagePacketOnEnabledTxPorts_AndStoresOutbound()
     {
@@ -216,7 +223,7 @@ public sealed class MessageServiceTests
     public async Task PacketReceived_NotViewingConversation_PostsNotification()
     {
         FakePortService portService = new();
-        INotificationService notificationService = Substitute.For<INotificationService>();
+        RecordingNotificationService notificationService = new();
         _ = new MessageService(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -226,7 +233,6 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance,
             notificationService: notificationService);
-        _ = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
             PortId = Guid.NewGuid(),
@@ -239,21 +245,18 @@ public sealed class MessageServiceTests
             }
         });
 
-        // Notification is fire-and-forget; give it a moment to complete.
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await notificationService.Shown.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
-        await notificationService.Received(1).ShowMessageNotificationAsync(
-            "K0PEER-1",
-            "Ping",
-            "K0PEER-1",
-            Arg.Any<CancellationToken>());
+        Assert.Equal(
+            ("K0PEER-1", "Ping", "K0PEER-1"),
+            Assert.Single(notificationService.Notifications));
     }
 
     [Fact]
-    public async Task PacketReceived_ViewingConversation_SuppressesNotification()
+    public void PacketReceived_ViewingConversation_SuppressesNotification()
     {
         FakePortService portService = new();
-        INotificationService notificationService = Substitute.For<INotificationService>();
+        RecordingNotificationService notificationService = new();
         MessageService service = new(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -279,20 +282,18 @@ public sealed class MessageServiceTests
             }
         });
 
-        await Task.Delay(50, TestContext.Current.CancellationToken);
-
-        await notificationService.DidNotReceive().ShowMessageNotificationAsync(
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        // Ingestion runs synchronously through the UI dispatcher; once the message
+        // is in the conversation there is nothing left that could notify.
+        ConversationThread thread = Assert.Single(service.Conversations);
+        Assert.Equal("Ping", Assert.Single(thread.Messages).Text);
+        Assert.Empty(notificationService.Notifications);
     }
 
     [Fact]
     public void ClearActiveConversation_MatchingPeer_ClearsState()
     {
         FakePortService portService = new();
-        INotificationService notificationService = Substitute.For<INotificationService>();
+        RecordingNotificationService notificationService = new();
         MessageService service = new(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -320,18 +321,17 @@ public sealed class MessageServiceTests
         });
 
         // After clearing, the incoming message should post a notification again.
-        notificationService.Received(1).ShowMessageNotificationAsync(
-            "K0PEER-1",
-            "Ping",
-            "K0PEER-1",
-            Arg.Any<CancellationToken>());
+        Assert.Equal(
+            ("K0PEER-1", "Ping", "K0PEER-1"),
+            Assert.Single(notificationService.Notifications));
+        Assert.Equal("Ping", Assert.Single(Assert.Single(service.Conversations).Messages).Text);
     }
 
     [Fact]
     public void ClearActiveConversation_DifferentPeer_DoesNotClear()
     {
         FakePortService portService = new();
-        INotificationService notificationService = Substitute.For<INotificationService>();
+        RecordingNotificationService notificationService = new();
         MessageService service = new(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -364,11 +364,8 @@ public sealed class MessageServiceTests
             }
         });
 
-        notificationService.DidNotReceive().ShowMessageNotificationAsync(
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        Assert.Empty(notificationService.Notifications);
+        Assert.Equal("Ping", Assert.Single(Assert.Single(service.Conversations).Messages).Text);
     }
 
 
@@ -765,7 +762,8 @@ public sealed class MessageServiceTests
     {
         PortConfig port = CreateTxPort();
         FakePortService portService = new(port);
-        MessageService service = CreateMessageService(portService);
+        TestClock clock = new();
+        MessageService service = CreateMessageService(portService, timeProvider: clock);
 
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
@@ -773,18 +771,18 @@ public sealed class MessageServiceTests
         ConversationThread thread = Assert.Single(service.Conversations);
         StoredMessage stored = Assert.Single(thread.Messages);
         Assert.Equal(0, stored.RetryCount);
+        Assert.Equal(clock.UtcNow.AddSeconds(RetryTimeoutSeconds), stored.NextRetryTime);
 
-        // Make the message due for retry, then run the retry pass directly
-        // (the real timer ticks every 5 s — too slow for tests).
-        stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
-        service.ProcessRetries(null);
+        // The retry timer runs on the injected clock: advancing one interval lands
+        // exactly on the due tick and drives a single retry pass.
+        clock.Advance(TimeSpan.FromSeconds(RetryTimeoutSeconds));
+        await portService.WaitForSendCountAsync(2, TestContext.Current.CancellationToken);
 
-        MessagePacket resent = Assert.IsType<MessagePacket>(
-            await portService.PacketSent.Task.WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
+        MessagePacket resent = Assert.IsType<MessagePacket>(portService.SentPackets[1]);
         Assert.Equal(stored.MessageNumber, resent.MessageNumber);
         Assert.Equal(1, stored.RetryCount);
-        Assert.NotNull(stored.NextRetryTime);
-        Assert.True(stored.NextRetryTime.Value > DateTimeOffset.UtcNow.AddSeconds(-5));
+        Assert.Equal(clock.UtcNow.AddSeconds(RetryTimeoutSeconds), stored.NextRetryTime);
+        Assert.Equal(1, service.PendingOutboundCount);
     }
 
     [Fact]
@@ -792,23 +790,28 @@ public sealed class MessageServiceTests
     {
         PortConfig port = CreateTxPort();
         FakePortService portService = new(port);
-        MessageService service = CreateMessageService(portService);
+        TestClock clock = new();
+        MessageService service = CreateMessageService(portService, timeProvider: clock);
 
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
 
         ConversationThread thread = Assert.Single(service.Conversations);
         StoredMessage stored = Assert.Single(thread.Messages);
-        stored.RetryCount = 5; // MessageMaxRetries default is 5
-        stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
 
-        service.ProcessRetries(null);
+        // Walk the whole backoff schedule in virtual time: the initial attempt, the
+        // bounded retries and then the tick that expires the message.
+        clock.Advance(TimeSpan.FromSeconds(ExpirySeconds));
+        await portService.WaitForSendCountAsync(1 + MaxRetries, TestContext.Current.CancellationToken);
 
         Assert.Equal(MessageDeliveryStatus.Timeout, stored.DeliveryStatus);
+        Assert.Equal(MaxRetries, stored.RetryCount);
+        Assert.Equal(1 + MaxRetries, portService.SentPackets.Count);
 
-        // A subsequent pass must not resend the timed-out message.
-        await Task.Delay(200, TestContext.Current.CancellationToken);
-        Assert.Single(portService.SentPackets);
+        // Expiry removes the message from the retry queue, so nothing can resend it.
+        Assert.Equal(0, service.PendingOutboundCount);
+        clock.Advance(TimeSpan.FromHours(1));
+        Assert.Equal(1 + MaxRetries, portService.SentPackets.Count);
     }
 
     [Fact]
@@ -827,7 +830,8 @@ public sealed class MessageServiceTests
             writer,
             storageConfiguration,
             NullLogger<PacketStorageService>.Instance);
-        MessageService service = CreateMessageService(portService, db.Factory, storage);
+        TestClock clock = new();
+        MessageService service = CreateMessageService(portService, db.Factory, storage, clock);
 
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0OTH", 7));
         await service.SendAsync(peer, "Hello", TestContext.Current.CancellationToken);
@@ -835,39 +839,18 @@ public sealed class MessageServiceTests
         ConversationThread thread = Assert.Single(service.Conversations);
         StoredMessage stored = Assert.Single(thread.Messages);
 
-        // MessageMaxRetries defaults to 5; one extra pass marks the message timed
-        // out, which is the terminal state that cleanup is allowed to delete.
-        const int retryPasses = 6;
-        for (int attempt = 1; attempt <= retryPasses; attempt++)
-        {
-            stored.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(-1);
-            service.ProcessRetries(null);
-            if (attempt < retryPasses)
-            {
-                await WaitUntilAsync(
-                    () => portService.SentPackets.Count >= attempt + 1,
-                    $"retry send {attempt}");
-            }
-        }
+        // One initial attempt plus five retries, then expiry — all on virtual time.
+        clock.Advance(TimeSpan.FromSeconds(ExpirySeconds));
+        await portService.WaitForSendCountAsync(1 + MaxRetries, TestContext.Current.CancellationToken);
 
         Assert.Equal(MessageDeliveryStatus.Timeout, stored.DeliveryStatus);
-        Assert.Equal(5, stored.RetryCount);
+        Assert.Equal(MaxRetries, stored.RetryCount);
 
-        Assert.Equal(retryPasses, portService.SentPackets.Count);
+        Assert.Equal(1 + MaxRetries, portService.SentPackets.Count);
 
-        // Status persistence runs on the thread pool, so the durable row can still
-        // read Pending right after the in-memory status flips to Timeout.
-        await WaitUntilAsync(async () =>
-        {
-            await using AppDbContext context = db.CreateContext();
-            PacketRecord? row = await context.Packets
-                .AsNoTracking()
-                .Include(p => p.Message)
-                .FirstOrDefaultAsync(
-                    p => p.IsOutbound && p.Message != null && p.Message.Number == stored.MessageNumber,
-                    TestContext.Current.CancellationToken);
-            return row?.Message?.DeliveryStatus == MessageDeliveryStatus.Timeout;
-        }, "the outbound row to reach its terminal status");
+        // Status persistence runs on the thread pool; the flush waits for every
+        // queued status write instead of polling the database.
+        await service.FlushAsync(TestContext.Current.CancellationToken);
 
         int outboundRows = await CountOutboundMessageRowsAsync(db, stored.MessageNumber);
         Assert.Equal(1, outboundRows);
@@ -892,34 +875,6 @@ public sealed class MessageServiceTests
             .CountAsync(TestContext.Current.CancellationToken);
     }
 
-    private static async Task WaitUntilAsync(Func<bool> condition, string description)
-    {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-        while (!condition())
-        {
-            if (DateTime.UtcNow >= deadline)
-            {
-                Assert.Fail($"Timed out waiting for {description}.");
-            }
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
-    }
-
-    private static async Task WaitUntilAsync(Func<Task<bool>> condition, string description)
-    {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-        while (!await condition())
-        {
-            if (DateTime.UtcNow >= deadline)
-            {
-                Assert.Fail($"Timed out waiting for {description}.");
-            }
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
-    }
-
     private static PortConfig CreateTxPort() => new()
     {
         Id = Guid.NewGuid(),
@@ -933,7 +888,8 @@ public sealed class MessageServiceTests
     private static MessageService CreateMessageService(
         FakePortService portService,
         IDbContextFactory<AppDbContext>? dbContextFactory = null,
-        IPacketStorageService? packetStorageService = null)
+        IPacketStorageService? packetStorageService = null,
+        TimeProvider? timeProvider = null)
     {
         IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
@@ -957,7 +913,8 @@ public sealed class MessageServiceTests
             SynchronousUiDispatcher.Instance,
             dbContextFactory is null
                 ? null
-                : new PacketQueryService(new SqliteRuntimeReader(dbContextFactory), NullLogger<PacketQueryService>.Instance));
+                : new PacketQueryService(new SqliteRuntimeReader(dbContextFactory), NullLogger<PacketQueryService>.Instance),
+            timeProvider: timeProvider);
     }
 
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
@@ -974,9 +931,35 @@ public sealed class MessageServiceTests
         return configuration;
     }
 
+    private sealed class RecordingNotificationService : INotificationService
+    {
+        private readonly Lock _sync = new();
+
+        public List<(string Callsign, string Text, string ConversationId)> Notifications { get; } = [];
+
+        public TaskCompletionSource Shown { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task ShowMessageNotificationAsync(
+            string callsign,
+            string text,
+            string conversationId,
+            CancellationToken cancellationToken = default)
+        {
+            lock (_sync)
+            {
+                Notifications.Add((callsign, text, conversationId));
+            }
+
+            Shown.TrySetResult();
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class FakePortService(params PortConfig[] ports) : IPortService
     {
         private readonly List<PortConfig> _ports = [.. ports];
+        private readonly Lock _sentLock = new();
+        private readonly Dictionary<int, TaskCompletionSource> _sendGates = [];
 
         public IReadOnlyList<PortConfig> Ports => _ports;
         public event EventHandler? PortsChanged
@@ -992,6 +975,29 @@ public sealed class MessageServiceTests
         /// <summary>Signalled whenever a packet is sent — lets tests await deterministic sends.</summary>
         public TaskCompletionSource<AprsPacket> PacketSent { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        /// <summary>
+        /// Completes once at least <paramref name="count"/> packets have been sent,
+        /// so retry tests can await the effect instead of sleeping.
+        /// </summary>
+        public Task WaitForSendCountAsync(int count, CancellationToken cancellationToken = default)
+        {
+            lock (_sentLock)
+            {
+                if (SentPackets.Count >= count)
+                {
+                    return Task.CompletedTask;
+                }
+
+                if (!_sendGates.TryGetValue(count, out TaskCompletionSource? gate))
+                {
+                    gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    _sendGates[count] = gate;
+                }
+
+                return gate.Task.WaitAsync(cancellationToken);
+            }
+        }
+
         public void RaisePacketReceived(PortPacketReceivedEventArgs args) =>
             PacketReceived?.Invoke(this, args);
 
@@ -1002,7 +1008,15 @@ public sealed class MessageServiceTests
                 throw new InvalidOperationException("simulated transport loss");
             }
 
-            SentPackets.Add(packet);
+            lock (_sentLock)
+            {
+                SentPackets.Add(packet);
+                if (_sendGates.TryGetValue(SentPackets.Count, out TaskCompletionSource? gate))
+                {
+                    gate.TrySetResult();
+                }
+            }
+
             PacketSent.TrySetResult(packet);
             return Task.CompletedTask;
         }

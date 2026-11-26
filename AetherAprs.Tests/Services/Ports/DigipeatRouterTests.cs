@@ -245,9 +245,9 @@ public sealed class DigipeatRouterTests
             NullLogger<DigipeatRouter>.Instance);
 
         router.Enqueue(source.Id, CreatePacket());
-        await Task.Delay(50, TestContext.Current.CancellationToken);
 
-        // Construction only wires the queue; the startup phase starts the drain.
+        // Construction only wires the queue; the startup phase starts the drain, so
+        // nothing can be forwarded until StartAsync runs.
         Assert.Equal(0, router.GetMetrics().Forwarded);
         await sessionManager.DidNotReceive().SendAsync(
             Arg.Any<Guid>(),

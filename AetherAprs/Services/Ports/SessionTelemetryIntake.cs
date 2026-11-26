@@ -45,7 +45,11 @@ internal sealed class SessionTelemetryIntake : IAsyncDisposable
     private readonly Func<SessionTelemetryObservation, Task> _handler;
     private readonly ILogger _logger;
     private readonly Task _consumerTask;
+    private readonly Lock _idleLock = new();
 
+    private TaskCompletionSource _idleSignal = CreateIdleSignal();
+    private long _posted;
+    private long _processed;
     private long _dropped;
     private bool _disposed;
 
@@ -89,13 +93,53 @@ internal sealed class SessionTelemetryIntake : IAsyncDisposable
             return false;
         }
 
+        Interlocked.Increment(ref _posted);
         if (_observations.Writer.TryWrite(observation))
         {
             return true;
         }
 
+        Interlocked.Decrement(ref _posted);
         Interlocked.Increment(ref _dropped);
         return false;
+    }
+
+    /// <summary>
+    /// Completes once every observation posted before this call has been handled.
+    /// Lets tests synchronize on the consumer instead of sleeping.
+    /// </summary>
+    internal async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            Task idle;
+            lock (_idleLock)
+            {
+                idle = _idleSignal.Task;
+            }
+
+            if (Volatile.Read(ref _processed) >= Volatile.Read(ref _posted))
+            {
+                return;
+            }
+
+            await idle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static TaskCompletionSource CreateIdleSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private void SignalIdle()
+    {
+        TaskCompletionSource completed;
+        lock (_idleLock)
+        {
+            completed = _idleSignal;
+            _idleSignal = CreateIdleSignal();
+        }
+
+        completed.TrySetResult();
     }
 
     private async Task ConsumeAsync()
@@ -115,6 +159,11 @@ internal sealed class SessionTelemetryIntake : IAsyncDisposable
                         "Session telemetry observation {Kind} for port {PortId} failed.",
                         observation.Kind,
                         observation.PortId);
+                }
+                finally
+                {
+                    Interlocked.Increment(ref _processed);
+                    SignalIdle();
                 }
             }
         }

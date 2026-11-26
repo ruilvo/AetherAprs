@@ -110,7 +110,10 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
     private readonly CancellationTokenSource _disposalCts = new();
     private readonly Task _persistWriterTask;
+    private readonly Lock _idleLock = new();
+    private TaskCompletionSource _idleSignal = CreateIdleSignal();
     private bool _persistPending;
+    private bool _writeInFlight;
     private bool _disposed;
     private int _persistRetryAttempts;
     private int _persistWriteCount;
@@ -145,6 +148,48 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
     /// prove that rapid transitions coalesce.
     /// </summary>
     internal int PersistWriteCount => Volatile.Read(ref _persistWriteCount);
+
+    /// <summary>
+    /// Completes once every mutation requested before this call has reached the outbox
+    /// file. Used by tests instead of polling the file, and by callers that need the
+    /// durable snapshot before they continue.
+    /// </summary>
+    internal async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        while (true)
+        {
+            Task idle;
+            lock (_idleLock)
+            {
+                idle = _idleSignal.Task;
+            }
+
+            lock (_gate)
+            {
+                if (!_persistPending && !_writeInFlight && _persistSignal.Reader.Count == 0)
+                {
+                    return;
+                }
+            }
+
+            await idle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static TaskCompletionSource CreateIdleSignal() =>
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    private void SignalIdle()
+    {
+        TaskCompletionSource completed;
+        lock (_idleLock)
+        {
+            completed = _idleSignal;
+            _idleSignal = CreateIdleSignal();
+        }
+
+        completed.TrySetResult();
+    }
 
     /// <summary>
     /// Maximum time <see cref="Dispose"/> waits for an in-flight write. Tests
@@ -338,6 +383,7 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
 
                 json = JsonSerializer.Serialize(_items, BeaconQueueJsonContext.Default.ListBeaconQueueItem);
                 _persistPending = false;
+                _writeInFlight = true;
             }
         }
         catch (Exception exception)
@@ -392,6 +438,15 @@ public sealed class FileBeaconTransmitQueue : IBeaconTransmitQueue, IDisposable
             }
 
             _persistSignal.Writer.TryWrite(true);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _writeInFlight = false;
+            }
+
+            SignalIdle();
         }
     }
 

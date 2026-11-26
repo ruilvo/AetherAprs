@@ -34,7 +34,7 @@ public sealed class BeaconTransmitQueueTests
         {
             item = first.Enqueue(Guid.NewGuid(), Location(now), now).Queued!;
             first.MarkSending(item.Id);
-            await WaitForPersistedSnapshotAsync(
+            await AssertPersistedSnapshotAsync(
                 first,
                 fixture.Path,
                 TestContext.Current.CancellationToken);
@@ -79,7 +79,7 @@ public sealed class BeaconTransmitQueueTests
         Assert.Equal(FileBeaconTransmitQueue.MaximumAttempts, failed.AttemptCount);
         Assert.Empty(queue.Reconcile(now));
 
-        await WaitForPersistedSnapshotAsync(
+        await AssertPersistedSnapshotAsync(
             queue,
             fixture.Path,
             TestContext.Current.CancellationToken);
@@ -106,7 +106,7 @@ public sealed class BeaconTransmitQueueTests
         Assert.Equal("Queue capacity reached.", second.Dropped.Error);
 
         Assert.Equal(2, queue.Snapshot.Count);
-        await WaitForPersistedSnapshotAsync(
+        await AssertPersistedSnapshotAsync(
             queue,
             fixture.Path,
             TestContext.Current.CancellationToken);
@@ -166,7 +166,7 @@ public sealed class BeaconTransmitQueueTests
         }
 
         queue.MarkSent(item.Id);
-        await WaitForPersistedSnapshotAsync(
+        await AssertPersistedSnapshotAsync(
             queue,
             fixture.Path,
             TestContext.Current.CancellationToken);
@@ -267,40 +267,25 @@ public sealed class BeaconTransmitQueueTests
         };
 
     /// <summary>
-    /// Waits until the on-disk snapshot matches the in-memory snapshot, proving the
-    /// coalescing writer flushed the latest state.
+    /// Flushes the coalescing writer and asserts the on-disk snapshot matches the
+    /// in-memory snapshot.
     /// </summary>
-    private static async Task WaitForPersistedSnapshotAsync(
+    private static async Task AssertPersistedSnapshotAsync(
         FileBeaconTransmitQueue queue,
         string path,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        await queue.FlushAsync(cancellationToken).ConfigureAwait(false);
+
         List<BeaconQueueItem> expected = [.. queue.Snapshot];
-        string lastJson = "<no file>";
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            expected = [.. queue.Snapshot];
-            string? rawJson = await ReadRawAsync(path, cancellationToken).ConfigureAwait(false);
-            if (rawJson is not null)
-            {
-                lastJson = rawJson;
-            }
+        string? rawJson = await ReadRawAsync(path, cancellationToken).ConfigureAwait(false);
+        List<BeaconQueueItem>? actual = Deserialize(rawJson);
 
-            List<BeaconQueueItem>? actual = Deserialize(rawJson);
-            if (actual is not null && actual.SequenceEqual(expected))
-            {
-                return;
-            }
-
-            await Task.Delay(10, cancellationToken).ConfigureAwait(false);
-        }
-
-        throw new TimeoutException(
-            $"Beacon outbox at {path} did not match the in-memory snapshot before the timeout. "
-            + $"Expected: {JsonSerializer.Serialize(expected, _jsonOptions)}. Actual: {lastJson}. "
-            + $"Writes: {queue.PersistWriteCount}.");
+        Assert.True(
+            actual is not null && actual.SequenceEqual(expected),
+            $"Beacon outbox at {path} did not match the in-memory snapshot. "
+            + $"Expected: {JsonSerializer.Serialize(expected, _jsonOptions)}. "
+            + $"Actual: {rawJson ?? "<no file>"}. Writes: {queue.PersistWriteCount}.");
     }
 
     private static async Task<string?> ReadRawAsync(string path, CancellationToken cancellationToken)

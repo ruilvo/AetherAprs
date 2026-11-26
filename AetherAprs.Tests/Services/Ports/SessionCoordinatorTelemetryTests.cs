@@ -11,6 +11,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Ports;
+using AetherAprs.Tests.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -54,19 +55,18 @@ public sealed class SessionCoordinatorTelemetryTests
             Packet = null!
         });
         portService.RaisePacketTransmitted(portId, null!);
-        await EventuallyAsync(
-            () =>
-            {
-                // Poll with plain booleans: an assertion inside this predicate would
-                // throw on the first attempt instead of retrying.
-                IReadOnlyList<PortSessionStatus> ports = coordinator.Ports;
-                return ports.Count == 1
-                    && ports[0].LastReceiveUtc is not null
-                    && ports[0].LastTransmitUtc is not null;
-            });
+        await bridge.FlushAsync(TestContext.Current.CancellationToken);
+
+        IReadOnlyList<PortSessionStatus> ports = coordinator.Ports;
+        PortSessionStatus observed = Assert.Single(ports);
+        Assert.NotNull(observed.LastReceiveUtc);
+        Assert.NotNull(observed.LastTransmitUtc);
 
         portService.RaiseTransportFault(portId, new InvalidOperationException("transport lost"));
-        await EventuallyAsync(() => controller.ConnectAttempts == 2);
+        await bridge.FlushAsync(TestContext.Current.CancellationToken);
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, controller.ConnectAttempts);
 
         PortSessionStatus finalStatus = Assert.Single(coordinator.Ports);
         Assert.Equal(PortSessionState.Connected, finalStatus.State);
@@ -89,8 +89,13 @@ public sealed class SessionCoordinatorTelemetryTests
         RecordingPortController controller = new();
         RecordingStateStore store = new();
         FakePortService portService = new();
+        TestClock clock = new();
 
-        await using SessionCoordinator coordinator = new(controller, store);
+        await using SessionCoordinator coordinator = new(
+            controller,
+            store,
+            timeProvider: clock,
+            diagnosticPersistInterval: TimeSpan.FromMinutes(1));
         await using SessionCoordinatorTelemetryBridge bridge = new(
             portService,
             coordinator,
@@ -98,13 +103,7 @@ public sealed class SessionCoordinatorTelemetryTests
 
         await coordinator.InitializeAsync(TestContext.Current.CancellationToken);
         await coordinator.StartAsync([portId], TestContext.Current.CancellationToken);
-
-        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
-        {
-            PortId = portId,
-            Packet = null!
-        });
-        await EventuallyAsync(() => store.SaveCalls > 0);
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
         int savesAfterTransition = store.SaveCalls;
 
         // A busy feed produces thousands of packets; none of them may trigger a
@@ -118,24 +117,18 @@ public sealed class SessionCoordinatorTelemetryTests
             });
         }
 
-        await Task.Delay(TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
+        await bridge.FlushAsync(TestContext.Current.CancellationToken);
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
 
+        Assert.NotNull(Assert.Single(coordinator.Ports).LastReceiveUtc);
         Assert.Equal(savesAfterTransition, store.SaveCalls);
-    }
 
-    private static async Task EventuallyAsync(Func<bool> condition)
-    {
-        for (int attempt = 0; attempt < 100; attempt++)
-        {
-            if (condition())
-            {
-                return;
-            }
+        // The periodic diagnostic flush is the only writer of a pure timestamp change.
+        clock.Advance(TimeSpan.FromMinutes(1));
+        await coordinator.FlushAsync(TestContext.Current.CancellationToken);
 
-            await Task.Delay(TimeSpan.FromMilliseconds(10), TestContext.Current.CancellationToken);
-        }
-
-        Assert.True(condition(), "The expected telemetry state was not observed.");
+        Assert.Equal(savesAfterTransition + 1, store.SaveCalls);
+        Assert.NotNull(Assert.Single(store.LastSnapshot!.Ports).LastReceiveUtc);
     }
 
     private sealed class RecordingPortController : ISessionPortController

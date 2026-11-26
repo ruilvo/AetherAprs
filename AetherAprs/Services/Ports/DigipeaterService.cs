@@ -18,7 +18,8 @@ namespace AetherAprs.Services.Ports;
 /// </summary>
 public class DigipeaterService(
     IConfigurationService configurationService,
-    ILogger<DigipeaterService> logger) : IDigipeaterService
+    ILogger<DigipeaterService> logger,
+    TimeProvider? timeProvider = null) : IDigipeaterService
 {
     /// <summary>
     /// Maximum number of recently heard packets tracked for duplicate suppression.
@@ -30,6 +31,7 @@ public class DigipeaterService(
     /// </summary>
     private static readonly TimeSpan DedupRetention = TimeSpan.FromSeconds(30);
 
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly Lock _dedupLock = new();
     private readonly Queue<(int Key, DateTimeOffset Seen)> _dedupOrder = new();
     private readonly Dictionary<int, DateTimeOffset> _dedupTable = [];
@@ -227,7 +229,7 @@ public class DigipeaterService(
         // recognized as already seen rather than forwarded again. Hashing keeps the
         // bounded table independent of info-field length.
         int key = HashCode.Combine(packet.Source, packet.Destination, packet.Raw);
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = _timeProvider.GetUtcNow();
 
         lock (_dedupLock)
         {

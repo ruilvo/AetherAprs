@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Beaconing;
+using AetherAprs.Tests.Helpers;
 using Geo;
 using Xunit;
 
@@ -256,12 +257,13 @@ public class BeaconServiceTests : TestFixtureBase
     [Fact]
     public void ProcessLocationUpdateAdvancesTimerOnTransmitDecision()
     {
-        BeaconService service = new()
+        TestClock clock = new();
+        BeaconService service = new(timeProvider: clock)
         {
-            LastTransmitTime = DateTime.UtcNow.AddHours(-1)
+            LastTransmitTime = clock.UtcDateTime.AddHours(-1)
         };
 
-        LocationData location = CreateLocation(38.7223, -9.1393);
+        LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
         service.ProcessLocationUpdate(location);
         BeaconTransmitDecision? decision1 = service.CurrentDecision;
         Assert.NotNull(decision1);
@@ -277,12 +279,13 @@ public class BeaconServiceTests : TestFixtureBase
     [Fact]
     public void ReportBeaconTransmissionResult_Failure_SchedulesRetryAfterBackoff()
     {
-        BeaconService service = new()
+        TestClock clock = new();
+        BeaconService service = new(timeProvider: clock)
         {
-            LastTransmitTime = DateTime.UtcNow.AddHours(-1)
+            LastTransmitTime = clock.UtcDateTime.AddHours(-1)
         };
 
-        LocationData location = CreateLocation(38.7223, -9.1393);
+        LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
         service.ProcessLocationUpdate(location);
         BeaconTransmitDecision? decision = service.CurrentDecision;
         Assert.NotNull(decision);
@@ -296,18 +299,27 @@ public class BeaconServiceTests : TestFixtureBase
         BeaconTransmitDecision? afterFailure = service.CurrentDecision;
         Assert.NotNull(afterFailure);
         Assert.False(afterFailure!.ShouldTransmit);
-        Assert.InRange(afterFailure.SecondsUntilNextBeacon, 1, BeaconService.TransmissionRetryBackoffSeconds);
+        Assert.Equal(BeaconService.TransmissionRetryBackoffSeconds, afterFailure.SecondsUntilNextBeacon);
+
+        // The evaluation timer runs on the injected clock, so the retry window can
+        // be observed exactly: one second short of the backoff, still waiting.
+        clock.Advance(TimeSpan.FromSeconds(BeaconService.TransmissionRetryBackoffSeconds - 1));
+        Assert.False(service.CurrentDecision!.ShouldTransmit);
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.True(service.CurrentDecision!.ShouldTransmit);
     }
 
     [Fact]
     public void ReportBeaconTransmissionResult_Success_KeepsNormalInterval()
     {
-        BeaconService service = new()
+        TestClock clock = new();
+        BeaconService service = new(timeProvider: clock)
         {
-            LastTransmitTime = DateTime.UtcNow.AddHours(-1)
+            LastTransmitTime = clock.UtcDateTime.AddHours(-1)
         };
 
-        LocationData location = CreateLocation(38.7223, -9.1393);
+        LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
         service.ProcessLocationUpdate(location);
         Assert.True(service.CurrentDecision!.ShouldTransmit);
 

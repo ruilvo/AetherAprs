@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Services.Contracts;
 using Microsoft.Extensions.Logging;
@@ -53,6 +54,13 @@ public sealed class SessionCoordinatorTelemetryBridge : IAsyncDisposable
     /// Observations discarded because the intake queue was full.
     /// </summary>
     public long DroppedObservations => _intake.DroppedObservations;
+
+    /// <summary>
+    /// Completes once every observation raised before this call has been applied to
+    /// the coordinator.
+    /// </summary>
+    internal Task FlushAsync(CancellationToken cancellationToken = default) =>
+        _intake.FlushAsync(cancellationToken);
 
     private void OnPacketReceived(object? sender, PortPacketReceivedEventArgs args) =>
         _intake.Post(new SessionTelemetryObservation(

@@ -150,18 +150,6 @@ Read the relevant source and tests first, add a regression test, and report buil
 test evidence. A source-only change is partial where the observable behaviour is not
 demonstrated.
 
-### R0.3 Test harness
-
-- Add a fake clock and use one captured instant per assertion; replace real delays in
-  retry, lease, retention and expiry tests with virtual time.
-- Build narrow fakes at the actual ports (clock, transport, foreground state, UI
-  dispatch) and use gates/tasks instead of sleeps to control races.
-- Replace remaining interaction-only tests with assertions on the subject's state.
-- Stabilize `AprsIsModemTests.SendAsync_RfReceivedPacket_UsesQarConstructorWithPath`:
-  writing and flushing the simulated server's login reply does not prove the modem
-  consumed it. Await the modem's authenticated-ready signal with a test deadline
-  before asserting the RF-to-IS wire format.
-
 ### R1.2 Message outbox and durable identity
 
 Files: `PacketStorageService.cs`, `PacketQueryService.cs`, `MessageService.cs`,
