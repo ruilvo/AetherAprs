@@ -263,6 +263,43 @@ public class MainActivity : AvaloniaMainActivity
 
         // Process a notification deep-link (cold start or resume with intent).
         ProcessPendingConversation();
+
+        // A grant can be revoked or restored while the app is in the background,
+        // so the resumed activity re-reads it without prompting.
+        RecheckPermissionGrants();
+    }
+
+    private void RecheckPermissionGrants()
+    {
+        if (_destroyed)
+        {
+            return;
+        }
+
+        var app = (App?)Avalonia.Application.Current;
+        if (app?.ServiceProvider.GetService<IPermissionService>() is not IPermissionGrantRechecker rechecker)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var transition in rechecker.Recheck())
+            {
+                if (transition.HasChanged)
+                {
+                    _logger.LogInformation(
+                        "Permission {Permission} is now {Current} (was {Previous})",
+                        transition.Kind,
+                        transition.Result.Outcome,
+                        transition.Previous);
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Rechecking permission grants after resume failed");
+        }
     }
 
     private void ConfigureSystemBars()

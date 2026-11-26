@@ -6,6 +6,7 @@ using AetherAprs.Services.Platform;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,7 +16,7 @@ namespace AetherAprs.Android.Services.Platform;
 /// Android implementation of permission service.
 /// Waits for MainActivity to complete permission requests.
 /// </summary>
-public class AndroidPermissionService : IPermissionService
+public class AndroidPermissionService : IPermissionService, IPermissionGrantReader, IPermissionGrantRechecker
 {
     private static readonly TaskCompletionSource<bool> _permissionsCompleteTcs = new();
 
@@ -28,6 +29,10 @@ public class AndroidPermissionService : IPermissionService
     private static readonly TimeSpan _permissionWaitTimeout = TimeSpan.FromSeconds(30);
 
     private readonly ILogger<AndroidPermissionService> _logger;
+
+    // Recheck outcomes are compared across resume cycles, so the record has to
+    // outlive a single read.
+    private readonly PermissionGrantTracker _grantTracker = new();
 
     public AndroidPermissionService(ILogger<AndroidPermissionService> logger)
     {
@@ -100,10 +105,11 @@ public class AndroidPermissionService : IPermissionService
         }
 
         var granted = prompt == PermissionPromptResult.Granted;
-        if (!granted)
-        {
-            _promptedKinds[kind] = true;
-        }
+
+        // The permission was asked about either way; a later read without a
+        // rationale and without a grant is then a permanent denial, not a first
+        // denial the operator can be asked about again.
+        _promptedKinds[kind] = true;
 
         return PermissionRequestPolicy.Evaluate(
             kind,
@@ -137,6 +143,85 @@ public class AndroidPermissionService : IPermissionService
             return Task.FromResult(false);
         }
     }
+
+    /// <inheritdoc/>
+    public PermissionGrant Read(PermissionKind kind)
+    {
+        var activity = MainActivity.Instance;
+        if (activity == null || activity.IsDestroyed)
+        {
+            // No host means no honest answer; guessing "denied" would record an
+            // operator choice that never happened.
+            return PermissionGrant.Unsupported;
+        }
+
+        try
+        {
+            if (!IsRequiredOnThisPlatform(kind))
+            {
+                return PermissionGrant.Granted;
+            }
+
+            if (kind == PermissionKind.BatteryOptimization)
+            {
+                var powerManager = activity.GetSystemService(global::Android.Content.Context.PowerService)
+                    as global::Android.OS.PowerManager;
+                if (powerManager == null)
+                {
+                    return PermissionGrant.Unsupported;
+                }
+
+                return powerManager.IsIgnoringBatteryOptimizations(activity.PackageName!)
+                    ? PermissionGrant.Granted
+                    : PermissionGrant.Denied;
+            }
+
+            var granted = kind switch
+            {
+                PermissionKind.Notifications => IsGranted(activity, global::Android.Manifest.Permission.PostNotifications),
+                PermissionKind.Bluetooth =>
+                    IsGranted(activity, global::Android.Manifest.Permission.BluetoothScan) &&
+                    IsGranted(activity, global::Android.Manifest.Permission.BluetoothConnect),
+                PermissionKind.Location =>
+                    IsGranted(activity, global::Android.Manifest.Permission.AccessFineLocation) ||
+                    IsGranted(activity, global::Android.Manifest.Permission.AccessCoarseLocation),
+                PermissionKind.Audio => IsGranted(activity, global::Android.Manifest.Permission.RecordAudio),
+                _ => false
+            };
+
+            return granted ? PermissionGrant.Granted : PermissionGrant.Denied;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Could not read the current {Permission} grant", kind);
+            return PermissionGrant.Unsupported;
+        }
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<PermissionGrantTransition> Recheck()
+    {
+        var activity = MainActivity.Instance;
+        if (activity == null || activity.IsDestroyed)
+        {
+            return [];
+        }
+
+        var transitions = new List<PermissionGrantTransition>();
+        foreach (var kind in Enum.GetValues<PermissionKind>())
+        {
+            transitions.Add(_grantTracker.Observe(
+                kind,
+                Read(kind),
+                HasRationale(activity, kind),
+                _promptedKinds.ContainsKey(kind)));
+        }
+
+        return transitions;
+    }
+
+    private static bool IsGranted(MainActivity activity, string permission) =>
+        activity.CheckSelfPermission(permission) == global::Android.Content.PM.Permission.Granted;
 
     private static bool IsRequiredOnThisPlatform(PermissionKind kind) => kind switch
     {

@@ -908,7 +908,9 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Test clean install, denial, revoke, settings return, activity recreation, and slow
   user interaction.
 
-> **Status: distinct permission states and a single queued prompt implemented (2026-11-26); resume recheck, rationale UI and native acceptance still open.**
+> **Status: distinct permission states, a single queued prompt, and a non-prompting
+> resume recheck implemented (2026-11-26); rationale UI and native acceptance still
+> open.**
 > `IPermissionService` no longer answers with a `bool`. `RequestAsync(PermissionKind)`
 > returns a `PermissionRequestResult` carrying one of `Granted`, `Denied`,
 > `PermanentlyDenied` or `Unavailable`, so callers can tell "ask again" from "the
@@ -950,10 +952,31 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > issued, throws on cancellation without leaving a pending request, reports
 > `Abandoned` when the host throws, and throws after dispose.
 >
-> Still open for this item: rechecking grants on resume, rationale UI and the settings
-> action wired to an operator-visible control, the background-location explanation,
-> and the clean-install/denial/revoke/settings-return/recreation/slow-interaction
-> acceptance runs on a device.
+> Grants are also re-read when the activity resumes, because a permission can be
+> revoked or restored in system settings while the app is backgrounded.
+> `AndroidPermissionService` implements `IPermissionGrantReader` (a non-prompting
+> `Read(kind)`, reporting `Unsupported` when the platform cannot answer) and
+> `IPermissionGrantRechecker`, which walks every kind on `MainActivity.OnResume`.
+> `PermissionGrantTracker` feeds each read through the same
+> `PermissionRequestPolicy` used for prompt results, so "revoked and no longer offers
+> a rationale" becomes `PermanentlyDenied` and routes the operator to settings, while
+> a restored grant becomes `Granted`. Only actual changes are published, and the
+> first read of a permission is recorded without being announced as a transition.
+> One related correction: the service now records that a prompt was answered for
+> every outcome, not only for denials, so a revoked grant seen later without a
+> rationale is recognised as permanent instead of looking like a first denial.
+>
+> Tests: `PermissionGrantTrackerTests` covers a first read (no transition), a revoke
+> that stops offering a rationale (`PermanentlyDenied` with `RequiresApplicationSettings`
+> and `Previous == Granted`), a grant restored in settings (`Granted`), an unchanged
+> recheck (no event), a fresh denial that still offers a rationale (`Denied` with
+> `CanPromptAgain`), a platform that cannot report (`Unavailable`), and an unread
+> permission having no last-known outcome.
+>
+> Still open for this item: rationale UI and the settings action wired to an
+> operator-visible control, the background-location explanation, and the
+> clean-install/denial/revoke/settings-return/recreation/slow-interaction acceptance
+> runs on a device.
 
 **R5.2 Foreground service**
 
@@ -1440,7 +1463,7 @@ report is valid or open. Historical locations and details are in the [audit].
 >
 > Still open here: the remaining T items, and the process-wide culture that
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
-| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, and one queued prompt with request-id matching replaces the per-kind completion sources; resume recheck, rationale UI and repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
+| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, one queued prompt with request-id matching replaces the per-kind completion sources, and a resumed activity re-reads every grant without prompting; rationale UI and the repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start can still look successful. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
 | P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded, owned and filtered by advertised service, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |
