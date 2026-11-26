@@ -1113,9 +1113,10 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Add native adapter tests for Keystore key loss, audio short writes, audio route
   changes, compass re-entry, and notification icon/action behavior.
 
-> **Status: the scan hand-off is bounded, owned, and filtered by service, and the
-> characteristic write path is testable in core (2026-11-26); the RFCOMM double,
-> scanner/native adapter tests and device validation still open.**
+> **Status: the scan hand-off is bounded, owned, and filtered by service, the
+> characteristic write path is testable in core, and Bluetooth Classic teardown is
+> pinned by a non-cancellable read double (2026-11-26); scanner/native adapter tests
+> and device validation still open.**
 > `AndroidBluetoothLeScanner` wrote every advertisement into an unbounded channel,
 > so a consumer that fell behind let memory grow for the length of the scan. The
 > hand-off now goes through `BluetoothAdvertisementBuffer`, which keeps at most 256
@@ -1172,8 +1173,24 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > write mode reaches the transport. Changing the retryable set to only busy makes the
 > connection-error case fail, so the retry rule is pinned.
 >
-> Still open for this item: the RFCOMM double for non-cancellable blocking reads, the
-> scanner/native adapter tests, and the on-device checks.
+> Bluetooth Classic teardown has the same treatment from the other side. Closing the
+> socket is what unblocks a pending RFCOMM read, so waiting for the read loop before
+> closing would always burn the two-second shutdown bound; `KissModem` already closes
+> the stream first and only then waits for the loop, but the old test used a
+> `MemoryStream`, which honours cancellation and would have passed with the order
+> reversed. `BlockingRfcommStream` now models the platform read: it ignores the
+> cancellation token, holds until disposed, and records the order of read, dispose
+> and unwind so the test can assert it. The connector needs no change: it already
+> relies on closing the socket to interrupt a blocked connect and read.
+>
+> Tests: `KissModemTests` asserts that both `StopAsync` and `DisposeAsync` record the
+> order `read`, `dispose`, `unwound` and finish well inside the shutdown bound; a
+> stream that never unwinds is reported as stopped after the bounded wait, with the
+> close still recorded. Swapping `StopAsync` to wait first makes the ordering test
+> fail after the two-second timeout, so the sequence is pinned rather than
+> incidental.
+>
+> Still open for this item: the scanner/native adapter tests and the on-device checks.
 
 **R5.4 Android logging and security**
 

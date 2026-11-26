@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -605,6 +606,62 @@ public class KissModemTests
         await modem.DisposeAsync(); // Should not throw
 
         Assert.True(true);
+    }
+
+    // ---------------------------------------------------------------
+    // Blocking RFCOMM teardown
+    // ---------------------------------------------------------------
+
+    [Fact]
+    public async Task StopAsync_WithABlockingNonCancellableRead_ClosesTheStreamBeforeWaiting()
+    {
+        var stream = new BlockingRfcommStream();
+        var modem = new KissModem(stream);
+        modem.Start();
+        await stream.WaitForReadAsync(TestContext.Current.CancellationToken);
+
+        var stopwatch = Stopwatch.StartNew();
+        await modem.StopAsync();
+        stopwatch.Stop();
+
+        // "read" then "dispose" then "unwound" is the property: the close is what
+        // releases the read, so it must happen before the loop is awaited.
+        Assert.Equal(["read", "dispose", "unwound"], stream.Events);
+        Assert.True(
+            stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+            $"Stop waited {stopwatch.Elapsed} on a read that only the close could release.");
+    }
+
+    [Fact]
+    public async Task DisposeAsync_WithABlockingNonCancellableRead_ClosesTheStreamBeforeWaiting()
+    {
+        var stream = new BlockingRfcommStream();
+        var modem = new KissModem(stream);
+        modem.Start();
+        await stream.WaitForReadAsync(TestContext.Current.CancellationToken);
+
+        await modem.DisposeAsync();
+
+        Assert.Equal(["read", "dispose", "unwound"], stream.Events);
+    }
+
+    [Fact]
+    public async Task StopAsync_WhenTheNativeReadNeverUnwinds_StopsAfterTheBoundedWait()
+    {
+        var stream = new BlockingRfcommStream(unwindsOnClose: false);
+        var modem = new KissModem(stream);
+        modem.Start();
+        await stream.WaitForReadAsync(TestContext.Current.CancellationToken);
+
+        var stopwatch = Stopwatch.StartNew();
+        await modem.StopAsync();
+        stopwatch.Stop();
+
+        Assert.Contains("dispose", stream.Events);
+        Assert.DoesNotContain("unwound", stream.Events);
+
+        // The shutdown wait is bounded, so a wedged native read cannot hang stop.
+        Assert.InRange(stopwatch.Elapsed, TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(15));
     }
 
     // ---------------------------------------------------------------
