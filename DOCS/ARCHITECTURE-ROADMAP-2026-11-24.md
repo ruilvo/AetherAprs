@@ -200,8 +200,13 @@ Required design:
 > packet can never arrive while the queue has no reader, and disposing an
 > application that never got that far no longer leaves a task behind.
 >
-> Item 5 remains open: the provider is still reachable through the documented
-> `App.GetService<T>()` escape hatch used by Android entry points.
+> Item 5 is implemented as well. The static `App.GetService<T>()` accessor and the
+> unused `ServiceProviderFactory.ServiceProvider` lazy locator are gone. The only
+> remaining resolution is at a framework entry point that Android creates itself
+> (an activity or a service): that object already holds the application, so it
+> reads `App.ServiceProvider` and passes the resolved dependency into ordinary
+> classes. Composition-root rule `A012` rejects both static accessors, so a
+> ViewModel or service cannot reintroduce one.
 
 ### Persistence
 
@@ -387,7 +392,11 @@ Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
 (bounded queues need a named owner) and `A008` (keep-alive transitions belong to
 `IKeepAliveService`), the last four added alongside the port runtime and
 keep-alive work items `R2.2`, `R2.3` and `R2.4`, plus `A009` (settings documents
-stay inside the configuration adapter, added with `R3.1`). The
+stay inside the configuration adapter, added with `R3.1`), `A010` (startup steps
+are declared in the composition root, added with `R3.3`), `A011` (only the
+composition root builds a container, added with the composition-root items) and
+`A012` (no static service accessor, added with the close-out of composition-root
+item 5). The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -892,6 +901,37 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Test clean install, denial, revoke, settings return, activity recreation, and slow
   user interaction.
 
+> **Status: distinct permission states implemented (2026-11-26); broker queue, rationale UI and native acceptance still open.**
+> `IPermissionService` no longer answers with a `bool`. `RequestAsync(PermissionKind)`
+> returns a `PermissionRequestResult` carrying one of `Granted`, `Denied`,
+> `PermanentlyDenied` or `Unavailable`, so callers can tell "ask again" from "the
+> operator must use the application settings" from "this platform cannot do it".
+> The decision lives in `PermissionRequestPolicy.Evaluate`, which takes the grant
+> flag, the platform rationale hint, whether this process already requested the
+> permission, and whether the platform level supports it. The "requested before"
+> fact is what separates a first-time denial (no rationale is also reported before
+> the first prompt) from a permanent denial, which is the rule the roadmap calls
+> out. `OpenApplicationSettingsAsync` is the recovery action for the permanent case.
+>
+> `PortStartupPermissions` now logs each outcome with its own consequence and keeps
+> prompting the remaining kinds after an unmet one, and
+> `LocationTrackingService` names a permanently denied battery exemption instead of
+> discarding the answer.
+>
+> Tests: `PermissionRequestPolicyTests` covers granted-with-rationale, unsupported,
+> denial-with-rationale, first denial without rationale (must stay `Denied`) and
+> denial without rationale after an earlier request (`PermanentlyDenied`), plus the
+> kind/outcome mapping of all four results. `PortStartupPermissionsTests` runs the
+> unmet `Bluetooth` case as a theory over `Denied`, `PermanentlyDenied` and
+> `Unavailable` and proves the audio prompt still follows.
+>
+> Still open for this item: one queued OS request at a time with request-ID matching
+> instead of the activity's per-kind completion sources, cancelling a pending
+> request on activity teardown, rechecking grants on resume, rationale UI and the
+> settings action wired to an operator-visible control, background-location
+> explanation, and the clean-install/denial/revoke/settings-return/recreation/
+> slow-interaction acceptance runs on a device.
+
 **R5.2 Foreground service**
 
 - Return a result or throw on rejected start.
@@ -905,6 +945,36 @@ Exit: application services can run in a plain test host with no Avalonia applica
   reconnect cannot start a new generation after stop.
 - Bound wakelock use and recheck battery optimization.
 - Decide reboot behavior: explicit re-arm is the current product requirement.
+
+> **Status: single stop path implemented (2026-11-26).**
+> `IApplicationSessionControl` (`Services/Lifecycle/ApplicationSessionControl.cs`)
+> is the one stop an in-app exit and the notification action share. It serializes
+> concurrent stops and runs five ordered steps: `SessionCoordinator.StopAsync`
+> (disarms the intent and disconnects), `IPortService.StopAllPortsAsync` (sweeps
+> sessions a send started outside the armed set), `StopTracking`, then an explicit
+> release of the location and port keep-alive reasons. A step failure is reported
+> with its step name and the later steps still run, so one wedged transport cannot
+> leave location polling or the notification behind.
+>
+> `SessionCoordinator.ReportPortFaultAsync` now ignores a fault that arrives while
+> the session is stopped and disarmed, so a late transport callback cannot move the
+> lifecycle back to `Degraded` or reopen a reconnect loop.
+>
+> Tests: `ApplicationSessionControlTests` proves the stop disarms the intent and a
+> late fault cannot reconnect, sweeps sessions the coordinator did not arm, cancels
+> location work and releases both keep-alive reasons, reports a failed step while
+> still running the rest, serializes concurrent stops, and completes every step when
+> nothing is running.
+>
+> The notification's stop action is an operator-requested **application close**:
+> the service runs the shared stop, gives up foreground status, stops itself and
+> finishes every activity. The in-app exit (`MainActivity.OnRequestAppExit`) runs
+> the same stop before it finishes the affinity. A platform foreground-service
+> timeout uses the same stop but keeps the UI available, because a type limit ends
+> the background session rather than the application.
+>
+> Remaining for this item: wakelock bounding and the native acceptance check for
+> notification publication, modem readiness and first I/O as separate states.
 
 **R5.3 Hardware transports**
 
@@ -922,6 +992,45 @@ Exit: application services can run in a plain test host with no Avalonia applica
   unrelated ports.
 - Verify exported activity/deep-link inputs and notification privacy.
 - Document the `neverForLocation` rationale or remove the flag.
+
+> **Status: lost credentials no longer hide the port list, and the operator can
+> repair them in the port editor (2026-11-26); activity logging, exported-input
+> review and the `neverForLocation` decision still open.**
+> `PortRegistry` restored the APRS-IS passcode while mapping every record, so one
+> unreadable secret threw out of `LoadAsync` and the operator saw no ports at all.
+> Mapping now catches `SecretUnavailableException` per port: the port keeps its name,
+> enablement and type settings, its passcode drops to the read-only default, and
+> `PortConfig.CredentialsUnavailable` marks it for the operator to fix. Other ports
+> load normally. The flag is runtime state (never persisted) and `Clone` keeps it.
+>
+> The Android adapter now throws `SecretUnavailableException` instead of a generic
+> `InvalidOperationException` for both directions, so a lost Keystore key cannot be
+> confused with a programming error.
+>
+> The port editor turns that state into something the operator can act on.
+> `AddEditPortViewModel.HasUnavailableCredentials` drives a localized notice above
+> the passcode field, and the field opens empty instead of showing the read-only
+> default, so re-entry is an explicit action rather than an invisible overwrite.
+> Saving without re-entering keeps the port receive-only: `BuildConfig` re-applies
+> the read-only passcode and keeps `CredentialsUnavailable` set, because persisting
+> an empty passcode would look configured while every login is rejected. Entering a
+> passcode clears the marker and restores transmit.
+>
+> Tests: `PortRegistryCredentialTests` seeds two APRS-IS ports and an RF port with a
+> protector that fails for exactly one secret, and asserts the other two load intact
+> while the affected port is marked, keeps its settings and reports the read-only
+> passcode. Removing the per-port handling makes the same test fail with the raw
+> exception escaping `LoadAsync`, so the regression is real. A second case proves a
+> fully readable set marks no port, and a clone keeps the marker.
+> `AddEditPortViewModelTests` covers the editor side: a marked port opens with the
+> notice and an empty passcode, a readable port opens without it, saving without
+> re-entry keeps the read-only passcode and the marker, and entering a passcode
+> clears both. Reverting the `BuildConfig` guard makes
+> `BuildConfig_WhenThePasscodeWasNotReentered_KeepsThePortReceiveOnly` fail, so that
+> case is a regression test too.
+>
+> Still open for this item: routing activity/application logging through `ILogger`,
+> exported input review, and the `neverForLocation` decision.
 
 Exit: permission, disconnect, notification stop, and route change behavior have
 focused acceptance checks. When a behavior depends on native APIs, use a short
@@ -967,6 +1076,54 @@ close the ticket without refactoring unrelated code.
 | Map lifetime and cache (`m-65`, `V-01`, `V-07–V-09`) | Keep private runtime map tiles apart from explicit offline downloads, dispose page-owned layers once and stop subscriptions on detach; retain shared provider ownership at application lifetime. Attach/detach/reopen and show that old callbacks do not update a disposed layer. |
 | Display and binding (`V-03–V-06`, `V-14–V-17`) | Virtualize long packet collections without nesting a scrolling container that defeats virtualization; fix lost binding types with typed projections and correct localized fallback actions. Verify the actual large-list and dialog paths before deleting shared styles. |
 | Diagnostics and Android affordances (`m-67–m-72`, `P-24–P-27`, `P-29`) | Remove payload-bearing hot logs, use structured safe fields, make compass start/stop idempotent, use a monochrome notification small icon, and validate external navigation targets. Handle a malformed intent without switching context or performing an action. |
+
+> **Status: search generations and object identity implemented (2026-11-26).**
+> `SearchViewModel` now numbers every query change and applies results, a logged
+> error and `IsLoading` only while that generation is still current. Clearing the
+> box resets immediately and supersedes an in-flight search. The fire-and-forget
+> debounce task catches cancellation, disposal and any other failure, so a newer
+> query can no longer fault the older one, and it no longer disposes a token source
+> whose token the previous search may still be using.
+>
+> Tests: `SearchViewModelTests` completes the older search last in a fake and
+> proves the newer spinner stays visible and its results are not replaced; a second
+> test clears the query while a search is in flight and proves the late result is
+> discarded. Removing the generation guard makes the first test fail with the stale
+> result, so it is a real regression test rather than a restatement of the code.
+>
+> Still open in this row: nothing; both items are covered by tests above.
+
+> **Status: object history selected by object identity (`m-63`).**
+> A search result now carries the matched object's own name in
+> `SearchResultItem.ObjectName`, and `SearchViewModel.OpenResult` opens
+> `ObjectDetailsViewModel` through `IObjectDetailsViewModelFactory` for that name
+> instead of opening the reporting station's packet history. The reporting station
+> stays visible as the result subtitle, so "Reported by N0CALL" no longer doubles as
+> the navigation key. Object and item histories are read by name
+> (`GetPacketsByObjectNameAsync`), which is the APRS identity for a named report and
+> is stable when a different station reports the object next.
+>
+> Tests: `SearchViewModelTests.OpenResult_Object_OpensObjectHistoryByIdentity` asserts
+> the object factory receives `SHELTER1`, the packet-details factory is never called
+> and navigation lands on the object page; the object-result search test now also
+> asserts the result carries `ObjectName`. No behavioral verification exists on
+> device yet, because this is a ViewModel-level navigation change.
+
+> **Status: port editor numbering and save error implemented (2026-11-26).**
+> `PortsViewModel.GetNextPortNumber` takes the highest number already embedded in
+> a localized default port name across every port type, so adding a second KISS
+> port no longer suggests "KISS Port 1" merely because no APRS-IS port exists, and
+> a number left behind by a deleted port is not reused. Custom names carry no
+> number, so the configured port count remains the lower bound.
+>
+> A failed save no longer writes into `BleStatusText`. `AddEditPortViewModel` has a
+> dedicated `SaveErrorText`, shown above the action buttons, so a storage failure
+> cannot look like a Bluetooth scan result; the message is the localized
+> `ErrorPrefix` plus the failure detail.
+>
+> Tests: `PortsViewModelTests` covers the mixed-type list and the deleted-port gap;
+> `AddEditPortViewModelTests` covers a denied save (general error set, Bluetooth
+> status untouched, no navigation) and a retry that clears the previous error.
 
 ### R7 — Build and distribution maintenance
 
@@ -1067,7 +1224,33 @@ report is valid or open. Historical locations and details are in the [audit].
 | m-67–m-72, P-26/P-27 | Hot port payload logging reduced in working tree; recheck every producer and Android bridge, log safe event metadata and bound volume: R0.2/R5.4/R6.7. |
 | m-73–m-90 | Routed to R7. Evaluate restore determinism, signing and build settings before adding packages/analyzers; use frameworks' defaults where proven. The dead compile entry is gone. Separate contributor, security and changelog files are not required to preserve their useful contents. |
 | T-01–T-15 | R0.3 and owning slice: isolate process-wide culture; assert observer failure isolation; replace vacuous checks and sleeps with behavioral tests/fake time; add map projection coverage; do not confuse instrumentation build with execution. Temp cleanup, orphan file and selected async tests already improved; verify before repeating. |
-| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: fresh permission check exists; repeated on-demand request and recovery do not. Foreground location is requested; all-time settings flow is distinct. Rejected FGS can look successful; fix bounded permission/wake ownership. |
+
+> **Status: two intermittent failures removed (2026-11-26).**
+> `AprsIsModem.SendAsync` snapshotted the stream writer before awaiting the login
+> response. `Start()` returns before authentication, and the writer is only assigned
+> after the login line is written, so a send issued in that window waited, then
+> rejected a connection that had just authenticated ("Modem is not connected"). The
+> send now treats readiness as the gate and reads the writer under the connection lock
+> after the await, so the writer and version always belong to the authenticated
+> connection. A pending readiness source is also reused by a connect attempt instead
+> of being replaced, so a waiter created before the connect is not stranded on a
+> source nobody completes.
+>
+> `PortsViewModelTests` built "KISS Port 1"/"KISS Port 3" from an English literal while
+> `PortsViewModel` derives the number from the localized default name. Because
+> `TestFixtureBase` applies culture process-wide, a concurrently running fixture could
+> change it and the numbers silently fell back to the port count. The tests now build
+> the names with `Strings.Format("DefaultKissPortName", n)`, so they assert numbering
+> in whatever culture is current.
+>
+> Tests: `AprsIsModemTests.SendAsync_BeforeLoginCompletes_WaitsForAuthenticationAndTransmits`
+> proves a send issued before the login response stays pending and then transmits.
+> Fourteen consecutive full-suite runs passed after both changes (2381 tests each);
+> the port-number test failed roughly once in eight runs before it.
+>
+> Still open here: the remaining T items, and the process-wide culture that
+> `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
+| P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable, with a settings-recovery call; the queued request broker, rationale UI and repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. Rejected FGS can look successful; fix bounded permission/wake ownership. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
 | P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: bounded BLE scan, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` is compatible with separate GPS if scan results do not derive location. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |

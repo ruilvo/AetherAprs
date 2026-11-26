@@ -12,6 +12,7 @@ using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Lifecycle;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Maintenance;
 using AetherAprs.Services.Messaging;
@@ -38,16 +39,6 @@ namespace AetherAprs.Factories;
 
 public static class ServiceProviderFactory
 {
-    private static IServiceProvider? _serviceProvider;
-
-    public static IServiceProvider ServiceProvider => _serviceProvider ??= CreateServiceProvider(
-        new AppDataDirProviderService(),
-        _ => throw new InvalidOperationException("A platform service configuration " +
-        "must be supplied before creating the application service provider.\n" +
-        "Call ServiceProviderFactory.CreateServiceProvider with a " +
-        "platform -specific configuration action before accessing the " +
-        "ServiceProvider property."), _ => { });
-
     /// <summary>
     /// Builds the application container.
     /// </summary>
@@ -153,6 +144,10 @@ public static class ServiceProviderFactory
         services.AddSingleton<ISessionPortController, PortServiceSessionController>();
         services.AddSingleton<SessionCoordinator>();
         services.AddSingleton<SessionCoordinatorTelemetryBridge>();
+
+        // One stop path for the in-app exit and the notification action: disarm
+        // the session, stop ports and location, and release every keep-alive reason.
+        services.AddSingleton<IApplicationSessionControl, ApplicationSessionControl>();
 
         // Application lifecycle: one ordered startup sequence per process and one
         // deferred retention worker. The steps are declared in StartupStepFactory.
@@ -283,7 +278,6 @@ public static class ServiceProviderFactory
         };
 
         // Build the final service provider
-        _serviceProvider = services.BuildServiceProvider(providerOptions);
-        return _serviceProvider;
+        return services.BuildServiceProvider(providerOptions);
     }
 }

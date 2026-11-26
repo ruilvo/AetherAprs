@@ -198,19 +198,29 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
         }
 
-        // Capture writer, ready task and connection version atomically under lock so
-        // a concurrent reconnect cannot leave us awaiting a stale completion source.
-        StreamWriter? writer;
+        // Start() hands back before the login completes, so readiness - not a writer
+        // snapshot taken beforehand - is the gate for a send. The writer exists only
+        // after authentication, and a concurrent reconnect can replace it, so read it
+        // under the same lock once the connection is ready.
+        // Start() hands back before the login completes, so readiness - not a writer
+        // snapshot taken beforehand - is the gate for a send. The writer exists only
+        // after authentication, and a concurrent reconnect can replace it, so read it
+        // under the same lock once the connection is ready.
         Task readyTask;
+        lock (_connectionLock)
+        {
+            readyTask = _connectionReady.Task;
+        }
+
+        await readyTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        StreamWriter? writer;
         int connectionVersion;
         lock (_connectionLock)
         {
             writer = _writer;
-            readyTask = _connectionReady.Task;
             connectionVersion = _connectionVersion;
         }
-
-        await readyTask.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         if (writer is null)
         {
@@ -351,9 +361,15 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
 
     private async Task ConnectAndReadAsync(CancellationToken cancellationToken)
     {
-        var connectionReady = CreateConnectionReadySource();
+        // Reuse a pending readiness source so a send that started waiting between
+        // Start() and this connect attempt observes the outcome of this attempt
+        // instead of awaiting a source that nothing will ever complete.
+        TaskCompletionSource<bool> connectionReady;
         lock (_connectionLock)
         {
+            connectionReady = _connectionReady.Task.IsCompleted
+                ? CreateConnectionReadySource()
+                : _connectionReady;
             _connectionReady = connectionReady;
         }
 

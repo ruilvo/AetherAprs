@@ -79,6 +79,22 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string BleStatusText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Message shown next to the save action when the port could not be saved.
+    /// Kept separate from the Bluetooth scan status so a storage failure never
+    /// looks like a scanning problem.
+    /// </summary>
+    [ObservableProperty]
+    public partial string SaveErrorText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the stored APRS-IS passcode could
+    /// not be read from the platform secret store. The port still loads, but it is
+    /// receive-only until the operator enters the passcode again here.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasUnavailableCredentials { get; set; }
+
     [ObservableProperty]
     public partial string SppStatusText { get; set; } = string.Empty;
 
@@ -184,6 +200,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         }
 
         IsSaving = true;
+        SaveErrorText = string.Empty;
         try
         {
             StopBleScan();
@@ -207,8 +224,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         catch (Exception ex)
         {
             // Surface the failure instead of silently swallowing it; the user
-            // stays on the form and the button remains usable for a retry.
-            BleStatusText = ex.Message;
+            // stays on the form and the button remains usable for a retry. The
+            // message belongs to the save action, not to the Bluetooth scan status.
+            SaveErrorText = Strings.Format("ErrorPrefix", ex.Message);
             _logger?.LogError(ex, "Failed to save port configuration");
         }
         finally
@@ -389,7 +407,12 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         {
             Server = aprsIs.Server;
             ServerPort = aprsIs.ServerPort;
-            Passcode = aprsIs.Passcode;
+
+            // A passcode that could not be decrypted is not the operator's secret
+            // and must not be shown as if it were; leave the field empty so the
+            // re-entry is an explicit action rather than an invisible overwrite.
+            HasUnavailableCredentials = config.CredentialsUnavailable;
+            Passcode = config.CredentialsUnavailable ? string.Empty : aprsIs.Passcode;
             FilterBuilder.Load(aprsIs.Filter);
         }
 
@@ -448,11 +471,16 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
         if (SelectedPortSettingsType == typeof(AprsIsSettings))
         {
+            // Saving the form without re-entering a lost passcode keeps the port
+            // receive-only: persisting an empty passcode would look configured while
+            // every login would be rejected, which is worse than the honest marker.
+            var credentialsMissing = HasUnavailableCredentials && string.IsNullOrWhiteSpace(Passcode);
+            config.CredentialsUnavailable = credentialsMissing;
             config.TypeSettings = new AprsIsSettings
             {
                 Server = Server,
                 ServerPort = ServerPort,
-                Passcode = Passcode,
+                Passcode = credentialsMissing ? AprsIsSettings.DefaultPasscode : Passcode,
                 Filter = FilterBuilder.Filter
             };
         }

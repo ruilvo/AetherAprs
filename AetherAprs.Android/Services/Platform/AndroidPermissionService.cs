@@ -4,6 +4,8 @@
 
 using AetherAprs.Services.Platform;
 using System;
+using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Android.Services.Platform;
@@ -16,6 +18,14 @@ public class AndroidPermissionService : IPermissionService
 {
     private static readonly TaskCompletionSource<bool> _permissionsCompleteTcs = new();
 
+    // Android reports "should show rationale" as false both before the first
+    // request and after a permanent denial, so the service remembers which kinds
+    // it already asked about. Only a kind that was asked before and no longer
+    // suggests a rationale is a permanent denial.
+    private static readonly ConcurrentDictionary<PermissionKind, bool> _promptedKinds = new();
+
+    private static readonly TimeSpan _permissionWaitTimeout = TimeSpan.FromSeconds(30);
+
     /// <summary>
     /// Called by MainActivity when initial permission requests are complete.
     /// </summary>
@@ -24,126 +34,154 @@ public class AndroidPermissionService : IPermissionService
         _permissionsCompleteTcs.TrySetResult(true);
     }
 
-    private static async Task WaitForPermissionsAsync()
+    private static async Task WaitForPermissionsAsync(CancellationToken cancellationToken)
     {
         // Wait for MainActivity to complete permission requests, with timeout
-        var timeoutTask = Task.Delay(30000);
-        var completedTask = await Task.WhenAny(_permissionsCompleteTcs.Task, timeoutTask);
-        
-        if (completedTask == timeoutTask)
+        var timeoutTask = Task.Delay(_permissionWaitTimeout, cancellationToken);
+        var completedTask = await Task.WhenAny(_permissionsCompleteTcs.Task, timeoutTask).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (completedTask != _permissionsCompleteTcs.Task)
         {
             throw new TimeoutException("Timeout waiting for MainActivity permission requests");
         }
     }
 
     /// <inheritdoc/>
-    public async Task<bool> RequestNotificationPermissionAsync()
+    public async Task<PermissionRequestResult> RequestAsync(
+        PermissionKind kind,
+        CancellationToken cancellationToken = default)
     {
-        await WaitForPermissionsAsync();
-        
+        try
+        {
+            await WaitForPermissionsAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is TimeoutException or OperationCanceledException)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Without the startup burst there is no reliable prompt host, so the
+            // permission is treated as unavailable instead of silently denied.
+            global::Android.Util.Log.Warn("AetherAprs", $"Permission check for {kind} timed out: {exception.Message}");
+            return PermissionRequestResult.Unavailable(kind);
+        }
+
         var activity = MainActivity.Instance;
-        if (activity == null)
+        if (activity == null || activity.IsDestroyed)
         {
-            return false;
+            return PermissionRequestResult.Unavailable(kind);
         }
 
-        if (global::Android.OS.Build.VERSION.SdkInt < global::Android.OS.BuildVersionCodes.Tiramisu)
+        if (!IsRequiredOnThisPlatform(kind))
         {
-            return true;
+            return PermissionRequestResult.Granted(kind);
         }
 
-        var granted = activity.CheckSelfPermission(global::Android.Manifest.Permission.PostNotifications) 
-            == global::Android.Content.PM.Permission.Granted;
-        return granted;
+        if (kind == PermissionKind.BatteryOptimization)
+        {
+            return RequestBatteryOptimizationExemption(activity);
+        }
+
+        var requestedBefore = _promptedKinds.ContainsKey(kind);
+        var granted = await PromptAsync(activity, kind).ConfigureAwait(false);
+        if (!granted)
+        {
+            _promptedKinds[kind] = true;
+        }
+
+        return PermissionRequestPolicy.Evaluate(
+            kind,
+            granted,
+            HasRationale(activity, kind),
+            requestedBefore);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> RequestBluetoothPermissionAsync()
+    public Task<bool> OpenApplicationSettingsAsync(CancellationToken cancellationToken = default)
     {
-        await WaitForPermissionsAsync();
-        
+        cancellationToken.ThrowIfCancellationRequested();
+
         var activity = MainActivity.Instance;
-        if (activity == null)
+        if (activity == null || activity.IsDestroyed)
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        if (global::Android.OS.Build.VERSION.SdkInt < global::Android.OS.BuildVersionCodes.S)
+        try
         {
-            return true;
+            var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionApplicationDetailsSettings);
+            intent.SetData(global::Android.Net.Uri.Parse($"package:{activity.PackageName}"));
+            intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+            activity.StartActivity(intent);
+            return Task.FromResult(true);
         }
-
-        var scanGranted = activity.CheckSelfPermission(global::Android.Manifest.Permission.BluetoothScan) 
-            == global::Android.Content.PM.Permission.Granted;
-        var connectGranted = activity.CheckSelfPermission(global::Android.Manifest.Permission.BluetoothConnect) 
-            == global::Android.Content.PM.Permission.Granted;
-        return scanGranted && connectGranted;
+        catch (Exception exception)
+        {
+            global::Android.Util.Log.Warn("AetherAprs", $"Could not open application settings: {exception.Message}");
+            return Task.FromResult(false);
+        }
     }
 
-    /// <inheritdoc/>
-    public async Task<bool> RequestLocationPermissionAsync()
+    private static bool IsRequiredOnThisPlatform(PermissionKind kind) => kind switch
     {
-        await WaitForPermissionsAsync();
-        
-        var activity = MainActivity.Instance;
-        if (activity == null)
-        {
-            return false;
-        }
+        // Both permissions only exist as runtime permissions from these levels; the
+        // older levels declare them in the manifest, so nothing has to be prompt.
+        PermissionKind.Notifications => global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.Tiramisu,
+        PermissionKind.Bluetooth => global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.S,
+        _ => true
+    };
 
-        var fineGranted = activity.CheckSelfPermission(global::Android.Manifest.Permission.AccessFineLocation) 
-            == global::Android.Content.PM.Permission.Granted;
-        var coarseGranted = activity.CheckSelfPermission(global::Android.Manifest.Permission.AccessCoarseLocation) 
-            == global::Android.Content.PM.Permission.Granted;
-        return fineGranted || coarseGranted;
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> RequestAudioPermissionAsync()
+    private static Task<bool> PromptAsync(MainActivity activity, PermissionKind kind) => kind switch
     {
-        await WaitForPermissionsAsync();
+        PermissionKind.Notifications => activity.RequestNotificationPermissionAsync(),
+        PermissionKind.Bluetooth => activity.RequestBluetoothPermissionAsync(),
+        PermissionKind.Location => activity.RequestLocationPermissionsAsync(),
+        PermissionKind.Audio => activity.RequestAudioPermissionAsync(),
+        _ => Task.FromResult(false)
+    };
 
-        var activity = MainActivity.Instance;
-        if (activity == null)
-        {
-            return false;
-        }
-
-        return activity.CheckSelfPermission(global::Android.Manifest.Permission.RecordAudio)
-            == global::Android.Content.PM.Permission.Granted;
-    }
-
-    /// <inheritdoc/>
-    public async Task<bool> RequestIgnoreBatteryOptimizationsAsync()
+    private static bool HasRationale(MainActivity activity, PermissionKind kind) => kind switch
     {
-        await WaitForPermissionsAsync();
+        PermissionKind.Notifications =>
+            activity.ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.PostNotifications),
+        PermissionKind.Bluetooth =>
+            activity.ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.BluetoothScan) ||
+            activity.ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.BluetoothConnect),
+        PermissionKind.Location =>
+            activity.ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.AccessFineLocation) ||
+            activity.ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.AccessCoarseLocation),
+        PermissionKind.Audio =>
+            activity.ShouldShowRequestPermissionRationale(global::Android.Manifest.Permission.RecordAudio),
+        _ => false
+    };
 
-        var activity = MainActivity.Instance;
-        if (activity == null)
-        {
-            return false;
-        }
-
+    private static PermissionRequestResult RequestBatteryOptimizationExemption(MainActivity activity)
+    {
         var powerManager = activity.GetSystemService(global::Android.Content.Context.PowerService) as global::Android.OS.PowerManager;
         if (powerManager == null)
         {
-            return false;
+            return PermissionRequestResult.Unavailable(PermissionKind.BatteryOptimization);
         }
 
-        // Already exempt — nothing to request.
         if (powerManager.IsIgnoringBatteryOptimizations(activity.PackageName!))
         {
-            return true;
+            return PermissionRequestResult.Granted(PermissionKind.BatteryOptimization);
         }
 
-        // Launch the system dialog asking the user to exempt the app from
-        // battery optimization. The result is asynchronous and outside our
-        // control; report "prompt shown" (false) so callers don't block.
-        var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionRequestIgnoreBatteryOptimizations);
-        intent.SetData(global::Android.Net.Uri.Parse($"package:{activity.PackageName}"));
-        intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
-        activity.StartActivity(intent);
-
-        return false;
+        try
+        {
+            // The system dialog result is asynchronous and outside our control, so a
+            // plain denial reports "prompt shown" and the caller may ask again.
+            var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionRequestIgnoreBatteryOptimizations);
+            intent.SetData(global::Android.Net.Uri.Parse($"package:{activity.PackageName}"));
+            intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+            activity.StartActivity(intent);
+            return PermissionRequestResult.Denied(PermissionKind.BatteryOptimization);
+        }
+        catch (Exception exception)
+        {
+            global::Android.Util.Log.Warn("AetherAprs", $"Could not open battery optimization settings: {exception.Message}");
+            return PermissionRequestResult.Unavailable(PermissionKind.BatteryOptimization);
+        }
     }
 }

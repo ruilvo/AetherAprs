@@ -41,6 +41,17 @@ public class PortConfig
     public IPortTypeSettings? TypeSettings { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether stored credentials for this port could
+    /// not be restored from the platform secret store.
+    /// </summary>
+    /// <remarks>
+    /// Runtime state only; it is never persisted. The port keeps its other settings and
+    /// stays in the configuration so unrelated ports load normally, and the operator has
+    /// to enter the credential again before this port can transmit.
+    /// </remarks>
+    public bool CredentialsUnavailable { get; set; }
+
+    /// <summary>
     /// Creates an independent copy, including the type-specific settings graph.
     /// </summary>
     /// <remarks>
@@ -56,7 +67,8 @@ public class PortConfig
         IsTx = IsTx,
         ShowOnMap = ShowOnMap,
         AllowDigipeat = AllowDigipeat,
-        TypeSettings = TypeSettings?.Clone()
+        TypeSettings = TypeSettings?.Clone(),
+        CredentialsUnavailable = CredentialsUnavailable
     };
 
     /// <summary>Returns a copy that differs only in <see cref="IsEnabled"/>.</summary>

@@ -62,22 +62,6 @@ public partial class App : Application, IDisposable
         // the App class to register platform-specific services.
     }
 
-    /// <summary>
-    /// Gets a service from the application's service provider.
-    /// </summary>
-    /// <remarks>
-    /// Documented exception to the "no service locator" rule (AGENTS.md):
-    /// this accessor exists for code paths where constructor injection is not
-    /// available — platform entry points such as the Android BroadcastReceiver
-    /// (MainActivity.cs) and framework-created views. Do not use it in
-    /// ViewModels, services, or views where constructor injection works.
-    /// </remarks>
-    public static T GetService<T>() where T : notnull
-    {
-        var app = Current as App;
-        return (T)(app?.ServiceProvider.GetRequiredService(typeof(T)) ?? throw new InvalidOperationException("Service provider not initialized."));
-    }
-
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);

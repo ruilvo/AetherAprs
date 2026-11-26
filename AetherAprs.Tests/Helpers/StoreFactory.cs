@@ -26,7 +26,8 @@ internal static class StoreFactory
             new SqliteRuntimeWriter(database.Factory),
             new SqliteRuntimeReader(database.Factory),
             secretProtector ?? new PlaintextSecretProtector(
-                Microsoft.Extensions.Logging.Abstractions.NullLogger<PlaintextSecretProtector>.Instance));
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<PlaintextSecretProtector>.Instance),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<PortRegistry>.Instance);
 
     /// <summary>Creates a beacon state store backed by <paramref name="database"/>.</summary>
     public static IBeaconStateStore CreateBeaconStateStore(TempAppDatabase database) =>

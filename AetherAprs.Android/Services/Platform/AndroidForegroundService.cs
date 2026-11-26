@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Localization;
+using AetherAprs.Services.Lifecycle;
 using AetherAprs.Services.Platform;
-using AetherAprs.Services.Ports;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -108,7 +108,9 @@ public class AetherAprsForegroundService : Service
         // period, then finish the orderly teardown in the still-running process.
         StopForeground(StopForegroundFlags.Remove);
 
-        _ = StopAllFromNotificationAsync();
+        // The platform limit ends the background session, not the application:
+        // stop the session through the shared stop path but keep the UI usable.
+        _ = StopApplicationAsync(closeApplication: false);
     }
 
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
@@ -125,9 +127,10 @@ public class AetherAprsForegroundService : Service
 
         if (action == ActionStopAll)
         {
-            // Explicit delivery from the notification's "Stop" action. This runs
-            // entirely inside the service, so it works when the UI is gone.
-            _ = StopAllFromNotificationAsync();
+            // Explicit delivery from the notification's stop action. This runs
+            // entirely inside the service, so it works when the UI is gone, and it
+            // closes the application instead of leaving a stopped session behind.
+            _ = StopApplicationAsync(closeApplication: true);
             return StartCommandResult.NotSticky;
         }
 
@@ -154,7 +157,7 @@ public class AetherAprsForegroundService : Service
         builder.SetContentText(Strings.Get("ForegroundServiceNotificationText"));
         builder.SetSmallIcon(Resource.Drawable.icon_400px);
         builder.SetContentIntent(pendingIntent);
-        builder.AddAction(Resource.Drawable.icon_400px, Strings.Get("Stop"), stopPendingIntent);
+        builder.AddAction(Resource.Drawable.icon_400px, Strings.Get("ForegroundServiceCloseAction"), stopPendingIntent);
         builder.SetOngoing(true);
         var notification = builder.Build();
 
@@ -191,49 +194,96 @@ public class AetherAprsForegroundService : Service
     }
 
     /// <summary>
-    /// Stops every port and releases all keep-alive reasons, then stops the
-    /// service. Shared by the notification action and the timeout handler; every
-    /// step is best-effort and the service is always stopped afterwards.
+    /// Stops the application session through the shared stop path, then gives up
+    /// foreground status. Shared by the notification action and the timeout
+    /// handler; every step is best-effort and the service is always stopped
+    /// afterwards.
     /// </summary>
-    private async Task StopAllFromNotificationAsync()
+    /// <param name="closeApplication">
+    /// Whether the operator asked to close the application. The notification
+    /// action does; a platform timeout only ends the background session.
+    /// </param>
+    private async Task StopApplicationAsync(bool closeApplication)
     {
-        // Release location first so the shared foreground service stays held by
-        // the ports while they shut down; both releases are idempotent.
-        await ReleaseKeepAliveAsync(KeepAliveReason.LocationTracking).ConfigureAwait(false);
-
-        try
+        var sessionControl = ResolveSessionControl();
+        if (sessionControl is null)
         {
-            var portService = AetherAprs.App.GetService<IPortService>();
-            await portService.StopAllPortsAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            global::Android.Util.Log.Error(
+            // The container is not available, so there is nothing to disarm. Give
+            // up foreground status anyway; the platform can then reclaim the
+            // process instead of leaving a stale notification.
+            global::Android.Util.Log.Warn(
                 "AetherAprs",
-                $"Failed to stop ports from the foreground service notification: {ex}");
+                "Application services are unavailable; stopping the foreground service only.");
         }
-        finally
+        else
         {
-            await ReleaseKeepAliveAsync(KeepAliveReason.Ports).ConfigureAwait(false);
-            PublishState(StateStopped);
-            StopForeground(StopForegroundFlags.Remove);
-            StopSelf();
+            try
+            {
+                var result = await sessionControl.StopAsync().ConfigureAwait(false);
+                foreach (var failure in result.Failures)
+                {
+                    global::Android.Util.Log.Warn(
+                        "AetherAprs",
+                        $"Application stop step {failure.Step} failed: {failure.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                global::Android.Util.Log.Error(
+                    "AetherAprs",
+                    $"Failed to stop the application session from the foreground service: {ex.Message}");
+            }
+        }
+
+        PublishState(StateStopped);
+        StopForeground(StopForegroundFlags.Remove);
+        StopSelf();
+
+        if (closeApplication)
+        {
+            CloseActivities();
         }
     }
 
-    private static async Task ReleaseKeepAliveAsync(KeepAliveReason reason)
+    private static IApplicationSessionControl? ResolveSessionControl() =>
+        Avalonia.Application.Current is AetherAprs.App app
+            ? app.ServiceProvider.GetService(typeof(IApplicationSessionControl)) as IApplicationSessionControl
+            : null;
+
+    /// <summary>
+    /// Finishes every activity so a notification-triggered stop really closes the
+    /// application instead of leaving an empty window behind. Posted to the main
+    /// looper because the stop completes on a worker thread. The process itself is
+    /// reclaimed by the platform once no component is left.
+    /// </summary>
+    private static void CloseActivities()
     {
-        try
+        var activity = MainActivity.Instance;
+        if (activity is null)
         {
-            var keepAlive = AetherAprs.App.GetService<IKeepAliveService>();
-            await keepAlive.ReleaseAsync(reason).ConfigureAwait(false);
+            return;
         }
-        catch (Exception ex)
+
+        var mainLooper = Looper.MainLooper;
+        if (mainLooper is null)
         {
-            global::Android.Util.Log.Warn(
-                "AetherAprs",
-                $"Failed to release keep-alive reason {reason}: {ex.Message}");
+            return;
         }
+
+        var handler = new Handler(mainLooper);
+        handler.Post(() =>
+        {
+            try
+            {
+                activity.FinishAffinity();
+            }
+            catch (Exception ex)
+            {
+                global::Android.Util.Log.Warn(
+                    "AetherAprs",
+                    $"Failed to close the activity after an application stop: {ex.Message}");
+            }
+        });
     }
 
     private static KeepAliveServiceTypes GetRequiredTypes(Intent? intent)

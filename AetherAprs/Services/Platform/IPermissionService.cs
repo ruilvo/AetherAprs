@@ -2,43 +2,33 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Platform;
 
 /// <summary>
-/// Platform-specific service for requesting runtime permissions.
+/// Platform-specific service for checking and requesting runtime permissions.
 /// </summary>
 public interface IPermissionService
 {
     /// <summary>
-    /// Requests notification permission if required by the platform.
+    /// Checks the permission, prompting the operator when the platform still allows a
+    /// prompt. A granted permission and a permission the platform does not require
+    /// both report <see cref="PermissionOutcome.Granted"/>.
     /// </summary>
-    /// <returns>True if permission is granted or not required, false if denied.</returns>
-    Task<bool> RequestNotificationPermissionAsync();
+    /// <param name="kind">The permission to check or request.</param>
+    /// <param name="cancellationToken">Cancels waiting for the operator's answer.</param>
+    /// <returns>The outcome with the recovery action it allows.</returns>
+    Task<PermissionRequestResult> RequestAsync(
+        PermissionKind kind,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Requests Bluetooth permissions if required by the platform.
+    /// Opens this application's settings page so the operator can grant a permission
+    /// the platform will no longer prompt for.
     /// </summary>
-    /// <returns>True if permission is granted or not required, false if denied.</returns>
-    Task<bool> RequestBluetoothPermissionAsync();
-
-    /// <summary>
-    /// Requests location permissions if required by the platform.
-    /// </summary>
-    /// <returns>True if permission is granted or not required, false if denied.</returns>
-    Task<bool> RequestLocationPermissionAsync();
-
-    /// <summary>
-    /// Requests microphone (audio recording) permission if required by the platform.
-    /// </summary>
-    /// <returns>True if permission is granted or not required, false if denied.</returns>
-    Task<bool> RequestAudioPermissionAsync();
-
-    /// <summary>
-    /// Requests exemption from battery optimization (Doze/App Standby) so background
-    /// tracking is not deferred or killed. Only meaningful on Android.
-    /// </summary>
-    /// <returns>True if already exempt or not required, false if the user prompt was shown.</returns>
-    Task<bool> RequestIgnoreBatteryOptimizationsAsync();
+    /// <param name="cancellationToken">Cancels launching the settings page.</param>
+    /// <returns>True when the settings page was opened.</returns>
+    Task<bool> OpenApplicationSettingsAsync(CancellationToken cancellationToken = default);
 }

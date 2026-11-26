@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data.Entities;
@@ -53,11 +54,13 @@ public sealed class SearchViewModelTests : TestFixtureBase
     private static SearchViewModel CreateViewModel(
         IPacketQueryService? query = null,
         INavigationService? navigation = null,
-        IPacketDetailsViewModelFactory? detailsFactory = null) =>
+        IPacketDetailsViewModelFactory? detailsFactory = null,
+        IObjectDetailsViewModelFactory? objectDetailsFactory = null) =>
         new(
             query ?? Substitute.For<IPacketQueryService>(),
             navigation ?? Substitute.For<INavigationService>(),
             detailsFactory ?? Substitute.For<IPacketDetailsViewModelFactory>(),
+            objectDetailsFactory ?? Substitute.For<IObjectDetailsViewModelFactory>(),
             NullLogger<SearchViewModel>.Instance);
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
@@ -108,6 +111,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
         Assert.Equal("Object", result.Kind);
         Assert.Equal("N0CALL", result.Source);
         Assert.Equal("Reported by N0CALL", result.Subtitle);
+        Assert.Equal("SHELTER1", result.ObjectName);
     }
 
     [Fact]
@@ -154,6 +158,75 @@ public sealed class SearchViewModelTests : TestFixtureBase
         navigation.Received(1).GoBack();
     }
 
+    [Fact]
+    public async Task StaleSearch_DoesNotReplaceNewerResultsOrHideItsSpinner()
+    {
+        var query = Substitute.For<IPacketQueryService>();
+        var oldResult = new TaskCompletionSource<IReadOnlyList<PacketRecord>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var newResult = new TaskCompletionSource<IReadOnlyList<PacketRecord>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        query.SearchStationsAsync("OLD", 100, Arg.Any<CancellationToken>()).Returns(oldResult.Task);
+        query.SearchStationsAsync("NEW", 100, Arg.Any<CancellationToken>()).Returns(newResult.Task);
+
+        var vm = CreateViewModel(query: query);
+
+        vm.SearchQuery = "OLD";
+        var oldSearch = vm.PendingSearch!;
+        await WaitUntilAsync(() => HasQueryCall(query, "OLD"));
+
+        vm.SearchQuery = "NEW";
+        var newSearch = vm.PendingSearch!;
+        await WaitUntilAsync(() => HasQueryCall(query, "NEW"));
+        Assert.True(vm.IsLoading);
+
+        // The superseded search completes last, which is the case that used to
+        // overwrite the results and cancel the newer spinner.
+        oldResult.SetResult([StationPacket("OLD")]);
+        await oldSearch;
+
+        Assert.True(vm.IsLoading);
+        Assert.Empty(vm.Results);
+
+        newResult.SetResult([StationPacket("NEW")]);
+        await newSearch;
+
+        Assert.False(vm.IsLoading);
+        var result = Assert.Single(vm.Results);
+        Assert.Equal("NEW-1", result.Name);
+    }
+
+    [Fact]
+    public async Task ClearingQueryWhileSearchInFlight_DiscardsTheResult()
+    {
+        var query = Substitute.For<IPacketQueryService>();
+        var inFlight = new TaskCompletionSource<IReadOnlyList<PacketRecord>>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        query.SearchStationsAsync("N0CALL", 100, Arg.Any<CancellationToken>()).Returns(inFlight.Task);
+
+        var vm = CreateViewModel(query: query);
+
+        vm.SearchQuery = "N0CALL";
+        var search = vm.PendingSearch!;
+        await WaitUntilAsync(() => HasQueryCall(query, "N0CALL"));
+
+        vm.SearchQuery = string.Empty;
+
+        inFlight.SetResult([StationPacket("N0CALL")]);
+        await search;
+
+        Assert.Empty(vm.Results);
+        Assert.False(vm.HasSearched);
+        Assert.False(vm.IsLoading);
+        Assert.Null(vm.PendingSearch);
+    }
+
+    private static bool HasQueryCall(IPacketQueryService query, string searchText) =>
+        query.ReceivedCalls().Any(call =>
+            call.GetMethodInfo().Name == nameof(IPacketQueryService.SearchStationsAsync)
+            && call.GetArguments() is [string text, ..]
+            && text == searchText);
+
     private static PacketDetailsViewModel CreatePacketDetailsViewModel() =>
         new(
             Substitute.For<IPacketQueryService>(),
@@ -179,18 +252,24 @@ public sealed class SearchViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public void OpenResult_Object_OpensReportingStationDetails()
+    public void OpenResult_Object_OpensObjectHistoryByIdentity()
     {
         var detailsFactory = Substitute.For<IPacketDetailsViewModelFactory>();
-        var details = CreatePacketDetailsViewModel();
-        detailsFactory.Create("N0CALL").Returns(details);
+        var objectFactory = Substitute.For<IObjectDetailsViewModelFactory>();
+        var objectDetails = new ObjectDetailsViewModel(Substitute.For<IPacketQueryService>());
+        objectFactory.Create("SHELTER1").Returns(objectDetails);
         var navigation = Substitute.For<INavigationService>();
-        var vm = CreateViewModel(navigation: navigation, detailsFactory: detailsFactory);
+        var vm = CreateViewModel(
+            navigation: navigation,
+            detailsFactory: detailsFactory,
+            objectDetailsFactory: objectFactory);
 
-        vm.OpenResultCommand.Execute(new SearchResultItem("SHELTER1", "Object", "N0CALL", "Reported by N0CALL"));
+        vm.OpenResultCommand.Execute(
+            new SearchResultItem("SHELTER1", "Object", "N0CALL", "Reported by N0CALL", "SHELTER1"));
 
-        detailsFactory.Received(1).Create("N0CALL");
-        navigation.Received(1).NavigateTo(details);
+        objectFactory.Received(1).Create("SHELTER1");
+        detailsFactory.DidNotReceive().Create(Arg.Any<string>());
+        navigation.Received(1).NavigateTo(objectDetails);
     }
 
     [Fact]

@@ -183,7 +183,8 @@ public sealed class MainViewModelTests
             new SearchViewModel(
                 packetQuery,
                 navigation,
-                packetDetailsFactory));
+                packetDetailsFactory,
+                Substitute.For<IObjectDetailsViewModelFactory>()));
         var factory = Substitute.For<IAddEditPortViewModelFactory>();
         var ports = new PortsViewModel(portService, configuration, navigation, factory, new TestConfirmationDialogService(), NullLogger<PortsViewModel>.Instance, NullLoggerFactory.Instance);
         var symbolPicker = new AprsSymbolPickerViewModel(symbolProvider);

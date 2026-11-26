@@ -320,6 +320,22 @@ public sealed class SessionCoordinator : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(exception);
         cancellationToken.ThrowIfCancellationRequested();
 
+        lock (_gate)
+        {
+            if (_state == SessionLifecycleState.Stopped && !_intent.IsArmed)
+            {
+                // A late transport callback from a modem that was already torn down
+                // must not resurrect a degraded lifecycle state or a reconnect loop
+                // after the operator stopped the session.
+                _diagnostics?.Record(
+                    "session",
+                    DiagnosticSeverity.Information,
+                    "Ignored",
+                    "A transport fault arrived after the session stopped.");
+                return Task.CompletedTask;
+            }
+        }
+
         ApplyPortUpdate(
             portId,
             status => status with

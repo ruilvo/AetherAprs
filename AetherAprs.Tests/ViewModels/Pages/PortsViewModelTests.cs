@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
+using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
@@ -40,7 +41,56 @@ public sealed class PortsViewModelTests
             viewModel.PortItems,
             item => Assert.Equal("First", item.Name),
             item => Assert.Equal("Second", item.Name));
-        Assert.Equal(2, viewModel.GetNextPortNumber());
+
+        // Two ports are configured, so the next free number is three.
+        Assert.Equal(3, viewModel.GetNextPortNumber());
+    }
+
+    [Fact]
+    public void GetNextPortNumber_UsesEveryPortType_NotOnlyAprsIs()
+    {
+        // Names come from the localized default template, not from a hardcoded English
+        // string, so the test does not depend on the culture another test left behind.
+        var kissOne = CreatePort(
+            new KissSettings { Transport = new TcpKissTransportSettings() },
+            Strings.Format("DefaultKissPortName", 1));
+        var kissTwo = CreatePort(
+            new KissSettings { Transport = new TcpKissTransportSettings() },
+            Strings.Format("DefaultKissPortName", 2));
+        var portService = new TestPortService(kissOne, kissTwo);
+        using var viewModel = new PortsViewModel(
+            portService,
+            new TestConfigurationService(),
+            Substitute.For<INavigationService>(),
+            Substitute.For<IAddEditPortViewModelFactory>(),
+            new TestConfirmationDialogService(),
+            NullLogger<PortsViewModel>.Instance,
+            NullLoggerFactory.Instance);
+
+        // Counting APRS-IS ports alone returned 1 here, which duplicated "KISS Port 1".
+        Assert.Equal(3, viewModel.GetNextPortNumber());
+    }
+
+    [Fact]
+    public void GetNextPortNumber_DoesNotReuseANumberAfterAPortIsDeleted()
+    {
+        var kissOne = CreatePort(
+            new KissSettings { Transport = new TcpKissTransportSettings() },
+            Strings.Format("DefaultKissPortName", 1));
+        var kissThree = CreatePort(
+            new KissSettings { Transport = new TcpKissTransportSettings() },
+            Strings.Format("DefaultKissPortName", 3));
+        var portService = new TestPortService(kissOne, kissThree);
+        using var viewModel = new PortsViewModel(
+            portService,
+            new TestConfigurationService(),
+            Substitute.For<INavigationService>(),
+            Substitute.For<IAddEditPortViewModelFactory>(),
+            new TestConfirmationDialogService(),
+            NullLogger<PortsViewModel>.Instance,
+            NullLoggerFactory.Instance);
+
+        Assert.Equal(4, viewModel.GetNextPortNumber());
     }
 
     [Fact]

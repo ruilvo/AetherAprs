@@ -56,6 +56,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Port" xml:space="preserve"><value>Port</value></data>
   <data name="Passcode" xml:space="preserve"><value>Passcode</value></data>
   <data name="PasscodePlaceholder" xml:space="preserve"><value>Auto-filled from callsign</value></data>
+  <data name="PortCredentialsUnavailableNotice" xml:space="preserve"><value>The saved passcode for this port could not be read. Enter it again to restore transmit; until then the port stays receive-only.</value></data>
   <data name="FilterOptional" xml:space="preserve"><value>Filter (optional)</value></data>
   <data name="FilterRangeSection" xml:space="preserve"><value>Range filter (around a point)</value></data>
   <data name="FilterLatitude" xml:space="preserve"><value>Latitude</value></data>
@@ -332,6 +333,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Receiving and transmitting APRS packets</value></data>
   <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>AetherAprs Foreground Service</value></data>
   <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Keeps AetherAprs active while receiving and transmitting packets</value></data>
+  <data name="ForegroundServiceCloseAction" xml:space="preserve"><value>Close</value></data>
   <data name="ForegroundServiceTimeoutTitle" xml:space="preserve"><value>AetherAprs stopped</value></data>
   <data name="ForegroundServiceTimeoutText" xml:space="preserve"><value>Android stopped background operation when its foreground service time limit was reached. Ports and location tracking were turned off. Reopen the app to resume.</value></data>
   <data name="ForegroundServiceTimeoutChannelName" xml:space="preserve"><value>AetherAprs Alerts</value></data>

@@ -62,27 +62,57 @@ internal static class PortStartupPermissions
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        if (!await permissions.RequestNotificationPermissionAsync().ConfigureAwait(false))
-        {
-            logger.LogWarning("Notification permission was denied; the foreground service may not be allowed to run.");
-        }
+        LogOutcome(
+            logger,
+            await permissions.RequestAsync(PermissionKind.Notifications, cancellationToken).ConfigureAwait(false),
+            "the foreground service may not be allowed to run");
 
         if (RequiresBluetooth(ports))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!await permissions.RequestBluetoothPermissionAsync().ConfigureAwait(false))
-            {
-                logger.LogWarning("Bluetooth permission was denied; Bluetooth ports cannot connect.");
-            }
+            LogOutcome(
+                logger,
+                await permissions.RequestAsync(PermissionKind.Bluetooth, cancellationToken).ConfigureAwait(false),
+                "Bluetooth ports cannot connect");
         }
 
         if (RequiresAudio(ports))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!await permissions.RequestAudioPermissionAsync().ConfigureAwait(false))
-            {
-                logger.LogWarning("Microphone permission was denied; AFSK ports cannot transmit.");
-            }
+            LogOutcome(
+                logger,
+                await permissions.RequestAsync(PermissionKind.Audio, cancellationToken).ConfigureAwait(false),
+                "AFSK ports cannot transmit");
+        }
+    }
+
+    private static void LogOutcome(ILogger logger, PermissionRequestResult result, string consequence)
+    {
+        switch (result.Outcome)
+        {
+            case PermissionOutcome.Granted:
+                return;
+
+            case PermissionOutcome.Denied:
+                logger.LogWarning(
+                    "{Permission} permission was denied; the operator can be asked again, but {Consequence} until then.",
+                    result.Kind,
+                    consequence);
+                return;
+
+            case PermissionOutcome.PermanentlyDenied:
+                logger.LogWarning(
+                    "{Permission} permission is permanently denied; the operator must grant it in the application settings, because {Consequence} until then.",
+                    result.Kind,
+                    consequence);
+                return;
+
+            default:
+                logger.LogInformation(
+                    "{Permission} permission is unavailable on this platform, so {Consequence} is not expected to work here.",
+                    result.Kind,
+                    consequence);
+                return;
         }
     }
 

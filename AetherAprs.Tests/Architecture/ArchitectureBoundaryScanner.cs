@@ -210,7 +210,13 @@ internal static class ArchitectureBoundaryScanner
             "A011",
             "Only the composition root builds a service provider, so every registration is validated in one place.",
             ["BuildServiceProvider"],
-            ContainerOwners)
+            ContainerOwners),
+
+        new ArchitectureRule(
+            "A012",
+            "Dependencies arrive through constructor injection; a static service accessor hides them from validation and from the caller.",
+            ["App.GetService", "ServiceProviderFactory.ServiceProvider"],
+            new HashSet<string>(StringComparer.Ordinal))
     ];
 
     /// <summary>Scans the live production tree.</summary>

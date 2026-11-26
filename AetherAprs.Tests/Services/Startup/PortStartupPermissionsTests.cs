@@ -57,9 +57,7 @@ public sealed class PortStartupPermissionsTests
             NullLogger.Instance,
             TestContext.Current.CancellationToken);
 
-        await permissions.DidNotReceive().RequestNotificationPermissionAsync();
-        await permissions.DidNotReceive().RequestBluetoothPermissionAsync();
-        await permissions.DidNotReceive().RequestAudioPermissionAsync();
+        await permissions.DidNotReceive().RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -78,16 +76,20 @@ public sealed class PortStartupPermissionsTests
             NullLogger.Instance,
             TestContext.Current.CancellationToken);
 
-        await permissions.Received(1).RequestNotificationPermissionAsync();
-        await permissions.Received(1).RequestBluetoothPermissionAsync();
-        await permissions.DidNotReceive().RequestAudioPermissionAsync();
+        await permissions.Received(1).RequestAsync(PermissionKind.Notifications, Arg.Any<CancellationToken>());
+        await permissions.Received(1).RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>());
+        await permissions.DidNotReceive().RequestAsync(PermissionKind.Audio, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task RequestAsync_ADeniedPermission_DoesNotSkipTheNextRequest()
+    [Theory]
+    [InlineData(PermissionOutcome.Denied)]
+    [InlineData(PermissionOutcome.PermanentlyDenied)]
+    [InlineData(PermissionOutcome.Unavailable)]
+    public async Task RequestAsync_AnUnmetPermission_DoesNotSkipTheNextRequest(PermissionOutcome outcome)
     {
         var permissions = AllowAll();
-        permissions.RequestBluetoothPermissionAsync().Returns(false);
+        permissions.RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new PermissionRequestResult(PermissionKind.Bluetooth, outcome)));
         var ports = new[]
         {
             CreateKissPort(enabled: true, new BluetoothClassicKissTransportSettings()),
@@ -100,16 +102,15 @@ public sealed class PortStartupPermissionsTests
             NullLogger.Instance,
             TestContext.Current.CancellationToken);
 
-        await permissions.Received(1).RequestBluetoothPermissionAsync();
-        await permissions.Received(1).RequestAudioPermissionAsync();
+        await permissions.Received(1).RequestAsync(PermissionKind.Bluetooth, Arg.Any<CancellationToken>());
+        await permissions.Received(1).RequestAsync(PermissionKind.Audio, Arg.Any<CancellationToken>());
     }
 
     private static IPermissionService AllowAll()
     {
         var permissions = Substitute.For<IPermissionService>();
-        permissions.RequestNotificationPermissionAsync().Returns(true);
-        permissions.RequestBluetoothPermissionAsync().Returns(true);
-        permissions.RequestAudioPermissionAsync().Returns(true);
+        permissions.RequestAsync(Arg.Any<PermissionKind>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(PermissionRequestResult.Granted(call.Arg<PermissionKind>())));
         return permissions;
     }
 

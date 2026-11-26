@@ -8,6 +8,7 @@ using AetherAprs.Data.Mappers;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -16,7 +17,11 @@ using System.Threading.Tasks;
 namespace AetherAprs.Data.Ports;
 
 /// <summary>Durable port configuration behind the serialized runtime writer.</summary>
-internal sealed class PortRegistry(SqliteRuntimeWriter writer, SqliteRuntimeReader reader, ISecretProtector secretProtector) : IPortRegistry
+internal sealed class PortRegistry(
+    SqliteRuntimeWriter writer,
+    SqliteRuntimeReader reader,
+    ISecretProtector secretProtector,
+    ILogger<PortRegistry> logger) : IPortRegistry
 {
     public Task<IReadOnlyList<PortConfig>> LoadAsync(CancellationToken cancellationToken = default) =>
         reader.QueryAsync<IReadOnlyList<PortConfig>>(async (context, token) =>
@@ -78,16 +83,31 @@ internal sealed class PortRegistry(SqliteRuntimeWriter writer, SqliteRuntimeRead
 
     private PortConfig Map(PortRecord record)
     {
-        if (record.AprsIs is not { } aprsIs)
+        var port = PortRecordMapper.ToConfig(record);
+        if (port.TypeSettings is not AprsIsSettings aprsIs)
         {
-            return PortRecordMapper.ToConfig(record);
+            return port;
         }
 
-        // Stored passcodes may predate protection; expose the plaintext value to the
-        // domain and let the next successful save persist the protected form.
-        var passcode = secretProtector.Unprotect(aprsIs.Passcode);
-        aprsIs.Passcode = passcode;
-        return PortRecordMapper.ToConfig(record);
+        try
+        {
+            // Stored passcodes may predate protection; expose the plaintext value to the
+            // domain and let the next successful save persist the protected form.
+            aprsIs.Passcode = secretProtector.Unprotect(aprsIs.Passcode);
+        }
+        catch (SecretUnavailableException ex)
+        {
+            // One lost secret must not hide the other ports: keep this port's settings,
+            // drop the credential, and let the operator enter it again.
+            logger.LogWarning(
+                ex,
+                "Stored credentials for port {PortId} are unavailable; loading it receive-only until the passcode is entered again",
+                record.Id);
+            aprsIs.Passcode = AprsIsSettings.DefaultPasscode;
+            port.CredentialsUnavailable = true;
+        }
+
+        return port;
     }
 
     private string? ProtectPasscode(PortConfig port) =>

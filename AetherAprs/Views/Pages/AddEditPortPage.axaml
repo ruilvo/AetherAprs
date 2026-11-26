@@ -116,6 +116,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc Port}"
                      UseFloatingPlaceholder="True" />
 
+            <TextBlock Text="{loc:Loc PortCredentialsUnavailableNotice}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasUnavailableCredentials}"
+                       Foreground="{DynamicResource MaterialValidationErrorBrush}" />
+
             <TextBox Text="{Binding Passcode}"
                      PlaceholderText="{loc:Loc PasscodePlaceholder}"
                      wpf:TextFieldAssist.Label="{loc:Loc Passcode}"
@@ -245,18 +250,25 @@ SPDX-License-Identifier: GPL-3.0-or-later
             BorderThickness="0,1,0,0"
             BorderBrush="{DynamicResource MaterialDividerBrush}"
             Padding="16">
-      <StackPanel Orientation="Horizontal"
-                  HorizontalAlignment="Right"
+      <StackPanel Orientation="Vertical"
                   Spacing="8">
-        <Button Content="{loc:Loc Cancel}"
-                MinWidth="80"
-                MinHeight="48"
-                Command="{Binding CancelCommand}"
-                Classes="Outline" />
-        <Button Content="{loc:Loc Save}"
-                MinWidth="80"
-                MinHeight="48"
-                Command="{Binding SaveCommand}" />
+        <TextBlock Text="{Binding SaveErrorText}"
+                   Foreground="{DynamicResource MaterialValidationErrorBrush}"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding SaveErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+          <Button Content="{loc:Loc Cancel}"
+                  MinWidth="80"
+                  MinHeight="48"
+                  Command="{Binding CancelCommand}"
+                  Classes="Outline" />
+          <Button Content="{loc:Loc Save}"
+                  MinWidth="80"
+                  MinHeight="48"
+                  Command="{Binding SaveCommand}" />
+        </StackPanel>
       </StackPanel>
     </Border>
   </Grid>

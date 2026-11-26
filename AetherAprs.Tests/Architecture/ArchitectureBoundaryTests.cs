@@ -287,6 +287,34 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticStaticServiceLookup_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/ViewModels/Pages/HomeViewModel.cs",
+                "var ports = App.GetService<IPortService>();"),
+            Source(
+                "AetherAprs/Services/Ports/PortService.cs",
+                "var provider = ServiceProviderFactory.ServiceProvider;")
+        ]);
+
+        Assert.Equal(2, violations.Count);
+        Assert.All(violations, violation => Assert.Equal("A012", violation.RuleId));
+    }
+
+    [Fact]
+    public void Scan_PlatformEntryPointResolvingFromItsOwnProvider_IsAllowed()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source(
+                "AetherAprs.Android/MainActivity.cs",
+                "var control = app.ServiceProvider.GetService(typeof(IApplicationSessionControl));")]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

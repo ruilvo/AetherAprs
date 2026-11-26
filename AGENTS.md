@@ -47,7 +47,7 @@ Within the core project:
 - `Configuration/` contains settings and port configuration.
 - `Data/` contains EF Core entities, mappers, migrations, and database infrastructure.
 - `Models/Aprs/Packets/` contains APRS packet types.
-- `Services/{Beaconing,Bluetooth,Configuration,Contracts,Diagnostics,Location,Messaging,Objects,Packets,Platform,Ports,Transmission,UI}/`
+- `Services/{Beaconing,Bluetooth,Configuration,Contracts,Diagnostics,Lifecycle,Location,Messaging,Objects,Packets,Platform,Ports,Transmission,UI}/`
   contains domain services, contracts, diagnostics, objects, and platform abstractions.
 - `Factories/` contains service and ViewModel factories.
 - `ViewModels/Pages/` and `ViewModels/Components/` mirror `Views/Pages/` and

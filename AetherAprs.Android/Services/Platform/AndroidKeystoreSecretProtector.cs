@@ -35,14 +35,21 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
             return secret;
         }
 
-        var cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
-        cipher.Init(CipherMode.EncryptMode, GetOrCreateKey());
-        var encrypted = cipher.DoFinal(Encoding.UTF8.GetBytes(secret))!;
-        var iv = cipher.GetIV()!;
-        var payload = new byte[iv.Length + encrypted.Length];
-        Buffer.BlockCopy(iv, 0, payload, 0, iv.Length);
-        Buffer.BlockCopy(encrypted, 0, payload, iv.Length, encrypted.Length);
-        return Prefix + Base64.EncodeToString(payload, Base64Flags.NoWrap);
+        try
+        {
+            var cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
+            cipher.Init(CipherMode.EncryptMode, GetOrCreateKey());
+            var encrypted = cipher.DoFinal(Encoding.UTF8.GetBytes(secret))!;
+            var iv = cipher.GetIV()!;
+            var payload = new byte[iv.Length + encrypted.Length];
+            Buffer.BlockCopy(iv, 0, payload, 0, iv.Length);
+            Buffer.BlockCopy(encrypted, 0, payload, iv.Length, encrypted.Length);
+            return Prefix + Base64.EncodeToString(payload, Base64Flags.NoWrap);
+        }
+        catch (Exception ex) when (IsSecretStoreFailure(ex))
+        {
+            throw new SecretUnavailableException("The APRS-IS credential could not be encrypted.", ex);
+        }
     }
 
     public string Unprotect(string protectedSecret)
@@ -70,11 +77,20 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
                 new GCMParameterSpec(128, iv));
             return Encoding.UTF8.GetString(cipher.DoFinal(encrypted)!);
         }
-        catch (Exception ex) when (ex is Java.Security.GeneralSecurityException or FormatException or ArgumentException)
+        catch (Exception ex) when (IsSecretStoreFailure(ex))
         {
-            throw new InvalidOperationException("Stored APRS-IS credential cannot be decrypted.", ex);
+            throw new SecretUnavailableException("Stored APRS-IS credential cannot be decrypted.", ex);
         }
     }
+
+    // Keystore loss (device restore, cleared lock) and a corrupt payload both mean the
+    // same thing to the caller: this secret is gone, other secrets are not.
+    private static bool IsSecretStoreFailure(Exception exception) =>
+        exception is GeneralSecurityException
+            or FormatException
+            or ArgumentException
+            or Java.IO.IOException
+            or Java.Lang.IllegalStateException;
 
     private static IKey GetOrCreateKey()
     {

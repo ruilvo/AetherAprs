@@ -194,6 +194,49 @@ public class AprsIsModemTests
     }
 
     [Fact]
+    public async Task SendAsync_BeforeLoginCompletes_WaitsForAuthenticationAndTransmits()
+    {
+        // Start() returns before the login response arrives. A send issued in that window
+        // used to snapshot a null writer and throw "not connected" even though the
+        // connection authenticated microseconds later.
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using var modem = new AprsIsModem("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        modem.Start();
+        using var server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using var stream = server.GetStream();
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        await using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+
+        var packet = new PositionPacket
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(38.5, -9.10),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2
+        };
+
+        var send = modem.SendAsync(packet, TestContext.Current.CancellationToken);
+        Assert.False(send.IsCompleted);
+
+        await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        await send;
+
+        var transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
+    }
+
+    [Fact]
     public async Task SendAsync_RfReceivedPacket_UsesQarConstructorWithPath()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);

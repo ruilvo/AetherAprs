@@ -30,8 +30,20 @@ public sealed partial class SearchViewModel : ViewModelBase
     private readonly IPacketQueryService _packetQueryService;
     private readonly INavigationService _navigationService;
     private readonly IPacketDetailsViewModelFactory _packetDetailsFactory;
+    private readonly IObjectDetailsViewModelFactory _objectDetailsFactory;
     private readonly ILogger<SearchViewModel>? _logger;
     private CancellationTokenSource? _debounceCts;
+
+    // Every query change starts a new generation. A completed search only applies
+    // its results, error and loading flag while its generation is still current, so
+    // a slow older search can never overwrite a newer one or hide its spinner.
+    private int _searchGeneration;
+
+    /// <summary>
+    /// The search started by the latest query change. Tests await it instead of
+    /// polling, which is what makes the superseded-search cases deterministic.
+    /// </summary>
+    internal Task? PendingSearch { get; private set; }
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
@@ -67,66 +79,92 @@ public sealed partial class SearchViewModel : ViewModelBase
         IPacketQueryService packetQueryService,
         INavigationService navigationService,
         IPacketDetailsViewModelFactory packetDetailsFactory,
+        IObjectDetailsViewModelFactory objectDetailsFactory,
         ILogger<SearchViewModel>? logger = null)
     {
         _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _packetDetailsFactory = packetDetailsFactory ?? throw new ArgumentNullException(nameof(packetDetailsFactory));
+        _objectDetailsFactory = objectDetailsFactory ?? throw new ArgumentNullException(nameof(objectDetailsFactory));
         _logger = logger;
     }
 
     partial void OnSearchQueryChanged(string value)
     {
-        _debounceCts?.Cancel();
-        _debounceCts?.Dispose();
-        _debounceCts = new CancellationTokenSource();
-        var token = _debounceCts.Token;
+        // Supersede the previous search before starting the next one. The source is
+        // not disposed here: the superseded operation may still be using its token,
+        // and a CTS used only with Task.Delay holds no unmanaged resource. Disposing
+        // it eagerly is what made a newer query able to fault the older search.
+        var previous = _debounceCts;
+        var cancellation = new CancellationTokenSource();
+        _debounceCts = cancellation;
+        previous?.Cancel();
+
+        var generation = ++_searchGeneration;
 
         // Clearing the box resets immediately rather than after the debounce delay.
         if (string.IsNullOrWhiteSpace(value))
         {
-            Results.Clear();
-            HasResults = false;
-            HasSearched = false;
-            ShowNoResults = false;
-            IsLoading = false;
+            PendingSearch = null;
+            ResetSearchState();
             return;
         }
 
-        _ = DebouncedSearchAsync(value, token);
+        PendingSearch = DebouncedSearchAsync(value, generation, cancellation.Token);
     }
 
-    private async Task DebouncedSearchAsync(string query, CancellationToken token)
+    private async Task DebouncedSearchAsync(string query, int generation, CancellationToken token)
     {
         try
         {
             await Task.Delay(DebounceMilliseconds, token);
-            await SearchAsync(query, token);
+            await SearchAsync(query, generation, token);
         }
         catch (OperationCanceledException)
         {
             // A newer query superseded this one.
         }
+        catch (ObjectDisposedException)
+        {
+            // The page was torn down while this search was waiting.
+        }
+        catch (Exception exception)
+        {
+            // This task is fire-and-forget, so nothing else would observe a failure
+            // here; record it instead of letting it surface as an unobserved crash.
+            _logger?.LogError(exception, "Search task failed for query {Query}", query);
+        }
     }
 
-    private async Task SearchAsync(string query, CancellationToken token)
+    private async Task SearchAsync(string query, int generation, CancellationToken token)
     {
         var trimmed = query?.Trim() ?? string.Empty;
 
         if (trimmed.Length == 0)
         {
-            Results.Clear();
-            HasResults = false;
-            HasSearched = false;
-            ShowNoResults = false;
-            IsLoading = false;
+            if (IsCurrentGeneration(generation))
+            {
+                ResetSearchState();
+            }
+
             return;
         }
 
         try
         {
-            IsLoading = true;
+            if (IsCurrentGeneration(generation))
+            {
+                IsLoading = true;
+            }
+
             var packets = await _packetQueryService.SearchStationsAsync(trimmed, limit: 100, cancellationToken: token);
+
+            // A search that was superseded while it was running must not touch the
+            // collection: the newer search owns it now.
+            if (!IsCurrentGeneration(generation))
+            {
+                return;
+            }
 
             Results.Clear();
             foreach (var packet in packets)
@@ -144,28 +182,47 @@ public sealed partial class SearchViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Search failed for query {Query}", trimmed);
+            if (IsCurrentGeneration(generation))
+            {
+                _logger?.LogError(ex, "Search failed for query {Query}", trimmed);
+            }
         }
         finally
         {
-            IsLoading = false;
+            if (IsCurrentGeneration(generation))
+            {
+                IsLoading = false;
+            }
         }
+    }
+
+    private bool IsCurrentGeneration(int generation) =>
+        generation == Volatile.Read(ref _searchGeneration);
+
+    private void ResetSearchState()
+    {
+        Results.Clear();
+        HasResults = false;
+        HasSearched = false;
+        ShowNoResults = false;
+        IsLoading = false;
     }
 
     private static SearchResultItem CreateResultItem(PacketRecord packet)
     {
         var source = AprsSsidExtensions.FormatCallsign(packet.SourceBase, packet.SourceSsid);
 
-        // Object packets match on their name and are reported by a station; the
-        // details page is keyed by source callsign, so navigating an object opens
-        // the reporting station's history (which contains the object report).
+        // An object result is identified by the object's own name, not by the
+        // station that last reported it: the same object is reported by different
+        // stations over time, and its report history belongs to the object.
         if (packet.Object != null)
         {
             return new SearchResultItem(
                 packet.Object.Name,
                 Strings.Get("SearchObjectKind"),
                 source,
-                Strings.Format("SearchObjectReportedBy", source));
+                Strings.Format("SearchObjectReportedBy", source),
+                packet.Object.Name);
         }
 
         return new SearchResultItem(
@@ -180,6 +237,13 @@ public sealed partial class SearchViewModel : ViewModelBase
     {
         if (item is null)
         {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(item.ObjectName))
+        {
+            var objectDetails = _objectDetailsFactory.Create(item.ObjectName!);
+            _navigationService.NavigateTo(objectDetails);
             return;
         }
 
@@ -202,8 +266,17 @@ public sealed partial class SearchViewModel : ViewModelBase
 /// <summary>
 /// A single search result for display in the search list.
 /// </summary>
+/// <param name="Name">The display name.</param>
+/// <param name="Kind">The localized result kind.</param>
+/// <param name="Source">The callsign that reported or sent the match.</param>
+/// <param name="Subtitle">An optional secondary line.</param>
+/// <param name="ObjectName">
+/// The object identity when the match is an object, so opening the result shows the
+/// object's own report history instead of the reporting station's.
+/// </param>
 public sealed record SearchResultItem(
     string Name,
     string Kind,
     string Source,
-    string? Subtitle);
+    string? Subtitle,
+    string? ObjectName = null);

@@ -718,7 +718,8 @@ public class PacketsViewModelTests : TestFixtureBase
         var searchViewModel = new SearchViewModel(
             _packetQueryService,
             _navigationService,
-            _packetDetailsFactory);
+            _packetDetailsFactory,
+            Substitute.For<IObjectDetailsViewModelFactory>());
         
         var filterService = Substitute.For<IPacketViewFilterService>();
         filterService.GetCutoffTime().Returns((DateTimeOffset?)null);

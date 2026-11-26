@@ -147,9 +147,37 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
 
     public int GetNextPortNumber()
     {
-        var aprsIsPorts = _portService.Ports
-            .Where(p => p.TypeSettings is AprsIsSettings)
-            .ToList();
-        return aprsIsPorts.Count + 1;
+        // Default names embed the number, and that number must stay unique across
+        // port types: counting APRS-IS ports alone reused a KISS number when two
+        // KISS ports existed and ignored the numbers a deleted port had already
+        // used.
+        var highest = 0;
+        foreach (var port in _portService.Ports)
+        {
+            var number = DefaultNameNumber(port);
+            if (number > highest)
+            {
+                highest = number;
+            }
+        }
+
+        // A custom name carries no number, so the configured port count is the
+        // best lower bound the editor can offer.
+        return (highest == 0 ? _portService.Ports.Count : highest) + 1;
+    }
+
+    private static int DefaultNameNumber(PortConfig port)
+    {
+        var template = port.TypeSettings is AprsIsSettings
+            ? "DefaultAprsIsPortName"
+            : "DefaultKissPortName";
+
+        // Formatting with an empty argument yields the localized prefix
+        // ("APRS-IS Port ", "KISS Port ") that the editor prepends to a number.
+        var prefix = Localization.Strings.Format(template, string.Empty);
+        return port.Name.StartsWith(prefix, StringComparison.Ordinal)
+            && int.TryParse(port.Name.AsSpan(prefix.Length), out var number)
+                ? number
+                : 0;
     }
 }

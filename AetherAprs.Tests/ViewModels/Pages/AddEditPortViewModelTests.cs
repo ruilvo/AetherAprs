@@ -171,6 +171,117 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         Assert.Equal("Edit Existing Port", viewModel.Title);
     }
 
+    [Fact]
+    public async Task SaveFailure_ShowsGeneralError_AndKeepsBluetoothStatusClean()
+    {
+        var nav = Substitute.For<INavigationService>();
+        var portService = Substitute.For<IPortService>();
+        portService
+            .When(service => service.AddPortAsync(Arg.Any<PortConfig>()))
+            .Do(_ => throw new InvalidOperationException("storage unavailable"));
+        var viewModel = new AddEditPortViewModel(
+            nav,
+            portService,
+            new KissStreamFactory(new List<IKissStreamConnector>()),
+            Substitute.For<IBluetoothLeScanner>(),
+            Substitute.For<IBluetoothClassicDeviceProvider>(),
+            new AprsIsFilterBuilderViewModel());
+        viewModel.Initialize("N0CALL", 1);
+
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Error: storage unavailable", viewModel.SaveErrorText);
+        Assert.Equal(string.Empty, viewModel.BleStatusText);
+        nav.DidNotReceive().GoBack();
+    }
+
+    [Fact]
+    public async Task SaveRetry_ClearsThePreviousError()
+    {
+        var nav = Substitute.For<INavigationService>();
+        var portService = Substitute.For<IPortService>();
+        var viewModel = new AddEditPortViewModel(
+            nav,
+            portService,
+            new KissStreamFactory(new List<IKissStreamConnector>()),
+            Substitute.For<IBluetoothLeScanner>(),
+            Substitute.For<IBluetoothClassicDeviceProvider>(),
+            new AprsIsFilterBuilderViewModel());
+        viewModel.Initialize("N0CALL", 1);
+        viewModel.SaveErrorText = "Error: storage unavailable";
+
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, viewModel.SaveErrorText);
+        nav.Received(1).GoBack();
+    }
+
+    [Fact]
+    public void PopulateFrom_WhenStoredCredentialsAreUnavailable_ShowsTheMarkerAndClearsThePasscode()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.PopulateFrom(UnavailableCredentialsPort());
+
+        Assert.True(viewModel.HasUnavailableCredentials);
+        Assert.Equal(string.Empty, viewModel.Passcode);
+        Assert.Equal(AprsIsSettings.DefaultServer, viewModel.Server);
+    }
+
+    [Fact]
+    public void PopulateFrom_WhenStoredCredentialsAreReadable_HidesTheMarker()
+    {
+        var viewModel = CreateViewModel();
+        var config = UnavailableCredentialsPort();
+        config.CredentialsUnavailable = false;
+        ((AprsIsSettings)config.TypeSettings!).Passcode = "12345";
+
+        viewModel.PopulateFrom(config);
+
+        Assert.False(viewModel.HasUnavailableCredentials);
+        Assert.Equal("12345", viewModel.Passcode);
+    }
+
+    [Fact]
+    public void BuildConfig_WhenThePasscodeWasNotReentered_KeepsThePortReceiveOnly()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.PopulateFrom(UnavailableCredentialsPort());
+
+        var config = viewModel.BuildConfig();
+
+        // The lost secret is already gone; persisting an empty passcode would look
+        // configured while every login is rejected.
+        Assert.True(config.CredentialsUnavailable);
+        Assert.Equal(AprsIsSettings.DefaultPasscode, Assert.IsType<AprsIsSettings>(config.TypeSettings).Passcode);
+    }
+
+    [Fact]
+    public void BuildConfig_WhenThePasscodeIsReentered_MarksThePortReadableAgain()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.PopulateFrom(UnavailableCredentialsPort());
+        viewModel.Passcode = "23456";
+
+        var config = viewModel.BuildConfig();
+
+        Assert.False(config.CredentialsUnavailable);
+        Assert.Equal("23456", Assert.IsType<AprsIsSettings>(config.TypeSettings).Passcode);
+    }
+
+    private static PortConfig UnavailableCredentialsPort() => new()
+    {
+        Name = "Test Port",
+        TypeSettings = new AprsIsSettings
+        {
+            Server = AprsIsSettings.DefaultServer,
+            ServerPort = AprsIsSettings.DefaultServerPort,
+            Passcode = AprsIsSettings.DefaultPasscode,
+            Filter = string.Empty
+        },
+        CredentialsUnavailable = true
+    };
+
     private static async Task WaitUntilAsync(Func<bool> condition, string description)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);

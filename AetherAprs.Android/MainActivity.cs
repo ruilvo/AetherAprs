@@ -1,6 +1,7 @@
 ﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using AetherAprs.Services.Lifecycle;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.Factories.ViewModels;
@@ -590,8 +591,42 @@ public class MainActivity : AvaloniaMainActivity
 
     private void OnRequestAppExit(object? sender, EventArgs e)
     {
-        // Close the activity when navigation service requests exit
-        Finish();
+        // Exit is the same operator action as the notification's stop: stop the
+        // background session and then close the activity. Without the shared stop,
+        // an exit would leave the foreground service running behind a closed window.
+        _ = CloseApplicationAsync();
+    }
+
+    private async Task CloseApplicationAsync()
+    {
+        try
+        {
+            var app = (App?)Avalonia.Application.Current;
+            if (app?.ServiceProvider.GetService(typeof(IApplicationSessionControl))
+                is IApplicationSessionControl sessionControl)
+            {
+                var result = await sessionControl.StopAsync();
+                foreach (var failure in result.Failures)
+                {
+                    global::Android.Util.Log.Warn(
+                        "AetherAprs",
+                        $"Application stop step {failure.Step} failed: {failure.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Error(
+                "AetherAprs",
+                $"Failed to stop the application session on exit: {ex.Message}");
+        }
+        finally
+        {
+            if (!_destroyed)
+            {
+                FinishAffinity();
+            }
+        }
     }
 
     public override void OnBackPressed()

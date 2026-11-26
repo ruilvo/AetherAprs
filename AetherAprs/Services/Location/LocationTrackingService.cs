@@ -180,7 +180,15 @@ public sealed class LocationTrackingService : ILocationTrackingService
         {
             try
             {
-                await _permissionService.RequestIgnoreBatteryOptimizationsAsync();
+                var exemption = await _permissionService
+                    .RequestAsync(PermissionKind.BatteryOptimization)
+                    .ConfigureAwait(false);
+
+                if (exemption.RequiresApplicationSettings)
+                {
+                    _logger.LogWarning(
+                        "The battery optimization exemption is permanently denied; location updates may be deferred until the operator grants it in the application settings");
+                }
             }
             catch (Exception exception)
             {
