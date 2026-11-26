@@ -789,6 +789,37 @@ compatibility façade is still needed.
   arm or a stop. Show pending work and a resume action.
 - Make maintenance a cancellable deferred worker.
 
+> **Status: partially implemented.** Startup now runs one ordered sequence
+> instead of independent fire-and-forget tasks. `ApplicationStartup` executes
+> named `StartupStep` records in declaration order, stops on a failed required
+> step and skips the rest, records a failed optional step and continues, and
+> returns the first run's report to every later caller so activity recreation in
+> a live process never re-arms or stops the session. Each outcome is logged,
+> recorded in diagnostics under `startup`, and raised through `StepCompleted`.
+> `StartupStepFactory` declares the single sequence — database, settings, ports,
+> permissions, location, maintenance, sessions — and rule A010 keeps step
+> declarations out of feature code.
+>
+> Permissions are feature-scoped. `PortStartupPermissions` asks for the
+> notification, Bluetooth and audio permissions that the enabled ports actually
+> need, so a launch with no enabled port prompts for nothing; the location
+> permission and the battery-optimization exemption moved from startup into
+> `LocationTrackingService.RequestPermissionAndStartTrackingAsync`, which the
+> home page already invokes when the operator starts tracking. A denied
+> permission degrades the feature that needs it instead of stopping startup.
+>
+> Retention is no longer an `App` loop. `DatabaseMaintenanceWorker` defers the
+> first sweep, repeats on an interval, keeps running after a failed sweep, and
+> cancels with the application.
+>
+> Arm/resume remains open: the session still arms every enabled port during
+> startup, so a process death currently resumes work without asking. Finishing
+> this item means leaving the process disarmed after death, reboot, force-stop
+> or update, and offering the operator the previously running set with a resume
+> action, plus the process-death harness that proves the safe path. That is a
+> product decision about whether launch may connect without an explicit tap, so
+> it is tracked as the remaining work here rather than changed implicitly.
+
 Exit: a startup harness proves ordering and a process-death harness proves safe resume.
 
 ### R4 — Application/UI separation
