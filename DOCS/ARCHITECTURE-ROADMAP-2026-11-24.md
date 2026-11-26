@@ -350,7 +350,9 @@ explicit "Check architecture boundaries" step in `build-test.yml`.
   violations and remove baseline entries when the corresponding migration lands.
 
 Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
-`A003` (`Debug.WriteLine`), and `A004` (modem construction, added with `R2.1`). The
+`A003` (`Debug.WriteLine`), `A004` (modem construction, added with `R2.1`),
+`A005` (modem handle ownership) and `A006` (no bulk start-all path), the last two
+added with `R2.2`. The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -508,6 +510,38 @@ outside the factory. `ModemFactoryTests` covers each transport, missing type
 settings, an unregistered settings type, KISS without transport settings, an
 unregistered KISS transport, token forwarding, and stream disposal;
 `PortServiceTransportFaultTests` covers fault attribution and session disposal.
+
+> **Status: implemented.** `IPortSessionManager` owns every running modem session;
+> `PortSessionManager` is the only implementation and the only type besides the
+> modem factory that names `IPortModem`. `PortService` keeps configuration, ingest,
+> and digipeat relay, and asks the manager for starts, stops, and sends, so it never
+> holds, starts, or disposes a modem. Each port has a runtime slot holding its start
+> and stop gate, its session, and its send counter. Starts and stops take the gate,
+> so two concurrent starts create one modem and a stop cannot interleave with a
+> start. A send takes a lease before it leaves the lock and releases it when the
+> modem call returns; a stop removes the session, refuses new sends, and waits for
+> outstanding leases up to the drain deadline (five seconds by default) before it
+> disposes the modem. A stop whose modem throws while stopping or disposing still
+> reports `PortSessionStopStatus.Failed` with the original exception, has already
+> released the session, and therefore permits a later start; `StopAllAsync` attempts
+> every session and returns one result per session so failures are reported
+> together. `RemoveAsync` retires the port's slot, and the slot is collected and its
+> gate disposed only after the last operation leaves it, so pruning can never
+> dispose a gate another operation is holding. Starts now return
+> `PortSessionStartResult` (`Started`, `AlreadyRunning`, `UnknownPort`, `Cancelled`,
+> `Failed`) with the original exception attached; `IPortSessionRuntime` returns that
+> result, and `PortServiceSessionController` turns it into the exception the
+> coordinator's reconnect loop needs while rethrowing cancellation unchanged.
+> `IPortService.StartAllEnabledPortsAsync` was removed because it had no production
+> caller and bypassed supervision; startup already goes through `SessionCoordinator`.
+> A005 confines `IPortModem` to the factory, its contract, and the session manager,
+> and A006 rejects any reappearance of a bulk start-all path.
+> `PortSessionManagerTests` proves one modem per concurrent start, no send through a
+> disposed modem, a bounded drain deadline, a failed stop that still permits a later
+> start, aggregate stop-all reporting, slot pruning on removal, structured
+> cancellation and failure results, and packet and fault attribution to the owning
+> port. `PortServiceSessionControllerTests` proves a failed start surfaces as an
+> exception carrying the original one and a cancelled start rethrows cancellation.
 
 **R2.2 Extract session manager**
 

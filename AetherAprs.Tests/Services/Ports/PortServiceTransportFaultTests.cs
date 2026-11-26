@@ -97,7 +97,7 @@ public sealed class PortServiceTransportFaultTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            new SingleModemFactory(modem),
+            TestSessionManager.Create(new SingleModemFactory(modem)),
             NullLogger<PortService>.Instance,
             Substitute.For<IPacketStorageService>(),
             Substitute.For<IKeepAliveService>(),

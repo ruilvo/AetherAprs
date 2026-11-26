@@ -245,7 +245,6 @@ public sealed class MainViewModelTests
         public Task SetPortEnabledAsync(Guid id, bool enabled) => Task.CompletedTask;
         public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
         public Task SendPacketAsync(Guid id, AprsPacket packet) => Task.CompletedTask;
-        public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

@@ -66,9 +66,14 @@ public sealed class PortServiceConnectCancellationTests
             TestContext.Current.CancellationToken);
         cts.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            startTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
+        // Cancellation is reported as a structured result rather than an exception,
+        // so supervision can distinguish it from a rejected transport, but the
+        // original OperationCanceledException must still be attached.
+        var result = await startTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
+        Assert.Equal(PortSessionStartStatus.Cancelled, result.Status);
+        Assert.IsAssignableFrom<OperationCanceledException>(result.Error);
+        Assert.False(result.IsRunning);
         Assert.True(connector.CapturedToken.CanBeCanceled);
         Assert.True(connector.CapturedToken.IsCancellationRequested);
         Assert.True(connector.ObservedCancellation);
@@ -99,7 +104,7 @@ public sealed class PortServiceConnectCancellationTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
+            TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
             NullLogger<PortService>.Instance,
             Substitute.For<IPacketStorageService>(),
             Substitute.For<IKeepAliveService>(),

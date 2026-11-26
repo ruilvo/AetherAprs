@@ -199,8 +199,6 @@ public sealed class SessionCoordinatorTelemetryTests
 
         public Task SendPacketAsync(Guid id, AprsPacket packet) => Task.CompletedTask;
 
-        public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
-
         public Task StopAllPortsAsync() => Task.CompletedTask;
 
         public long GetDroppedPacketCount(Guid portId) => 0;

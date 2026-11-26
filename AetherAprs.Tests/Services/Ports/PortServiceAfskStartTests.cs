@@ -119,7 +119,7 @@ public sealed class PortServiceAfskStartTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(audioStreamService: audioStream),
+            TestSessionManager.Create(TestModemFactory.Create(audioStreamService: audioStream)),
             NullLogger<PortService>.Instance,
             mockPacketStorage,
             mockKeepAliveService,

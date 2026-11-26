@@ -465,7 +465,7 @@ public sealed class PortServiceReceivePipelineTests
         var kissStreamFactory = new ScriptedKissStreamFactory(scriptedPortSettings, injectedKissBuffer, targetWriteTcs);
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
+            TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
             NullLogger<PortService>.Instance,
             storage,
             Substitute.For<IKeepAliveService>(),

@@ -377,7 +377,7 @@ public sealed class PortServiceTests
         var mockDigipeaterService = new MockDigipeaterService();
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
+            TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
             NullLogger<PortService>.Instance,
             mockPacketStorage,
             mockKeepAliveService,

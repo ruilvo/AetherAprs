@@ -59,6 +59,17 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Services/Ports/ModemFactory.cs"
     };
 
+    /// <summary>
+    /// Files permitted to name a port modem. Sessions are owned by the session
+    /// manager, so no caller can hold, start, stop, or dispose a modem instance.
+    /// </summary>
+    private static readonly HashSet<string> ModemAccessOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Services/Ports/IModemFactory.cs",
+        "AetherAprs/Services/Ports/ModemFactory.cs",
+        "AetherAprs/Services/Ports/PortSessionManager.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -86,7 +97,19 @@ internal static class ArchitectureBoundaryScanner
             "A004",
             "Transport selection belongs to IModemFactory; session and feature code must not construct a modem.",
             ["new AprsIsModem", "new AprsRfModem", "new KissModem", "new AfskModem"],
-            ModemConstructionOwners)
+            ModemConstructionOwners),
+
+        new ArchitectureRule(
+            "A005",
+            "Running modem sessions are owned by IPortSessionManager; only the factory and that manager may name IPortModem.",
+            ["IPortModem"],
+            ModemAccessOwners),
+
+        new ArchitectureRule(
+            "A006",
+            "Sessions start through the coordinator; a bulk start-all path bypasses supervision and backoff.",
+            ["StartAllEnabledPortsAsync"],
+            new HashSet<string>(StringComparer.Ordinal))
     ];
 
     /// <summary>Scans the live production tree.</summary>

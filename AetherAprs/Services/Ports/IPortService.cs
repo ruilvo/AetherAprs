@@ -34,7 +34,5 @@ public interface IPortService : IAsyncDisposable
 
     Task SendPacketAsync(Guid id, AprsPacket packet);
 
-    Task StartAllEnabledPortsAsync();
-
     Task StopAllPortsAsync();
 }

@@ -74,7 +74,7 @@ public sealed class PortServiceSetPortEnabledTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
+            TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
             NullLogger<PortService>.Instance,
             mockPacketStorage,
             mockKeepAliveService,

@@ -152,6 +152,10 @@ public static class ServiceProviderFactory
         // on audio, PTT or transport connectors directly.
         services.AddSingleton<IModemFactory, ModemFactory>();
 
+        // Register the single owner of running modem sessions. PortService keeps
+        // configuration and ingest; sessions, gates and send leases live here.
+        services.AddSingleton<IPortSessionManager, PortSessionManager>();
+
         // Register port service
 
         // Register digipeater service

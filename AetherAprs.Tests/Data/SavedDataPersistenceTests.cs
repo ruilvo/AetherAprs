@@ -173,7 +173,6 @@ public sealed class SavedDataPersistenceTests
         public Task RemovePortAsync(Guid id) => Task.CompletedTask;
         public Task SetPortEnabledAsync(Guid id, bool enabled) => Task.CompletedTask;
         public Task SetPortShowOnMapAsync(Guid id, bool showOnMap) => Task.CompletedTask;
-        public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
         public Task StopAllPortsAsync() => Task.CompletedTask;
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

@@ -86,6 +86,7 @@ public static class DesignData
         services.AddSingleton<IAudioPlaybackService, NoOpAudioPlaybackService>();
         services.AddSingleton<IPttService, NoOpPttService>();
         services.AddSingleton<IModemFactory, ModemFactory>();
+        services.AddSingleton<IPortSessionManager, PortSessionManager>();
 
         services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
         services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();

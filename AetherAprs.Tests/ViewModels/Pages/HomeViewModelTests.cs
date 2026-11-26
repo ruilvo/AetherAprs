@@ -418,8 +418,6 @@ public sealed class HomeViewModelTests : TestFixtureBase
             return Task.CompletedTask;
         }
 
-        public Task StartAllEnabledPortsAsync() => Task.CompletedTask;
-
         public Task StopAllPortsAsync() => Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

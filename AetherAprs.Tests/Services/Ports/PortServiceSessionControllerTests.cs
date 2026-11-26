@@ -78,6 +78,39 @@ public sealed class PortServiceSessionControllerTests
         Assert.True(record.IsEnabled);
     }
 
+    [Fact]
+    public async Task ConnectAsync_WhenTheStartFails_ThrowsWithTheOriginalException()
+    {
+        var portId = Guid.NewGuid();
+        var failure = new InvalidOperationException("transport refused");
+        var controller = new PortServiceSessionController(
+            new StubSessionRuntime(PortSessionStartResult.Failed(portId, failure)));
+
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => controller.ConnectAsync(portId, TestContext.Current.CancellationToken));
+
+        Assert.Same(failure, thrown.InnerException);
+        Assert.Contains("Failed", thrown.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_WhenTheStartIsCancelled_RethrowsCancellation()
+    {
+        var portId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        var cancellation = new OperationCanceledException(cts.Token);
+        var controller = new PortServiceSessionController(
+            new StubSessionRuntime(PortSessionStartResult.Cancelled(portId, cancellation)));
+
+        var thrown = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => controller.ConnectAsync(portId, cts.Token));
+
+        // The coordinator's reconnect loop keys off cancellation, so the original
+        // exception must surface rather than a wrapped start failure.
+        Assert.Same(cancellation, thrown);
+    }
+
     private static PortConfig CreatePort(Guid portId, bool isEnabled) => new()
     {
         Id = portId,
@@ -91,6 +124,15 @@ public sealed class PortServiceSessionControllerTests
         }
     };
 
+    private sealed class StubSessionRuntime(PortSessionStartResult start) : IPortSessionRuntime
+    {
+        public Task<PortSessionStartResult> StartSessionAsync(Guid portId, CancellationToken cancellationToken) =>
+            Task.FromResult(start);
+
+        public Task<PortSessionStopResult> StopSessionAsync(Guid portId, CancellationToken cancellationToken) =>
+            Task.FromResult(PortSessionStopResult.NotRunning(portId));
+    }
+
     private static PortService CreateService(TempAppDatabase db, IKissStreamFactory kissStreamFactory)
     {
         var digipeater = Substitute.For<IDigipeaterService>();
@@ -103,7 +145,7 @@ public sealed class PortServiceSessionControllerTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
+            TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
             NullLogger<PortService>.Instance,
             Substitute.For<IPacketStorageService>(),
             Substitute.For<IKeepAliveService>(),

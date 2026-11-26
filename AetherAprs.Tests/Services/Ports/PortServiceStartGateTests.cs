@@ -78,7 +78,7 @@ public sealed class PortServiceStartGateTests
 
         return new PortService(
             StoreFactory.CreatePortRegistry(db),
-            TestModemFactory.Create(kissStreamFactory: kissStreamFactory),
+            TestSessionManager.Create(TestModemFactory.Create(kissStreamFactory: kissStreamFactory)),
             NullLogger<PortService>.Instance,
             Substitute.For<IPacketStorageService>(),
             Substitute.For<IKeepAliveService>(),

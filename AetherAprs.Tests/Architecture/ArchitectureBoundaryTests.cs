@@ -107,6 +107,43 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticModemHandleInFeatureCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Services/Messaging/MessageService.cs",
+                "private readonly IPortModem _modem;"),
+            Source(
+                "AetherAprs/Services/Ports/PortService.cs",
+                "public IPortModem Modem { get; init; }")
+        ]);
+
+        Assert.Equal(2, violations.Count);
+        Assert.All(violations, violation => Assert.Equal("A005", violation.RuleId));
+    }
+
+    [Fact]
+    public void Scan_ModemHandleInTheSessionManager_IsAllowed()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source("AetherAprs/Services/Ports/PortSessionManager.cs", "public required IPortModem Modem { get; init; }")]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Scan_SyntheticStartAllPath_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source("AetherAprs/Services/Ports/PortService.cs", "await StartAllEnabledPortsAsync();")]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A006", violation.RuleId);
+        Assert.Equal("StartAllEnabledPortsAsync", violation.Symbol);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

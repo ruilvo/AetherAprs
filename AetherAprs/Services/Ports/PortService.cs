@@ -20,24 +20,23 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Ports;
 
+/// <summary>
+/// Owns port configuration, inbound ingest, and digipeat relay. Running modem
+/// sessions belong to <see cref="IPortSessionManager"/>; this type asks for starts,
+/// stops and sends but never touches a modem.
+/// </summary>
 public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRuntime, IAsyncDisposable
 {
     private readonly IPortRegistry _portRegistry;
-    private readonly IModemFactory _modemFactory;
+    private readonly IPortSessionManager _sessionManager;
     private readonly ILogger<PortService> _logger;
     private readonly IPacketStorageService _packetStorageService;
     private readonly IKeepAliveService _keepAliveService;
     private readonly IDigipeaterService _digipeaterService;
 
-    // Guards _ports and _activeSessions; also serializes modem start/stop per service.
+    // Guards _ports. Session state is owned and guarded by the session manager.
     private readonly Lock _stateLock = new();
-    private readonly Dictionary<Guid, ActivePortSession> _activeSessions = new();
     private readonly List<PortConfig> _ports;
-
-    // One gate per port so a start and a stop for the same port cannot interleave,
-    // and two concurrent starts cannot both pass the "already running" check and
-    // leak a modem (audit C-01).
-    private readonly Dictionary<Guid, SemaphoreSlim> _sessionGates = [];
 
     private readonly CancellationTokenSource _disposalCts = new();
     private readonly Channel<QueuedPacket> _packetChannel;
@@ -71,7 +70,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
     public PortService(
         IPortRegistry portRegistry,
-        IModemFactory modemFactory,
+        IPortSessionManager sessionManager,
         ILogger<PortService> logger,
         IPacketStorageService packetStorageService,
         IKeepAliveService keepAliveService,
@@ -81,10 +80,10 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         int digipeatQueueCapacity = DefaultDigipeatQueueCapacity)
     {
         ArgumentNullException.ThrowIfNull(portRegistry);
-        ArgumentNullException.ThrowIfNull(modemFactory);
+        ArgumentNullException.ThrowIfNull(sessionManager);
 
         _portRegistry = portRegistry;
-        _modemFactory = modemFactory;
+        _sessionManager = sessionManager;
         _logger = logger;
         _packetStorageService = packetStorageService;
         _keepAliveService = keepAliveService;
@@ -115,6 +114,9 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         _digipeatProcessorTask = Task.Run(ProcessDigipeatQueueAsync);
 
         _ports = [];
+
+        _sessionManager.PacketReceived += OnSessionPacketReceived;
+        _sessionManager.TransportFaulted += OnSessionTransportFaulted;
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -157,20 +159,20 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     public long TotalDroppedPackets => Interlocked.Read(ref _totalDroppedPackets);
 
     /// <inheritdoc />
-    public async Task<bool> StartSessionAsync(Guid portId, CancellationToken cancellationToken)
+    public Task<PortSessionStartResult> StartSessionAsync(Guid portId, CancellationToken cancellationToken)
     {
-        var port = FindPortById(portId);
+        var port = FindPortSnapshot(portId);
         if (port is null)
         {
-            return false;
+            return Task.FromResult(PortSessionStartResult.UnknownPort(portId));
         }
 
-        return await StartModemAsync(port, cancellationToken).ConfigureAwait(false);
+        return _sessionManager.StartAsync(port, cancellationToken);
     }
 
     /// <inheritdoc />
-    public Task StopSessionAsync(Guid portId, CancellationToken cancellationToken) =>
-        StopModemAsync(portId);
+    public Task<PortSessionStopResult> StopSessionAsync(Guid portId, CancellationToken cancellationToken) =>
+        _sessionManager.StopAsync(portId, cancellationToken: cancellationToken);
 
     public async Task AddPortAsync(PortConfig port)
     {
@@ -192,13 +194,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(updatedPort);
 
-        PortConfig? current;
-        lock (_stateLock)
-        {
-            current = _ports.FirstOrDefault(p => p.Id == updatedPort.Id);
-        }
-
-        if (current is null)
+        if (FindPort(updatedPort.Id) is null)
         {
             return;
         }
@@ -207,9 +203,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         // any session is torn down or any in-memory snapshot is replaced.
         await PersistPortAsync(updatedPort, default).ConfigureAwait(false);
 
-        ActivePortSession? sessionToRestart = null;
-        bool startAfterUpdate;
-
+        bool storedIsEnabled;
         lock (_stateLock)
         {
             var stored = _ports.FirstOrDefault(p => p.Id == updatedPort.Id);
@@ -218,39 +212,56 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
                 return;
             }
 
-            startAfterUpdate = _activeSessions.ContainsKey(stored.Id) || stored.IsEnabled;
-            if (_activeSessions.TryGetValue(stored.Id, out var session))
-            {
-                // Detach the session from the running state before restarting.
-                _activeSessions.Remove(stored.Id);
-                sessionToRestart = session;
-            }
-
+            storedIsEnabled = stored.IsEnabled;
             CopyPortProperties(updatedPort, stored);
         }
 
-        if (sessionToRestart is not null)
+        var wasRunning = _sessionManager.IsRunning(updatedPort.Id);
+
+        if (wasRunning || storedIsEnabled)
         {
             _logger.LogDebug(
-                "Restarting running port {PortName} ({PortId}) after settings update.",
+                "Restarting port {PortName} ({PortId}) after settings update.",
                 updatedPort.Name,
                 updatedPort.Id);
-            await StopDetachedSessionAsync(sessionToRestart).ConfigureAwait(false);
+
+            // The running session was built from the previous settings, so it is
+            // stopped before the new ones are used; the manager serializes this
+            // against any concurrent start.
+            await _sessionManager
+                .StopAsync(updatedPort.Id, cancellationToken: CancellationToken.None)
+                .ConfigureAwait(false);
+
+            if (updatedPort.IsEnabled)
+            {
+                var start = await _sessionManager
+                    .StartAsync(updatedPort.Clone(), CancellationToken.None)
+                    .ConfigureAwait(false);
+
+                if (!start.IsRunning && start.Status != PortSessionStartStatus.Cancelled)
+                {
+                    // The edit is committed and the operator intent is preserved;
+                    // the port simply reports degraded until supervision retries.
+                    _logger.LogWarning(
+                        start.Error,
+                        "Port {PortName} ({PortId}) was updated but could not be restarted.",
+                        updatedPort.Name,
+                        updatedPort.Id);
+                }
+            }
         }
 
-        if (startAfterUpdate && updatedPort.IsEnabled)
-        {
-            await StartModemAsync(updatedPort).ConfigureAwait(false);
-        }
-
-        await UpdateForegroundServiceAsync().ConfigureAwait(false);
+        await SyncKeepAliveAsync().ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task RemovePortAsync(Guid id)
     {
-        // Stop if running
-        await StopModemAsync(id).ConfigureAwait(false);
+        // Stop and forget the runtime state first, so no gate or session outlives
+        // the configuration it belonged to.
+        await _sessionManager
+            .RemoveAsync(id, CancellationToken.None)
+            .ConfigureAwait(false);
 
         // Durable-first: the row must be gone before the port disappears from
         // the in-memory snapshot.
@@ -265,6 +276,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             }
         }
 
+        await SyncKeepAliveAsync().ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -281,9 +293,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             return;
         }
 
-        var intentChanged = current.IsEnabled != enabled;
-
-        if (intentChanged)
+        if (current.IsEnabled != enabled)
         {
             // Durable-first: the store is the authority. Only after the write
             // succeeds do we publish the new state to memory, so a failed write
@@ -303,19 +313,18 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
         // Read the authoritative snapshot after the write so the session starts
         // from exactly what was persisted, never from a stale pre-write copy.
-        PortConfig authoritative;
-        lock (_stateLock)
-        {
-            authoritative = _ports.FirstOrDefault(p => p.Id == id)?.Clone() ?? current;
-        }
+        var authoritative = FindPortSnapshot(id) ?? current;
 
         // Converge the runtime session to the persisted intent. This part is
         // idempotent: asking for an already-enabled port still guarantees it is
         // running, which supervision and startup both rely on.
         if (enabled)
         {
-            var started = await StartModemAsync(authoritative).ConfigureAwait(false);
-            if (!started)
+            var start = await _sessionManager
+                .StartAsync(authoritative, CancellationToken.None)
+                .ConfigureAwait(false);
+
+            if (!start.IsRunning && start.Status != PortSessionStartStatus.Cancelled)
             {
                 // The start failed: roll the installed intent back to disabled,
                 // durably first, before reporting the failure to the caller. This
@@ -332,17 +341,19 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
                     }
                 }
 
-                await UpdateForegroundServiceAsync().ConfigureAwait(false);
+                await SyncKeepAliveAsync().ConfigureAwait(false);
                 PortsChanged?.Invoke(this, EventArgs.Empty);
                 throw new InvalidOperationException($"Failed to start port '{authoritative.Name}'.");
             }
         }
         else
         {
-            await StopModemAsync(id).ConfigureAwait(false);
+            await _sessionManager
+                .StopAsync(id, cancellationToken: CancellationToken.None)
+                .ConfigureAwait(false);
         }
 
-        await UpdateForegroundServiceAsync().ConfigureAwait(false);
+        await SyncKeepAliveAsync().ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -377,89 +388,74 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(packet);
 
-        // Resolve (and auto-start if needed) the session under the state lock so
-        // two concurrent sends cannot both pass the check-then-start race.
-        ActivePortSession session;
-        lock (_stateLock)
+        if (await _sessionManager
+                .SendAsync(id, packet, CancellationToken.None)
+                .ConfigureAwait(false) == PortSessionSendStatus.Sent)
         {
-            if (!_activeSessions.TryGetValue(id, out session!))
-            {
-                var portToStart = _ports.FirstOrDefault(p => p.Id == id);
-                if (portToStart is null || !portToStart.IsEnabled)
-                {
-                    throw new InvalidOperationException($"Port {id} is not running.");
-                }
-            }
+            RaisePacketTransmitted(id, packet);
+            return;
         }
 
-        if (session is null)
+        // Nothing is running. Only an enabled port may be brought up implicitly,
+        // and the manager decides atomically whether that start actually yields a
+        // session this send can use.
+        var portToStart = FindPortSnapshot(id);
+        if (portToStart is null || !portToStart.IsEnabled)
         {
-            PortConfig? portToStart;
-            lock (_stateLock)
-            {
-                portToStart = _ports.FirstOrDefault(p => p.Id == id);
-            }
-
-            if (portToStart is not null)
-            {
-                await StartModemAsync(portToStart).ConfigureAwait(false);
-            }
+            throw new InvalidOperationException($"Port {id} is not running.");
         }
 
-        lock (_stateLock)
+        var start = await _sessionManager
+            .StartAsync(portToStart, CancellationToken.None)
+            .ConfigureAwait(false);
+        if (!start.IsRunning)
         {
-            if (!_activeSessions.TryGetValue(id, out session!))
-            {
-                throw new InvalidOperationException($"Port {id} is not running.");
-            }
+            throw new InvalidOperationException($"Port {id} is not running.", start.Error);
         }
 
-        await session.Modem.SendAsync(packet).ConfigureAwait(false);
-        PacketTransmitted?.Invoke(this, new PortPacketTransmittedEventArgs(id, packet));
-
-        // Update foreground service state after auto-starting a stopped port.
-        await UpdateForegroundServiceAsync().ConfigureAwait(false);
-        _logger.LogDebug("Transmitted APRS packet on port {PortId}, Type={PacketType}.", id, packet.GetType().Name);
-    }
-
-    public async Task StartAllEnabledPortsAsync()
-    {
-        List<PortConfig> portsToStart;
-        lock (_stateLock)
+        if (await _sessionManager
+                .SendAsync(id, packet, CancellationToken.None)
+                .ConfigureAwait(false) != PortSessionSendStatus.Sent)
         {
-            portsToStart = [.. _ports.Where(p => p.IsEnabled)];
+            throw new InvalidOperationException($"Port {id} is not running.");
         }
 
-        foreach (var port in portsToStart)
-        {
-            await StartModemAsync(port).ConfigureAwait(false);
-        }
+        // Auto-starting changed the running set, so the foreground service follows.
+        await SyncKeepAliveAsync().ConfigureAwait(false);
+        RaisePacketTransmitted(id, packet);
     }
 
     public async Task StopAllPortsAsync()
     {
-        List<ActivePortSession> sessions;
-        lock (_stateLock)
+        var results = await _sessionManager
+            .StopAllAsync(CancellationToken.None)
+            .ConfigureAwait(false);
+
+        var failures = results.Count(result => result.Status == PortSessionStopStatus.Failed);
+        if (failures > 0)
         {
-            sessions = [.. _activeSessions.Values];
-            _activeSessions.Clear();
+            _logger.LogWarning(
+                "{FailureCount} of {PortCount} ports reported an error while stopping.",
+                failures,
+                results.Count);
         }
 
-        foreach (var session in sessions)
-        {
-            await StopSessionAsync(session).ConfigureAwait(false);
-        }
-
-        await UpdateForegroundServiceAsync().ConfigureAwait(false);
+        await SyncKeepAliveAsync().ConfigureAwait(false);
     }
 
-    private PortConfig? FindPortById(Guid id)
+    private PortConfig? FindPort(Guid id)
     {
         lock (_stateLock)
         {
             return _ports.FirstOrDefault(p => p.Id == id);
         }
     }
+
+    /// <summary>
+    /// Returns a copy of the configured port, or <see langword="null"/> when it is
+    /// not configured.
+    /// </summary>
+    private PortConfig? FindPortSnapshot(Guid id) => FindPort(id)?.Clone();
 
     private async Task<List<PortConfig>> LoadPortsAsync(CancellationToken cancellationToken = default) =>
         [.. await _portRegistry.LoadAsync(cancellationToken).ConfigureAwait(false)];
@@ -478,210 +474,44 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         target.IsTx = source.IsTx;
         target.ShowOnMap = source.ShowOnMap;
         target.AllowDigipeat = source.AllowDigipeat;
-        target.TypeSettings = source.TypeSettings;
-    }
-
-    private SemaphoreSlim GetSessionGate(Guid portId)
-    {
-        lock (_stateLock)
-        {
-            if (!_sessionGates.TryGetValue(portId, out var gate))
-            {
-                gate = new SemaphoreSlim(1, 1);
-                _sessionGates[portId] = gate;
-            }
-
-            return gate;
-        }
-    }
-
-    private async Task<bool> StartModemAsync(PortConfig port, CancellationToken cancellationToken = default)
-    {
-        // The caller's token (session supervision) and disposal both abort a
-        // transport that is still opening. BLE/RFCOMM connects can block for
-        // many seconds, so the token must reach IKissStreamConnector.ConnectAsync
-        // (audit P-18).
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            _disposalCts.Token);
-        var startToken = linkedCts.Token;
-
-        var gate = GetSessionGate(port.Id);
-        await gate.WaitAsync(startToken).ConfigureAwait(false);
-        try
-        {
-            lock (_stateLock)
-            {
-                if (_activeSessions.ContainsKey(port.Id))
-                {
-                    _logger.LogDebug("Port {PortId} ({PortName}) is already running.", port.Id, port.Name);
-                    return true;
-                }
-            }
-
-            return await StartModemCoreAsync(port, startToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
-
-    private async Task<bool> StartModemCoreAsync(PortConfig port, CancellationToken cancellationToken)
-    {
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var modem = await _modemFactory
-                .CreateAsync(port, cancellationToken)
-                .ConfigureAwait(false);
-
-            EventHandler<AprsPacket> packetHandler = (_, packet) => RaisePacketReceived(port.Id, packet);
-            EventHandler<Exception> errorHandler = (_, exception) => OnModemReceiveError(port.Id, exception);
-
-            modem.PacketReceived += packetHandler;
-            modem.ReceiveError += errorHandler;
-
-            try
-            {
-                modem.Start();
-            }
-            catch
-            {
-                // The factory created the modem's resources, so a failed start must
-                // release them here instead of leaking a socket or audio capture.
-                modem.PacketReceived -= packetHandler;
-                modem.ReceiveError -= errorHandler;
-                await modem.DisposeAsync().ConfigureAwait(false);
-                throw;
-            }
-
-            lock (_stateLock)
-            {
-                _activeSessions[port.Id] = new ActivePortSession
-                {
-                    PortId = port.Id,
-                    Modem = modem,
-                    PacketHandler = packetHandler,
-                    ReceiveErrorHandler = errorHandler
-                };
-            }
-
-            _logger.LogInformation(
-                "Started {TransportName} modem for port {PortName} ({PortId}).",
-                modem.TransportName,
-                port.Name,
-                port.Id);
-
-            return true;
-        }
-        catch (OperationCanceledException) when (_disposalCts.IsCancellationRequested)
-        {
-            _logger.LogDebug(
-                "Start cancelled while PortService is disposing for port {PortName} ({PortId}).",
-                port.Name,
-                port.Id);
-            return false;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Supervision cancelled the connect (for example while stopping the
-            // session); let the caller observe cancellation instead of reporting
-            // a failed modem.
-            _logger.LogDebug(
-                "Start cancelled for port {PortName} ({PortId}).",
-                port.Name,
-                port.Id);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to start modem for port {PortName} ({PortId}).", port.Name, port.Id);
-            return false;
-        }
-    }
-
-    private async Task StopModemAsync(Guid id)
-    {
-        var gate = GetSessionGate(id);
-        await gate.WaitAsync(_disposalCts.Token).ConfigureAwait(false);
-        try
-        {
-            ActivePortSession? session;
-            lock (_stateLock)
-            {
-                if (!_activeSessions.Remove(id, out session))
-                {
-                    return;
-                }
-            }
-
-            await StopSessionAsync(session).ConfigureAwait(false);
-        }
-        finally
-        {
-            gate.Release();
-        }
+        // Copy the settings graph too: the stored instance must never alias the
+        // caller's, or a later edit elsewhere would silently change live config.
+        target.TypeSettings = source.TypeSettings?.Clone();
     }
 
     /// <summary>
-    /// Stops a session that <see cref="UpdatePortAsync"/> already removed from the
-    /// active map, under the port's session gate so a concurrent start waits.
+    /// Keeps the ports keep-alive reason aligned with whether any session is
+    /// running.
     /// </summary>
-    private async Task StopDetachedSessionAsync(ActivePortSession session)
+    private async Task SyncKeepAliveAsync()
     {
-        var gate = GetSessionGate(session.PortId);
-        await gate.WaitAsync(_disposalCts.Token).ConfigureAwait(false);
-        try
-        {
-            await StopSessionAsync(session).ConfigureAwait(false);
-        }
-        finally
-        {
-            gate.Release();
-        }
-    }
+        var hasRunningSessions = _sessionManager.RunningPortIds.Count > 0;
 
-    private async Task StopSessionAsync(ActivePortSession session)
-    {
-        try
-        {
-            session.Modem.PacketReceived -= session.PacketHandler;
-            session.Modem.ReceiveError -= session.ReceiveErrorHandler;
-            await session.Modem.StopAsync().ConfigureAwait(false);
-        }
-        finally
-        {
-            // The modem owns every resource the factory built for it, including
-            // the KISS stream, so one disposal closes the whole graph.
-            await session.Modem.DisposeAsync().ConfigureAwait(false);
-        }
-
-        _logger.LogInformation("Stopped modem for port {PortId}.", session.PortId);
-    }
-
-    private async Task UpdateForegroundServiceAsync()
-    {
-        bool hasEnabledPorts;
-        lock (_stateLock)
-        {
-            hasEnabledPorts = _activeSessions.Count > 0;
-        }
-
-        if (hasEnabledPorts && !_portsKeepAliveActive)
+        if (hasRunningSessions && !_portsKeepAliveActive)
         {
             _portsKeepAliveActive = true;
             await _keepAliveService.AcquireAsync(KeepAliveReason.Ports).ConfigureAwait(false);
             _logger.LogInformation("Acquired keep-alive for ports");
         }
-        else if (!hasEnabledPorts && _portsKeepAliveActive)
+        else if (!hasRunningSessions && _portsKeepAliveActive)
         {
             _portsKeepAliveActive = false;
             await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
             _logger.LogInformation("Released keep-alive for ports");
         }
     }
+
+    private void RaisePacketTransmitted(Guid id, AprsPacket packet)
+    {
+        PacketTransmitted?.Invoke(this, new PortPacketTransmittedEventArgs(id, packet));
+        _logger.LogDebug("Transmitted APRS packet on port {PortId}, Type={PacketType}.", id, packet.GetType().Name);
+    }
+
+    private void OnSessionPacketReceived(object? sender, PortPacketReceivedEventArgs args) =>
+        RaisePacketReceived(args.PortId, args.Packet);
+
+    private void OnSessionTransportFaulted(object? sender, PortTransportFaultEventArgs args) =>
+        TransportFaulted?.Invoke(this, args);
 
     private void RaisePacketReceived(Guid portId, AprsPacket packet)
     {
@@ -897,12 +727,13 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private async Task HandleDigipeatAsync(Guid sourcePortId, AprsPacket packet)
     {
         // Get source port info
-        PortConfig? sourcePort;
+        List<PortConfig> configuredPorts;
         lock (_stateLock)
         {
-            sourcePort = _ports.FirstOrDefault(p => p.Id == sourcePortId);
+            configuredPorts = [.. _ports];
         }
 
+        var sourcePort = configuredPorts.FirstOrDefault(p => p.Id == sourcePortId);
         if (sourcePort is null)
         {
             return;
@@ -910,18 +741,16 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
         bool sourceIsAprsIs = sourcePort.TypeSettings is AprsIsSettings;
 
-        // Build list of available ports (running and TX-capable)
-        List<PortInfo> availablePorts;
-        lock (_stateLock)
-        {
-            availablePorts = [.. _ports
-                .Where(p => _activeSessions.ContainsKey(p.Id))
-                .Select(p => new PortInfo(
-                    p.Id,
-                    p.TypeSettings is AprsIsSettings,
-                    p.IsTx,
-                    p.AllowDigipeat))];
-        }
+        // Build list of available ports (running and TX-capable). Session
+        // ownership lives in the manager, so ask it rather than inspecting state.
+        var availablePorts = configuredPorts
+            .Where(p => _sessionManager.IsRunning(p.Id))
+            .Select(p => new PortInfo(
+                p.Id,
+                p.TypeSettings is AprsIsSettings,
+                p.IsTx,
+                p.AllowDigipeat))
+            .ToList();
 
         // Get digipeat targets
         var targets = _digipeaterService.GetDigipeatTargets(
@@ -969,12 +798,6 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         }
     }
 
-    private void OnModemReceiveError(Guid portId, Exception exception)
-    {
-        _logger.LogWarning(exception, "Receive error on port {PortId}.", portId);
-        TransportFaulted?.Invoke(this, new PortTransportFaultEventArgs(portId, exception));
-    }
-
     public async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
@@ -1006,7 +829,23 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             // Expected during disposal
         }
 
-        await StopAllPortsAsync().ConfigureAwait(false);
+        _sessionManager.PacketReceived -= OnSessionPacketReceived;
+        _sessionManager.TransportFaulted -= OnSessionTransportFaulted;
+
+        // Stop sessions through the manager that owns them, bounded so a transport
+        // that never answers cannot make disposal hang. A port that cannot be
+        // reached is reported rather than allowed to block shutdown.
+        using (var teardown = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+        {
+            var stops = await _sessionManager.StopAllAsync(teardown.Token).ConfigureAwait(false);
+            foreach (var failed in stops.Where(stop => stop.Status == PortSessionStopStatus.Failed))
+            {
+                _logger.LogWarning(
+                    failed.Error,
+                    "Port {PortId} did not stop cleanly during disposal.",
+                    failed.PortId);
+            }
+        }
 
         // Release the port keep-alive reason on disposal.
         if (_portsKeepAliveActive)
@@ -1014,22 +853,5 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             _portsKeepAliveActive = false;
             await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
         }
-    }
-
-    /// <summary>
-    /// A running port's modem session with its owned resources.
-    /// </summary>
-    private sealed class ActivePortSession
-    {
-        public required Guid PortId { get; init; }
-
-        /// <summary>
-        /// The modem and every transport resource built for this session.
-        /// </summary>
-        public required IPortModem Modem { get; init; }
-
-        public required EventHandler<AprsPacket> PacketHandler { get; init; }
-
-        public required EventHandler<Exception> ReceiveErrorHandler { get; init; }
     }
 }
