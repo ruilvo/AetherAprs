@@ -11,6 +11,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:local="using:AetherAprs"
              xmlns:loc="using:AetherAprs.Localization"
              xmlns:converters="using:AetherAprs.Converters.UI"
+             xmlns:sys="using:System"
              xmlns:bt="using:AetherAprs.Services.Bluetooth"
               xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
               xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
@@ -91,7 +92,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     SelectedItem="{Binding SelectedPortSettingsType}"
                     wpf:ComboBoxAssist.Label="{loc:Loc SelectPortType}">
             <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="x:Object">
+              <DataTemplate x:DataType="sys:Type">
                 <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
@@ -141,7 +142,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
                     SelectedItem="{Binding SelectedKissTransportType}"
                     wpf:ComboBoxAssist.Label="{loc:Loc Transport}">
             <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="x:Object">
+              <DataTemplate x:DataType="sys:Type">
                 <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
