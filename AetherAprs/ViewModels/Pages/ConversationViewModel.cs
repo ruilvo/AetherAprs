@@ -15,7 +15,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
@@ -191,14 +190,14 @@ public partial class ConversationViewModel(
     {
         DetachThread();
         _thread = thread;
-        _thread.Messages.CollectionChanged += OnThreadMessagesChanged;
+        _thread.MessagesChanged += OnThreadMessagesChanged;
         SyncMessages();
     }
 
     private void DetachThread() =>
-        _thread?.Messages.CollectionChanged -= OnThreadMessagesChanged;
+        _thread?.MessagesChanged -= OnThreadMessagesChanged;
 
-    private void OnThreadMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+    private void OnThreadMessagesChanged(object? sender, EventArgs e) =>
         SyncMessages();
 
     private void SyncMessages()

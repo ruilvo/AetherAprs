@@ -208,7 +208,7 @@ public sealed class MessageService : IMessageService, IDisposable
             lock (_gate)
             {
                 ConversationThread thread = GetOrCreateConversationUnlocked(addressee);
-                thread.Messages.Add(stored);
+                thread.Add(stored);
                 MoveConversationToFront(thread);
             }
         });
@@ -394,7 +394,7 @@ public sealed class MessageService : IMessageService, IDisposable
             lock (_gate)
             {
                 ConversationThread thread = GetOrCreateConversationUnlocked(peer);
-                thread.Messages.Add(stored);
+                thread.Add(stored);
                 MoveConversationToFront(thread);
             }
         });
@@ -739,7 +739,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 threadsByPeer[peer.ToString()] = thread;
             }
 
-            thread.Messages.Add(stored);
+            thread.Add(stored);
 
             // Re-add pending messages to retry queue
             if (stored.IsOutbound &&

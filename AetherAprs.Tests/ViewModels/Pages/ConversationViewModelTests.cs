@@ -29,7 +29,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
         FakeMessageService messageService = new();
         ConversationThread thread = messageService.GetOrCreateConversation(peer);
-        thread.Messages.Add(new StoredMessage
+        thread.Add(new StoredMessage
         {
             Peer = peer,
             Text = "Hello",
@@ -54,7 +54,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
         ConversationViewModel vm = CreateViewModel(messageService);
         vm.Initialize(peer);
 
-        messageService.GetOrCreateConversation(peer).Messages.Add(new StoredMessage
+        messageService.GetOrCreateConversation(peer).Add(new StoredMessage
         {
             Peer = peer,
             Text = "Inbound",
@@ -235,7 +235,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
         public Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default)
         {
             ConversationThread thread = GetOrCreateConversation(addressee);
-            thread.Messages.Add(new StoredMessage
+            thread.Add(new StoredMessage
             {
                 Peer = addressee,
                 Text = text,
