@@ -106,16 +106,29 @@ public sealed record AprsSettings
     public bool LoadHistoryOnStartup { get; init; } = true;
 
     /// <summary>
-    /// Gets the maximum number of retry attempts for unacknowledged messages.
-    /// Default is 5.
+    /// Gets the maximum number of retry attempts for unacknowledged messages,
+    /// not counting the initial send.
+    /// Default is 3.
     /// </summary>
-    public int MessageMaxRetries { get; init; } = 5;
+    public int MessageMaxRetries { get; init; } = 3;
 
     /// <summary>
     /// Gets the initial retry timeout in seconds for unacknowledged messages.
     /// Default is 30 seconds.
     /// </summary>
     public int MessageRetryTimeoutSeconds { get; init; } = 30;
+
+    /// <summary>
+    /// Gets how long an outbound message stays eligible for delivery before it
+    /// expires. Default is 15 minutes.
+    /// </summary>
+    public int MessageExpiryMinutes { get; init; } = 15;
+
+    /// <summary>
+    /// Gets whether incoming message text is shown in notifications. Disabled by
+    /// default so a message body is not readable on a locked screen.
+    /// </summary>
+    public bool ShowMessageTextInNotifications { get; init; }
 
     /// <summary>
     /// Gets whether to automatically send ACK/REJ for incoming messages.

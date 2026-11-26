@@ -43,8 +43,10 @@ public sealed class MessageServiceTests
     // doubles per attempt. The expiry tick lands one initial interval after the
     // summed schedule.
     private const int RetryTimeoutSeconds = 30;
-    private const int MaxRetries = 5;
-    private const int ExpirySeconds = RetryTimeoutSeconds * (1 << MaxRetries);
+    private const int MaxRetries = 3;
+
+    /// <summary>Default outbound expiry, expressed in the same virtual-time units.</summary>
+    private const int ExpirySeconds = 15 * 60;
 
     [Fact]
     public async Task SendAsync_SendsMessagePacketOnEnabledTxPorts_AndStoresOutbound()
@@ -306,6 +308,41 @@ public sealed class MessageServiceTests
 
         await notificationService.Shown.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
+        // Message text stays private by default; only the sender is exposed.
+        Assert.Equal(
+            ("K0PEER-1", Localization.Strings.Get("MessageNotificationHiddenBody"), "K0PEER-1"),
+            Assert.Single(notificationService.Notifications));
+    }
+
+    [Fact]
+    public async Task PacketReceived_WhenTextPreviewsAreEnabled_NotifiesTheMessageText()
+    {
+        FakePortService portService = new();
+        RecordingNotificationService notificationService = new();
+        _ = TestMessageService.Create(
+            portService,
+            Substitute.For<IPacketStorageService>(),
+            CreateConfiguration("N0CALL", showMessageTextInNotifications: true),
+            Substitute.For<IAprsPortSettingsResolver>(),
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
+            notificationService: notificationService);
+
+        portService.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = Guid.NewGuid(),
+            Packet = new MessagePacket
+            {
+                Source = new Callsign("K0PEER", 1),
+                Destination = new Callsign("APRS"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL")),
+                Text = "Ping"
+            }
+        });
+
+        await notificationService.Shown.Task.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
         Assert.Equal(
             ("K0PEER-1", "Ping", "K0PEER-1"),
             Assert.Single(notificationService.Notifications));
@@ -385,7 +422,7 @@ public sealed class MessageServiceTests
 
         // After clearing, the incoming message should post a notification again.
         Assert.Equal(
-            ("K0PEER-1", "Ping", "K0PEER-1"),
+            ("K0PEER-1", Localization.Strings.Get("MessageNotificationHiddenBody"), "K0PEER-1"),
             Assert.Single(notificationService.Notifications));
         Assert.Equal("Ping", Assert.Single(Assert.Single(service.Conversations).Messages).Text);
     }
@@ -930,7 +967,7 @@ public sealed class MessageServiceTests
                 p => p.IsOutbound && p.Message != null && p.Message.Number == stored.MessageNumber,
                 TestContext.Current.CancellationToken);
         Assert.Equal(MessageDeliveryStatus.Timeout, record.Message!.DeliveryStatus);
-        Assert.Equal(5, record.Message.RetryCount);
+        Assert.Equal(MaxRetries, record.Message.RetryCount);
     }
 
     [Fact]
@@ -1038,6 +1075,48 @@ public sealed class MessageServiceTests
         }
 
         recovered.Dispose();
+    }
+
+    [Fact]
+    public async Task SendAsync_DefaultPolicy_ExpiresAfterFifteenMinutes()
+    {
+        using TempAppDatabase database = TempAppDatabase.CreateEmpty();
+        using (AppDbContext setup = database.CreateContext())
+        {
+            setup.Database.EnsureCreated();
+        }
+
+        PortConfig port = CreateTxPort();
+        IConfigurationService configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
+        IAprsPortSettingsResolver resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        TestClock clock = new();
+        await using SqliteRuntimeWriter writer = new(database.Factory);
+        PacketStorageService storage = new(writer, configuration, NullLogger<PacketStorageService>.Instance);
+        SqliteRuntimeReader reader = new(database.Factory);
+        OutboxMessageStore outbox = new(writer, reader, clock, NullLogger<OutboxMessageStore>.Instance);
+
+        FakePortService failingPorts = new(port) { FailSends = true };
+        using MessageService service = new(
+            failingPorts,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
+            outbox,
+            outbox,
+            timeProvider: clock);
+
+        await service.SendAsync(
+            AprsAddress.FromCallsign(new Callsign("K0OTH")),
+            "Expires",
+            TestContext.Current.CancellationToken);
+
+        using AppDbContext context = database.CreateContext();
+        OutboxMessageRecord row = Assert.Single(context.OutboxMessages);
+        Assert.Equal(TimeSpan.FromMinutes(15), row.ExpiresAt - row.CreatedAt);
     }
 
     [Fact]
@@ -1207,7 +1286,10 @@ public sealed class MessageServiceTests
             timeProvider: timeProvider);
     }
 
-    private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
+    private static IConfigurationService CreateConfiguration(
+        string callsign,
+        int defaultSsid = 0,
+        bool showMessageTextInNotifications = false)
     {
         IConfigurationService configuration = Substitute.For<IConfigurationService>();
         configuration.Current.Returns(new AppSettings
@@ -1215,7 +1297,8 @@ public sealed class MessageServiceTests
             Aprs = new AprsSettings
             {
                 Callsign = callsign,
-                Ssid = (AprsSsid)defaultSsid
+                Ssid = (AprsSsid)defaultSsid,
+                ShowMessageTextInNotifications = showMessageTextInNotifications
             }
         });
         return configuration;

@@ -23,5 +23,6 @@ public static class Strings
     public static string ValidationDisplayHoursRange => Get(nameof(ValidationDisplayHoursRange));
     public static string ValidationMaxRetriesRange => Get(nameof(ValidationMaxRetriesRange));
     public static string ValidationRetryTimeoutRange => Get(nameof(ValidationRetryTimeoutRange));
+    public static string ValidationExpiryMinutesRange => Get(nameof(ValidationExpiryMinutesRange));
     public static string ValidationCommentMaxLength => Get(nameof(ValidationCommentMaxLength));
 }

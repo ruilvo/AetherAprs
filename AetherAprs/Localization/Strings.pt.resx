@@ -253,6 +253,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="AutoAcknowledgeIncomingMessages" xml:space="preserve"><value>Confirmar Automaticamente Mensagens Recebidas</value></data>
   <data name="MaximumRetryAttempts" xml:space="preserve"><value>Tentativas Máximas de Repetição</value></data>
   <data name="InitialRetryTimeoutSeconds" xml:space="preserve"><value>Timeout Inicial de Repetição (segundos)</value></data>
+  <data name="MessageExpiryMinutes" xml:space="preserve"><value>Expiração da Mensagem (minutos)</value></data>
+  <data name="ValidationExpiryMinutesRange" xml:space="preserve"><value>A expiração deve estar entre 1 e 1440 minutos</value></data>
+  <data name="ShowMessageTextInNotifications" xml:space="preserve"><value>Mostrar texto das mensagens nas notificações</value></data>
+  <data name="MessageNotificationHiddenBody" xml:space="preserve"><value>Nova mensagem APRS</value></data>
   <data name="Pending" xml:space="preserve"><value>Pendente</value></data>
   <data name="Acknowledged" xml:space="preserve"><value>Confirmada</value></data>
   <data name="Rejected" xml:space="preserve"><value>Rejeitada</value></data>

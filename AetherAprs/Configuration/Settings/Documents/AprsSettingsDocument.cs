@@ -62,9 +62,13 @@ internal sealed class AprsSettingsDocument
 
     public bool LoadHistoryOnStartup { get; set; } = true;
 
-    public int MessageMaxRetries { get; set; } = 5;
+    public int MessageMaxRetries { get; set; } = 3;
 
     public int MessageRetryTimeoutSeconds { get; set; } = 30;
+
+    public int MessageExpiryMinutes { get; set; } = 15;
+
+    public bool ShowMessageTextInNotifications { get; set; }
 
     public bool AutoAcknowledgeMessages { get; set; } = true;
 
@@ -102,6 +106,8 @@ internal sealed class AprsSettingsDocument
         LoadHistoryOnStartup = LoadHistoryOnStartup,
         MessageMaxRetries = MessageMaxRetries,
         MessageRetryTimeoutSeconds = MessageRetryTimeoutSeconds,
+        MessageExpiryMinutes = MessageExpiryMinutes,
+        ShowMessageTextInNotifications = ShowMessageTextInNotifications,
         AutoAcknowledgeMessages = AutoAcknowledgeMessages,
         EnableDigipeater = EnableDigipeater,
         DigipeaterInsertCallsign = DigipeaterInsertCallsign,

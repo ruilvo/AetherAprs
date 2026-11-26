@@ -389,12 +389,11 @@ public sealed class MessageService : IMessageService, IDisposable
     }
 
     /// <summary>
-    /// Expiry follows the retry schedule, so the default wait stays bounded
-    /// without adding another operator setting.
+    /// Outbound messages expire after the operator's window, so queued work never
+    /// survives indefinitely and a restart only restores unexpired messages.
     /// </summary>
     private static TimeSpan GetExpiryWindow(AprsSettings settings)
-        => TimeSpan.FromSeconds(
-            settings.MessageRetryTimeoutSeconds * Math.Pow(2, Math.Max(0, settings.MessageMaxRetries + 1)));
+        => TimeSpan.FromMinutes(Math.Max(1, settings.MessageExpiryMinutes));
 
     private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
     {
@@ -891,9 +890,15 @@ public sealed class MessageService : IMessageService, IDisposable
     {
         try
         {
+            // The body stays private unless the operator opts in: lock-screen
+            // previews would otherwise expose message text.
+            string body = _configurationService.Current.Aprs.ShowMessageTextInNotifications
+                ? text
+                : Localization.Strings.Get("MessageNotificationHiddenBody");
+
             await _notificationService!.ShowMessageNotificationAsync(
                 peer.ToString(),
-                text,
+                body,
                 peer.ToString()).ConfigureAwait(false);
         }
         catch (Exception ex)

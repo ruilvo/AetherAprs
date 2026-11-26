@@ -322,6 +322,16 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc InitialRetryTimeoutSeconds}"
                      UseFloatingPlaceholder="True" />
 
+            <TextBox Text="{Binding MessageExpiryMinutes}"
+                     PlaceholderText="15"
+                     wpf:TextFieldAssist.Label="{loc:Loc MessageExpiryMinutes}"
+                     UseFloatingPlaceholder="True" />
+
+            <CheckBox Content="{loc:Loc ShowMessageTextInNotifications}"
+                      IsChecked="{Binding ShowMessageTextInNotifications}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center" />
+
             <controls:Card Classes="ClickableCard">
               <Button Command="{Binding OpenMessageTemplatesCommand}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

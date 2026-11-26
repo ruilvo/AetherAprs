@@ -104,6 +104,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial int MessageRetryTimeoutSeconds { get; set; } = 30;
 
     [ObservableProperty]
+    [Range(1, 1440, ErrorMessageResourceName = nameof(Strings.ValidationExpiryMinutesRange), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
+    public partial int MessageExpiryMinutes { get; set; } = 15;
+
+    [ObservableProperty]
+    public partial bool ShowMessageTextInNotifications { get; set; }
+
+    [ObservableProperty]
     public partial bool AutoAcknowledgeMessages { get; set; } = true;
 
     [ObservableProperty]
@@ -172,6 +180,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         EnableRfToAprsIsGate = aprs.EnableRfToAprsIsGate;
         MessageMaxRetries = aprs.MessageMaxRetries;
         MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
+        MessageExpiryMinutes = aprs.MessageExpiryMinutes;
+        ShowMessageTextInNotifications = aprs.ShowMessageTextInNotifications;
         AutoAcknowledgeMessages = aprs.AutoAcknowledgeMessages;
         BeaconComment = aprs.BeaconComment;
         PositionFormat = aprs.PositionFormat;
@@ -337,6 +347,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     partial void OnMessageRetryTimeoutSecondsChanged(int value)
     {
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageRetryTimeoutSeconds = value } }, nameof(MessageRetryTimeoutSeconds));
+    }
+
+    partial void OnMessageExpiryMinutesChanged(int value)
+    {
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageExpiryMinutes = value } }, nameof(MessageExpiryMinutes));
+    }
+
+    partial void OnShowMessageTextInNotificationsChanged(bool value)
+    {
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { ShowMessageTextInNotifications = value } });
     }
 
     partial void OnAutoAcknowledgeMessagesChanged(bool value)
