@@ -15,7 +15,7 @@ namespace AetherAprs.Services.Ports;
 /// <remarks>
 /// Intent is runtime memory on purpose. A restarted process comes up disarmed and
 /// waits for an explicit start, so an update, force-stop or process death can never
-/// resume transmitting on its own (roadmap R3.3).
+/// resume transmitting on its own.
 /// </remarks>
 public sealed class SessionIntent
 {

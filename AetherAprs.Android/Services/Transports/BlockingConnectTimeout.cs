@@ -16,7 +16,7 @@ namespace AetherAprs.Android.Services.Transports;
 /// <remarks>
 /// The blocking call itself cannot be cancelled, so the caller must release the
 /// underlying handle when the wait ends. Without the bound, RFCOMM can block for
-/// 10–30 seconds or indefinitely on a hung peer (audit P-19).
+/// 10–30 seconds or indefinitely on a hung peer.
 /// </remarks>
 internal static class BlockingConnectTimeout
 {

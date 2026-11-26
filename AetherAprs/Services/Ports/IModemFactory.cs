@@ -18,7 +18,7 @@ namespace AetherAprs.Services.Ports;
 /// The factory composes the whole resource graph, so it also owns the shutdown
 /// order. A caller therefore disposes exactly one object and never has to know
 /// that, for example, a KISS session also keeps its own stream wrapper alive
-/// (audit C-01).
+///.
 /// </remarks>
 public interface IPortModem : IAprsModem, IAsyncDisposable
 {
@@ -35,7 +35,7 @@ public interface IPortModem : IAprsModem, IAsyncDisposable
 /// Transport selection lives here rather than in <see cref="PortService"/> so the
 /// session owner deals only with <see cref="IPortModem"/> and every connector is
 /// opened through one code path that receives the caller's cancellation token
-/// (audit P-18).
+///.
 /// </remarks>
 public interface IModemFactory
 {

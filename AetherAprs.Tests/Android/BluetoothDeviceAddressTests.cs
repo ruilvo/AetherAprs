@@ -9,7 +9,7 @@ using Xunit;
 namespace AetherAprs.Tests.Android;
 
 /// <summary>
-/// Regression tests for audit P-19: a malformed Bluetooth address must be
+/// Regression tests: a malformed Bluetooth address must be
 /// rejected before it reaches <c>GetRemoteDevice</c>, which throws
 /// <c>IllegalArgumentException</c> instead of returning null.
 /// </summary>

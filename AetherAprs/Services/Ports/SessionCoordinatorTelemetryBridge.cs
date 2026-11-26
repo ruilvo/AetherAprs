@@ -16,7 +16,7 @@ namespace AetherAprs.Services.Ports;
 /// Transport events fire on modem read loops and must never block them or spawn one
 /// task per packet. The bridge hands every observation to a bounded intake that a
 /// single consumer drains, so a burst degrades into counted drops instead of
-/// unbounded concurrency (roadmap R3.2).
+/// unbounded concurrency.
 /// </remarks>
 public sealed class SessionCoordinatorTelemetryBridge : IAsyncDisposable
 {

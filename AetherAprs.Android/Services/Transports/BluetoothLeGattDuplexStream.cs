@@ -547,7 +547,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                     // Android can report an error status together with Connected
                     // (for example GATT_ERROR 133). Any non-success status must
                     // fail the pending connect, otherwise it waits forever
-                    // (audit P-18).
+                    //.
                     FailConnection(
                         gatt,
                         new IOException(

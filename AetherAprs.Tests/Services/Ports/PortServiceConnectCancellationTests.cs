@@ -23,7 +23,7 @@ using Xunit;
 namespace AetherAprs.Tests.Services.Ports;
 
 /// <summary>
-/// Regression tests for audit P-18: the session start path must forward the
+/// Regression tests: the session start path must forward the
 /// caller's cancellation token through <see cref="IKissStreamFactory"/> to the
 /// Bluetooth connector, so a stuck BLE/RFCOMM connect can be aborted.
 /// </summary>

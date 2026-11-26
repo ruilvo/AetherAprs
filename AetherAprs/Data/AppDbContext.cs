@@ -41,7 +41,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         // Pooling keeps the SQLite file handle open after all contexts are
         // disposed, which prevents deleting database files. Production wants the
         // pool; the test suite disables it so its temporary databases can be
-        // removed (audit T-02).
+        // removed.
         var connectionString = pooling
             ? $"Data Source={databasePath}"
             : $"Data Source={databasePath};Pooling=False";

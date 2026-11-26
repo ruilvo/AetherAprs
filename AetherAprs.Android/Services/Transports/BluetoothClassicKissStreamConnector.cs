@@ -23,7 +23,7 @@ public sealed class BluetoothClassicKissStreamConnector : IKissStreamConnector
     /// <summary>
     /// Upper bound for the blocking RFCOMM connect. Some stacks report a
     /// connection failure only after 10–30 seconds, and a hung peer can block
-    /// indefinitely; the socket is closed when this bound expires (audit P-19).
+    /// indefinitely; the socket is closed when this bound expires.
     /// </summary>
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(20);
 

@@ -11,7 +11,7 @@ using Xunit;
 namespace AetherAprs.Tests.Android;
 
 /// <summary>
-/// Regression tests for audit P-19: a blocking native connect must be bounded
+/// Regression tests: a blocking native connect must be bounded
 /// by a timeout and must observe cancellation instead of blocking the caller.
 /// </summary>
 public sealed class BlockingConnectTimeoutTests

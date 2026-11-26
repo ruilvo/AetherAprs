@@ -25,7 +25,7 @@ internal enum GattConnectionAction
 /// Android may report an error status together with <c>Connected</c> (for
 /// example <c>GATT_ERROR</c> 133). Classifying only <c>Disconnected</c> as a
 /// failure left the ready task pending forever, so any non-success status must
-/// fail the pending connect regardless of the reported state (audit P-18).
+/// fail the pending connect regardless of the reported state.
 /// </remarks>
 internal static class GattConnectionPolicy
 {

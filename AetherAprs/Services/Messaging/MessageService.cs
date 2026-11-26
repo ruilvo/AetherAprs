@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -210,7 +210,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 // One row per logical message: persist on the first attempt, then
                 // only update it from the retry/status path. Storing per attempt
                 // produced up to MaximumRetries x TX-port immortal Pending rows
-                // (audit C-04). The record is still written before the transport
+                //. The record is still written before the transport
                 // call so a crash mid-send can be recovered at startup.
                 if (!persisted)
                 {
@@ -314,7 +314,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private void HandleIncomingMessage(MessagePacket message, Guid portId)
     {
-        // Deduplicate messages: RF↔APRS-IS gating means the same message may arrive
+        // Deduplicate messages: RF?APRS-IS gating means the same message may arrive
         // on multiple ports within seconds. Track recently seen (source, number) pairs.
         if (message.MessageNumber.HasValue && IsDuplicateMessage(message.Source, message.MessageNumber.Value))
         {

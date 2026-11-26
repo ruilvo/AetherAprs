@@ -25,7 +25,7 @@ using Xunit;
 namespace AetherAprs.Tests.Services.Ports;
 
 /// <summary>
-/// Regression tests for audit C-02: supervision must start and stop modems
+/// Regression tests: supervision must start and stop modems
 /// without rewriting the user's persisted <see cref="PortConfig.IsEnabled"/>.
 /// </summary>
 public sealed class PortServiceSessionControllerTests

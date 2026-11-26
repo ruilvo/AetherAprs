@@ -17,7 +17,7 @@ namespace AetherAprs.Services.Ports;
 /// Supervision (reconnect after a transport fault) must never rewrite the port
 /// configuration. <see cref="IPortService.SetPortEnabledAsync"/> persists
 /// <see cref="Configuration.PortConfig.IsEnabled"/>; these members only start and
-/// stop the modem (audit C-02, ADR-001).
+/// stop the modem.
 /// </remarks>
 public interface IPortSessionRuntime
 {

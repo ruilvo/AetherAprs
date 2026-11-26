@@ -316,7 +316,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         }
 
         // Forwarding runs on its own consumer: RF transmit latency must never block
-        // ingest of subsequent packets from any port (audit C-06).
+        // ingest of subsequent packets from any port.
         _digipeatRouter.Enqueue(args.PortId, args.Packet);
     }
 

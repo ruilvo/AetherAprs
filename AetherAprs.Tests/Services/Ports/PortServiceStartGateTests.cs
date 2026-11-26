@@ -23,7 +23,7 @@ using Xunit;
 namespace AetherAprs.Tests.Services.Ports;
 
 /// <summary>
-/// Regression tests for the per-port start gate (audit C-01): two concurrent
+/// Regression tests for the per-port start gate: two concurrent
 /// starts for one port must open exactly one transport stream.
 /// </summary>
 public sealed class PortServiceStartGateTests

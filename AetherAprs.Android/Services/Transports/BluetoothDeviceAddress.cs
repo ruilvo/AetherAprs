@@ -14,7 +14,7 @@ namespace AetherAprs.Android.Services.Transports;
 /// <c>BluetoothAdapter.GetRemoteDevice(string)</c> throws
 /// <c>Java.Lang.IllegalArgumentException</c> for a malformed address instead of
 /// returning <see langword="null"/>, so the format has to be checked first
-/// (audit P-19). Android accepts exactly six colon-separated hexadecimal octets
+///. Android accepts exactly six colon-separated hexadecimal octets
 /// in either case; <see cref="Normalize"/> also upper-cases the result because
 /// that is the canonical form the platform reports.
 /// </remarks>

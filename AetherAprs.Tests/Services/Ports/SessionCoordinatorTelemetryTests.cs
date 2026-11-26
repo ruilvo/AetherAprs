@@ -58,7 +58,7 @@ public sealed class SessionCoordinatorTelemetryTests
             () =>
             {
                 // Poll with plain booleans: an assertion inside this predicate would
-                // throw on the first attempt instead of retrying (audit T-09).
+                // throw on the first attempt instead of retrying.
                 var ports = coordinator.Ports;
                 return ports.Count == 1
                     && ports[0].LastReceiveUtc is not null
@@ -108,7 +108,7 @@ public sealed class SessionCoordinatorTelemetryTests
         var savesAfterTransition = store.SaveCalls;
 
         // A busy feed produces thousands of packets; none of them may trigger a
-        // full session-state rewrite, a UI event or a diagnostic (audit C-03).
+        // full session-state rewrite, a UI event or a diagnostic.
         for (var i = 0; i < 200; i++)
         {
             portService.RaisePacketReceived(new PortPacketReceivedEventArgs

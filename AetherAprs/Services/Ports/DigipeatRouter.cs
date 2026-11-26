@@ -37,7 +37,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     private readonly CancellationTokenSource _disposalCts = new();
 
     // Discards are counted per ingress port so a saturated or blocked forwarding
-    // path is visible instead of silently losing candidates (audit C-06).
+    // path is visible instead of silently losing candidates.
     private readonly ConcurrentDictionary<Guid, long> _discardedCandidates = new();
     private long _enqueuedCandidates;
     private long _forwardedPackets;
@@ -68,7 +68,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         _timeProvider = timeProvider ?? TimeProvider.System;
 
         // Candidates are relayed by their own consumer so a slow RF transmission
-        // never holds up ingest for other ports (audit C-06). TryWrite never blocks,
+        // never holds up ingest for other ports. TryWrite never blocks,
         // so a full queue discards the incoming candidate and counts it instead of
         // silently replacing another one.
         _channel = Channel.CreateBounded<DigipeatCandidate>(new BoundedChannelOptions(Options.QueueCapacity)

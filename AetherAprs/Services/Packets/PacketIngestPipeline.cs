@@ -33,7 +33,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     private readonly CancellationTokenSource _disposalCts = new();
 
     // Inbound drops are counted per ingress port so a saturated or failing ingest
-    // path is visible instead of silently losing packets (audit C-05/C-07).
+    // path is visible instead of silently losing packets.
     private readonly ConcurrentDictionary<Guid, long> _droppedPacketCounts = new();
     private long _enqueuedPackets;
     private long _storedPackets;
@@ -90,7 +90,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
 
         // TryWrite is intentional: this runs on the modem read loop, which must not
         // block on the database. A full queue therefore drops the newest packet and
-        // records it below rather than waiting (audit C-07).
+        // records it below rather than waiting.
         if (_channel.Writer.TryWrite(new QueuedPacket(portId, packet)))
         {
             Interlocked.Increment(ref _enqueuedPackets);
@@ -133,7 +133,7 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
         {
             // Consumers read the database to render, so publishing an unstored
             // packet would make the UI and the store diverge permanently
-            // (audit C-05). Drop it loudly instead.
+            //. Drop it loudly instead.
             RecordDroppedPacket(portId, packet, "Packet could not be persisted.");
             return;
         }

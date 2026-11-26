@@ -547,7 +547,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
         // LastReceiveUtc/LastTransmitUtc are diagnostics, not state. Rewriting the
         // whole session file, raising StateChanged and recording a diagnostic for
         // every received packet saturates the disk on a busy APRS-IS feed, so only
-        // real transitions are published here (audit C-03). Timestamps travel with
+        // real transitions are published here. Timestamps travel with
         // the next transition or the periodic diagnostic flush.
         if (changed)
         {

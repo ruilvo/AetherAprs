@@ -8,7 +8,7 @@ using Xunit;
 namespace AetherAprs.Tests.Android;
 
 /// <summary>
-/// Regression tests for audit P-18: Android can report an error status
+/// Regression tests: Android can report an error status
 /// together with <c>Connected</c> (for example GATT_ERROR 133), and that must
 /// fail the pending connect instead of leaving it waiting forever.
 /// </summary>
