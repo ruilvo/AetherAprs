@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using Android.Bluetooth;
+using AetherAprs.Services.Bluetooth;
 using Java.Util;
 using System;
 using System.IO;
@@ -35,12 +36,6 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     /// <summary>Usable write payload with the default MTU.</summary>
     private const int DefaultPayloadSize = DefaultAttMtu - AttHeaderSize;
 
-    /// <summary>Bounded retries for transient GATT write failures.</summary>
-    private const int MaxWriteAttempts = 4;
-
-    /// <summary>Base delay for write retries; multiplied by the attempt number.</summary>
-    private const int WriteRetryDelayMilliseconds = 50;
-
     /// <summary>ERROR_GATT_WRITE_REQUEST_BUSY: another ATT request is in flight.</summary>
     private const int GattWriteRequestBusyStatus = 129;
 
@@ -50,14 +45,12 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     /// <summary>Bounded wait for the peer/stack to answer the MTU request.</summary>
     private static readonly TimeSpan MtuNegotiationTimeout = TimeSpan.FromSeconds(2);
 
-    /// <summary>Pacing between write-without-response chunks (no ATT-level flow control).</summary>
-    private static readonly TimeSpan NoResponseWritePacing = TimeSpan.FromMilliseconds(20);
-
     private readonly BluetoothGatt _gatt;
     private readonly BluetoothGattCharacteristic _rxCharacteristic;
     private readonly Channel<byte> _rxChannel;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly object _sync = new();
+    private readonly BluetoothLeFrameWriter _frameWriter;
 
     private TaskCompletionSource<GattStatus>? _writeCompletion;
     private bool _writeAbandoned;
@@ -77,6 +70,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         _gatt = gatt;
         _rxCharacteristic = rxCharacteristic;
         _rxChannel = rxChannel;
+        _frameWriter = new BluetoothLeFrameWriter(new GattChunkWriter(this));
     }
 
     public override bool CanRead => !_disposed;
@@ -270,27 +264,19 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         var abandoned = false;
         try
         {
-            var writeType = (_rxCharacteristic.Properties & GattProperty.WriteNoResponse) != 0
-                ? GattWriteType.NoResponse
-                : GattWriteType.Default;
-            var payloadSize = PayloadSize;
-
-            // A whole KISS frame is generally larger than the ATT MTU. Android's
-            // stack truncates an over-MTU write and still reports success, so the
-            // payload must be sliced to the negotiated payload size here.
-            for (var offset = 0; offset < buffer.Length; offset += payloadSize)
+            await _frameWriter.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // A write-with-response whose callback has not arrived keeps the write
+            // gate held, so the next write cannot start before the stale callback is
+            // consumed (CompleteWrite releases the gate in that case).
+            lock (_sync)
             {
-                var chunk = buffer.Slice(offset, Math.Min(payloadSize, buffer.Length - offset));
-                await WriteChunkAsync(chunk, writeType, () => abandoned = true, cancellationToken)
-                    .ConfigureAwait(false);
-
-                if (writeType == GattWriteType.NoResponse && offset + payloadSize < buffer.Length)
-                {
-                    // Write-without-response has no ATT-level flow control; pace
-                    // the burst so the controller does not reject it as busy.
-                    await Task.Delay(NoResponseWritePacing, cancellationToken).ConfigureAwait(false);
-                }
+                abandoned = _writeAbandoned;
             }
+
+            throw;
         }
         finally
         {
@@ -302,105 +288,85 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     }
 
     /// <summary>
-    /// Writes one payload-sized chunk. Write-with-response uses the single
-    /// in-flight <see cref="_writeCompletion"/> protocol per chunk; either write
-    /// type retries transient busy/stack errors with bounded backoff.
+    /// Attempts one payload-sized chunk write. Write-with-response uses the single
+    /// in-flight <see cref="_writeCompletion"/> protocol; slicing, pacing and
+    /// retries are decided by <see cref="BluetoothLeFrameWriter"/>.
     /// </summary>
-    private async Task WriteChunkAsync(
+    private async Task<GattWriteOutcome> WriteChunkOnceAsync(
         ReadOnlyMemory<byte> chunk,
-        GattWriteType writeType,
-        Action markAbandoned,
+        bool withoutResponse,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 1; ; attempt++)
+        var writeType = withoutResponse ? GattWriteType.NoResponse : GattWriteType.Default;
+
+        if (writeType == GattWriteType.Default)
         {
-            if (writeType == GattWriteType.Default)
+            var writeTcs = new TaskCompletionSource<GattStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_sync)
             {
-                var writeTcs = new TaskCompletionSource<GattStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+                _writeCompletion = writeTcs;
+            }
+
+            var startStatus = _gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType);
+            if (startStatus != (int)GattStatus.Success)
+            {
                 lock (_sync)
                 {
-                    _writeCompletion = writeTcs;
-                }
-
-                var startStatus = _gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType);
-                if (startStatus != (int)GattStatus.Success)
-                {
-                    lock (_sync)
+                    if (_writeCompletion == writeTcs)
                     {
-                        if (_writeCompletion == writeTcs)
-                        {
-                            _writeCompletion = null;
-                        }
+                        _writeCompletion = null;
                     }
-
-                    if (IsRetryableWriteStatus(startStatus) && attempt < MaxWriteAttempts)
-                    {
-                        await DelayForWriteRetryAsync(attempt, cancellationToken).ConfigureAwait(false);
-                        continue;
-                    }
-
-                    throw new IOException($"BLE WriteCharacteristic failed to start with status {startStatus}.");
                 }
 
-                GattStatus completedStatus;
-                try
-                {
-                    completedStatus = await writeTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    // The GATT callback for this write has not arrived yet. Keep the
-                    // write gate held so the next write cannot start before the stale
-                    // callback is consumed (CompleteWrite releases the gate in that case).
-                    lock (_sync)
-                    {
-                        if (_writeCompletion == writeTcs)
-                        {
-                            _writeAbandoned = true;
-                            markAbandoned();
-                        }
-                    }
-
-                    throw;
-                }
-
-                if (completedStatus == GattStatus.Success)
-                {
-                    return;
-                }
-
-                if (IsRetryableWriteStatus((int)completedStatus) && attempt < MaxWriteAttempts)
-                {
-                    await DelayForWriteRetryAsync(attempt, cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                throw new IOException($"BLE characteristic write failed with status {completedStatus}.");
+                return ToOutcome(startStatus);
             }
-            else
+
+            GattStatus completedStatus;
+            try
             {
-                var status = _gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType);
-                if (status == (int)GattStatus.Success)
-                {
-                    return;
-                }
-
-                if (IsRetryableWriteStatus(status) && attempt < MaxWriteAttempts)
-                {
-                    await DelayForWriteRetryAsync(attempt, cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                throw new IOException($"BLE WriteCharacteristic (no response) failed to start with status {status}.");
+                completedStatus = await writeTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
             }
+            catch (OperationCanceledException)
+            {
+                lock (_sync)
+                {
+                    if (_writeCompletion == writeTcs)
+                    {
+                        _writeAbandoned = true;
+                    }
+                }
+
+                throw;
+            }
+
+            return ToOutcome((int)completedStatus);
         }
+
+        return ToOutcome(_gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType));
     }
 
-    private static bool IsRetryableWriteStatus(int status) =>
-        status is GattWriteRequestBusyStatus or GattConnectionErrorStatus;
+    private static GattWriteOutcome ToOutcome(int status) => status switch
+    {
+        0 => GattWriteOutcome.Success,
+        GattWriteRequestBusyStatus => GattWriteOutcome.Busy,
+        GattConnectionErrorStatus => GattWriteOutcome.ConnectionError,
+        _ => GattWriteOutcome.Rejected
+    };
 
-    private static Task DelayForWriteRetryAsync(int attempt, CancellationToken cancellationToken) =>
-        Task.Delay(TimeSpan.FromMilliseconds(WriteRetryDelayMilliseconds * attempt), cancellationToken);
+    /// <summary>Exposes the connected characteristic to the frame writer.</summary>
+    private sealed class GattChunkWriter(BluetoothLeGattDuplexStream stream) : IBluetoothLeChunkWriter
+    {
+        public bool SupportsWriteWithoutResponse =>
+            (stream._rxCharacteristic.Properties & GattProperty.WriteNoResponse) != 0;
+
+        public int PayloadSize => stream.PayloadSize;
+
+        public Task<GattWriteOutcome> WriteChunkAsync(
+            ReadOnlyMemory<byte> chunk,
+            bool withoutResponse,
+            CancellationToken cancellationToken) =>
+            stream.WriteChunkOnceAsync(chunk, withoutResponse, cancellationToken);
+    }
 
     /// <summary>Gets the usable write payload size derived from the negotiated ATT MTU.</summary>
     internal int PayloadSize => Volatile.Read(ref _payloadSize);

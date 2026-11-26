@@ -1113,8 +1113,9 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Add native adapter tests for Keystore key loss, audio short writes, audio route
   changes, compass re-entry, and notification icon/action behavior.
 
-> **Status: the scan hand-off is bounded, owned, and filtered by service
-> (2026-11-26); hardware doubles and device validation still open.**
+> **Status: the scan hand-off is bounded, owned, and filtered by service, and the
+> characteristic write path is testable in core (2026-11-26); the RFCOMM double,
+> scanner/native adapter tests and device validation still open.**
 > `AndroidBluetoothLeScanner` wrote every advertisement into an unbounded channel,
 > so a consumer that fell behind let memory grow for the length of the scan. The
 > hand-off now goes through `BluetoothAdvertisementBuffer`, which keeps at most 256
@@ -1149,8 +1150,30 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > `BluetoothLeServiceFilterTests` pins the policy itself, including an advertisement
 > that names both a foreign and a supported service.
 >
-> Still open for this item: the BLE/RFCOMM test doubles, scanner/native adapter
-> tests, and the on-device checks.
+> The characteristic write path is no longer trapped inside the Android stream.
+> `BluetoothLeFrameWriter` in core owns the parts that were easy to get wrong and
+> impossible to test: slicing a frame by the negotiated payload size, pacing
+> consecutive write-without-response chunks, and retrying only the transient GATT
+> statuses (busy and connection error) with a linear backoff. The adapter implements
+> `IBluetoothLeChunkWriter`, which performs exactly one attempt per chunk: the
+> write-with-response confirmation source, the write-without-response start status
+> and the 129/133 status mapping stay where the platform is. Cancellation keeps the
+> original contract — a cancelled wait that may still receive a late callback leaves
+> the write gate held until the callback is consumed, so two frames can never
+> interleave on the characteristic.
+>
+> Tests: `BluetoothLeFrameWriterTests` drives a fake transport through the real write
+> path: the default MTU slices 50 bytes into `20/20/10` and a negotiated 244-byte
+> payload sends 200 bytes in one chunk; a busy status is retried on the same chunk
+> and two consecutive busy answers still succeed; permanent busy fails after exactly
+> four attempts with the outcome named in the message; a rejected status is not
+> retried while a connection error is; cancelling a blocked chunk throws and the
+> remaining chunks are never written; a chunk released late continues the frame; the
+> write mode reaches the transport. Changing the retryable set to only busy makes the
+> connection-error case fail, so the retry rule is pinned.
+>
+> Still open for this item: the RFCOMM double for non-cancellable blocking reads, the
+> scanner/native adapter tests, and the on-device checks.
 
 **R5.4 Android logging and security**
 
@@ -1520,7 +1543,7 @@ report is valid or open. Historical locations and details are in the [audit].
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
 | P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable with a settings-recovery call, one queued prompt with request-id matching replaces the per-kind completion sources, a resumed activity re-reads every grant without prompting, and the Home page shows a banner with a settings shortcut for permissions that need attention, including a dedicated background-location explanation; a repeated on-demand prompt remains. Foreground location is requested; all-time settings flow is distinct. The wake lock is bounded and battery optimization is rechecked; a rejected foreground start rolls back its hold and releases the lease. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
-| P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded, owned and filtered by advertised service, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
+| P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: the BLE scan hand-off is bounded, owned and filtered by advertised service, the characteristic write path (slicing, pacing, transient-status retries) lives in core behind a one-attempt chunk writer and is covered by a fake transport, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |
 | V-01–V-19 | R4/R6.4/R6.8: separate actual policy from legitimate presentation glue; remove duplicate location start (working-tree fix), fix map detach/ownership, virtualize history, validate bindings/fallback and culture. V-11 requires checking actual SDK defaults, V-12 compile item removed, V-13/V-17 fixes landed. Confirm the audit's overlapping converter and time issues individually. |
 
