@@ -52,6 +52,12 @@ public sealed class StoredMessage
     public int MaxRetries { get; set; }
 
     /// <summary>
+    /// True while the message has no enabled TX route; it stays pending instead
+    /// of being marked failed or losing its place.
+    /// </summary>
+    public bool NoRoute { get; set; }
+
+    /// <summary>
     /// Name of the port that last carried the message, when known.
     /// </summary>
     public string? RouteName { get; set; }
@@ -105,6 +111,11 @@ public sealed class StoredMessage
             if (!string.IsNullOrEmpty(RouteName))
             {
                 parts.Add(Localization.Strings.Format("MessageDetailRoute", RouteName));
+            }
+
+            if (NoRoute)
+            {
+                parts.Add(Localization.Strings.Get("MessageDetailNoRoute"));
             }
 
             return string.Join(" · ", parts);

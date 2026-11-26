@@ -269,7 +269,20 @@ public sealed class MessageService : IMessageService, IDisposable
         List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
-            throw new InvalidOperationException("No enabled TX ports available to send message.");
+            // No route is not a terminal failure: the durable record stays pending
+            // and the retry loop picks it up as soon as a TX port is available.
+            lock (_gate)
+            {
+                message.NoRoute = true;
+                message.NextRetryTime = _timeProvider.GetUtcNow().Add(GetBackoff(Math.Max(1, message.RetryCount + 1)));
+            }
+
+            NotifyConversationUpdated(message.Peer);
+            _logger.LogWarning(
+                "No enabled TX port is available; message #{MessageNumber} to {Peer} stays pending",
+                message.MessageNumber,
+                message.Peer);
+            return;
         }
 
         DateTimeOffset now = _timeProvider.GetUtcNow();
@@ -334,6 +347,7 @@ public sealed class MessageService : IMessageService, IDisposable
                     lock (_gate)
                     {
                         message.RouteName = port.Name;
+                        message.NoRoute = false;
                     }
 
                     _logger.LogInformation(
@@ -1076,6 +1090,7 @@ public sealed class MessageService : IMessageService, IDisposable
         List<StoredMessage> staleHistory = [];
 
         AprsSettings settings = _configurationService.Current.Aprs;
+        bool hasTxRoute = _portService.Ports.Any(p => p.IsEnabled && p.IsTx);
 
         foreach (PacketRecord? record in records.OrderBy(p => p.Timestamp).ThenBy(p => p.Id))
         {
@@ -1135,6 +1150,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 DeliveryStatus = status,
                 RetryCount = retryCount,
                 MaxRetries = settings.MessageMaxRetries,
+                NoRoute = record.IsOutbound && !hasTxRoute,
                 NextRetryTime = nextRetryTime
             };
 
@@ -1191,6 +1207,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 DeliveryStatus = snapshot.Status,
                 RetryCount = Math.Max(0, snapshot.AttemptCount - 1),
                 MaxRetries = settings.MessageMaxRetries,
+                NoRoute = !hasTxRoute,
                 NextRetryTime = snapshot.NextAttemptAt
             };
 

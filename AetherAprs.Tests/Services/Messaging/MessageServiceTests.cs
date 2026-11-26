@@ -473,7 +473,7 @@ public sealed class MessageServiceTests
 
 
     [Fact]
-    public async Task SendAsync_EnabledPortWithIsTxFalse_ThrowsNoTxPorts()
+    public async Task SendAsync_EnabledPortWithIsTxFalse_KeepsTheMessagePendingWithoutARoute()
     {
         PortConfig port = new()
         {
@@ -485,8 +485,9 @@ public sealed class MessageServiceTests
             TypeSettings = new AprsIsSettings()
         };
         TestPacketFactory packetFactory = new();
+        FakePortService portService = new(port);
         MessageService service = TestMessageService.Create(
-            new FakePortService(port),
+            portService,
             Substitute.For<IPacketStorageService>(),
             CreateConfiguration("N0CALL"),
             Substitute.For<IAprsPortSettingsResolver>(),
@@ -494,12 +495,22 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken));
+        await service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken);
+
+        StoredMessage stored = Assert.Single(Assert.Single(service.Conversations).Messages);
+        Assert.Equal(MessageDeliveryStatus.Pending, stored.DeliveryStatus);
+        Assert.Null(stored.RouteName);
+        Assert.True(stored.NoRoute);
+        Assert.Empty(portService.SentPackets);
+        Assert.Equal(1, service.PendingOutboundCount);
+        Assert.Contains(
+            Localization.Strings.Get("MessageDetailNoRoute"),
+            stored.DeliveryDetailText,
+            StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task SendAsync_ThrowsWhenNoTxPorts()
+    public async Task SendAsync_WithNoPorts_KeepsOneConversationItemAndSendsNothing()
     {
         FakePortService portService = new();
         TestPacketFactory packetFactory = new();
@@ -512,8 +523,12 @@ public sealed class MessageServiceTests
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken));
+        await service.SendAsync(AprsAddress.FromCallsign(new Callsign("K0OTH")), "Hello", TestContext.Current.CancellationToken);
+
+        StoredMessage stored = Assert.Single(Assert.Single(service.Conversations).Messages);
+        Assert.Equal(MessageDeliveryStatus.Pending, stored.DeliveryStatus);
+        Assert.True(stored.NoRoute);
+        Assert.Empty(portService.SentPackets);
     }
 
     [Fact]
@@ -1129,6 +1144,76 @@ public sealed class MessageServiceTests
             Assert.Equal(MessageDeliveryStatus.Expired, Assert.Single(context.OutboxMessages).Status);
         }
 
+        recovered.Dispose();
+    }
+
+    [Fact]
+    public async Task RestartWithoutARoute_RestoresPendingWork_AndSendsAfterReArm()
+    {
+        using TempAppDatabase database = TempAppDatabase.CreateEmpty();
+        using (AppDbContext setup = database.CreateContext())
+        {
+            setup.Database.EnsureCreated();
+        }
+
+        PortConfig port = CreateTxPort();
+        IConfigurationService configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
+        IAprsPortSettingsResolver resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        TestClock clock = new();
+        await using SqliteRuntimeWriter writer = new(database.Factory);
+        PacketStorageService storage = new(writer, configuration, NullLogger<PacketStorageService>.Instance);
+        SqliteRuntimeReader reader = new(database.Factory);
+        OutboxMessageStore outbox = new(writer, reader, clock, NullLogger<OutboxMessageStore>.Instance);
+        PacketQueryService queryService = new(reader, NullLogger<PacketQueryService>.Instance);
+
+        FakePortService disarmed = new();
+        MessageService firstProcess = new(
+            disarmed,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
+            outbox,
+            outbox,
+            queryService,
+            timeProvider: clock);
+        await firstProcess.SendAsync(
+            AprsAddress.FromCallsign(new Callsign("K0OTH")),
+            "Later",
+            TestContext.Current.CancellationToken);
+        Assert.Empty(disarmed.SentPackets);
+        firstProcess.Dispose();
+
+        clock.Advance(TimeSpan.FromSeconds(RetryTimeoutSeconds));
+
+        FakePortService armed = new(port);
+        MessageService recovered = new(
+            armed,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
+            outbox,
+            outbox,
+            queryService,
+            timeProvider: clock);
+        await recovered.InitializeAsync(TestContext.Current.CancellationToken);
+
+        StoredMessage restored = Assert.Single(Assert.Single(recovered.Conversations).Messages);
+        Assert.Equal(MessageDeliveryStatus.Pending, restored.DeliveryStatus);
+        Assert.False(restored.NoRoute);
+
+        clock.Advance(TimeSpan.FromSeconds(RetryTimeoutSeconds));
+        await armed.WaitForSendCountAsync(1, TestContext.Current.CancellationToken);
+
+        MessagePacket sent = Assert.IsType<MessagePacket>(Assert.Single(armed.SentPackets));
+        Assert.Equal(restored.MessageNumber, sent.MessageNumber);
+        Assert.Equal("Later", sent.Text);
         recovered.Dispose();
     }
 
