@@ -193,6 +193,39 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticSettingsDocumentInFeatureCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Services/Messaging/MessageTemplateService.cs",
+                "private readonly AppSettingsDocument _document;"),
+            Source(
+                "AetherAprs/ViewModels/Pages/SettingsViewModel.cs",
+                "AprsSettingsDocument document = new();")
+        ]);
+
+        Assert.Equal(2, violations.Count);
+        Assert.All(violations, violation => Assert.Equal("A009", violation.RuleId));
+    }
+
+    [Fact]
+    public void Scan_ConfigurationAdapter_MayBindThroughSettingsDocuments()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Services/Configuration/ConfigurationService.cs",
+                "var document = new AppSettingsDocument();"),
+            Source(
+                "AetherAprs/Configuration/Settings/Documents/AppSettingsDocument.cs",
+                "public AprsSettingsDocument Aprs { get; set; } = new();")
+        ]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

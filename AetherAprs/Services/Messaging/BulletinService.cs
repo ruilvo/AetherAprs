@@ -99,7 +99,7 @@ public sealed class BulletinService : IBulletinService
 
     private BulletinPacket BuildPacket(string name, string text)
     {
-        var baseCallsign = _configurationService.Settings.Aprs.Callsign;
+        var baseCallsign = _configurationService.Current.Aprs.Callsign;
         var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
 
         return _packetFactory.CreateBulletinPacket(callsignString, name, text);

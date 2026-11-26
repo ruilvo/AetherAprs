@@ -61,7 +61,7 @@ public class PacketsViewModelTests : TestFixtureBase
                 CustomDisplayTimeRangeHours = 12
             }
         };
-        _configurationService.Settings.Returns(appSettings);
+        _configurationService.Current.Returns(appSettings);
 
         _storedPackets = new List<PacketRecord>();
         _packetQueryService.GetMostRecentPacketsAsync(Arg.Any<int>())

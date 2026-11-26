@@ -37,7 +37,7 @@ public sealed class MapTileSourceService : IMapTileSourceService
     /// <inheritdoc />
     public ILayer CreateBaseMapLayer()
     {
-        var map = _configurationService.GetSettingsSnapshot().Map;
+        var map = _configurationService.Current.Map;
 
         if (map.TileSource == TileSourceType.MbTilesOffline &&
             !string.IsNullOrWhiteSpace(map.MbTilesFilePath))

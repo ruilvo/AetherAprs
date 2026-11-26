@@ -31,10 +31,15 @@ public sealed class ConfigurationServiceTests
             var provider = new TestAppDataDirProvider(directory);
             var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
 
-            service.Settings.Aprs.Callsign = "CT7ALW";
-            service.Settings.Aprs.SymbolTable = SymbolTable.Alternate;
-            service.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
-            await service.SaveSettingsAsync();
+            await service.UpdateAsync(settings => settings with
+            {
+                Aprs = settings.Aprs with
+                {
+                    Callsign = "CT7ALW",
+                    SymbolTable = SymbolTable.Alternate,
+                    SymbolCode = SymbolCode.GreaterThanSign,
+                },
+            }, TestContext.Current.CancellationToken);
 
 #if DEBUG
             var savedPath = Path.Combine(directory, "appsettings.Development.json");
@@ -46,9 +51,9 @@ public sealed class ConfigurationServiceTests
                 "\"SymbolTableCharacter\"",
                 File.ReadAllText(savedPath));
             var reloaded = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
-            Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
-            Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
-            Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
+            Assert.Equal("CT7ALW", reloaded.Current.Aprs.Callsign);
+            Assert.Equal(SymbolTable.Alternate, reloaded.Current.Aprs.SymbolTable);
+            Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Current.Aprs.SymbolCode);
         }
         finally
         {
@@ -67,8 +72,8 @@ public sealed class ConfigurationServiceTests
                 "{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
             var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
-            Assert.Equal(SymbolTable.Primary, service.Settings.Aprs.SymbolTable);
-            Assert.Equal(SymbolCode.LeftSquareBracket, service.Settings.Aprs.SymbolCode);
+            Assert.Equal(SymbolTable.Primary, service.Current.Aprs.SymbolTable);
+            Assert.Equal(SymbolCode.LeftSquareBracket, service.Current.Aprs.SymbolCode);
         }
         finally
         {
@@ -92,12 +97,12 @@ public sealed class ConfigurationServiceTests
                 logger);
 
             // Both invalid values fall back to their defaults...
-            Assert.Equal("N0CALL", service.Settings.Aprs.Callsign);
-            Assert.Equal(AprsSsid.PrimaryStation, service.Settings.Aprs.Ssid);
+            Assert.Equal("N0CALL", service.Current.Aprs.Callsign);
+            Assert.Equal(AprsSsid.PrimaryStation, service.Current.Aprs.Ssid);
 
             // ...without discarding the rest of the document.
-            Assert.Equal(45, service.Settings.Aprs.PacketRetentionDays);
-            Assert.Equal("kept", service.Settings.Aprs.BeaconComment);
+            Assert.Equal(45, service.Current.Aprs.PacketRetentionDays);
+            Assert.Equal("kept", service.Current.Aprs.BeaconComment);
 
             var invalidWarnings = logger.Entries
                 .Where(entry => entry.Level == LogLevel.Warning
@@ -139,7 +144,7 @@ public sealed class ConfigurationServiceTests
             var provider = new TestAppDataDirProvider(directory);
             var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
 
-            var template = Assert.Single(service.Settings.MessageTemplates.Templates);
+            var template = Assert.Single(service.Current.MessageTemplates.Templates);
             Assert.Equal("APRS2SOTA Spot", template.Name);
             Assert.Equal("SOTA", template.Destination);
             Assert.Equal("{summit} {freq} {mode} {comment}", template.Body);
@@ -162,7 +167,7 @@ public sealed class ConfigurationServiceTests
                 "{\"MessageTemplates\":{\"Templates\":[]}}");
             var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
-            Assert.Empty(service.Settings.MessageTemplates.Templates);
+            Assert.Empty(service.Current.MessageTemplates.Templates);
         }
         finally
         {
@@ -184,7 +189,7 @@ public sealed class ConfigurationServiceTests
                 + "{\"Name\":\"summit\",\"Destination\":\"N0CALL-1\",\"Body\":\"y\"}]}}");
             var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
-            var template = Assert.Single(service.Settings.MessageTemplates.Templates);
+            var template = Assert.Single(service.Current.MessageTemplates.Templates);
             Assert.Equal("Summit", template.Name);
             Assert.Equal("SOTA", template.Destination);
             Assert.Equal("{summit} on {freq}", template.Body);
@@ -208,13 +213,12 @@ public sealed class ConfigurationServiceTests
             var service = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
 
             // Default is System (follow OS).
-            Assert.Equal(ThemeMode.System, service.Settings.Theme);
+            Assert.Equal(ThemeMode.System, service.Current.Theme);
 
-            service.Settings.Theme = ThemeMode.Dark;
-            await service.SaveSettingsAsync();
+            await service.UpdateAsync(settings => settings with { Theme = ThemeMode.Dark }, TestContext.Current.CancellationToken);
 
             var reloaded = new ConfigurationService(provider, NullLogger<ConfigurationService>.Instance);
-            Assert.Equal(ThemeMode.Dark, reloaded.Settings.Theme);
+            Assert.Equal(ThemeMode.Dark, reloaded.Current.Theme);
         }
         finally
         {
@@ -223,7 +227,7 @@ public sealed class ConfigurationServiceTests
     }
 
     [Fact]
-    public void GetSettingsSnapshot_ClonesMessageTemplates()
+    public void Snapshot_IsImmutableSoCallersCannotMutateLiveSettings()
     {
         var directory = CreateTemporaryDirectory();
         try
@@ -234,15 +238,25 @@ public sealed class ConfigurationServiceTests
                 + "{\"Name\":\"Spot\",\"Destination\":\"SOTA\",\"Body\":\"hello\"}]}}");
             var service = new ConfigurationService(new TestAppDataDirProvider(directory), NullLogger<ConfigurationService>.Instance);
 
-            var snapshot = service.GetSettingsSnapshot();
-            var cloned = Assert.Single(snapshot.MessageTemplates.Templates);
-            cloned.Name = "Mutated Name";
-            cloned.Destination = "N0CALL-9";
-            cloned.Body = "mutated body";
-            snapshot.MessageTemplates.Templates.Add(
-                new MessageTemplate { Name = "Extra", Destination = "N0CALL", Body = "extra" });
+            var snapshot = service.Current;
+            var template = Assert.Single(snapshot.MessageTemplates.Templates);
+            Assert.Equal("Spot", template.Name);
 
-            var live = Assert.Single(service.Settings.MessageTemplates.Templates);
+            // A replacement built from the snapshot is a new value; the live
+            // snapshot the service published is untouched.
+            _ = snapshot with
+            {
+                MessageTemplates = snapshot.MessageTemplates with
+                {
+                    Templates =
+                    [
+                        .. snapshot.MessageTemplates.Templates,
+                        new MessageTemplate { Name = "Extra", Destination = "N0CALL", Body = "extra" },
+                    ],
+                },
+            };
+
+            var live = Assert.Single(service.Current.MessageTemplates.Templates);
             Assert.Equal("Spot", live.Name);
             Assert.Equal("SOTA", live.Destination);
             Assert.Equal("hello", live.Body);
@@ -254,7 +268,7 @@ public sealed class ConfigurationServiceTests
     }
 
     [Fact]
-    public async Task UpdateSettingsAsync_SerializesConcurrentPartialUpdates()
+    public async Task UpdateAsync_SerializesConcurrentPartialUpdates()
     {
         using var fixture = new ConfigurationFixture();
         var firstEntered = new TaskCompletionSource(
@@ -263,21 +277,24 @@ public sealed class ConfigurationServiceTests
             TaskCreationOptions.RunContinuationsAsynchronously);
 
         var cancellationToken = TestContext.Current.CancellationToken;
-        var first = Task.Run(() => fixture.Service.UpdateSettingsAsync(settings =>
+        var first = Task.Run(() => fixture.Service.UpdateAsync(settings =>
         {
-            settings.Aprs.Callsign = "FIRST";
             firstEntered.SetResult();
             releaseFirst.Task.WaitAsync(TestTimeouts.TestTimeout, cancellationToken)
                 .GetAwaiter().GetResult();
-        }), cancellationToken);
 
-        var second = Task.CompletedTask;
+            return settings with { Aprs = settings.Aprs with { Callsign = "FIRST" } };
+        }, cancellationToken), cancellationToken);
+
+        Task second = Task.CompletedTask;
         try
         {
             await firstEntered.Task.WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
-            second = fixture.Service.UpdateSettingsAsync(settings => settings.Theme = ThemeMode.Dark);
+            second = fixture.Service.UpdateAsync(
+                settings => settings with { Theme = ThemeMode.Dark },
+                cancellationToken);
             Assert.False(second.IsCompleted);
-            Assert.Equal("N0CALL", fixture.Service.GetSettingsSnapshot().Aprs.Callsign);
+            Assert.Equal("N0CALL", fixture.Service.Current.Aprs.Callsign);
         }
         finally
         {
@@ -286,27 +303,26 @@ public sealed class ConfigurationServiceTests
         }
 
         using var reloaded = fixture.Reload();
-        Assert.Equal("FIRST", reloaded.Settings.Aprs.Callsign);
-        Assert.Equal(ThemeMode.Dark, reloaded.Settings.Theme);
+        Assert.Equal("FIRST", reloaded.Current.Aprs.Callsign);
+        Assert.Equal(ThemeMode.Dark, reloaded.Current.Theme);
     }
 
     [Fact]
-    public async Task UpdateSettingsAsync_WhenPatchThrows_LeavesCommittedSettingsUnchanged()
+    public async Task UpdateAsync_WhenTransformThrows_LeavesCommittedSettingsUnchanged()
     {
         using var fixture = new ConfigurationFixture();
         var changes = 0;
         fixture.Service.SettingsChanged += (_, _) => changes++;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            fixture.Service.UpdateSettingsAsync(settings =>
+            fixture.Service.UpdateAsync(settings =>
             {
-                settings.Theme = ThemeMode.Dark;
                 throw new InvalidOperationException("Patch failed.");
-            }).WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
+            }, TestContext.Current.CancellationToken).WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken));
 
         using var reloaded = fixture.Reload();
-        Assert.Equal(ThemeMode.System, fixture.Service.Settings.Theme);
-        Assert.Equal(ThemeMode.System, reloaded.Settings.Theme);
+        Assert.Equal(ThemeMode.System, fixture.Service.Current.Theme);
+        Assert.Equal(ThemeMode.System, reloaded.Current.Theme);
         Assert.Equal(0, changes);
     }
 

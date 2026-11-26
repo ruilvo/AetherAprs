@@ -40,7 +40,7 @@ public class DigipeaterService(
         bool sourcePortIsAprsIs,
         IReadOnlyList<PortInfo> availablePorts)
     {
-        var settings = configurationService.Settings.Aprs;
+        var settings = configurationService.Current.Aprs;
 
         // Check if digipeater is globally enabled
         if (!settings.EnableDigipeater)

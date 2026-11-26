@@ -115,7 +115,7 @@ public sealed class ObjectService : IObjectService
         bool isLive,
         string? comment)
     {
-        var baseCallsign = _configurationService.Settings.Aprs.Callsign;
+        var baseCallsign = _configurationService.Current.Aprs.Callsign;
         var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
 
         return _packetFactory.CreateObjectPacket(

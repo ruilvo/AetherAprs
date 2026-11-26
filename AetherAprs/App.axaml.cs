@@ -299,7 +299,7 @@ public partial class App : Application, IDisposable
     /// </summary>
     private void ApplyRequestedThemeVariant()
     {
-        var themeMode = ServiceProvider.GetRequiredService<IConfigurationService>().Settings.Theme;
+        var themeMode = ServiceProvider.GetRequiredService<IConfigurationService>().Current.Theme;
         ApplyThemeMode(themeMode);
     }
 

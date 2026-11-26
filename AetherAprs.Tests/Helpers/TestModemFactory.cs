@@ -11,6 +11,7 @@ using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Tests.Helpers;
@@ -48,16 +49,14 @@ internal static class TestModemFactory
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
 
-        public AppSettings Settings { get; } = new();
+        public AppSettings Current { get; set; } = new();
 
-        public Task SaveSettingsAsync() => Task.CompletedTask;
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        public Task<AppSettings> UpdateAsync(
+            Func<AppSettings, AppSettings> update,
+            CancellationToken cancellationToken = default)
         {
-            updateAction(Settings);
-            return Task.CompletedTask;
+            Current = update(Current);
+            return Task.FromResult(Current);
         }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
     }
 }

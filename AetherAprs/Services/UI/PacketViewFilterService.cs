@@ -65,7 +65,7 @@ public sealed class PacketViewFilterService : IPacketViewFilterService, IDisposa
 
     public DateTimeOffset? GetCutoffTime()
     {
-        var aprs = _configurationService.Settings.Aprs;
+        var aprs = _configurationService.Current.Aprs;
         var cutoffTime = CalculateCutoffTime(aprs.DisplayTimeRange, aprs.CustomDisplayTimeRangeHours);
 
         // If LoadHistoryOnStartup is false, use session start time as floor

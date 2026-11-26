@@ -38,11 +38,11 @@ public sealed class MessageTemplateService : IMessageTemplateService
     }
 
     public IReadOnlyList<MessageTemplate> Templates =>
-        _configurationService.Settings.MessageTemplates.Templates.ToArray();
+        _configurationService.Current.MessageTemplates.Templates.ToArray();
 
     public MessageTemplate? GetByName(string name)
     {
-        return _configurationService.Settings.MessageTemplates.Templates
+        return _configurationService.Current.MessageTemplates.Templates
             .FirstOrDefault(template => string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -54,31 +54,56 @@ public sealed class MessageTemplateService : IMessageTemplateService
             throw new ArgumentException("Template name must not be null or blank.", nameof(messageTemplate));
         }
 
-        await _configurationService.UpdateSettingsAsync(settings =>
-            settings.MessageTemplates.Templates.Add(messageTemplate));
+        await _configurationService.UpdateAsync(settings => settings with
+        {
+            MessageTemplates = settings.MessageTemplates with
+            {
+                Templates = [.. settings.MessageTemplates.Templates, messageTemplate],
+            },
+        }, cancellationToken);
     }
 
     public async Task UpdateAsync(string originalName, MessageTemplate messageTemplate, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(messageTemplate);
 
-        await _configurationService.UpdateSettingsAsync(settings =>
+        await _configurationService.UpdateAsync(settings =>
         {
-            var templates = settings.MessageTemplates.Templates;
-            var index = templates.FindIndex(existing =>
-                string.Equals(existing.Name, originalName, StringComparison.OrdinalIgnoreCase));
-            if (index >= 0)
+            var templates = settings.MessageTemplates.Templates.ToArray();
+            var index = Array.FindIndex(
+                templates,
+                existing => string.Equals(existing.Name, originalName, StringComparison.OrdinalIgnoreCase));
+
+            if (index < 0)
             {
-                templates[index] = messageTemplate;
+                return settings;
             }
-        });
+
+            templates[index] = messageTemplate;
+
+            return settings with
+            {
+                MessageTemplates = settings.MessageTemplates with
+                {
+                    Templates = templates,
+                },
+            };
+        }, cancellationToken);
     }
 
     public async Task DeleteAsync(string name, CancellationToken cancellationToken = default)
     {
-        await _configurationService.UpdateSettingsAsync(settings =>
-            settings.MessageTemplates.Templates.RemoveAll(template =>
-                string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase)));
+        await _configurationService.UpdateAsync(settings => settings with
+        {
+            MessageTemplates = settings.MessageTemplates with
+            {
+                Templates =
+                [
+                    .. settings.MessageTemplates.Templates.Where(template =>
+                        !string.Equals(template.Name, name, StringComparison.OrdinalIgnoreCase)),
+                ],
+            },
+        }, cancellationToken);
     }
 
     public IReadOnlyList<string> GetPlaceholderNames(string body)
@@ -128,7 +153,7 @@ public sealed class MessageTemplateService : IMessageTemplateService
 
     public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(Callsign peer)
     {
-        return _configurationService.Settings.MessageTemplates.Templates
+        return _configurationService.Current.MessageTemplates.Templates
             .Where(template =>
                 Callsign.TryParse(template.Destination, out var destination)
                 && destination.Base == peer.Base)

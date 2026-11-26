@@ -124,7 +124,7 @@ public sealed class ModemFactory(
         // The settings type validates the callsign when it is set, so the value
         // here is already a well-formed station identity or the modem start fails
         // with the same validation error the operator sees elsewhere.
-        var aprs = configurationService.GetSettingsSnapshot().Aprs;
+        var aprs = configurationService.Current.Aprs;
         var ssid = (int)aprs.Ssid;
         return new Callsign(aprs.Callsign, ssid > 0 ? ssid : null);
     }

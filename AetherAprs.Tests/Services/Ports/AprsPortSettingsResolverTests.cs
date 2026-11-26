@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Models;
@@ -20,7 +22,7 @@ public class AprsPortSettingsResolverTests
     public void GetSsid_ReturnsDefaultSsidWhenPositive()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.Ssid = (AprsSsid)3;
+        config.Current = config.Current with { Aprs = config.Current.Aprs with { Ssid = (AprsSsid)3 } };
         var resolver = CreateResolver(config);
 
         Assert.Equal(3, resolver.GetSsid());
@@ -39,7 +41,7 @@ public class AprsPortSettingsResolverTests
     public void GetCallsign_AppendsSsidWhenPositive()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.Ssid = (AprsSsid)7;
+        config.Current = config.Current with { Aprs = config.Current.Aprs with { Ssid = (AprsSsid)7 } };
         var resolver = CreateResolver(config);
 
         Assert.Equal("N0CALL-7", resolver.GetCallsign("N0CALL"));
@@ -58,7 +60,7 @@ public class AprsPortSettingsResolverTests
     public void GetSymbolTable_ReturnsDefault()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.SymbolTable = AetherAprs.Models.Aprs.SymbolTable.Alternate;
+        config.Current = config.Current with { Aprs = config.Current.Aprs with { SymbolTable = AetherAprs.Models.Aprs.SymbolTable.Alternate } };
         var resolver = CreateResolver(config);
 
         Assert.Equal(AetherAprs.Models.Aprs.SymbolTable.Alternate, resolver.GetSymbolTable());
@@ -68,7 +70,7 @@ public class AprsPortSettingsResolverTests
     public void GetSymbolCode_ReturnsDefault()
     {
         var config = CreateConfiguration();
-        config.Settings.Aprs.SymbolCode = SymbolCode.LatinSmallLetterK;
+        config.Current = config.Current with { Aprs = config.Current.Aprs with { SymbolCode = SymbolCode.LatinSmallLetterK } };
         var resolver = CreateResolver(config);
 
         Assert.Equal(SymbolCode.LatinSmallLetterK, resolver.GetSymbolCode());
@@ -90,16 +92,14 @@ public class AprsPortSettingsResolverTests
 #pragma warning disable CS0067 // Event is never used in this test double
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
-        public AppSettings Settings { get; } = new();
+        public AppSettings Current { get; set; } = new();
 
-        public System.Threading.Tasks.Task SaveSettingsAsync() => System.Threading.Tasks.Task.CompletedTask;
-
-        public System.Threading.Tasks.Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        public Task<AppSettings> UpdateAsync(
+            Func<AppSettings, AppSettings> update,
+            CancellationToken cancellationToken = default)
         {
-            updateAction(Settings);
-            return System.Threading.Tasks.Task.CompletedTask;
+            Current = update(Current);
+            return Task.FromResult(Current);
         }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
     }
 }

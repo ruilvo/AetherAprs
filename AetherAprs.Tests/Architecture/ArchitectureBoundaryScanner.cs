@@ -9,8 +9,8 @@ using System.Linq;
 namespace AetherAprs.Tests.Architecture;
 
 /// <summary>
-/// Enforces the persistence and presentation ownership boundaries described in
-/// the architecture roadmap (work item R0.2).
+/// Enforces the persistence, resource ownership, and presentation boundaries
+/// described in the architecture roadmap (work items R0.2 through R3).
 /// </summary>
 /// <remarks>
 /// The scan runs over the production source tree rather than compiled metadata so
@@ -101,6 +101,21 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/DesignData.cs"
     };
 
+    /// <summary>
+    /// Files permitted to name a settings document. Binding documents exist only so
+    /// the configuration provider can assign values key by key; every other caller
+    /// reads the immutable snapshot instead.
+    /// </summary>
+    private static readonly HashSet<string> SettingsDocumentOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Configuration/Settings/Documents/AppSettingsDocument.cs",
+        "AetherAprs/Configuration/Settings/Documents/AprsSettingsDocument.cs",
+        "AetherAprs/Configuration/Settings/Documents/MapSettingsDocument.cs",
+        "AetherAprs/Configuration/Settings/Documents/MessageTemplatesSettingsDocument.cs",
+        "AetherAprs/Configuration/Settings/Documents/MessageTemplateDocument.cs",
+        "AetherAprs/Services/Configuration/ConfigurationService.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -152,7 +167,16 @@ internal static class ArchitectureBoundaryScanner
             "A008",
             "Keep-alive transitions are serialized by IKeepAliveService; feature code holds a reason instead of driving the platform foreground service.",
             ["IForegroundService"],
-            ForegroundServiceOwners)
+            ForegroundServiceOwners),
+
+        new ArchitectureRule(
+            "A009",
+            "Settings documents exist only while the configuration adapter binds values; every other caller reads the immutable snapshot.",
+            [
+                "AppSettingsDocument", "AprsSettingsDocument", "MapSettingsDocument",
+                "MessageTemplatesSettingsDocument", "MessageTemplateDocument"
+            ],
+            SettingsDocumentOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>

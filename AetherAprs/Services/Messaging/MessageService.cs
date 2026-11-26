@@ -128,7 +128,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
         var messageNumber = Interlocked.Increment(ref _nextMessageNumber);
         var timestamp = DateTimeOffset.UtcNow;
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         var stored = new StoredMessage
         {
@@ -179,7 +179,7 @@ public sealed class MessageService : IMessageService, IDisposable
             throw new InvalidOperationException("No enabled TX ports available to send message.");
         }
 
-        var baseCallsign = _configurationService.Settings.Aprs.Callsign;
+        var baseCallsign = _configurationService.Current.Aprs.Callsign;
         Exception? lastError = null;
         var sent = 0;
         var persisted = false;
@@ -250,7 +250,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private async Task SendAckAsync(AprsAddress addressee, int messageNumber, Guid? portId)
     {
-        var baseCallsign = _configurationService.Settings.Aprs.Callsign;
+        var baseCallsign = _configurationService.Current.Aprs.Callsign;
         var callsignString = _portSettingsResolver.GetCallsign(baseCallsign);
 
         var packet = _packetFactory.CreateAckPacket(callsignString, addressee, messageNumber);
@@ -282,7 +282,7 @@ public sealed class MessageService : IMessageService, IDisposable
 
     private void OnPacketReceived(object? sender, PortPacketReceivedEventArgs e)
     {
-        var ownBase = _configurationService.Settings.Aprs.Callsign.Trim().ToUpperInvariant();
+        var ownBase = _configurationService.Current.Aprs.Callsign.Trim().ToUpperInvariant();
 
         if (e.Packet is MessagePacket message)
         {
@@ -369,7 +369,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         // Auto-send ACK if enabled and message has a number
-        if (_configurationService.Settings.Aprs.AutoAcknowledgeMessages && message.MessageNumber.HasValue)
+        if (_configurationService.Current.Aprs.AutoAcknowledgeMessages && message.MessageNumber.HasValue)
         {
             _ = SendAckAsync(peer, message.MessageNumber.Value, portId);
         }
@@ -448,7 +448,7 @@ public sealed class MessageService : IMessageService, IDisposable
         }
 
         var now = DateTimeOffset.UtcNow;
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
         List<StoredMessage> toRetry = [];
         List<StoredMessage> timedOut = [];
 
@@ -677,7 +677,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 stored.DeliveryStatus == MessageDeliveryStatus.Pending)
             {
                 stored.NextRetryTime ??= stored.Timestamp.AddSeconds(
-                    _configurationService.Settings.Aprs.MessageRetryTimeoutSeconds);
+                    _configurationService.Current.Aprs.MessageRetryTimeoutSeconds);
                 _pendingMessages[stored.MessageNumber.Value] = stored;
             }
 

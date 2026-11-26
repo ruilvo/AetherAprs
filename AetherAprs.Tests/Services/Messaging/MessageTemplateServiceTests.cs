@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Models.Aprs;
@@ -17,18 +18,33 @@ namespace AetherAprs.Tests.Services.Messaging;
 
 public sealed class MessageTemplateServiceTests
 {
-    private readonly AppSettings _settings = new();
+    private AppSettings _settings = new();
     private readonly MessageTemplateService _service;
 
     public MessageTemplateServiceTests()
     {
         var configurationService = Substitute.For<IConfigurationService>();
-        configurationService.Settings.Returns(_settings);
+        configurationService.Current.Returns(_ => _settings);
         configurationService
-            .UpdateSettingsAsync(Arg.Do<Action<AppSettings>>(updateAction => updateAction(_settings)))
-            .Returns(Task.CompletedTask);
+            .UpdateAsync(
+                Arg.Any<Func<AppSettings, AppSettings>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                _settings = call.Arg<Func<AppSettings, AppSettings>>()(_settings);
+                return Task.FromResult(_settings);
+            });
         _service = new MessageTemplateService(configurationService);
     }
+
+    private void AddTemplate(MessageTemplate template) =>
+        _settings = _settings with
+        {
+            MessageTemplates = _settings.MessageTemplates with
+            {
+                Templates = [.. _settings.MessageTemplates.Templates, template],
+            },
+        };
 
     [Fact]
     public async Task AddAsync_AppendsTemplate()
@@ -58,9 +74,9 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public async Task UpdateAsync_ReplacesByName()
     {
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Old", Destination = "SOTA", Body = "old body" });
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Other", Destination = "N0CALL", Body = "other body" });
         var replacement = new MessageTemplate { Name = "New", Destination = "SOTA", Body = "new body" };
 
@@ -75,7 +91,7 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public async Task UpdateAsync_NoOp_WhenNameNotFound()
     {
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Existing", Destination = "SOTA", Body = "existing" });
 
         await _service.UpdateAsync(
@@ -90,9 +106,9 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public async Task DeleteAsync_RemovesByName()
     {
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "spot" });
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Other", Destination = "N0CALL", Body = "other" });
 
         await _service.DeleteAsync("spot", TestContext.Current.CancellationToken);
@@ -104,7 +120,7 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public async Task DeleteAsync_NoOp_WhenNameNotFound()
     {
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Existing", Destination = "SOTA", Body = "existing" });
 
         await _service.DeleteAsync("Missing", TestContext.Current.CancellationToken);
@@ -180,9 +196,9 @@ public sealed class MessageTemplateServiceTests
     public void GetTemplatesForPeer_MatchesBaseIgnoringSsid()
     {
         Assert.True(Callsign.TryParse("SOTA-1", out var peer));
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Sota", Destination = "SOTA", Body = "x" });
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Other", Destination = "OTHER", Body = "y" });
 
         var result = _service.GetTemplatesForPeer(peer);
@@ -194,7 +210,7 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void GetByName_ReturnsCaseInsensitiveMatch()
     {
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "x" });
 
         var match = _service.GetByName("spot");
@@ -207,7 +223,7 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void Templates_ReturnsDefensiveCopy()
     {
-        _settings.MessageTemplates.Templates.Add(
+        AddTemplate(
             new MessageTemplate { Name = "Spot", Destination = "SOTA", Body = "x" });
 
         var templates = _service.Templates;

@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -7,7 +7,13 @@ using System.Text.Json.Serialization;
 
 namespace AetherAprs.Configuration.Settings;
 
-public class AppSettings
+/// <summary>
+/// The complete application configuration. Instances are immutable snapshots:
+/// callers read the published instance from
+/// <see cref="Services.Configuration.IConfigurationService.Current"/> and produce
+/// a replacement with <see cref="Services.Configuration.IConfigurationService.UpdateAsync"/>.
+/// </summary>
+public sealed record AppSettings
 {
     /// <summary>
     /// On-disk schema version of this settings document.
@@ -18,18 +24,31 @@ public class AppSettings
     /// <see cref="SettingsSchema.LegacyUnversionedVersion"/>.
     /// </remarks>
     [JsonPropertyName(SettingsSchema.VersionPropertyName)]
-    public int SchemaVersion { get; set; } = SettingsSchema.CurrentVersion;
-
-    public LoggerFilterOptions Logging { get; set; } = new();
-
-    public AprsSettings Aprs { get; set; } = new();
-
-    public MessageTemplatesSettings MessageTemplates { get; set; } = new();
-
-    public MapSettings Map { get; set; } = new();
+    public int SchemaVersion { get; init; } = SettingsSchema.CurrentVersion;
 
     /// <summary>
-    /// The application color theme. Defaults to following the operating system.
+    /// Provider logging model. The logging builder owns its behavior; this
+    /// snapshot only carries it so a save does not drop the section.
     /// </summary>
-    public ThemeMode Theme { get; set; } = ThemeMode.System;
+    public LoggerFilterOptions Logging { get; init; } = new();
+
+    /// <summary>
+    /// Gets the station identity and APRS behavior.
+    /// </summary>
+    public AprsSettings Aprs { get; init; } = new();
+
+    /// <summary>
+    /// Gets the user-defined quick message templates.
+    /// </summary>
+    public MessageTemplatesSettings MessageTemplates { get; init; } = new();
+
+    /// <summary>
+    /// Gets the map display settings.
+    /// </summary>
+    public MapSettings Map { get; init; } = new();
+
+    /// <summary>
+    /// Gets the application color theme. Defaults to following the operating system.
+    /// </summary>
+    public ThemeMode Theme { get; init; } = ThemeMode.System;
 }

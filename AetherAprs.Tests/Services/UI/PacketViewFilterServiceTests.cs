@@ -20,10 +20,15 @@ public sealed class PacketViewFilterServiceTests
     public void GetCutoffTime_UsesDisplayTimeRange_WhenLoadHistoryOnStartupEnabled()
     {
         var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings();
-        settings.Aprs.DisplayTimeRange = PacketDisplayTimeRange.LastWeek;
-        settings.Aprs.LoadHistoryOnStartup = true;
-        configuration.Settings.Returns(settings);
+        var settings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                DisplayTimeRange = PacketDisplayTimeRange.LastWeek,
+                LoadHistoryOnStartup = true,
+            },
+        };
+        configuration.Current.Returns(settings);
 
         using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
 
@@ -37,10 +42,15 @@ public sealed class PacketViewFilterServiceTests
     public void GetCutoffTime_ReturnsNull_WhenTimeRangeIsAllAndHistoryEnabled()
     {
         var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings();
-        settings.Aprs.DisplayTimeRange = PacketDisplayTimeRange.All;
-        settings.Aprs.LoadHistoryOnStartup = true;
-        configuration.Settings.Returns(settings);
+        var settings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                DisplayTimeRange = PacketDisplayTimeRange.All,
+                LoadHistoryOnStartup = true,
+            },
+        };
+        configuration.Current.Returns(settings);
 
         using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
 
@@ -51,10 +61,15 @@ public sealed class PacketViewFilterServiceTests
     public void GetCutoffTime_ReturnsSessionStart_WhenLoadHistoryOnStartupDisabled()
     {
         var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings();
-        settings.Aprs.DisplayTimeRange = PacketDisplayTimeRange.All;
-        settings.Aprs.LoadHistoryOnStartup = false;
-        configuration.Settings.Returns(settings);
+        var settings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                DisplayTimeRange = PacketDisplayTimeRange.All,
+                LoadHistoryOnStartup = false,
+            },
+        };
+        configuration.Current.Returns(settings);
 
         var before = DateTimeOffset.UtcNow;
         using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
@@ -68,10 +83,15 @@ public sealed class PacketViewFilterServiceTests
     public void GetCutoffTime_ReturnsSessionStart_WhenSessionStartIsMoreRecentThanRange()
     {
         var configuration = Substitute.For<IConfigurationService>();
-        var settings = new AppSettings();
-        settings.Aprs.DisplayTimeRange = PacketDisplayTimeRange.LastMonth;
-        settings.Aprs.LoadHistoryOnStartup = false;
-        configuration.Settings.Returns(settings);
+        var settings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                DisplayTimeRange = PacketDisplayTimeRange.LastMonth,
+                LoadHistoryOnStartup = false,
+            },
+        };
+        configuration.Current.Returns(settings);
 
         var before = DateTimeOffset.UtcNow;
         using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
@@ -108,7 +128,7 @@ public sealed class PacketViewFilterServiceTests
     public void SettingsChanged_RaisesFiltersChanged()
     {
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings());
+        configuration.Current.Returns(new AppSettings());
         using var service = new PacketViewFilterService(configuration, Substitute.For<IPortService>());
 
         var raised = 0;

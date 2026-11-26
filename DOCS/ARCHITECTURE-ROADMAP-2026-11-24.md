@@ -354,7 +354,8 @@ Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
 `A005` (modem handle ownership), `A006` (no bulk start-all path), `A007`
 (bounded queues need a named owner) and `A008` (keep-alive transitions belong to
 `IKeepAliveService`), the last four added alongside the port runtime and
-keep-alive work items `R2.2`, `R2.3` and `R2.4`. The
+keep-alive work items `R2.2`, `R2.3` and `R2.4`, plus `A009` (settings documents
+stay inside the configuration adapter, added with `R3.1`). The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -684,6 +685,57 @@ compatibility façade is still needed.
 - Remove synchronous save and blocking semaphore waits.
 - Preserve newer schemas as read-only.
 - Add migration, invalid-field, backup-retention, and concurrent-update tests.
+
+> **Status: implemented.** Settings are now an immutable snapshot graph:
+> `AppSettings`, `AprsSettings`, `MapSettings`, `MessageTemplatesSettings` and
+> `MessageTemplate` are sealed records with `init` accessors and read-only
+> collections, so a caller cannot mutate live configuration and a `with`
+> expression is the only way to describe a change. `IConfigurationService`
+> exposes `Current` plus `UpdateAsync(Func<AppSettings, AppSettings>)`; the
+> mutable `Settings` property, the synchronous `SaveSettingsAsync`, the
+> `GetSettingsSnapshot` clone and the `UpdateSettingsAsync` action overload are
+> gone, and every former caller now states a transform (the settings page
+> rewrites its auto-save handlers, the message template service replaces a list
+> entry instead of editing one).
+>
+> `UpdateAsync` takes one asynchronous gate, runs the transform against the
+> committed snapshot, writes the result and only then publishes it. The write is
+> therefore durable-first: a failed save leaves `Current` untouched and raises no
+> `SettingsChanged`, and two concurrent partial updates observe each other's
+> result in the order their transforms run rather than overwriting one another.
+> A transform that returns `null` or throws aborts the update with the committed
+> snapshot intact. No blocking wait remains on the save path.
+>
+> Binding is the one place that needs settable state, so the configuration
+> adapter still binds key by key into internal documents under
+> `Configuration/Settings/Documents`. Keeping them separate is what let the
+> public graph become immutable without losing the loader's behaviour: the
+> per-key `ConfigurationBinder` call and its try/catch still skip one bad value
+> and keep the rest, because the document keeps the validating setters. A
+> document converts once through `ToSettings()`, and the snapshot is the only
+> shape the rest of the application sees. Schema versioning is unchanged:
+> migrations still run before binding, the file is backed up when the version
+> changes, and a document newer than this build is read-only, so `UpdateAsync`
+> refuses before invoking the transform and logs the refusal instead of
+> downgrading the file.
+>
+> Validation lives in one `SettingsValidation` helper that both the document
+> setters and the record accessors call, so a value assigned through `with` is
+> rejected exactly like a value read from the file. The callsign normalises to
+> upper case and rejects blank, over-long and non-alphanumeric input; SSID,
+> symbol table, symbol code and overlay reject undefined enum values.
+>
+> Tests: `ConfigurationSnapshotTests` guards the two graphs against drift by
+> reflection, failing if any public property on a snapshot type has a setter or
+> if a document stops carrying a snapshot property. `AprsSettingsTests` covers
+> blank and malformed callsigns, each undefined enum, upper-casing, and that
+> `with` leaves the original snapshot unchanged. `ConfigurationServiceTests`
+> covers an immutable snapshot that a caller cannot tamper with through
+> `Current`, serialised concurrent partial updates, and a throwing transform
+> that leaves the committed snapshot unchanged. `SettingsVersioningTests` covers
+> migration round-tripping, backup retention and the read-only refusal, which now
+> asserts no snapshot change and a single warning naming `UpdateAsync`. A009
+> confines the document types to the configuration adapter and their own folder.
 
 **R3.2 Session coordinator**
 

@@ -73,7 +73,7 @@ public sealed class MapTileSourceServiceTests
     private static MapTileSourceService CreateService(TileSourceType tileSource, string mbTilesFilePath)
     {
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.GetSettingsSnapshot().Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Map = new MapSettings
             {

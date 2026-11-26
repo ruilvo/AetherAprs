@@ -199,10 +199,13 @@ public partial class DownloadOfflineMapViewModel : ViewModelBase, IDisposable
             await _downloader.DownloadRegionAsync(region, outputPath, progress, _downloadCts.Token)
                 .ConfigureAwait(false);
 
-            await _configurationService.UpdateSettingsAsync(settings =>
+            await _configurationService.UpdateAsync(settings => settings with
             {
-                settings.Map.TileSource = Configuration.TileSourceType.MbTilesOffline;
-                settings.Map.MbTilesFilePath = outputPath;
+                Map = settings.Map with
+                {
+                    TileSource = Configuration.TileSourceType.MbTilesOffline,
+                    MbTilesFilePath = outputPath,
+                },
             }).ConfigureAwait(false);
 
             ProgressPercent = 100;

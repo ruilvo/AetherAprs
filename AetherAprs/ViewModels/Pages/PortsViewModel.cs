@@ -129,7 +129,7 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
         _logger.LogInformation("Edit port {PortName} ({PortId})", item.Name, item.Id);
         var config = item.BuildConfig();
         var vm = _addEditPortViewModelFactory.CreateForEdit(
-            _configurationService.Settings.Aprs.Callsign,
+            _configurationService.Current.Aprs.Callsign,
             GetNextPortNumber(),
             config);
         _navigationService.NavigateTo(vm);
@@ -140,7 +140,7 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     {
         _logger.LogInformation("Add port requested");
         var vm = _addEditPortViewModelFactory.CreateForAdd(
-            _configurationService.Settings.Aprs.Callsign,
+            _configurationService.Current.Aprs.Callsign,
             GetNextPortNumber());
         _navigationService.NavigateTo(vm);
     }

@@ -40,8 +40,8 @@ public sealed class SettingsViewModelTests
         // Wait for async save to complete deterministically
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
-        Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
-        Assert.True(configuration.SaveCount > 0);
+        Assert.Equal("CT7ALW", configuration.Current.Aprs.Callsign);
+        Assert.True(configuration.UpdateCount > 0);
         Assert.Equal(1, configuration.UpdateCount);
     }
 
@@ -66,15 +66,14 @@ public sealed class SettingsViewModelTests
         viewModel.SymbolCodeCharacter = ">";
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
-        Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
+        Assert.Equal("CT7ALW", configuration.Current.Aprs.Callsign);
         Assert.Equal(
             AetherAprs.Models.Aprs.AprsSsid.HumanPortable,
-            configuration.Settings.Aprs.Ssid);
+            configuration.Current.Aprs.Ssid);
         Assert.Equal(
             AetherAprs.Models.Aprs.SymbolTable.Alternate,
-            configuration.Settings.Aprs.SymbolTable);
-        Assert.Equal(SymbolCode.GreaterThanSign, configuration.Settings.Aprs.SymbolCode);
-        Assert.True(configuration.SaveCount >= 4);
+            configuration.Current.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, configuration.Current.Aprs.SymbolCode);
         Assert.Equal(4, configuration.UpdateCount);
     }
 
@@ -93,9 +92,9 @@ public sealed class SettingsViewModelTests
         viewModel.MbTilesFilePath = "/data/map.mbtiles";
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TileSourceType.MbTilesOffline, configuration.Settings.Map.TileSource);
-        Assert.Equal("/data/map.mbtiles", configuration.Settings.Map.MbTilesFilePath);
-        Assert.True(configuration.SaveCount > 0);
+        Assert.Equal(TileSourceType.MbTilesOffline, configuration.Current.Map.TileSource);
+        Assert.Equal("/data/map.mbtiles", configuration.Current.Map.MbTilesFilePath);
+        Assert.True(configuration.UpdateCount > 0);
     }
 
     [Fact]
@@ -107,18 +106,21 @@ public sealed class SettingsViewModelTests
             configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
             CreateMessageTemplatesViewModel(navigation));
 
-        await configuration.UpdateSettingsAsync(settings =>
+        await configuration.UpdateAsync(settings => settings with
         {
-            settings.Map.TileSource = TileSourceType.MbTilesOffline;
-            settings.Map.MbTilesFilePath = "/data/selected.mbtiles";
-        });
+            Map = settings.Map with
+            {
+                TileSource = TileSourceType.MbTilesOffline,
+                MbTilesFilePath = "/data/selected.mbtiles",
+            },
+        }, TestContext.Current.CancellationToken);
 
         viewModel.Callsign = "CT7ALW";
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
-        Assert.Equal("CT7ALW", configuration.Settings.Aprs.Callsign);
-        Assert.Equal(TileSourceType.MbTilesOffline, configuration.Settings.Map.TileSource);
-        Assert.Equal("/data/selected.mbtiles", configuration.Settings.Map.MbTilesFilePath);
+        Assert.Equal("CT7ALW", configuration.Current.Aprs.Callsign);
+        Assert.Equal(TileSourceType.MbTilesOffline, configuration.Current.Map.TileSource);
+        Assert.Equal("/data/selected.mbtiles", configuration.Current.Map.MbTilesFilePath);
     }
 
     [Fact]
@@ -136,7 +138,7 @@ public sealed class SettingsViewModelTests
         viewModel.PositionFormat = PositionFormat.MicE;
         await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
 
-        Assert.Equal(PositionFormat.MicE, configuration.Settings.Aprs.PositionFormat);
+        Assert.Equal(PositionFormat.MicE, configuration.Current.Aprs.PositionFormat);
     }
 
     [Fact]
@@ -200,27 +202,19 @@ public sealed class SettingsViewModelTests
 #pragma warning disable CS0067 // Event is never used in this test double
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
-        private int _saveCount;
         private int _updateCount;
-        public AppSettings Settings { get; } = new();
-        public int SaveCount => _saveCount;
+        public AppSettings Current { get; set; } = new();
         public int UpdateCount => _updateCount;
-        public Task SaveSettingsAsync()
+
+        public Task<AppSettings> UpdateAsync(
+            Func<AppSettings, AppSettings> update,
+            CancellationToken cancellationToken = default)
         {
             // Auto-saves now run on the thread pool; count them atomically.
-            Interlocked.Increment(ref _saveCount);
-            return Task.CompletedTask;
-        }
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
-        {
             Interlocked.Increment(ref _updateCount);
-            Interlocked.Increment(ref _saveCount);
-            updateAction(Settings);
-            return Task.CompletedTask;
+            Current = update(Current);
+            return Task.FromResult(Current);
         }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
     }
 
     private sealed class TestNavigationService : INavigationService

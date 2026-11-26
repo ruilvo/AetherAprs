@@ -34,7 +34,7 @@ public sealed class PacketFactoryTests
         PositionFormat positionFormat = PositionFormat.Compressed)
     {
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
             {

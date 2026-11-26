@@ -106,10 +106,15 @@ public sealed class HomeViewModelTests : TestFixtureBase
         var port = CreatePort(isEnabled: false, isTx: true);
         var portService = new TestPortService(port);
         var configuration = new TestConfigurationService();
-        configuration.Settings.Aprs.Callsign = "N0CALL";
-        configuration.Settings.Aprs.SymbolTable =
-            AetherAprs.Models.Aprs.SymbolTable.Alternate;
-        configuration.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
+        configuration.Current = configuration.Current with
+        {
+            Aprs = configuration.Current.Aprs with
+            {
+                Callsign = "N0CALL",
+                SymbolTable = AetherAprs.Models.Aprs.SymbolTable.Alternate,
+                SymbolCode = SymbolCode.GreaterThanSign,
+            },
+        };
         var locationTracking = new TestLocationTrackingService();
         var viewModel = CreateViewModel(portService, new TestBeaconService(), locationTracking, configuration);
         locationTracking.SetCurrentLocation(CreateLocation(41.41764, -8.52170));
@@ -226,7 +231,10 @@ public sealed class HomeViewModelTests : TestFixtureBase
         // Only set default callsign if configuration was not provided
         if (!isConfigurationProvided)
         {
-            configuration.Settings.Aprs.Callsign = "N0CALL";
+            configuration.Current = configuration.Current with
+            {
+                Aprs = configuration.Current.Aprs with { Callsign = "N0CALL" },
+            };
         }
         
         var portSettingsResolver = new AprsPortSettingsResolver(configuration);
@@ -294,17 +302,15 @@ public sealed class HomeViewModelTests : TestFixtureBase
 #pragma warning disable CS0067 // Event is never used in this test double
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
-        public AppSettings Settings { get; } = new();
+        public AppSettings Current { get; set; } = new();
 
-        public Task SaveSettingsAsync() => Task.CompletedTask;
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        public Task<AppSettings> UpdateAsync(
+            Func<AppSettings, AppSettings> update,
+            CancellationToken cancellationToken = default)
         {
-            updateAction(Settings);
-            return Task.CompletedTask;
+            Current = update(Current);
+            return Task.FromResult(Current);
         }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
     }
 
     private sealed class TestLocationTrackingService : ILocationTrackingService

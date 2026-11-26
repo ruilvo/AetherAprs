@@ -350,7 +350,7 @@ public static class DesignData
         get
         {
             var configService = _serviceProvider.GetRequiredService<IConfigurationService>();
-            var callsign = configService.Settings.Aprs.Callsign;
+            var callsign = configService.Current.Aprs.Callsign;
             var vm = new AddEditPortViewModel(
                 _serviceProvider.GetRequiredService<INavigationService>(),
                 _serviceProvider.GetRequiredService<IPortService>(),

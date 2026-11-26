@@ -143,7 +143,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
-        var callsign = _configurationService.Settings.Aprs.Callsign;
+        var callsign = _configurationService.Current.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
         {
             BeaconStatus = Strings.Get("CallsignNotConfigured");
@@ -217,7 +217,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
         try
         {
-            var callsign = _configurationService.Settings.Aprs.Callsign;
+            var callsign = _configurationService.Current.Aprs.Callsign;
             if (string.IsNullOrEmpty(callsign))
             {
                 BeaconStatus = Strings.Get("CallsignNotConfigured");
@@ -287,7 +287,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         if (userLocation == null || !portsJustEnabled.Any())
             return;
 
-        var callsign = _configurationService.Settings.Aprs.Callsign;
+        var callsign = _configurationService.Current.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
             return;
 

@@ -1,8 +1,9 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Configuration.Settings.Documents;
 using AetherAprs.Configuration.Settings.Migrations;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Platform;
@@ -18,18 +19,33 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Configuration;
 
+/// <summary>
+/// Loads, migrates and persists the application settings file, publishing an
+/// immutable <see cref="AppSettings"/> snapshot after every successful write.
+/// </summary>
+/// <remarks>
+/// Loading binds the flattened configuration values into a private
+/// <see cref="AppSettingsDocument"/> and then converts it once into the
+/// published snapshot, so no caller ever holds the object the binder mutates.
+/// </remarks>
 public class ConfigurationService : IConfigurationService, IDisposable
 {
     private readonly IAppDataDirProviderService _appDataDirProvider;
     private readonly ILogger<ConfigurationService> _logger;
     private readonly IConfiguration _configuration;
-    private readonly SemaphoreSlim _settingsLock = new(1, 1);
-    private AppSettings _settings = new();
+
+    /// <summary>
+    /// Serializes writes so two updates can never persist or publish in an
+    /// order different from the one in which they were accepted.
+    /// </summary>
+    private readonly SemaphoreSlim _updateGate = new(1, 1);
+
+    private AppSettings _current = new();
 
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        _settingsLock.Dispose();
+        _updateGate.Dispose();
     }
 
     private static readonly string _appSettingsFileName = "appsettings.json";
@@ -49,11 +65,8 @@ public class ConfigurationService : IConfigurationService, IDisposable
         }
     };
 
-    /// <summary>
-    /// Gets the current settings reference. Treat it as read-only and do not
-    /// retain it across updates. Direct mutation is supported for legacy callers only.
-    /// </summary>
-    public AppSettings Settings => Volatile.Read(ref _settings);
+    /// <inheritdoc />
+    public AppSettings Current => Volatile.Read(ref _current);
 
     /// <summary>
     /// Whether the settings file was written by a newer build and must not be
@@ -174,25 +187,20 @@ public class ConfigurationService : IConfigurationService, IDisposable
             BackupSettingsFile(configDirectory, documentVersion);
         }
 
-        BindSettings(normalizedValues);
+        var document = new AppSettingsDocument();
+        BindSettings(document, normalizedValues);
+        SanitizeMessageTemplates(document);
 
         // Only claim the current version when this build actually produced it.
         // For newer documents the document's own version is kept, which is the
         // signal that a downgrade must not overwrite the file.
-        if (migrationSucceeded)
-        {
-            Settings.SchemaVersion = SettingsSchema.CurrentVersion;
-        }
-        else if (isNewerDocument)
-        {
-            Settings.SchemaVersion = documentVersion;
-        }
-        else
-        {
-            Settings.SchemaVersion = migratedVersion;
-        }
+        document.SchemaVersion = migrationSucceeded
+            ? SettingsSchema.CurrentVersion
+            : isNewerDocument
+                ? documentVersion
+                : migratedVersion;
 
-        SanitizeMessageTemplates();
+        _current = document.ToSettings();
 
         // Make the on-disk state match memory after a successful upgrade, so a
         // crash before the next save cannot leave a half-migrated file behind.
@@ -207,13 +215,13 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// invalid value (for example a rejected validated setter) is logged and
     /// skipped without discarding the values that follow it.
     /// </summary>
-    private void BindSettings(IDictionary<string, string?> values)
+    private void BindSettings(AppSettingsDocument document, IDictionary<string, string?> values)
     {
         // The template list is bound as a whole section: binding it key-by-key
         // would rebuild the list on every value. Its property setters are
         // unvalidated strings, so a failure there cannot leak into another
         // section. Every scalar property, including Logging, binds individually.
-        BindSection(values, "MessageTemplates");
+        BindSection(document, values, "MessageTemplates");
 
         foreach (var pair in values)
         {
@@ -222,11 +230,14 @@ public class ConfigurationService : IConfigurationService, IDisposable
                 continue;
             }
 
-            BindSingleValue(pair.Key, pair.Value);
+            BindSingleValue(document, pair.Key, pair.Value);
         }
     }
 
-    private void BindSection(IDictionary<string, string?> values, string section)
+    private void BindSection(
+        AppSettingsDocument document,
+        IDictionary<string, string?> values,
+        string section)
     {
         var sectionValues = new Dictionary<string, string?>(
             StringComparer.OrdinalIgnoreCase);
@@ -249,7 +260,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
             new ConfigurationBuilder()
                 .AddInMemoryCollection(sectionValues)
                 .Build()
-                .Bind(Settings);
+                .Bind(document);
         }
         catch (Exception ex)
         {
@@ -260,7 +271,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         }
     }
 
-    private void BindSingleValue(string key, string? value)
+    private void BindSingleValue(AppSettingsDocument document, string key, string? value)
     {
         var singleValue = new Dictionary<string, string?>(
             StringComparer.OrdinalIgnoreCase)
@@ -273,7 +284,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
             new ConfigurationBuilder()
                 .AddInMemoryCollection(singleValue)
                 .Build()
-                .Bind(Settings);
+                .Bind(document);
         }
         catch (Exception ex)
         {
@@ -300,7 +311,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         try
         {
             var filePath = GetSettingsFilePath();
-            File.WriteAllText(filePath + ".tmp", JsonSerializer.Serialize(Settings, _jsonSerializerOptions));
+            File.WriteAllText(filePath + ".tmp", JsonSerializer.Serialize(Current, _jsonSerializerOptions));
             File.Move(filePath + ".tmp", filePath, overwrite: true);
             _logger.LogInformation(
                 "Persisted settings at schema version {Version}.",
@@ -427,72 +438,59 @@ public class ConfigurationService : IConfigurationService, IDisposable
 #endif
     }
 
-    public async Task SaveSettingsAsync()
+    /// <inheritdoc />
+    public async Task<AppSettings> UpdateAsync(
+        Func<AppSettings, AppSettings> update,
+        CancellationToken cancellationToken = default)
     {
-        if (IsReadOnly)
-        {
-            LogReadOnlyWriteRefused(nameof(SaveSettingsAsync));
-            return;
-        }
-
-        await _settingsLock.WaitAsync();
-        try
-        {
-            await SaveJsonAsync(JsonSerializer.Serialize(Settings, _jsonSerializerOptions));
-        }
-        finally
-        {
-            _settingsLock.Release();
-        }
-
-        SettingsChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    /// <summary>
-    /// Applies a patch to a private draft and publishes the changes only after persistence succeeds.
-    /// </summary>
-    /// <param name="updateAction">Synchronous action that modifies the draft.</param>
-    public async Task UpdateSettingsAsync(Action<AppSettings> updateAction)
-    {
-        ArgumentNullException.ThrowIfNull(updateAction);
+        ArgumentNullException.ThrowIfNull(update);
 
         if (IsReadOnly)
         {
-            LogReadOnlyWriteRefused(nameof(UpdateSettingsAsync));
-            return;
+            LogReadOnlyWriteRefused(nameof(UpdateAsync));
+            return Current;
         }
 
-        await _settingsLock.WaitAsync();
+        AppSettings updated;
+
+        await _updateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var draft = GetSettingsSnapshot();
-            updateAction(draft);
-            var json = JsonSerializer.Serialize(draft, _jsonSerializerOptions);
-            // Never publish references supplied to or retained by the update callback.
-            var committed = DeserializeSettings(json);
-            await SaveJsonAsync(json);
-            Volatile.Write(ref _settings, committed);
+            var candidate = update(Current)
+                ?? throw new InvalidOperationException(
+                    "A settings update must return a settings snapshot.");
+
+            // Persist before publishing: a failed write leaves the previously
+            // published snapshot in place, so memory never claims a state the
+            // file does not hold.
+            await SaveJsonAsync(
+                JsonSerializer.Serialize(candidate, _jsonSerializerOptions),
+                cancellationToken).ConfigureAwait(false);
+
+            Volatile.Write(ref _current, candidate);
+            updated = candidate;
         }
         finally
         {
-            _settingsLock.Release();
+            _updateGate.Release();
         }
 
         SettingsChanged?.Invoke(this, EventArgs.Empty);
+        return updated;
     }
 
     /// <summary>
-    /// Persists the current settings with an atomic temp-file write.
-    /// Caller must hold <see cref="_settingsLock"/>.
+    /// Persists the given JSON with an atomic temp-file write.
+    /// Caller must hold <see cref="_updateGate"/>.
     /// </summary>
-    private async Task SaveJsonAsync(string json)
+    private async Task SaveJsonAsync(string json, CancellationToken cancellationToken)
     {
         var filePath = GetSettingsFilePath();
 
         // Atomic write: serialize to a temp file, then replace the live config
         // so a crash mid-write cannot corrupt it (H4 fix).
         var tempFilePath = filePath + ".tmp";
-        await File.WriteAllTextAsync(tempFilePath, json).ConfigureAwait(false);
+        await File.WriteAllTextAsync(tempFilePath, json, cancellationToken).ConfigureAwait(false);
         File.Move(tempFilePath, filePath, overwrite: true);
     }
 
@@ -501,7 +499,7 @@ public class ConfigurationService : IConfigurationService, IDisposable
         _logger.LogWarning(
             "Refusing {Operation}: the settings file declares schema version {DocumentVersion}, which is newer than this build ({CurrentVersion}), so it is read-only.",
             operation,
-            Settings.SchemaVersion,
+            Current.SchemaVersion,
             SettingsSchema.CurrentVersion);
     }
 
@@ -511,12 +509,12 @@ public class ConfigurationService : IConfigurationService, IDisposable
     /// earlier template (case-insensitive). First occurrences are kept in
     /// their original order.
     /// </summary>
-    private void SanitizeMessageTemplates()
+    private void SanitizeMessageTemplates(AppSettingsDocument document)
     {
         var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var sanitized = new List<MessageTemplate>();
+        var sanitized = new List<MessageTemplateDocument>();
 
-        foreach (var template in Settings.MessageTemplates.Templates)
+        foreach (var template in document.MessageTemplates.Templates)
         {
             if (string.IsNullOrWhiteSpace(template.Name))
             {
@@ -545,17 +543,6 @@ public class ConfigurationService : IConfigurationService, IDisposable
             sanitized.Add(template);
         }
 
-        Settings.MessageTemplates.Templates = sanitized;
+        document.MessageTemplates.Templates = sanitized;
     }
-
-    /// <summary>
-    /// Returns a deep copy of the current settings without waiting for an in-flight update.
-    /// Legacy callers must not mutate the live settings concurrently.
-    /// Use this method when you need consistent multi-property reads (e.g., callsign + SSID together).
-    /// </summary>
-    public AppSettings GetSettingsSnapshot() =>
-        DeserializeSettings(JsonSerializer.Serialize(Settings, _jsonSerializerOptions));
-
-    private static AppSettings DeserializeSettings(string json) =>
-        JsonSerializer.Deserialize<AppSettings>(json, _jsonSerializerOptions)!;
 }

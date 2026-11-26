@@ -200,7 +200,7 @@ public sealed class ObjectServiceTests
         IPacketQueryService? query = null)
     {
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
             {

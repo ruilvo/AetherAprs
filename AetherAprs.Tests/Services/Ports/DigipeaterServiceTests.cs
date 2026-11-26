@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -449,16 +450,21 @@ public sealed class DigipeaterServiceTests
         bool respondToTrace = false,
         bool digipeaterInsertCallsign = true)
     {
-        var settings = new AppSettings();
-        settings.Aprs.EnableDigipeater = enableDigipeater;
-        settings.Aprs.EnableAprsIsToRfGate = enableAprsIsToRfGate;
-        settings.Aprs.EnableRfToAprsIsGate = true;
-        settings.Aprs.Callsign = callsignBase;
-        settings.Aprs.Ssid = (AprsSsid)ssid;
-        settings.Aprs.DigipeaterRespondToWide1 = respondToWide1;
-        settings.Aprs.DigipeaterRespondToWide2 = respondToWide2;
-        settings.Aprs.DigipeaterRespondToTrace = respondToTrace;
-        settings.Aprs.DigipeaterInsertCallsign = digipeaterInsertCallsign;
+        var settings = new AppSettings
+        {
+            Aprs = new AprsSettings
+            {
+                EnableDigipeater = enableDigipeater,
+                EnableAprsIsToRfGate = enableAprsIsToRfGate,
+                EnableRfToAprsIsGate = true,
+                Callsign = callsignBase,
+                Ssid = (AprsSsid)ssid,
+                DigipeaterRespondToWide1 = respondToWide1,
+                DigipeaterRespondToWide2 = respondToWide2,
+                DigipeaterRespondToTrace = respondToTrace,
+                DigipeaterInsertCallsign = digipeaterInsertCallsign,
+            },
+        };
 
         return new DigipeaterService(
             new TestConfigurationService(settings),
@@ -469,23 +475,18 @@ public sealed class DigipeaterServiceTests
     {
         public TestConfigurationService(AppSettings settings)
         {
-            Settings = settings;
+            Current = settings;
         }
 
 #pragma warning disable CS0067 // Event is never used in this test double
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
 
-        public AppSettings Settings { get; }
+        public AppSettings Current { get; private set; }
 
-        public Task SaveSettingsAsync() => Task.CompletedTask;
-
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
-        {
-            updateAction(Settings);
-            return Task.CompletedTask;
-        }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
+        public Task<AppSettings> UpdateAsync(
+            Func<AppSettings, AppSettings> update,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Current = update(Current));
     }
 }

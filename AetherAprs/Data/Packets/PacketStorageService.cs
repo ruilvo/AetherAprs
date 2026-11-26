@@ -200,10 +200,10 @@ internal sealed class PacketStorageService(
     {
         try
         {
-            var retentionDays = configurationService.Settings.Aprs.PacketRetentionDays;
+            var retentionDays = configurationService.Current.Aprs.PacketRetentionDays;
             var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
-            var maximumRows = Math.Max(1, configurationService.Settings.Aprs.PacketRetentionMaxRows);
+            var maximumRows = Math.Max(1, configurationService.Current.Aprs.PacketRetentionMaxRows);
             var removedByAge = 0;
             while (true)
             {

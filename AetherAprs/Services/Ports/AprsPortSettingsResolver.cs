@@ -22,7 +22,7 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
 
     public int? GetSsid()
     {
-        var ssid = _configurationService.Settings.Aprs.Ssid;
+        var ssid = _configurationService.Current.Aprs.Ssid;
         var value = (int)ssid;
         return value > 0 ? value : null;
     }
@@ -34,10 +34,10 @@ public class AprsPortSettingsResolver : IAprsPortSettingsResolver
     }
 
     public SymbolTable GetSymbolTable() =>
-        _configurationService.Settings.Aprs.SymbolTable;
+        _configurationService.Current.Aprs.SymbolTable;
 
     public SymbolCode GetSymbolCode() =>
-        _configurationService.Settings.Aprs.SymbolCode;
+        _configurationService.Current.Aprs.SymbolCode;
 }
 
 /// <summary>

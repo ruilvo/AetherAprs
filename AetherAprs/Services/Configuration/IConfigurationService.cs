@@ -1,47 +1,52 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Configuration;
 
+/// <summary>
+/// Reads and updates the application settings.
+/// </summary>
+/// <remarks>
+/// Settings are immutable snapshots: <see cref="Current"/> returns the
+/// published instance and every change goes through <see cref="UpdateAsync"/>,
+/// which persists the replacement before publishing it. Readers therefore never
+/// see a partially applied change, and a caller cannot mutate state another
+/// thread is reading.
+/// </remarks>
 public interface IConfigurationService
 {
     /// <summary>
-    /// Raised after settings have been saved, so observers (map layers, packet
-    /// lists) can refresh the filters they derive from settings.
+    /// Raised after a new snapshot has been persisted and published, so
+    /// observers (map layers, packet lists) can refresh the values they derive
+    /// from settings.
     /// </summary>
     event EventHandler? SettingsChanged;
 
     /// <summary>
-    /// Gets the current strongly-typed application settings. Treat the returned
-    /// object as read-only and retrieve it again after updates.
+    /// Gets the currently published settings snapshot. The instance never
+    /// changes; retrieve it again after <see cref="SettingsChanged"/>.
     /// </summary>
-    AppSettings Settings { get; }
+    AppSettings Current { get; }
 
     /// <summary>
-    /// Saves the current settings to the configuration file.
-    /// Prefer <see cref="UpdateSettingsAsync"/> for new writes so mutation and
-    /// persistence occur inside one serialized update boundary.
+    /// Applies <paramref name="update"/> to the current snapshot, persists the
+    /// result, and publishes it.
     /// </summary>
-    Task SaveSettingsAsync();
-
-    /// <summary>
-    /// Returns a deep-cloned snapshot of the current settings for thread-safe reading.
-    /// Use this when you need consistent multi-property reads (e.g., callsign + SSID together).
-    /// For write operations, use UpdateSettingsAsync to ensure thread-safe read-modify-write cycles.
-    /// </summary>
-    /// <returns>A deep copy of the current settings.</returns>
-    AppSettings GetSettingsSnapshot();
-
-    /// <summary>
-    /// Applies a synchronous patch to the latest settings in a serialized update.
-    /// Changes become visible after the file is saved successfully.
-    /// </summary>
-    /// <param name="updateAction">Action that modifies the settings.</param>
-    Task UpdateSettingsAsync(Action<AppSettings> updateAction);
+    /// <param name="update">
+    /// Pure transformation that returns the replacement snapshot, typically a
+    /// <c>with</c> expression. It runs inside the serialized update boundary, so
+    /// it must be quick, must not block, and must not call back into this
+    /// service.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the wait for the update boundary or the file write.</param>
+    /// <returns>The published snapshot, or the unchanged current snapshot when the file is read-only.</returns>
+    Task<AppSettings> UpdateAsync(
+        Func<AppSettings, AppSettings> update,
+        CancellationToken cancellationToken = default);
 }

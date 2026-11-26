@@ -193,16 +193,15 @@ public sealed class PortsViewModelTests
 #pragma warning disable CS0067 // Event is never used in this test double
         public event EventHandler? SettingsChanged;
 #pragma warning restore CS0067
-        public AppSettings Settings { get; } = new();
-        public Task SaveSettingsAsync() => Task.CompletedTask;
+        public AppSettings Current { get; set; } = new();
 
-        public Task UpdateSettingsAsync(Action<AppSettings> updateAction)
+        public Task<AppSettings> UpdateAsync(
+            Func<AppSettings, AppSettings> update,
+            CancellationToken cancellationToken = default)
         {
-            updateAction(Settings);
-            return Task.CompletedTask;
+            Current = update(Current);
+            return Task.FromResult(Current);
         }
-
-        public AppSettings GetSettingsSnapshot() => Settings;
     }
 
     private sealed class TestConfirmationDialogService : IConfirmationDialogService

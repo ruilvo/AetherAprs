@@ -35,6 +35,7 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     private readonly ILogger<PacketStorageService> _logger;
     private readonly PacketStorageService _service;
     private readonly SqliteRuntimeWriter _writer;
+    private AppSettings _appSettings = new();
 
     public PacketStorageServiceTests()
     {
@@ -45,9 +46,11 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
         }
 
         _configurationService = Substitute.For<IConfigurationService>();
-        var aprsSettings = new AprsSettings { PacketRetentionDays = 30 };
-        var appSettings = new AppSettings { Aprs = aprsSettings };
-        _configurationService.Settings.Returns(appSettings);
+        _appSettings = new AppSettings
+        {
+            Aprs = new AprsSettings { PacketRetentionDays = 30 },
+        };
+        _configurationService.Current.Returns(_ => _appSettings);
 
         _logger = NullLogger<PacketStorageService>.Instance;
         _writer = new SqliteRuntimeWriter(_db.Factory);
@@ -552,7 +555,10 @@ public sealed class PacketStorageServiceTests : IAsyncDisposable
     [Fact]
     public async Task CleanupOldPacketsAsync_EnforcesRowBound_AndPreservesPendingMessages()
     {
-        _configurationService.Settings.Aprs.PacketRetentionMaxRows = 2;
+        _appSettings = _appSettings with
+        {
+            Aprs = _appSettings.Aprs with { PacketRetentionMaxRows = 2 },
+        };
         await using (var db = await _db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
             db.Packets.AddRange(

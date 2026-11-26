@@ -146,7 +146,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _messageTemplatesViewModel = messageTemplatesViewModel;
         SymbolPicker = aprsSymbolPicker;
 
-        var settings = _configurationService.GetSettingsSnapshot();
+        var settings = _configurationService.Current;
         var aprs = settings.Aprs;
         Callsign = aprs.Callsign;
         Ssid = aprs.Ssid;
@@ -226,19 +226,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     // Auto-save methods triggered by property changes
     partial void OnCallsignChanged(string value)
     {
-        SaveSettings(settings => settings.Aprs.Callsign = value, nameof(Callsign));
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { Callsign = value } }, nameof(Callsign));
     }
 
     partial void OnSsidChanged(AprsSsid value)
     {
-        SaveSettings(settings => settings.Aprs.Ssid = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { Ssid = value } });
     }
 
     partial void OnSymbolTableCharacterChanged(string value)
     {
         if (!string.IsNullOrEmpty(value))
         {
-            SaveSettings(settings => settings.Aprs.SymbolTable = value[0].ToSymbolTable());
+            SaveSettings(settings => settings with { Aprs = settings.Aprs with { SymbolTable = value[0].ToSymbolTable() } });
         }
     }
 
@@ -246,113 +246,120 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     {
         if (!string.IsNullOrEmpty(value))
         {
-            SaveSettings(settings => settings.Aprs.SymbolCode = value[0].ToSymbolCode());
+            SaveSettings(settings => settings with { Aprs = settings.Aprs with { SymbolCode = value[0].ToSymbolCode() } });
         }
     }
 
     partial void OnSymbolOverlayCharacterChanged(string? value)
     {
-        SaveSettings(settings => settings.Aprs.SymbolOverlay =
-            string.IsNullOrEmpty(value) ? null : value[0].ToSymbolCode());
+        SaveSettings(settings => settings with
+        {
+            Aprs = settings.Aprs with
+            {
+                SymbolOverlay = string.IsNullOrEmpty(value) ? null : value[0].ToSymbolCode(),
+            },
+        });
     }
 
     partial void OnDisplayTimeRangeChanged(Configuration.PacketDisplayTimeRange value)
     {
-        SaveSettings(settings => settings.Aprs.DisplayTimeRange = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DisplayTimeRange = value } });
     }
 
     partial void OnCustomDisplayTimeRangeHoursChanged(int value)
     {
-        SaveSettings(settings => settings.Aprs.CustomDisplayTimeRangeHours = value, nameof(CustomDisplayTimeRangeHours));
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { CustomDisplayTimeRangeHours = value } }, nameof(CustomDisplayTimeRangeHours));
     }
 
     partial void OnLoadHistoryOnStartupChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.LoadHistoryOnStartup = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { LoadHistoryOnStartup = value } });
     }
 
     partial void OnPositionFormatChanged(PositionFormat value)
     {
-        SaveSettings(settings => settings.Aprs.PositionFormat = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { PositionFormat = value } });
     }
 
     partial void OnTileSourceChanged(Configuration.TileSourceType value)
     {
-        SaveSettings(settings => settings.Map.TileSource = value);
+        SaveSettings(settings => settings with { Map = settings.Map with { TileSource = value } });
     }
 
     partial void OnMbTilesFilePathChanged(string? value)
     {
-        SaveSettings(settings => settings.Map.MbTilesFilePath = value ?? string.Empty);
+        SaveSettings(settings => settings with { Map = settings.Map with { MbTilesFilePath = value ?? string.Empty } });
     }
 
     partial void OnThemeChanged(Configuration.ThemeMode value)
     {
         App.ApplyThemeMode(value);
-        SaveSettings(settings => settings.Theme = value);
+        SaveSettings(settings => settings with { Theme = value });
     }
 
     partial void OnEnableDigipeaterChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.EnableDigipeater = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { EnableDigipeater = value } });
     }
 
     partial void OnDigipeaterInsertCallsignChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.DigipeaterInsertCallsign = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterInsertCallsign = value } });
     }
 
     partial void OnEnableAprsIsToRfGateChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.EnableAprsIsToRfGate = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { EnableAprsIsToRfGate = value } });
     }
 
     partial void OnEnableRfToAprsIsGateChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.EnableRfToAprsIsGate = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { EnableRfToAprsIsGate = value } });
     }
 
     partial void OnMessageMaxRetriesChanged(int value)
     {
-        SaveSettings(settings => settings.Aprs.MessageMaxRetries = value, nameof(MessageMaxRetries));
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageMaxRetries = value } }, nameof(MessageMaxRetries));
     }
 
     partial void OnMessageRetryTimeoutSecondsChanged(int value)
     {
-        SaveSettings(settings => settings.Aprs.MessageRetryTimeoutSeconds = value, nameof(MessageRetryTimeoutSeconds));
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageRetryTimeoutSeconds = value } }, nameof(MessageRetryTimeoutSeconds));
     }
 
     partial void OnAutoAcknowledgeMessagesChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.AutoAcknowledgeMessages = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { AutoAcknowledgeMessages = value } });
     }
 
     partial void OnBeaconCommentChanged(string? value)
     {
-        SaveSettings(settings => settings.Aprs.BeaconComment = value, nameof(BeaconComment));
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { BeaconComment = value } }, nameof(BeaconComment));
     }
 
     partial void OnDigipeaterPathChanged(string? value)
     {
-        SaveSettings(settings => settings.Aprs.DigipeaterPath = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterPath = value } });
     }
 
     partial void OnDigipeaterRespondToWide1Changed(bool value)
     {
-        SaveSettings(settings => settings.Aprs.DigipeaterRespondToWide1 = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterRespondToWide1 = value } });
     }
 
     partial void OnDigipeaterRespondToWide2Changed(bool value)
     {
-        SaveSettings(settings => settings.Aprs.DigipeaterRespondToWide2 = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterRespondToWide2 = value } });
     }
 
     partial void OnDigipeaterRespondToTraceChanged(bool value)
     {
-        SaveSettings(settings => settings.Aprs.DigipeaterRespondToTrace = value);
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterRespondToTrace = value } });
     }
 
-    private void SaveSettings(Action<Configuration.Settings.AppSettings> update, string? validatedProperty = null)
+    private void SaveSettings(
+        Func<Configuration.Settings.AppSettings, Configuration.Settings.AppSettings> update,
+        string? validatedProperty = null)
     {
         if (_isInitializing || _disposed ||
             (validatedProperty is not null && GetErrors(validatedProperty).Any()))
@@ -363,12 +370,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _currentSaveTask = SaveAfterAsync(_currentSaveTask, update);
     }
 
-    private async Task SaveAfterAsync(Task previousSave, Action<Configuration.Settings.AppSettings> update)
+    private async Task SaveAfterAsync(
+        Task previousSave,
+        Func<Configuration.Settings.AppSettings, Configuration.Settings.AppSettings> update)
     {
         try
         {
             await previousSave.ConfigureAwait(false);
-            await _configurationService.UpdateSettingsAsync(update).ConfigureAwait(false);
+            await _configurationService.UpdateAsync(update).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

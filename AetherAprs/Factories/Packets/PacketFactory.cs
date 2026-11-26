@@ -48,7 +48,7 @@ public sealed class PacketFactory : IPacketFactory
         double? course = null,
         string? comment = null)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(callsign, settings, (source, destination, path) =>
         {
@@ -81,7 +81,7 @@ public sealed class PacketFactory : IPacketFactory
         string messageText,
         int? messageNumber = null)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessagePacket
         {
@@ -99,7 +99,7 @@ public sealed class PacketFactory : IPacketFactory
         AprsAddress addressee,
         int messageNumber)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessageAckPacket
         {
@@ -116,7 +116,7 @@ public sealed class PacketFactory : IPacketFactory
         AprsAddress addressee,
         int messageNumber)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new MessageRejPacket
         {
@@ -137,7 +137,7 @@ public sealed class PacketFactory : IPacketFactory
         bool isLive = true,
         string? comment = null)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ObjectPacket
         {
@@ -162,7 +162,7 @@ public sealed class PacketFactory : IPacketFactory
         bool isLive = true,
         string? comment = null)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ItemPacket
         {
@@ -184,7 +184,7 @@ public sealed class PacketFactory : IPacketFactory
         string text,
         int? messageNumber = null)
     {
-        var settings = _configurationService.Settings.Aprs;
+        var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new BulletinPacket
         {

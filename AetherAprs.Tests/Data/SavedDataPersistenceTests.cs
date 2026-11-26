@@ -41,7 +41,7 @@ public sealed class SavedDataPersistenceTests
     {
         using var db = TempAppDatabase.Create();
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });
@@ -94,7 +94,7 @@ public sealed class SavedDataPersistenceTests
         using var db = TempAppDatabase.Create();
         var portService = new FakePortService();
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });

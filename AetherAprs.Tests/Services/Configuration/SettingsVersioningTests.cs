@@ -37,7 +37,7 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class SettingsVersioningTests
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
         var service = fixture.CreateService();
 
-        await service.SaveSettingsAsync();
+        await service.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
 
         Assert.Equal(SettingsSchema.CurrentVersion, fixture.ReadDocumentVersion());
         Assert.Contains(
@@ -73,29 +73,34 @@ public sealed class SettingsVersioningTests
         fixture.Write("{\"Aprs\":{\"Callsign\":\"N0CALL\"}}");
         var service = fixture.CreateService();
 
-        service.Settings.Aprs.Callsign = "CT7ALW";
-        service.Settings.Aprs.Ssid = AprsSsid.HumanPortable;
-        service.Settings.Aprs.SymbolTable = SymbolTable.Alternate;
-        service.Settings.Aprs.SymbolCode = SymbolCode.GreaterThanSign;
-        service.Settings.Aprs.DisplayTimeRange = PacketDisplayTimeRange.LastWeek;
-        service.Settings.Aprs.LoadHistoryOnStartup = false;
-        service.Settings.Aprs.PositionFormat = PositionFormat.MicE;
-        service.Settings.Theme = ThemeMode.Dark;
-        service.Settings.Map.TileSource = TileSourceType.MbTilesOffline;
-        await service.SaveSettingsAsync();
+        await service.UpdateAsync(settings => settings with
+        {
+            Aprs = settings.Aprs with
+            {
+                Callsign = "CT7ALW",
+                Ssid = AprsSsid.HumanPortable,
+                SymbolTable = SymbolTable.Alternate,
+                SymbolCode = SymbolCode.GreaterThanSign,
+                DisplayTimeRange = PacketDisplayTimeRange.LastWeek,
+                LoadHistoryOnStartup = false,
+                PositionFormat = PositionFormat.MicE,
+            },
+            Theme = ThemeMode.Dark,
+            Map = settings.Map with { TileSource = TileSourceType.MbTilesOffline },
+        }, TestContext.Current.CancellationToken);
 
         var reloaded = fixture.CreateService();
 
-        Assert.Equal(SettingsSchema.CurrentVersion, reloaded.Settings.SchemaVersion);
-        Assert.Equal("CT7ALW", reloaded.Settings.Aprs.Callsign);
-        Assert.Equal(AprsSsid.HumanPortable, reloaded.Settings.Aprs.Ssid);
-        Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
-        Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
-        Assert.Equal(PacketDisplayTimeRange.LastWeek, reloaded.Settings.Aprs.DisplayTimeRange);
-        Assert.False(reloaded.Settings.Aprs.LoadHistoryOnStartup);
-        Assert.Equal(PositionFormat.MicE, reloaded.Settings.Aprs.PositionFormat);
-        Assert.Equal(ThemeMode.Dark, reloaded.Settings.Theme);
-        Assert.Equal(TileSourceType.MbTilesOffline, reloaded.Settings.Map.TileSource);
+        Assert.Equal(SettingsSchema.CurrentVersion, reloaded.Current.SchemaVersion);
+        Assert.Equal("CT7ALW", reloaded.Current.Aprs.Callsign);
+        Assert.Equal(AprsSsid.HumanPortable, reloaded.Current.Aprs.Ssid);
+        Assert.Equal(SymbolTable.Alternate, reloaded.Current.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Current.Aprs.SymbolCode);
+        Assert.Equal(PacketDisplayTimeRange.LastWeek, reloaded.Current.Aprs.DisplayTimeRange);
+        Assert.False(reloaded.Current.Aprs.LoadHistoryOnStartup);
+        Assert.Equal(PositionFormat.MicE, reloaded.Current.Aprs.PositionFormat);
+        Assert.Equal(ThemeMode.Dark, reloaded.Current.Theme);
+        Assert.Equal(TileSourceType.MbTilesOffline, reloaded.Current.Map.TileSource);
     }
 
     [Fact]
@@ -119,7 +124,7 @@ public sealed class SettingsVersioningTests
         using var fixture = new SettingsDirectoryFixture();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
         var first = fixture.CreateService();
-        await first.SaveSettingsAsync();
+        await first.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
 
         // The unversioned base file produces exactly one pre-migration backup;
         // later loads must not add more.
@@ -142,8 +147,8 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal(SymbolTable.Alternate, service.Settings.Aprs.SymbolTable);
-        Assert.Equal(SymbolCode.GreaterThanSign, service.Settings.Aprs.SymbolCode);
+        Assert.Equal(SymbolTable.Alternate, service.Current.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, service.Current.Aprs.SymbolCode);
     }
 
     [Fact]
@@ -156,11 +161,11 @@ public sealed class SettingsVersioningTests
             + "\"SymbolCodeCharacter\":\">\"}}");
         var service = fixture.CreateService();
 
-        await service.SaveSettingsAsync();
+        await service.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
         var reloaded = fixture.CreateService();
 
-        Assert.Equal(SymbolTable.Alternate, reloaded.Settings.Aprs.SymbolTable);
-        Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Settings.Aprs.SymbolCode);
+        Assert.Equal(SymbolTable.Alternate, reloaded.Current.Aprs.SymbolTable);
+        Assert.Equal(SymbolCode.GreaterThanSign, reloaded.Current.Aprs.SymbolCode);
     }
 
     [Fact]
@@ -172,8 +177,8 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
-        Assert.Equal(SymbolTable.Primary, service.Settings.Aprs.SymbolTable);
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
+        Assert.Equal(SymbolTable.Primary, service.Current.Aprs.SymbolTable);
     }
 
     [Fact]
@@ -188,9 +193,9 @@ public sealed class SettingsVersioningTests
 
         // Values still load for use, but the document version is preserved and
         // the service refuses to write it back in the older format.
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
         Assert.True(service.IsReadOnly);
-        Assert.Equal(futureVersion, service.Settings.SchemaVersion);
+        Assert.Equal(futureVersion, service.Current.SchemaVersion);
         Assert.Equal(futureVersion, fixture.ReadDocumentVersion());
     }
 
@@ -214,9 +219,10 @@ public sealed class SettingsVersioningTests
             ? File.ReadAllBytes(savedPath)
             : null;
 
-        service.Settings.Aprs.Callsign = "CT7ALW";
-        await service.SaveSettingsAsync();
-        await service.UpdateSettingsAsync(settings => settings.Aprs.Callsign = "N0CALL");
+        await service.UpdateAsync(settings => settings with
+        {
+            Aprs = settings.Aprs with { Callsign = "N0CALL" },
+        }, TestContext.Current.CancellationToken);
 
         Assert.True(service.IsReadOnly);
         Assert.Equal(inputBefore, File.ReadAllBytes(fixture.InputPath));
@@ -229,20 +235,14 @@ public sealed class SettingsVersioningTests
             Assert.Equal(savedBefore, File.ReadAllBytes(savedPath));
         }
 
-        // UpdateSettingsAsync refuses before invoking the action.
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        // UpdateAsync refuses before invoking the action.
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
         Assert.Equal(0, settingsChangedCount);
         Assert.Contains(
             logger.Entries,
             entry => entry.Level == LogLevel.Warning
                 && entry.Message.Contains(
-                    nameof(ConfigurationService.SaveSettingsAsync),
-                    StringComparison.Ordinal));
-        Assert.Contains(
-            logger.Entries,
-            entry => entry.Level == LogLevel.Warning
-                && entry.Message.Contains(
-                    nameof(ConfigurationService.UpdateSettingsAsync),
+                    nameof(ConfigurationService.UpdateAsync),
                     StringComparison.Ordinal));
     }
 
@@ -258,7 +258,7 @@ public sealed class SettingsVersioningTests
         var backup = Assert.Single(fixture.GetBackupFiles());
         Assert.Contains($".v{futureVersion}.", backup);
         Assert.True(service.IsReadOnly);
-        Assert.Equal(futureVersion, service.Settings.SchemaVersion);
+        Assert.Equal(futureVersion, service.Current.SchemaVersion);
         Assert.Equal(json, File.ReadAllText(fixture.InputPath));
     }
 
@@ -272,8 +272,8 @@ public sealed class SettingsVersioningTests
         var service = fixture.CreateService();
 
         // Migration succeeds; the document is rewritten before any explicit save.
-        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
         Assert.True(File.Exists(fixture.SavedPath));
         Assert.Equal(SettingsSchema.CurrentVersion, fixture.ReadDocumentVersion());
     }
@@ -286,8 +286,8 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
-        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
     }
 
     [Fact]
@@ -298,8 +298,8 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal("CT7ALW", service.Settings.Aprs.Callsign);
-        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
+        Assert.Equal("CT7ALW", service.Current.Aprs.Callsign);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
     }
 
     [Fact]
@@ -310,22 +310,26 @@ public sealed class SettingsVersioningTests
 
         var service = fixture.CreateService();
 
-        Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
-        Assert.Equal("N0CALL", service.Settings.Aprs.Callsign);
+        Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
+        Assert.Equal("N0CALL", service.Current.Aprs.Callsign);
         Assert.NotEmpty(fixture.GetQuarantinedFiles());
     }
 
     [Fact]
-    public async Task GetSettingsSnapshot_CarriesVersionAndNewProperties()
+    public async Task LoadedSnapshot_CarriesVersionAndNewProperties()
     {
         using var fixture = new SettingsDirectoryFixture();
         fixture.Write("{\"Aprs\":{\"Callsign\":\"CT7ALW\"}}");
         var service = fixture.CreateService();
-        service.Settings.Aprs.LoadHistoryOnStartup = false;
-        service.Settings.Aprs.PacketRetentionMaxRows = 4242;
-        await service.SaveSettingsAsync();
 
-        var snapshot = service.GetSettingsSnapshot();
+        var snapshot = await service.UpdateAsync(settings => settings with
+        {
+            Aprs = settings.Aprs with
+            {
+                LoadHistoryOnStartup = false,
+                PacketRetentionMaxRows = 4242,
+            },
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(SettingsSchema.CurrentVersion, snapshot.SchemaVersion);
         Assert.False(snapshot.Aprs.LoadHistoryOnStartup);
@@ -349,8 +353,8 @@ public sealed class SettingsVersioningTests
         for (var i = 0; i < 3; i++)
         {
             var service = fixture.CreateService();
-            Assert.Equal(SettingsSchema.CurrentVersion, service.Settings.SchemaVersion);
-            await service.SaveSettingsAsync();
+            Assert.Equal(SettingsSchema.CurrentVersion, service.Current.SchemaVersion);
+            await service.UpdateAsync(settings => settings, TestContext.Current.CancellationToken);
             Assert.Equal(SettingsSchema.CurrentVersion, fixture.ReadDocumentVersion());
         }
 

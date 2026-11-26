@@ -724,7 +724,7 @@ public sealed class MessageServiceTests
         var port = CreateTxPort();
         var portService = new FakePortService(port);
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
             {
@@ -823,7 +823,7 @@ public sealed class MessageServiceTests
         var portService = new FakePortService(port);
         using var db = TempAppDatabase.Create();
         var storageConfiguration = Substitute.For<IConfigurationService>();
-        storageConfiguration.Settings.Returns(new AppSettings
+        storageConfiguration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings { Callsign = "N0CALL", Ssid = (AprsSsid)1 }
         });
@@ -945,7 +945,7 @@ public sealed class MessageServiceTests
         IPacketStorageService? packetStorageService = null)
     {
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
             {
@@ -972,7 +972,7 @@ public sealed class MessageServiceTests
     private static IConfigurationService CreateConfiguration(string callsign, int defaultSsid = 0)
     {
         var configuration = Substitute.For<IConfigurationService>();
-        configuration.Settings.Returns(new AppSettings
+        configuration.Current.Returns(new AppSettings
         {
             Aprs = new AprsSettings
             {
