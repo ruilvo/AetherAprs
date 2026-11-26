@@ -171,15 +171,32 @@ Required design:
 6. Construct timers, event subscriptions, and background workers in `StartAsync` or
    `InitializeAsync`, not in constructors.
 
-> **Status: item 4 implemented.** The final container in `ServiceProviderFactory`
-> and the designer container in `DesignData` are both built with
-> `ValidateOnBuild` and `ValidateScopes`. A registration that cannot be resolved,
-> or a singleton that captures a scoped service, now fails at startup naming the
-> offending type instead of surfacing as a navigation or packet-handling failure
-> later. The graph validated clean across the whole test suite. Items 1–3 and 5–6
-> remain open: the throwaway provider at `ServiceProviderFactory.cs:83`, the
-> registration-order override protocol, and constructor-built timers and
-> subscriptions are unchanged.
+> **Status: items 1, 3 and 4 implemented.** The final container in
+> `ServiceProviderFactory` and the designer container in `DesignData` are both
+> built with `ValidateOnBuild` and `ValidateScopes`. A registration that cannot
+> be resolved, or a singleton that captures a scoped service, now fails at
+> startup naming the offending type instead of surfacing as a navigation or
+> packet-handling failure later.
+>
+> App-data paths no longer come from a throwaway container. `App` exposes
+> `CreateAppDataDirProvider()`, the platform supplies that bootstrap value, and
+> `CreateServiceProvider` takes it as its first argument and registers that
+> exact instance. The container is therefore built once, and the settings file
+> and database paths are known before it exists.
+>
+> Platform replacement is explicit. `OverrideCoreServices` receives
+> `CoreServiceOverrides`, whose `Replace<TService, TImplementation>()` swaps an
+> existing core descriptor and throws when the core does not register the
+> service. `RegisterPlatformServices` is now additive only — the Android
+> connectors accumulate there — so "last registration wins" is no longer how a
+> platform overrides anything, and the duplicate registrations it used to leave
+> behind are gone.
+>
+> Items 5 and 6 remain open: the provider is still reachable through the
+> documented `App.GetService<T>()` escape hatch used by Android entry points, and
+> three background consumers start their loops in constructors
+> (`SessionStateWriter`, `PacketIngestPipeline`, `DigipeatRouter`) instead of in an
+> `InitializeAsync`/`StartAsync` phase.
 
 ### Persistence
 

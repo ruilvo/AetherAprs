@@ -37,16 +37,25 @@ public partial class App : Application, IDisposable
 
     /// <summary>
     /// This method is intended to be overridden in platform-specific
-    /// implementations of the App class to register platform-specific services.
+    /// implementations of the App class to replace core service registrations.
     /// </summary>
-    /// <param name="services">The service collection to register services in.</param>
-    protected virtual void OverrideCoreServices(IServiceCollection services)
+    /// <param name="serviceOverrides">
+    /// The explicit replacement protocol. A platform calls
+    /// <see cref="CoreServiceOverrides.Replace{TService, TImplementation}"/> for
+    /// every core service it implements itself.
+    /// </param>
+    protected virtual void OverrideCoreServices(CoreServiceOverrides serviceOverrides)
     {
         // This method can be overridden in platform-specific implementations of
-        // the App class to override core services with platform-specific
+        // the App class to replace core services with platform-specific
         // implementations.
     }
 
+    /// <summary>
+    /// This method is intended to be overridden in platform-specific
+    /// implementations of the App class to add platform-specific services.
+    /// </summary>
+    /// <param name="services">The service collection to register services in.</param>
     protected virtual void RegisterPlatformServices(IServiceCollection services)
     {
         // This method can be overridden in platform-specific implementations of
@@ -110,10 +119,26 @@ public partial class App : Application, IDisposable
         };
     }
 
+    /// <summary>
+    /// Creates the platform bootstrap that resolves application data directories.
+    /// </summary>
+    /// <remarks>
+    /// The container cannot be built before these paths are known: the settings
+    /// file and the database live in them. Platforms with sandboxed or external
+    /// storage override this to return their own provider instead of resolving one
+    /// from a throwaway container.
+    /// </remarks>
+    /// <returns>The app-data provider for this platform.</returns>
+    protected virtual IAppDataDirProviderService CreateAppDataDirProvider() =>
+        new AppDataDirProviderService();
+
     public override void OnFrameworkInitializationCompleted()
     {
         // Configure dependency injection
-        ServiceProvider = ServiceProviderFactory.CreateServiceProvider(RegisterPlatformServices, OverrideCoreServices);
+        ServiceProvider = ServiceProviderFactory.CreateServiceProvider(
+            CreateAppDataDirProvider(),
+            RegisterPlatformServices,
+            OverrideCoreServices);
 
         // Get logger after service provider is initialized
         _logger = ServiceProvider.GetRequiredService<ILogger<App>>();

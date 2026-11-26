@@ -40,23 +40,47 @@ public static class ServiceProviderFactory
 {
     private static IServiceProvider? _serviceProvider;
 
-    public static IServiceProvider ServiceProvider => _serviceProvider ??= CreateServiceProvider(_ =>
-        throw new InvalidOperationException("A platform service configuration " +
+    public static IServiceProvider ServiceProvider => _serviceProvider ??= CreateServiceProvider(
+        new AppDataDirProviderService(),
+        _ => throw new InvalidOperationException("A platform service configuration " +
         "must be supplied before creating the application service provider.\n" +
         "Call ServiceProviderFactory.CreateServiceProvider with a " +
         "platform -specific configuration action before accessing the " +
         "ServiceProvider property."), _ => { });
 
-    public static IServiceProvider CreateServiceProvider(Action<IServiceCollection> registerPlatformServices,
-                                                      Action<IServiceCollection> overrideCoreServices)
+    /// <summary>
+    /// Builds the application container.
+    /// </summary>
+    /// <param name="appDataDirProvider">
+    /// The platform bootstrap that already knows where application data lives.
+    /// It is supplied by the platform instead of being resolved from a throwaway
+    /// container, because the configuration file and the database path are needed
+    /// before the container exists.
+    /// </param>
+    /// <param name="registerPlatformServices">Platform services to add.</param>
+    /// <param name="overrideCoreServices">
+    /// Platform replacements for core registrations. Replacements are explicit:
+    /// <see cref="CoreServiceOverrides.Replace{TService, TImplementation}"/> fails
+    /// when the core does not register the service.
+    /// </param>
+    /// <returns>The validated application service provider.</returns>
+    public static IServiceProvider CreateServiceProvider(
+        IAppDataDirProviderService appDataDirProvider,
+        Action<IServiceCollection> registerPlatformServices,
+        Action<CoreServiceOverrides> overrideCoreServices)
     {
+        ArgumentNullException.ThrowIfNull(appDataDirProvider);
+        ArgumentNullException.ThrowIfNull(registerPlatformServices);
+        ArgumentNullException.ThrowIfNull(overrideCoreServices);
+
         var services = new ServiceCollection();
 
-        // Register safe core defaults for platform services so that any host
-        // can start without a platform-specific implementation. Platform
-        // registrations below are added after these, so they override the
-        // defaults (last registration wins).
-        services.AddSingleton<IAppDataDirProviderService, AppDataDirProviderService>();
+        services.AddSingleton(appDataDirProvider);
+
+        // Register safe core defaults for platform services so that any host can
+        // start without a platform-specific implementation. Platform overrides are
+        // applied afterwards, in OverrideCoreServices.
+        //
         // Hosts without a platform secret store must fail closed rather than
         // silently persisting credentials in plaintext. Android replaces this
         // registration with its Keystore-backed implementation below.
@@ -77,14 +101,11 @@ public static class ServiceProviderFactory
         // Register platform-specific services first
         registerPlatformServices(services);
 
-        // Get the app data directories from the platform service that was just
-        // registered. The private directory hosts the database (credentials);
-        // the user-accessible directory hosts configuration and caches.
-        var tempProvider = services.BuildServiceProvider();
-        var appDataDirService = tempProvider.GetRequiredService<IAppDataDirProviderService>();
-        var appDataDirectory = appDataDirService.GetAppDataDirectory();
-        var privateAppDataDirectory = appDataDirService.GetPrivateAppDataDirectory();
-        tempProvider.Dispose();
+        // The bootstrap already knows the directories. The private directory hosts
+        // the database (credentials); the user-accessible directory hosts
+        // configuration and caches.
+        var appDataDirectory = appDataDirProvider.GetAppDataDirectory();
+        var privateAppDataDirectory = appDataDirProvider.GetPrivateAppDataDirectory();
 
         // Build configuration from files in app data directory
         var configuration = new ConfigurationBuilder()
@@ -247,9 +268,9 @@ public static class ServiceProviderFactory
         services.AddSingleton<BulletinsViewModel>(); // Overlay page state
         services.AddSingleton<SearchViewModel>(); // Overlay page state
 
-        // Allow overriding core services for testing or platform-specific
-        // implementations
-        overrideCoreServices(services);
+        // Platform replacements are explicit and applied after every core
+        // registration exists, so nothing depends on registration order.
+        overrideCoreServices(new CoreServiceOverrides(services));
 
         // Validate the whole graph on every startup: a missing or unreachable
         // registration must fail here with the offending type instead of surfacing

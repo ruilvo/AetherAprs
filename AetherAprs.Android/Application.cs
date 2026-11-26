@@ -7,6 +7,7 @@ using Avalonia.Android;
 using AetherAprs.Android.Services.Bluetooth;
 using AetherAprs.Android.Services.Platform;
 using AetherAprs.Android.Services.Transports;
+using AetherAprs.Factories;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,35 +17,43 @@ namespace AetherAprs.Android
 {
     public class AndroidApp : App
     {
+        /// <summary>
+        /// Supplies the Android app-data directories before the container exists.
+        /// </summary>
+        /// <returns>The Android app-data provider.</returns>
+        protected override AetherAprs.Services.Platform.IAppDataDirProviderService CreateAppDataDirProvider() =>
+            new AppDataDirProviderService();
+
         protected override void RegisterPlatformServices(IServiceCollection services)
         {
+            // Additive registrations only. Anything that replaces a core service
+            // belongs in OverrideCoreServices so the replacement is explicit.
             services.AddSingleton(AndroidLifecycleTelemetry.State);
 
-            // Register Android-specific implementation of IAppDataDirProviderService
-            services.AddSingleton<AetherAprs.Services.Platform.IAppDataDirProviderService, AppDataDirProviderService>();
-            services.AddSingleton<AetherAprs.Services.Platform.ISecretProtector, AndroidKeystoreSecretProtector>();
-            
-            services.AddSingleton<AetherAprs.Services.UI.IUiCultureProvider, AndroidUiCultureProvider>();
-
-            // Bluetooth Classic SPP + BLE KISS transports and device discovery
+            // Bluetooth Classic SPP + BLE KISS transports and device discovery.
+            // Connectors accumulate, so every transport stays available.
             services.AddSingleton<IKissStreamConnector, BluetoothClassicKissStreamConnector>();
             services.AddSingleton<IKissStreamConnector, BluetoothLeKissStreamConnector>();
-            services.AddSingleton<IBluetoothLeScanner, AndroidBluetoothLeScanner>();
-            services.AddSingleton<IBluetoothClassicDeviceProvider, AndroidBluetoothClassicDeviceProvider>();
         }
 
-        protected override void OverrideCoreServices(IServiceCollection services)
+        protected override void OverrideCoreServices(CoreServiceOverrides serviceOverrides)
         {
-            // Replace the core NoOp defaults with Android-specific implementations
-            // (later registrations win over the core defaults)
-            services.AddSingleton<AetherAprs.Services.Platform.ILocationService, LocationService>();
-            services.AddSingleton<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
-            services.AddSingleton<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
-            services.AddSingleton<AetherAprs.Services.Platform.ICompassService, CompassService>();
-            services.AddSingleton<AetherAprs.Services.Platform.INotificationService, AndroidNotificationService>();
-            services.AddSingleton<AetherAprs.Services.Platform.IAudioStreamService, AudioStreamService>();
-            services.AddSingleton<AetherAprs.Services.Platform.IAudioPlaybackService, AudioPlaybackService>();
-            services.AddSingleton<AetherAprs.Services.Platform.IPttService, PttService>();
+            // Android implements these core services itself. Replacement is
+            // explicit, so a core registration that disappears fails here instead
+            // of silently falling back to the no-op default.
+            serviceOverrides.Replace<AetherAprs.Services.Platform.ISecretProtector, AndroidKeystoreSecretProtector>();
+            serviceOverrides.Replace<AetherAprs.Services.UI.IUiCultureProvider, AndroidUiCultureProvider>();
+            serviceOverrides.Replace<IBluetoothLeScanner, AndroidBluetoothLeScanner>();
+            serviceOverrides.Replace<IBluetoothClassicDeviceProvider, AndroidBluetoothClassicDeviceProvider>();
+
+            serviceOverrides.Replace<AetherAprs.Services.Platform.ILocationService, LocationService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.IPermissionService, AndroidPermissionService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.IForegroundService, AndroidForegroundService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.ICompassService, CompassService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.INotificationService, AndroidNotificationService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.IAudioStreamService, AudioStreamService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.IAudioPlaybackService, AudioPlaybackService>();
+            serviceOverrides.Replace<AetherAprs.Services.Platform.IPttService, PttService>();
         }
     }
 

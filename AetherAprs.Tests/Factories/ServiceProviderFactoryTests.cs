@@ -18,9 +18,10 @@ public class ServiceProviderFactoryTests
     [Fact]
     public void CreateServiceProvider_WithoutPlatformServices_ResolvesCoreDefaults()
     {
-        var provider = ServiceProviderFactory.CreateServiceProvider(_ => { }, _ => { });
+        var bootstrap = new AppDataDirProviderService();
+        var provider = ServiceProviderFactory.CreateServiceProvider(bootstrap, _ => { }, _ => { });
 
-        Assert.IsType<AppDataDirProviderService>(provider.GetRequiredService<IAppDataDirProviderService>());
+        Assert.Same(bootstrap, provider.GetRequiredService<IAppDataDirProviderService>());
         Assert.IsType<NoOpLocationService>(provider.GetRequiredService<ILocationService>());
         Assert.IsType<NoOpPermissionService>(provider.GetRequiredService<IPermissionService>());
         Assert.IsType<NoOpForegroundService>(provider.GetRequiredService<IForegroundService>());
@@ -32,10 +33,38 @@ public class ServiceProviderFactoryTests
     public void CreateServiceProvider_WithPlatformServices_PlatformOverridesDefaults()
     {
         var provider = ServiceProviderFactory.CreateServiceProvider(
-            services => services.AddSingleton<ILocationService, TestLocationService>(),
-            _ => { });
+            new AppDataDirProviderService(),
+            _ => { },
+            overrides => overrides.Replace<ILocationService, TestLocationService>());
 
         Assert.IsType<TestLocationService>(provider.GetRequiredService<ILocationService>());
+    }
+
+    [Fact]
+    public void CreateServiceProvider_ReplacingAnUnregisteredService_IsRejected()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            ServiceProviderFactory.CreateServiceProvider(
+                new AppDataDirProviderService(),
+                _ => { },
+                overrides => overrides.Replace<IUnregisteredService, UnregisteredService>()));
+
+        Assert.Contains(nameof(IUnregisteredService), exception.Message, StringComparison.Ordinal);
+    }
+
+    private interface IUnregisteredService
+    {
+    }
+
+    private sealed class UnregisteredService : IUnregisteredService
+    {
+    }
+
+    [Fact]
+    public void CreateServiceProvider_WithoutABootstrap_IsRejected()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            ServiceProviderFactory.CreateServiceProvider(null!, _ => { }, _ => { }));
     }
 
     private sealed class TestLocationService : ILocationService
