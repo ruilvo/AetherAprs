@@ -254,6 +254,17 @@ internal static class ArchitectureBoundaryScanner
     private const string UnboundedWakeLockAcquire = ".Acquire()";
 
     /// <summary>
+    /// The Bluetooth adapter folder. Scan results there are used to address a TNC,
+    /// never to work out where the device is, which is what the manifest claims.
+    /// </summary>
+    private const string AndroidBluetoothPath = "AetherAprs.Android/Services/Bluetooth/";
+
+    /// <summary>
+    /// Permission element in the Android manifest that carries the scan claim.
+    /// </summary>
+    private const string BluetoothScanPermission = "android.permission.BLUETOOTH_SCAN";
+
+    /// <summary>
     /// Scans the Android entry points for declared exports, immutable pending
     /// intents and unbounded wake locks.
     /// </summary>
@@ -327,6 +338,90 @@ internal static class ArchitectureBoundaryScanner
                     acquireIndex + UnboundedWakeLockAcquire.Length,
                     StringComparison.Ordinal);
             }
+        }
+
+        return violations;
+    }
+
+    /// <summary>
+    /// Symbols that would let a Bluetooth advertisement become a position.
+    /// </summary>
+    private static readonly string[] LocationFromScanSymbols = ["Android.Locations", "LocationManager"];
+
+    /// <summary>
+    /// Scans the Android Bluetooth adapter for location APIs.
+    /// </summary>
+    /// <remarks>
+    /// The manifest declares <c>neverForLocation</c> on the Bluetooth scan
+    /// permission, which lets the application scan without the location
+    /// permission. That claim holds only while nothing in the adapter resolves a
+    /// position from an advertisement, so the claim and the code behind it are
+    /// asserted together instead of being recorded in a document alone.
+    /// </remarks>
+    public static IReadOnlyList<ArchitectureViolation> ScanAndroidBluetoothLocationUse(
+        IEnumerable<ScannedSource> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        var violations = new List<ArchitectureViolation>();
+
+        foreach (var source in sources)
+        {
+            if (!source.RelativePath.StartsWith(AndroidBluetoothPath, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var text = SourceTextStripper.StripCommentsAndLiterals(source.Text);
+            foreach (var symbol in LocationFromScanSymbols)
+            {
+                if (text.Contains(symbol, StringComparison.Ordinal))
+                {
+                    violations.Add(new ArchitectureViolation(
+                        "A017", source.RelativePath, source.TypeName, symbol));
+                }
+            }
+        }
+
+        return violations;
+    }
+
+    /// <summary>
+    /// Scans the Android manifest for the Bluetooth scan claim.
+    /// </summary>
+    /// <remarks>
+    /// A manifest is not compiled code, so the claim can disappear in a merge
+    /// without a test failing. The permission must be declared and every
+    /// declaration must carry <c>neverForLocation</c>.
+    /// </remarks>
+    public static IReadOnlyList<ArchitectureViolation> ScanAndroidManifest(
+        string manifestText,
+        string relativePath = "AetherAprs.Android/Properties/AndroidManifest.xml")
+    {
+        ArgumentNullException.ThrowIfNull(manifestText);
+        var violations = new List<ArchitectureViolation>();
+        var declared = 0;
+
+        var index = manifestText.IndexOf(BluetoothScanPermission, StringComparison.Ordinal);
+        while (index >= 0)
+        {
+            declared++;
+            var end = manifestText.IndexOf('>', index);
+            var element = end < 0 ? manifestText[index..] : manifestText[index..end];
+            if (!element.Contains("neverForLocation", StringComparison.Ordinal))
+            {
+                violations.Add(new ArchitectureViolation(
+                    "A018", relativePath, "AndroidManifest", BluetoothScanPermission));
+            }
+
+            index = end < 0
+                ? -1
+                : manifestText.IndexOf(BluetoothScanPermission, end, StringComparison.Ordinal);
+        }
+
+        if (declared == 0)
+        {
+            violations.Add(new ArchitectureViolation(
+                "A018", relativePath, "AndroidManifest", BluetoothScanPermission));
         }
 
         return violations;

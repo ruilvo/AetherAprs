@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Xunit;
 
@@ -390,6 +391,69 @@ public sealed class ArchitectureBoundaryTests
     public void Scan_AndroidIntentSurface_DeclaresExportsAndImmutablePendingIntents()
     {
         var violations = ArchitectureBoundaryScanner.ScanAndroidIntentSurface(SourceScanner.ReadProductionSources());
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void Scan_SyntheticBluetoothScannerResolvingAPosition_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.ScanAndroidBluetoothLocationUse(
+            [Source(
+                "AetherAprs.Android/Services/Bluetooth/BlePositionResolver.cs",
+                "var manager = (LocationManager)context.GetSystemService(LocationService)!;\nmanager.GetLastKnownLocation(provider);")]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A017", violation.RuleId);
+        Assert.Equal("LocationManager", violation.Symbol);
+    }
+
+    [Fact]
+    public void Scan_AndroidBluetoothAdapterDoesNotDeriveLocation()
+    {
+        var violations =
+            ArchitectureBoundaryScanner.ScanAndroidBluetoothLocationUse(SourceScanner.ReadProductionSources());
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
+    public void ScanAndroidManifest_WhenTheScanPermissionDropsTheClaim_IsRejected()
+    {
+        const string manifest = """
+                                <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+                                	<uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+                                </manifest>
+                                """;
+
+        var violation = Assert.Single(ArchitectureBoundaryScanner.ScanAndroidManifest(manifest));
+        Assert.Equal("A018", violation.RuleId);
+        Assert.Equal("android.permission.BLUETOOTH_SCAN", violation.Symbol);
+    }
+
+    [Fact]
+    public void ScanAndroidManifest_WhenTheScanPermissionIsMissing_IsRejected()
+    {
+        const string manifest = """
+                                <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+                                	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+                                </manifest>
+                                """;
+
+        var violation = Assert.Single(ArchitectureBoundaryScanner.ScanAndroidManifest(manifest));
+        Assert.Equal("A018", violation.RuleId);
+    }
+
+    [Fact]
+    public void ScanAndroidManifest_DeclaresNeverForLocation()
+    {
+        var path = Path.Combine(
+            SourceScanner.FindRepositoryRoot(),
+            "AetherAprs.Android",
+            "Properties",
+            "AndroidManifest.xml");
+
+        var violations = ArchitectureBoundaryScanner.ScanAndroidManifest(File.ReadAllText(path));
 
         Assert.Empty(violations);
     }

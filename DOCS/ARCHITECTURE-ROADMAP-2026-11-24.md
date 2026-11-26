@@ -399,8 +399,10 @@ composition root builds a container, added with the composition-root items) and
 item 5), `A013` (Android code logs through `ILogger`; only the logcat provider
 names `Android.Util.Log`, added with the `R5.4` logging work), `A014` (an Android
 component declares whether it is exported) and `A015` (pending intents are
-immutable), both added with the exported-input review, and `A016` (a wake lock is
-acquired with a timeout, added with the `R5.2` wake-lease bound). The
+immutable), both added with the exported-input review, `A016` (a wake lock is
+acquired with a timeout, added with the `R5.2` wake-lease bound), and `A017`/
+`A018` (the Bluetooth adapter uses no location API, and the scan permission keeps
+its `neverForLocation` claim, added with the `R5.4` decision). The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -1025,10 +1027,10 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Verify exported activity/deep-link inputs and notification privacy.
 - Document the `neverForLocation` rationale or remove the flag.
 
-> **Status: lost credentials no longer hide the port list, the operator can repair
-> them in the port editor, Android logging goes through `ILogger`, and the exported
-> surface is declared and validated (2026-11-26); the `neverForLocation` decision
-> still open.**
+> **Status: all four bullets implemented (2026-11-26): lost credentials no longer
+> hide the port list, the operator can repair them in the port editor, Android
+> logging goes through `ILogger`, the exported surface is declared and validated,
+> and the `neverForLocation` claim is kept and made checkable; no device run yet.**
 > `PortRegistry` restored the APRS-IS passcode while mapping every record, so one
 > unreadable secret threw out of `LoadAsync` and the operator saw no ports at all.
 > Mapping now catches `SecretUnavailableException` per port: the port keeps its name,
@@ -1093,9 +1095,35 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > tactical addresses and same-shape rejects (spaces, path separators, shell
 > metacharacters, over-length, SSID 16) into the deep-link parser.
 >
-> Still open for this item: the `neverForLocation` decision. The exported surface
-> has architecture coverage but no device run: nothing here proves how the platform
-> delivers a malformed intent to the real activity.
+> **Decision on `neverForLocation`: keep it, and make the claim checkable.**
+> Nothing derives a position from a scan. The adapter publishes the device
+> address, the advertised name, the service UUIDs and the RSSI; the address and
+> name identify a candidate TNC, the UUIDs filter the list, and the RSSI is shown
+> to the operator while picking a device. No distance, no geofence, no position is
+> computed from an advertisement, and the position the application publishes comes
+> from the location service behind `ACCESS_FINE_LOCATION`. Declaring
+> `neverForLocation` is therefore accurate, and it keeps the location permission
+> out of a Bluetooth-only feature: the operator can scan for a TNC without granting
+> location access. Removing the flag would not make any behaviour safer, it would
+> only make the platform demand a permission the scan does not use.
+>
+> The claim is documented in `AetherAprs.Android/Properties/AndroidManifest.xml`
+> next to the permission, so the next person to look at it sees why it is there and
+> what would have to change first. Because a manifest comment is not a test, two
+> rules now assert the decision: **A017** rejects `Android.Locations` or
+> `LocationManager` inside `AetherAprs.Android/Services/Bluetooth/`, which is the
+> code that would have to change for the claim to become false, and **A018**
+> rejects a manifest whose `BLUETOOTH_SCAN` declaration is missing (or drops)
+> `neverForLocation`. Both run over the real tree, and both have a synthetic case
+> that proves the rule fires; deleting the attribute from the actual manifest makes
+> `ScanAndroidManifest_DeclaresNeverForLocation` fail with
+> `A018 … android.permission.BLUETOOTH_SCAN`, so the guard is load-bearing rather
+> than decorative.
+>
+> Still open for this item: no device run. Architecture coverage proves the
+> declaration and the adapter agree; it does not prove how a device reports a
+> scan it treats as non-location, and the exported surface has no device run
+> either.
 
 Exit: permission, disconnect, notification stop, and route change behavior have
 focused acceptance checks. When a behavior depends on native APIs, use a short
@@ -1359,7 +1387,7 @@ report is valid or open. Historical locations and details are in the [audit].
 > `TestFixtureBase`/`UiCulture.Apply` still share between parallel tests.
 | P-05/P-06/P-08/P-10/P-16/P-17 | R5.1/R5.2: permission answers now carry granted/denied/permanently denied/unavailable, with a settings-recovery call; the queued request broker, rationale UI and repeated on-demand prompt remain. Foreground location is requested; all-time settings flow is distinct. Rejected FGS can look successful; fix bounded permission/wake ownership. |
 | P-09/P-11–P-15/P-18/P-19 | R3.3/R5/R6.6: recheck context startup and telemetry boundaries; JNI disposal/activity recreation, GATT failures and Classic timeout have source changes. Verify late callbacks and start/abort race. |
-| P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: bounded BLE scan, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` is compatible with separate GPS if scan results do not derive location. |
+| P-20–P-25/P-29/P-30/P-32–P-34 | R5/R6.6/R6.8: bounded BLE scan, async audio stop, short writes, actual PTT capability, idempotent compass, monochrome icon, exported input validation, design-time adapters, and dead SDK branches. P-33 cosmetic fix landed; `neverForLocation` was audited and kept — scan results address a TNC and never derive a position — with the claim and the adapter now pinned by `A017`/`A018`. |
 | P-28 | No boot receiver is consistent with explicit run-scoped TX arm; the real gap is automatic startup of saved routes conflating enabled and armed. R3.3. |
 | V-01–V-19 | R4/R6.4/R6.8: separate actual policy from legitimate presentation glue; remove duplicate location start (working-tree fix), fix map detach/ownership, virtualize history, validate bindings/fallback and culture. V-11 requires checking actual SDK defaults, V-12 compile item removed, V-13/V-17 fixes landed. Confirm the audit's overlapping converter and time issues individually. |
 

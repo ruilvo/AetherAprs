@@ -10,6 +10,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
 	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 	<uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+	<!--
+	Scan results are used only to find and address a TNC: the device address, the
+	advertised name, the service UUIDs and the signal strength shown to the
+	operator while picking a device. Nothing derives a position from them, and the
+	position the application publishes comes from the location service behind
+	ACCESS_FINE_LOCATION. Declaring neverForLocation states that truthfully, so a
+	Bluetooth-only feature does not pull the location permission into scanning.
+	Changing this claim means changing what the scan results are used for; rule
+	A017 in the architecture tests rejects location APIs inside the Bluetooth
+	adapter, and A018 rejects a scan declaration without the claim.
+	-->
 	<uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
 	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
