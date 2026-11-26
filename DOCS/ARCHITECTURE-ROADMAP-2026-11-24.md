@@ -1014,7 +1014,8 @@ Exit: application services can run in a plain test host with no Avalonia applica
 - Bound wakelock use and recheck battery optimization.
 - Decide reboot behavior: explicit re-arm is the current product requirement.
 
-> **Status: single stop path implemented (2026-11-26).**
+> **Status: single stop path, bounded wake lease, battery recheck and rejected-start
+> rollback implemented (2026-11-26); native acceptance still open.**
 > `IApplicationSessionControl` (`Services/Lifecycle/ApplicationSessionControl.cs`)
 > is the one stop an in-app exit and the notification action share. It serializes
 > concurrent stops and runs five ordered steps: `SessionCoordinator.StopAsync`
@@ -1066,10 +1067,27 @@ Exit: application services can run in a plain test host with no Avalonia applica
 > `[A016 AetherAprs.Android/Services/Platform/AndroidForegroundService.cs -> .Acquire()]`,
 > so the rule is load-bearing.
 >
-> Remaining for this item: the native acceptance check for notification
-> publication, modem readiness and first I/O as separate states, and rolling back
-> requested leases when a foreground start is rejected (the current start rejection
-> reports `Degraded` but keeps the held reasons).
+> A rejected start is now rolled back instead of being reported as a hold that does
+> not exist. `KeepAliveService.ReconcileAsync` returns the refusal without publishing
+> it; `AcquireAsync` then drops the reason that call added and publishes one outcome,
+> and `ReleaseAsync` publishes the refusal for a refresh it attempted. Only the
+> reason from the failing call is dropped: a reason that was already held stays, and
+> a refusal during a type refresh leaves the running service alone rather than
+> tearing down work that is still active. When nothing remains the status is
+> `Degraded` with no reasons and the refusal text, so the caller still learns why the
+> hold failed. On Android, `AetherAprsForegroundService` now releases the wake lease and
+> any declared foreground state in `AbandonRejectedStart` when `StartForeground`
+> throws, instead of waiting for `OnDestroy`.
+>
+> Tests: `KeepAliveServiceTests` covers a rejected first start (the reason is rolled
+> back, no `Active` is ever published, the refusal text survives), a rejected refresh
+> (the earlier hold keeps running, no stop is issued), a rejected release refresh
+> (reported as `Degraded` for the remaining reason), and the existing retry case that
+> acquires again after a refusal. Replacing the rollback with a plain publish makes
+> the first two fail, so the rollback is load-bearing and not just a rename.
+>
+> Remaining for this item: the native acceptance check for notification publication,
+> modem readiness and first I/O as separate states.
 
 **R5.3 Hardware transports**
 

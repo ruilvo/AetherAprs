@@ -35,10 +35,12 @@ public enum KeepAliveReason
 /// actually held.
 /// </para>
 /// <para>
-/// A platform refusal never loses a reason: the hold becomes
-/// <see cref="KeepAliveState.Degraded"/> and the next acquire retries. Callers
-/// therefore treat <see cref="AcquireAsync"/> as idempotent intent rather than a
-/// one-shot command.
+/// A platform refusal rolls back the reason that call requested: the hold cannot be
+/// claimed when the foreground service never started, and the refused types are not
+/// running. The status still carries the refusal as
+/// <see cref="KeepAliveState.Degraded"/>, and a reason that was already held stays,
+/// so the next acquire retries. Callers therefore treat <see cref="AcquireAsync"/>
+/// as idempotent intent rather than a one-shot command.
 /// </para>
 /// </remarks>
 public interface IKeepAliveService

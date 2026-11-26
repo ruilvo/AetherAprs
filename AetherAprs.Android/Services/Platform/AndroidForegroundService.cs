@@ -131,6 +131,21 @@ public class AetherAprsForegroundService : Service
     }
 
     /// <summary>
+    /// Releases everything a rejected foreground start was holding.
+    /// </summary>
+    /// <remarks>
+    /// The lease was armed before the platform call and the declared types belong to
+    /// a foreground state that never began, so waiting for <c>OnDestroy</c> would keep
+    /// both for as long as the process lingers. Nothing owns them after a rejection.
+    /// </remarks>
+    private void AbandonRejectedStart()
+    {
+        ApplyWakeLease(isSessionActive: false);
+        StopForeground(StopForegroundFlags.Remove);
+        StopSelf();
+    }
+
+    /// <summary>
     /// Re-reads the battery-optimization exemption when the service starts work.
     /// </summary>
     /// <remarks>
@@ -254,7 +269,7 @@ public class AetherAprsForegroundService : Service
                 Log.LogWarning(ex, "Foreground service unavailable");
                 AndroidLifecycleTelemetry.State.ForegroundRejected();
                 PublishState(StateFailed);
-                StopSelf();
+                AbandonRejectedStart();
                 return StartCommandResult.NotSticky;
             }
             catch (ForegroundServiceStartNotAllowedException ex)
@@ -262,7 +277,7 @@ public class AetherAprsForegroundService : Service
                 Log.LogWarning(ex, "Foreground service unavailable");
                 AndroidLifecycleTelemetry.State.ForegroundRejected();
                 PublishState(StateFailed);
-                StopSelf();
+                AbandonRejectedStart();
                 return StartCommandResult.NotSticky;
             }
 

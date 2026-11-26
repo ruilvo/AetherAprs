@@ -65,7 +65,7 @@ public sealed class KeepAliveServiceTests
     }
 
     [Fact]
-    public async Task AcquireAsync_WhenThePlatformRejectsTheStart_ReportsDegradedAndNeverActive()
+    public async Task AcquireAsync_WhenThePlatformRejectsTheStart_RollsBackTheReason()
     {
         var foreground = new ScriptedForegroundService
         {
@@ -78,8 +78,48 @@ public sealed class KeepAliveServiceTests
 
         Assert.Equal(KeepAliveState.Degraded, status.State);
         Assert.Equal("The platform refused the request.", status.DegradedReason);
+        Assert.Empty(status.Reasons);
+        Assert.Equal(ForegroundServiceType.None, status.RequiredTypes);
         Assert.DoesNotContain(KeepAliveState.Active, states);
+        Assert.Empty(service.Status.Reasons);
+    }
+
+    [Fact]
+    public async Task AcquireAsync_WhenARefreshIsRejected_KeepsTheEarlierHoldRunning()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+
+        await service.AcquireAsync(KeepAliveReason.Ports);
+        foreground.RejectionReason = "The platform refused the request.";
+
+        var status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
+
+        // Only the refused reason is dropped: the hold that was already honoured
+        // stays, and tearing the service down would be worse than the refusal.
+        Assert.Equal(KeepAliveState.Degraded, status.State);
         Assert.Equal([KeepAliveReason.Ports], status.Reasons);
+        Assert.Equal(ForegroundServiceType.ConnectedDevice, status.RequiredTypes);
+        Assert.Equal(0, foreground.StopCount);
+        Assert.True(foreground.IsRunning);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_WhenTheTypeRefreshIsRejected_ReportsDegraded()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+
+        await service.AcquireAsync(KeepAliveReason.Ports);
+        await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        foreground.RejectionReason = "The platform refused the request.";
+
+        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+
+        Assert.Equal(KeepAliveState.Degraded, status.State);
+        Assert.Equal([KeepAliveReason.LocationTracking], status.Reasons);
+        Assert.Equal("The platform refused the request.", status.DegradedReason);
+        Assert.Equal(0, foreground.StopCount);
     }
 
     [Fact]

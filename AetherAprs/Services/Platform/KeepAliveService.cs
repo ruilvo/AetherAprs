@@ -62,14 +62,26 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            // A repeated acquire keeps its reason held and still reconciles, so a
-            // hold that degraded can recover on the next attempt.
-            if (!_heldReasons.Add(reason))
+            // A reason that was already held still reconciles, so a hold that
+            // degraded can recover on the next attempt. Only a reason this call
+            // added is eligible for rollback, so an earlier caller keeps its hold.
+            var added = _heldReasons.Add(reason);
+            if (!added)
             {
                 _logger.LogDebug("Keep-alive reason {Reason} is already held.", reason);
             }
 
-            return await ReconcileAsync().ConfigureAwait(false);
+            var wasActive = _status.State == KeepAliveState.Active;
+            var (status, startRejected) = await ReconcileAsync().ConfigureAwait(false);
+
+            if (!startRejected)
+            {
+                return status;
+            }
+
+            return added
+                ? await RollBackAsync(reason, status, wasActive).ConfigureAwait(false)
+                : Publish(status);
         }
         finally
         {
@@ -90,7 +102,8 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
                 _logger.LogDebug("Keep-alive reason {Reason} was not held.", reason);
             }
 
-            return await ReconcileAsync().ConfigureAwait(false);
+            var (status, startRejected) = await ReconcileAsync().ConfigureAwait(false);
+            return startRejected ? Publish(status) : status;
         }
         finally
         {
@@ -102,18 +115,25 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
     /// Applies the held reasons to the platform. Callers must hold
     /// <see cref="_transitionGate"/>.
     /// </summary>
-    private async Task<KeepAliveStatus> ReconcileAsync()
+    /// <returns>
+    /// The published status and whether the platform refused to start the service.
+    /// A refusal is reported so the caller can roll its own request back; keeping the
+    /// reason held would claim a hold that does not exist. The refusal status is
+    /// returned unpublished so a caller that rolls back publishes one outcome instead
+    /// of two contradictory ones.
+    /// </returns>
+    private async Task<(KeepAliveStatus Status, bool StartRejected)> ReconcileAsync()
     {
         var requiredTypes = GetRequiredTypes();
 
         if (_heldReasons.Count == 0)
         {
-            return await StopAsync().ConfigureAwait(false);
+            return (await StopAsync().ConfigureAwait(false), false);
         }
 
         if (_status.State == KeepAliveState.Active && _status.RequiredTypes == requiredTypes)
         {
-            return _status;
+            return (_status, false);
         }
 
         var refresh = _status.State == KeepAliveState.Active;
@@ -126,10 +146,10 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
         catch (Exception exception)
         {
             _logger.LogError(exception, "The platform foreground service could not be started.");
-            return Publish(KeepAliveStatus.Degraded(
+            return (KeepAliveStatus.Degraded(
                 _heldReasons,
                 requiredTypes,
-                $"The foreground service could not be started: {exception.Message}"));
+                $"The foreground service could not be started: {exception.Message}"), true);
         }
 
         if (!result.IsRunning)
@@ -139,7 +159,7 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
                 "Keep-alive is degraded for {Types}: {Reason}",
                 requiredTypes,
                 reason);
-            return Publish(KeepAliveStatus.Degraded(_heldReasons, requiredTypes, reason));
+            return (KeepAliveStatus.Degraded(_heldReasons, requiredTypes, reason), true);
         }
 
         if (refresh)
@@ -155,7 +175,47 @@ public sealed class KeepAliveService : IKeepAliveService, IDisposable
                 requiredTypes);
         }
 
-        return Publish(KeepAliveStatus.Active(_heldReasons, requiredTypes));
+        return (Publish(KeepAliveStatus.Active(_heldReasons, requiredTypes)), false);
+    }
+
+    /// <summary>
+    /// Drops the reason whose start the platform refused and reports what remains.
+    /// Callers must hold <see cref="_transitionGate"/>.
+    /// </summary>
+    /// <remarks>
+    /// Only the reason added by this call is dropped. A reason that was already held
+    /// belongs to an earlier caller and stays, so a retry through that caller still
+    /// sees its intent. When the refusal happened while a running service was only
+    /// being refreshed, the service keeps running for the remaining types and the
+    /// status says so instead of stopping work that was already active.
+    /// </remarks>
+    private async Task<KeepAliveStatus> RollBackAsync(
+        KeepAliveReason reason,
+        KeepAliveStatus rejected,
+        bool wasActive)
+    {
+        _heldReasons.Remove(reason);
+        _logger.LogWarning(
+            "Rolled back keep-alive reason {Reason} because the platform refused the foreground service.",
+            reason);
+
+        if (_heldReasons.Count > 0)
+        {
+            return Publish(KeepAliveStatus.Degraded(
+                _heldReasons,
+                GetRequiredTypes(),
+                rejected.DegradedReason ?? "The foreground service was refused."));
+        }
+
+        if (wasActive)
+        {
+            return await StopAsync().ConfigureAwait(false);
+        }
+
+        return Publish(KeepAliveStatus.Degraded(
+            [],
+            ForegroundServiceType.None,
+            rejected.DegradedReason ?? "The foreground service was refused."));
     }
 
     /// <summary>
