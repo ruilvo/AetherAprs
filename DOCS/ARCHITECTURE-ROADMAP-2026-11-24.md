@@ -171,7 +171,7 @@ Required design:
 6. Construct timers, event subscriptions, and background workers in `StartAsync` or
    `InitializeAsync`, not in constructors.
 
-> **Status: items 1, 3 and 4 implemented.** The final container in
+> **Status: items 1, 3, 4 and 6 implemented.** The final container in
 > `ServiceProviderFactory` and the designer container in `DesignData` are both
 > built with `ValidateOnBuild` and `ValidateScopes`. A registration that cannot
 > be resolved, or a singleton that captures a scoped service, now fails at
@@ -192,11 +192,16 @@ Required design:
 > platform overrides anything, and the duplicate registrations it used to leave
 > behind are gone.
 >
-> Items 5 and 6 remain open: the provider is still reachable through the
-> documented `App.GetService<T>()` escape hatch used by Android entry points, and
-> three background consumers start their loops in constructors
-> (`SessionStateWriter`, `PacketIngestPipeline`, `DigipeatRouter`) instead of in an
-> `InitializeAsync`/`StartAsync` phase.
+> Background work starts in a phase, not a constructor. `PacketIngestPipeline`
+> and `DigipeatRouter` construct their queue but no consumer;
+> `IPacketIngestPipeline.StartAsync` and `IDigipeatRouter.StartAsync` start the
+> drain, and `SessionStateWriter` starts from `SessionCoordinator.InitializeAsync`.
+> The startup sequence runs a `consumers` step before it arms any port, so a
+> packet can never arrive while the queue has no reader, and disposing an
+> application that never got that far no longer leaves a task behind.
+>
+> Item 5 remains open: the provider is still reachable through the documented
+> `App.GetService<T>()` escape hatch used by Android entry points.
 
 ### Persistence
 
@@ -826,8 +831,8 @@ compatibility façade is still needed.
 > a live process never re-arms or stops the session. Each outcome is logged,
 > recorded in diagnostics under `startup`, and raised through `StepCompleted`.
 > `StartupStepFactory` declares the single sequence — database, settings, ports,
-> permissions, location, maintenance, sessions — and rule A010 keeps step
-> declarations out of feature code.
+> permissions, location, maintenance, consumers, sessions — and rule A010 keeps
+> step declarations out of feature code.
 >
 > Permissions are feature-scoped. `PortStartupPermissions` asks for the
 > notification, Bluetooth and audio permissions that the enabled ports actually

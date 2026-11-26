@@ -25,7 +25,8 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     private readonly ILogger<PacketIngestPipeline> _logger;
     private readonly IDiagnosticEventSink? _diagnosticSink;
     private readonly Channel<QueuedPacket> _channel;
-    private readonly Task _consumerTask;
+    private readonly Lock _startLock = new();
+    private Task? _consumerTask;
 
     // Intentionally not disposed: queued callbacks may still reference the token,
     // and disposing it can throw ObjectDisposedException into modem threads.
@@ -62,12 +63,24 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
             SingleReader = true,
             FullMode = BoundedChannelFullMode.Wait
         });
-        _consumerTask = Task.Run(ConsumeAsync);
     }
 
     public event EventHandler<PortPacketReceivedEventArgs>? PacketStored;
 
     public PacketIngestOptions Options { get; }
+
+    public Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (_startLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _consumerTask ??= Task.Run(ConsumeAsync, CancellationToken.None);
+        }
+
+        return Task.CompletedTask;
+    }
 
     public long TotalDroppedPackets => Interlocked.Read(ref _totalDroppedPackets);
 
@@ -252,18 +265,30 @@ internal sealed class PacketIngestPipeline : IPacketIngestPipeline
     {
         GC.SuppressFinalize(this);
 
-        if (_disposed)
+        Task? consumer;
+
+        lock (_startLock)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            consumer = _consumerTask;
+        }
+
+        _disposalCts.Cancel();
+        _channel.Writer.TryComplete();
+
+        if (consumer is null)
         {
             return;
         }
 
-        _disposed = true;
-        _disposalCts.Cancel();
-        _channel.Writer.TryComplete();
-
         try
         {
-            await _consumerTask.ConfigureAwait(false);
+            await consumer.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

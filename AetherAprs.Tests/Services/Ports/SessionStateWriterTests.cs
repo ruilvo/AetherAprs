@@ -19,6 +19,7 @@ public sealed class SessionStateWriterTests
     {
         var store = new GatedStateStore(blockFirstSave: true);
         await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        writer.Start();
 
         writer.Request(CreateSnapshot(1));
         await store.FirstSaveEntered;
@@ -40,6 +41,7 @@ public sealed class SessionStateWriterTests
     {
         var store = new GatedStateStore(blockFirstSave: true);
         await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        writer.Start();
 
         writer.Request(CreateSnapshot(1));
         await store.FirstSaveEntered;
@@ -60,6 +62,7 @@ public sealed class SessionStateWriterTests
     {
         var store = new GatedStateStore();
         await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        writer.Start();
 
         await writer.FlushAsync(TestContext.Current.CancellationToken);
 
@@ -71,6 +74,7 @@ public sealed class SessionStateWriterTests
     {
         var store = new GatedStateStore { FailuresRemaining = 1 };
         await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+        writer.Start();
 
         writer.Request(CreateSnapshot(1));
 
@@ -94,6 +98,7 @@ public sealed class SessionStateWriterTests
     {
         var store = new GatedStateStore();
         var writer = new SessionStateWriter(store, NullLogger.Instance);
+        writer.Start();
 
         writer.Request(CreateSnapshot(4));
         await writer.DisposeAsync();
@@ -112,6 +117,26 @@ public sealed class SessionStateWriterTests
         writer.Request(CreateSnapshot(5));
 
         Assert.Empty(store.Written);
+    }
+
+    [Fact]
+    public async Task Request_BeforeStart_IsWrittenOnceTheWriterStarts()
+    {
+        var store = new GatedStateStore();
+        await using var writer = new SessionStateWriter(store, NullLogger.Instance);
+
+        writer.Request(CreateSnapshot(7));
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        // Construction only wires the queue: nothing is written until the
+        // coordinator's initialize phase starts the loop.
+        Assert.Empty(store.Written);
+
+        writer.Start();
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        var written = Assert.Single(store.Written);
+        Assert.Equal(7, Marker(written));
     }
 
     private static SessionSnapshot CreateSnapshot(int marker) =>

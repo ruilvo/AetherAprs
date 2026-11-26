@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs.Packets;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Ports;
@@ -49,6 +50,14 @@ public sealed record DigipeatMetrics(long Enqueued, long Forwarded, long Discard
 /// </summary>
 public interface IDigipeatRouter : IAsyncDisposable
 {
+    /// <summary>
+    /// Starts the consumer that drains the candidate queue. Construction only wires
+    /// the queue, so the container can build the router before the session exists;
+    /// calling this again has no effect.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the start itself, not the consumer.</param>
+    Task StartAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Raised after a packet was handed to a running target session.</summary>
     event EventHandler<PortPacketTransmittedEventArgs>? PacketForwarded;
 

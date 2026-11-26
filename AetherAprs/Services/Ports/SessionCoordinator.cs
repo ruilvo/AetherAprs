@@ -218,6 +218,9 @@ public sealed class SessionCoordinator : IAsyncDisposable
             _initialized = true;
         }
 
+        // Persistence begins with the first real transition, not when the container
+        // happened to build the coordinator.
+        _stateWriter.Start();
         StartDiagnosticTimer();
     }
 

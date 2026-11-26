@@ -230,20 +230,57 @@ public sealed class DigipeatRouterTests
             "A candidate from an unknown source must be discarded.");
     }
 
+    [Fact]
+    public async Task Enqueue_BeforeStart_IsForwardedOnceTheRouterStarts()
+    {
+        var source = CreatePort("Source");
+        var target = CreatePort("Target");
+        var sessionManager = CreateSessionManager(source.Id, target.Id);
+        var digipeater = CreateDigipeater(target.Id);
+
+        await using var router = new DigipeatRouter(
+            new FakeConfigurationSource(source, target),
+            sessionManager,
+            digipeater,
+            NullLogger<DigipeatRouter>.Instance);
+
+        router.Enqueue(source.Id, CreatePacket());
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        // Construction only wires the queue; the startup phase starts the drain.
+        Assert.Equal(0, router.GetMetrics().Forwarded);
+        await sessionManager.DidNotReceive().SendAsync(
+            Arg.Any<Guid>(),
+            Arg.Any<AprsPacket>(),
+            Arg.Any<CancellationToken>());
+
+        await router.StartAsync(TestContext.Current.CancellationToken);
+        await WaitForAsync(
+            () => router.GetMetrics().Forwarded == 1,
+            "The queued candidate should be forwarded once the router starts.");
+    }
+
     private static DigipeatRouter CreateRouter(
         PortConfig source,
         PortConfig target,
         IPortSessionManager sessionManager,
         IDigipeaterService digipeater,
         DigipeatRouterOptions? options = null,
-        TimeProvider? timeProvider = null) =>
-        new(
+        TimeProvider? timeProvider = null)
+    {
+        var router = new DigipeatRouter(
             new FakeConfigurationSource(source, target),
             sessionManager,
             digipeater,
             NullLogger<DigipeatRouter>.Instance,
             options: options,
             timeProvider: timeProvider);
+
+        // The consumer is a startup phase, so the helper starts it explicitly.
+        // StartAsync completes synchronously.
+        router.StartAsync().GetAwaiter().GetResult();
+        return router;
+    }
 
     private static IPortSessionManager CreateSessionManager(Guid sourceId, Guid targetId)
     {

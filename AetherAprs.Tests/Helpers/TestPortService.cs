@@ -27,21 +27,30 @@ internal static class TestPortService
             database,
             collaborators.SecretProtector);
 
+        var ingest = new PacketIngestPipeline(
+            collaborators.PacketStorageService,
+            NullLogger<PacketIngestPipeline>.Instance,
+            collaborators.DiagnosticSink,
+            collaborators.IngestOptions);
+        var digipeat = new DigipeatRouter(
+            configuration,
+            sessionManager,
+            collaborators.DigipeaterService,
+            NullLogger<DigipeatRouter>.Instance,
+            collaborators.DiagnosticSink,
+            collaborators.DigipeatOptions);
+
+        // The composition root starts these consumers in its startup phase; a test
+        // that builds the runtime directly starts them the same way so packet flow
+        // is live. StartAsync completes synchronously, so no await is needed here.
+        ingest.StartAsync().GetAwaiter().GetResult();
+        digipeat.StartAsync().GetAwaiter().GetResult();
+
         return new PortService(
             configuration,
             sessionManager,
-            new PacketIngestPipeline(
-                collaborators.PacketStorageService,
-                NullLogger<PacketIngestPipeline>.Instance,
-                collaborators.DiagnosticSink,
-                collaborators.IngestOptions),
-            new DigipeatRouter(
-                configuration,
-                sessionManager,
-                collaborators.DigipeaterService,
-                NullLogger<DigipeatRouter>.Instance,
-                collaborators.DiagnosticSink,
-                collaborators.DigipeatOptions),
+            ingest,
+            digipeat,
             NullLogger<PortService>.Instance,
             collaborators.KeepAliveService);
     }

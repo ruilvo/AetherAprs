@@ -115,10 +115,41 @@ public sealed class PacketIngestPipelineTests
                 new PacketIngestOptions { StoreRetryDelay = TimeSpan.FromSeconds(-1) }));
     }
 
+    [Fact]
+    public async Task Accept_BeforeStart_IsStoredOnceTheConsumerStarts()
+    {
+        var storage = new GatedPacketStorage();
+        await using var pipeline = new PacketIngestPipeline(
+            storage,
+            NullLogger<PacketIngestPipeline>.Instance,
+            options: new PacketIngestOptions { QueueCapacity = 4 });
+
+        pipeline.Accept(Guid.NewGuid(), CreatePacket());
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        // Construction only wires the queue; the startup phase starts the drain.
+        Assert.Empty(storage.StoredPackets);
+
+        await pipeline.StartAsync(TestContext.Current.CancellationToken);
+        await WaitForAsync(
+            () => storage.StoredPackets.Count == 1,
+            "The queued packet should be stored once the consumer starts.");
+    }
+
     private static PacketIngestPipeline CreatePipeline(
         IPacketStorageService storage,
-        PacketIngestOptions? options = null) =>
-        new(storage, NullLogger<PacketIngestPipeline>.Instance, options: options);
+        PacketIngestOptions? options = null)
+    {
+        var pipeline = new PacketIngestPipeline(
+            storage,
+            NullLogger<PacketIngestPipeline>.Instance,
+            options: options);
+
+        // The consumer is a startup phase, so the helper starts it explicitly.
+        // StartAsync completes synchronously.
+        pipeline.StartAsync().GetAwaiter().GetResult();
+        return pipeline;
+    }
 
     private static async Task WaitForAsync(Func<bool> condition, string because)
     {

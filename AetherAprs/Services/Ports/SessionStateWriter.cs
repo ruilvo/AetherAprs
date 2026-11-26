@@ -27,10 +27,11 @@ internal sealed class SessionStateWriter : IAsyncDisposable
     private readonly ISessionStateStore _stateStore;
     private readonly ILogger _logger;
     private readonly Channel<WriteRequest> _requests;
-    private readonly Task _writerTask;
     private readonly Lock _progressLock = new();
+    private readonly Lock _startLock = new();
 
     private TaskCompletionSource<bool> _progress = CreateProgressSource();
+    private Task? _writerTask;
     private long _requestedVersion;
     private long _durableVersion;
     private bool _disposed;
@@ -48,7 +49,20 @@ internal sealed class SessionStateWriter : IAsyncDisposable
             SingleReader = true,
             SingleWriter = false
         });
-        _writerTask = WriteLoopAsync();
+    }
+
+    /// <summary>
+    /// Starts the write loop. Construction only wires the queue, so the coordinator
+    /// decides when runtime transitions begin to be persisted; calling this again
+    /// has no effect.
+    /// </summary>
+    public void Start()
+    {
+        lock (_startLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _writerTask ??= WriteLoopAsync();
+        }
     }
 
     /// <summary>
@@ -164,7 +178,7 @@ internal sealed class SessionStateWriter : IAsyncDisposable
 
         _disposed = true;
         _requests.Writer.TryComplete();
-        await _writerTask.ConfigureAwait(false);
+        await (_writerTask ?? Task.CompletedTask).ConfigureAwait(false);
     }
 
     private readonly record struct WriteRequest(SessionSnapshot Snapshot, long Version);

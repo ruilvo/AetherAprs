@@ -5,6 +5,7 @@
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Packets;
@@ -45,6 +46,14 @@ public sealed record PacketIngestMetrics(long Enqueued, long Stored, long Droppe
 /// </summary>
 public interface IPacketIngestPipeline : IAsyncDisposable
 {
+    /// <summary>
+    /// Starts the consumer that drains the queue. Construction only wires the
+    /// queue, so a container is free to build the pipeline before the application
+    /// is ready to persist; calling this again has no effect.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the start itself, not the consumer.</param>
+    Task StartAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Raised on the ingest consumer after the packet was stored, in receive order.
     /// </summary>

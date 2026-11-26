@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AetherAprs.Data;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Maintenance;
+using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Startup;
@@ -77,10 +78,25 @@ internal static class StartupStepFactory
                 services.GetRequiredService<IDatabaseMaintenanceWorker>().StartAsync(cancellationToken),
                 isRequired: false),
 
+            // Ingest and forwarding consumers must be draining before any port can
+            // deliver a packet or a stored packet needs forwarding.
+            new StartupStep("consumers", cancellationToken =>
+                StartConsumersAsync(services, cancellationToken)),
+
             // Last: arming starts connecting ports.
             new StartupStep("sessions", cancellationToken =>
                 services.GetRequiredService<SessionStartup>().StartAsync(cancellationToken))
         ];
+    }
+
+    private static async Task StartConsumersAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        await services.GetRequiredService<IPacketIngestPipeline>()
+            .StartAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await services.GetRequiredService<IDigipeatRouter>()
+            .StartAsync(cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static Task RequestPortPermissionsAsync(IServiceProvider services, CancellationToken cancellationToken) =>
