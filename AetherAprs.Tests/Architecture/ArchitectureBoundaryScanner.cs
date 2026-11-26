@@ -77,13 +77,13 @@ internal static class ArchitectureBoundaryScanner
     /// </summary>
     private static readonly HashSet<string> BoundedQueueOwners = new(StringComparer.Ordinal)
     {
+        "AetherAprs/Services/Bluetooth/BluetoothAdvertisementBuffer.cs",
         "AetherAprs/Data/SqliteRuntimeWriter.cs",
         "AetherAprs/Services/Packets/PacketIngestPipeline.cs",
         "AetherAprs/Services/Ports/DigipeatRouter.cs",
         "AetherAprs/Services/Ports/SessionStateWriter.cs",
         "AetherAprs/Services/Ports/SessionTelemetryIntake.cs",
         "AetherAprs/Services/Transmission/BeaconTransmitQueue.cs",
-        "AetherAprs.Android/Services/Bluetooth/AndroidBluetoothLeScanner.cs",
         "AetherAprs.Android/Services/Transports/BluetoothLeGattDuplexStream.cs"
     };
 

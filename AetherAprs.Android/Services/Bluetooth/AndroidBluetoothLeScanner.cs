@@ -38,18 +38,13 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
 
         var scanner = adapter.BluetoothLeScanner
             ?? throw new InvalidOperationException("Bluetooth LE scanner is not available on this device.");
-        var channel = Channel.CreateUnbounded<BluetoothLeAdvertisement>(new UnboundedChannelOptions
-        {
-            SingleReader = true,
-            SingleWriter = false,
-            AllowSynchronousContinuations = false
-        });
+        var buffer = new BluetoothAdvertisementBuffer();
 
         var callback = new AdvertisementScanCallback(advertisement =>
         {
-            channel.Writer.TryWrite(advertisement);
+            buffer.Publish(advertisement);
         },
-        error => channel.Writer.TryComplete(new InvalidOperationException($"BLE scan failed: {error}")));
+        error => buffer.Complete(new InvalidOperationException($"BLE scan failed: {error}")));
         var settings = new ScanSettings.Builder()
             .SetScanMode(ScanMode.LowLatency)!
             .Build();
@@ -57,7 +52,7 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
         scanner.StartScan(filters: null, settings, callback);
         try
         {
-            await foreach (var advertisement in channel.Reader.ReadAllAsync(cancellationToken)
+            await foreach (var advertisement in buffer.Reader.ReadAllAsync(cancellationToken)
                                .ConfigureAwait(false))
             {
                 yield return advertisement;
@@ -75,7 +70,7 @@ public sealed class AndroidBluetoothLeScanner : IBluetoothLeScanner
             }
 
             callback.Dispose();
-            channel.Writer.TryComplete();
+            buffer.Complete();
         }
     }
 
