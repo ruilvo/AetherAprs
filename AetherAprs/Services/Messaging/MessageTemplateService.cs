@@ -151,11 +151,14 @@ public sealed class MessageTemplateService : IMessageTemplateService
         return result.Length > MaxTemplateMessageLength ? null : result;
     }
 
-    public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(Callsign peer)
+    public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(AprsAddress peer)
     {
+        // An addressee may be a callsign or a tactical address such as
+        // "APRS2SOTA"; both are matched on the base so a template saved for
+        // "SOTA" also applies to "SOTA-1".
         return _configurationService.Current.MessageTemplates.Templates
             .Where(template =>
-                Callsign.TryParse(template.Destination, out var destination)
+                AprsAddress.TryParse(template.Destination, out var destination)
                 && destination.Base == peer.Base)
             .ToArray();
     }

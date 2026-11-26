@@ -344,6 +344,32 @@ public sealed class PacketFactoryTests
     }
 
     [Fact]
+    public void CreateObjectPacket_WhenTheNameIsNineCharacters_IsAccepted()
+    {
+        var factory = CreateFactory();
+        var location = CreateLocation();
+
+        var packet = factory.CreateObjectPacket(
+            "N0CALL-1", "APRS2SOTA", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus);
+
+        Assert.Equal("APRS2SOTA", packet.Name);
+    }
+
+    [Fact]
+    public void CreateNamedPacket_WhenTheNameIsWiderThanTheField_Throws()
+    {
+        var factory = CreateFactory();
+        var location = CreateLocation();
+
+        Assert.Throws<ArgumentException>(() => factory.CreateObjectPacket(
+            "N0CALL-1", "TOOLONGNAME", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus));
+        Assert.Throws<ArgumentException>(() => factory.CreateItemPacket(
+            "N0CALL-1", "TOOLONGNAME", location.Location, SymbolTable.Primary, SymbolCode.HyphenMinus));
+        Assert.Throws<ArgumentException>(() =>
+            factory.CreateBulletinPacket("N0CALL-1", "BLNTOOLONG", "Text"));
+    }
+
+    [Fact]
     public void CreateEveryPacketType_InvalidCallsign_ThrowsArgumentExceptionWithSharedMessageShape()
     {
         const string invalidCallsign = "BAD!";

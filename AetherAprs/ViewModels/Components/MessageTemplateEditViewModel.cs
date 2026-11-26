@@ -166,7 +166,7 @@ public sealed partial class MessageTemplateEditViewModel : ViewModelBase
         string? error = null;
         if (!string.IsNullOrEmpty(trimmed) && !AprsAddress.TryParse(trimmed, out _))
         {
-            error = Strings.Get("InvalidDestinationCallsign");
+            error = Strings.Get("InvalidDestinationAddress");
         }
 
         SetError(error, nameof(DestinationError), () => DestinationError, value => DestinationError = value);

@@ -239,6 +239,97 @@ internal static class ArchitectureBoundaryScanner
     public static IReadOnlyList<ArchitectureViolation> Scan() =>
         Scan(SourceScanner.ReadProductionSources());
 
+    /// <summary>
+    /// Android components the platform can start on behalf of another application.
+    /// </summary>
+    private static readonly string[] AndroidComponentAttributes = ["Activity", "Service", "Receiver"];
+
+    private const string PendingIntentSymbol = "PendingIntent.Get";
+
+    /// <summary>
+    /// Scans the Android entry points for declared exports and immutable pending
+    /// intents.
+    /// </summary>
+    /// <remarks>
+    /// These are text rules rather than symbol rules because the defect is a missing
+    /// argument: a component that omits <c>Exported</c> still compiles, and a pending
+    /// intent that omits <c>Immutable</c> still works until another application
+    /// rewrites its extras.
+    /// </remarks>
+    public static IReadOnlyList<ArchitectureViolation> ScanAndroidIntentSurface(IEnumerable<ScannedSource> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        var violations = new List<ArchitectureViolation>();
+
+        foreach (var source in sources)
+        {
+            if (!string.Equals(source.Project, "AetherAprs.Android", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var text = SourceTextStripper.StripCommentsAndLiterals(source.Text);
+
+            foreach (var attribute in AndroidComponentAttributes)
+            {
+                var anchor = $"[{attribute}(";
+                var index = text.IndexOf(anchor, StringComparison.Ordinal);
+                while (index >= 0)
+                {
+                    var end = FindClosingParenthesis(text, index + anchor.Length - 1);
+                    var declaration = end < 0 ? text[index..] : text[index..end];
+                    if (!declaration.Contains("Exported", StringComparison.Ordinal))
+                    {
+                        violations.Add(new ArchitectureViolation(
+                            "A014", source.RelativePath, source.TypeName, anchor));
+                    }
+
+                    index = end < 0 ? -1 : text.IndexOf(anchor, end, StringComparison.Ordinal);
+                }
+            }
+
+            var pendingIndex = text.IndexOf(PendingIntentSymbol, StringComparison.Ordinal);
+            while (pendingIndex >= 0)
+            {
+                var statementEnd = text.IndexOf(';', pendingIndex);
+                var call = statementEnd < 0 ? text[pendingIndex..] : text[pendingIndex..statementEnd];
+                if (!call.Contains("Immutable", StringComparison.Ordinal))
+                {
+                    var nameEnd = call.IndexOf('(', StringComparison.Ordinal);
+                    violations.Add(new ArchitectureViolation(
+                        "A015",
+                        source.RelativePath,
+                        source.TypeName,
+                        nameEnd < 0 ? PendingIntentSymbol : call[..nameEnd]));
+                }
+
+                pendingIndex = statementEnd < 0
+                    ? -1
+                    : text.IndexOf(PendingIntentSymbol, statementEnd, StringComparison.Ordinal);
+            }
+        }
+
+        return violations;
+    }
+
+    private static int FindClosingParenthesis(string text, int openIndex)
+    {
+        var depth = 0;
+        for (var index = openIndex; index < text.Length; index++)
+        {
+            if (text[index] == '(')
+            {
+                depth++;
+            }
+            else if (text[index] == ')' && --depth == 0)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>Scans an explicit set of sources, so rules can be unit-tested in isolation.</summary>
     public static IReadOnlyList<ArchitectureViolation> Scan(IEnumerable<ScannedSource> sources)
     {

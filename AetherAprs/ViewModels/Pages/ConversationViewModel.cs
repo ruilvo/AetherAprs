@@ -33,7 +33,7 @@ public partial class ConversationViewModel(
     public partial string Title { get; set; } = Strings.Get("NewMessage");
 
     [ObservableProperty]
-    public partial string DestinationCallsign { get; set; } = string.Empty;
+    public partial string DestinationAddress { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string MessageText { get; set; } = string.Empty;
@@ -56,7 +56,7 @@ public partial class ConversationViewModel(
         _thread = null;
         messageService.SetActiveConversation(null);
         Title = Strings.Get("NewMessage");
-        DestinationCallsign = string.Empty;
+        DestinationAddress = string.Empty;
         MessageText = string.Empty;
         ErrorMessage = null;
         IsDestinationEditable = true;
@@ -67,7 +67,7 @@ public partial class ConversationViewModel(
     {
         _isNewConversation = false;
         Title = peer.ToString();
-        DestinationCallsign = peer.ToString();
+        DestinationAddress = peer.ToString();
         MessageText = string.Empty;
         ErrorMessage = null;
         IsDestinationEditable = false;
@@ -80,9 +80,9 @@ public partial class ConversationViewModel(
     {
         ErrorMessage = null;
 
-        if (!AprsAddress.TryParse(DestinationCallsign, out var addressee))
+        if (!AprsAddress.TryParse(DestinationAddress, out var addressee))
         {
-            ErrorMessage = Strings.Get("InvalidDestinationCallsign");
+            ErrorMessage = Strings.Get("InvalidDestinationAddress");
             return;
         }
 
@@ -103,7 +103,7 @@ public partial class ConversationViewModel(
                 _isNewConversation = false;
                 IsDestinationEditable = false;
                 Title = addressee.ToString();
-                DestinationCallsign = addressee.ToString();
+                DestinationAddress = addressee.ToString();
                 AttachThread(thread);
             }
             else if (!ReferenceEquals(_thread, thread))
@@ -119,7 +119,7 @@ public partial class ConversationViewModel(
         }
         catch (Exception ex)
         {
-            logger?.LogWarning(ex, "Failed to send message to {Addressee}", DestinationCallsign);
+            logger?.LogWarning(ex, "Failed to send message to {Addressee}", DestinationAddress);
             ErrorMessage = ex.Message;
         }
         finally
@@ -141,17 +141,16 @@ public partial class ConversationViewModel(
     public MessageTemplateDialogViewModel CreateTemplateDialog()
     {
         IReadOnlyList<MessageTemplate> templates;
-        if (AprsAddress.TryParse(DestinationCallsign, out var parsedPeer) 
-            && parsedPeer.TryToCallsign(out var peerCallsign))
+        if (AprsAddress.TryParse(DestinationAddress, out var parsedPeer))
         {
-            templates = templateService.GetTemplatesForPeer(peerCallsign);
+            templates = templateService.GetTemplatesForPeer(parsedPeer);
         }
         else
         {
             templates = templateService.Templates;
         }
 
-        return templateDialogFactory.Create(templates, IsDestinationEditable ? null : DestinationCallsign);
+        return templateDialogFactory.Create(templates, IsDestinationEditable ? null : DestinationAddress);
     }
 
     /// <summary>
@@ -164,7 +163,7 @@ public partial class ConversationViewModel(
         MessageText = result.Text;
         if (IsDestinationEditable)
         {
-            DestinationCallsign = result.Destination;
+            DestinationAddress = result.Destination;
         }
     }
 

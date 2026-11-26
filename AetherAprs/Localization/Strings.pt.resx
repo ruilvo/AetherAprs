@@ -143,12 +143,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="MessagesEmptyState" xml:space="preserve"><value>Ainda não existem conversas de mensagens.</value></data>
   <data name="Back" xml:space="preserve"><value>Voltar</value></data>
   <data name="To" xml:space="preserve"><value>Para</value></data>
-  <data name="DestinationCallsignPlaceholder" xml:space="preserve"><value>Indicativo de destino (p.ex. N0CALL-1)</value></data>
+  <data name="DestinationAddressPlaceholder" xml:space="preserve"><value>Indicativo ou endereço de destino (p.ex. N0CALL-1 ou APRS2SOTA)</value></data>
   <data name="You" xml:space="preserve"><value>Eu</value></data>
   <data name="Received" xml:space="preserve"><value>Recebida</value></data>
   <data name="MessageText" xml:space="preserve"><value>Texto da mensagem</value></data>
   <data name="Send" xml:space="preserve"><value>Enviar</value></data>
-  <data name="InvalidDestinationCallsign" xml:space="preserve"><value>Introduza um indicativo de destino válido (p.ex. N0CALL ou N0CALL-1).</value></data>
+  <data name="InvalidDestinationAddress" xml:space="preserve"><value>Introduza um indicativo ou endereço de destino válido (p.ex. N0CALL-1 ou APRS2SOTA).</value></data>
   <data name="MessageTextRequired" xml:space="preserve"><value>O texto da mensagem é obrigatório.</value></data>
   <data name="LocationTracking" xml:space="preserve"><value>Localização</value></data>
   <data name="Status" xml:space="preserve"><value>Estado:</value></data>

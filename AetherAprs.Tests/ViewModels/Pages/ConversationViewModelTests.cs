@@ -70,7 +70,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     {
         var vm = CreateViewModel(new FakeMessageService());
         vm.InitializeNew();
-        vm.DestinationCallsign = "@@@";
+        vm.DestinationAddress = "@@@";
         vm.MessageText = "Hi";
 
         await vm.SendCommand.ExecuteAsync(null);
@@ -82,11 +82,10 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_ExistingConversation_PassesPeerTemplatesAndDestination()
     {
-        var peerCallsign = new Callsign("SOTA", 1);
-        var peer = AprsAddress.FromCallsign(peerCallsign);
+        var peer = new AprsAddress("SOTA", 1);
         var templateService = Substitute.For<IMessageTemplateService>();
         var expectedTemplates = new List<MessageTemplate> { new() { Name = "SOTA spot" } };
-        templateService.GetTemplatesForPeer(peerCallsign).Returns(expectedTemplates);
+        templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
 
         var dialog = new MessageTemplateDialogViewModel();
         var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
@@ -128,11 +127,10 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     [Fact]
     public void CreateTemplateDialog_NewConversationWithTypedDestination_PassesPeerTemplatesAndNullDestination()
     {
-        var peerCallsign = new Callsign("K0PEER");
-        var peer = AprsAddress.FromCallsign(peerCallsign);
+        var peer = new AprsAddress("K0PEER");
         var templateService = Substitute.For<IMessageTemplateService>();
         var expectedTemplates = new List<MessageTemplate> { new() { Name = "Peer spot" } };
-        templateService.GetTemplatesForPeer(peerCallsign).Returns(expectedTemplates);
+        templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
 
         var dialog = new MessageTemplateDialogViewModel();
         var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
@@ -142,11 +140,36 @@ public sealed class ConversationViewModelTests : TestFixtureBase
 
         var vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
         vm.InitializeNew();
-        vm.DestinationCallsign = "K0PEER";
+        vm.DestinationAddress = "K0PEER";
 
         var result = vm.CreateTemplateDialog();
 
         Assert.Same(dialog, result);
+        templateDialogFactory.Received().Create(expectedTemplates, null);
+    }
+
+    [Fact]
+    public void CreateTemplateDialog_NewConversationWithTypedTacticalAddress_ScopesTemplatesToIt()
+    {
+        var peer = new AprsAddress("APRS2SOTA");
+        var templateService = Substitute.For<IMessageTemplateService>();
+        var expectedTemplates = new List<MessageTemplate> { new() { Name = "SOTA spot" } };
+        templateService.GetTemplatesForPeer(peer).Returns(expectedTemplates);
+
+        var dialog = new MessageTemplateDialogViewModel();
+        var templateDialogFactory = Substitute.For<IMessageTemplateDialogViewModelFactory>();
+        templateDialogFactory
+            .Create(Arg.Any<IReadOnlyList<MessageTemplate>>(), Arg.Any<string?>())
+            .Returns(dialog);
+
+        var vm = CreateViewModel(new FakeMessageService(), templateService, templateDialogFactory);
+        vm.InitializeNew();
+        vm.DestinationAddress = "APRS2SOTA";
+
+        var result = vm.CreateTemplateDialog();
+
+        Assert.Same(dialog, result);
+        templateService.Received(1).GetTemplatesForPeer(peer);
         templateDialogFactory.Received().Create(expectedTemplates, null);
     }
 
@@ -159,7 +182,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
         vm.ApplyTemplateResult(new MessageTemplateDialogResult("Summit report", "W7SUM"));
 
         Assert.Equal("Summit report", vm.MessageText);
-        Assert.Equal("W7SUM", vm.DestinationCallsign);
+        Assert.Equal("W7SUM", vm.DestinationAddress);
     }
 
     [Fact]
@@ -172,7 +195,7 @@ public sealed class ConversationViewModelTests : TestFixtureBase
         vm.ApplyTemplateResult(new MessageTemplateDialogResult("Summit report", "W7SUM"));
 
         Assert.Equal("Summit report", vm.MessageText);
-        Assert.Equal("K0PEER-1", vm.DestinationCallsign);
+        Assert.Equal("K0PEER-1", vm.DestinationAddress);
     }
 
     private static ConversationViewModel CreateViewModel(

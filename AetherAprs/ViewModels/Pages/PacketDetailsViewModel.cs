@@ -209,12 +209,11 @@ public partial class PacketDetailsViewModel(
         // Navigate to messages page and open conversation with this callsign
         navigationService.NavigateTo<MessagesViewModel>();
 
-        // Parse callsign - try full format first, then extract base if needed
+        // The message is addressed to the station, so the SSID is part of the
+        // destination; dropping it would deliver to N0CALL instead of N0CALL-7.
         if (Models.Aprs.Callsign.TryParse(Callsign, out var callsign))
         {
-            // Use base callsign without SSID for messaging
-            var baseCallsign = new Callsign(callsign.Base);
-            var address = AprsAddress.FromCallsign(baseCallsign);
+            var address = AprsAddress.FromCallsign(callsign);
             var conversationVm = conversationFactory.Create(address);
             navigationService.NavigateTo(conversationVm);
         }

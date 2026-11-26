@@ -67,8 +67,12 @@ public interface IMessageTemplateService
     string? Apply(MessageTemplate messageTemplate, IReadOnlyDictionary<string, string> values);
 
     /// <summary>
-    /// Returns the templates whose destination callsign base matches the given
-    /// peer's base callsign (SSID is ignored).
+    /// Returns the templates whose destination address base matches the given
+    /// peer's base (SSID is ignored).
     /// </summary>
-    IReadOnlyList<MessageTemplate> GetTemplatesForPeer(Callsign peer);
+    /// <remarks>
+    /// The peer is an <see cref="AprsAddress"/> because a message can be addressed
+    /// to a tactical address such as <c>APRS2SOTA</c>, not only to a callsign.
+    /// </remarks>
+    IReadOnlyList<MessageTemplate> GetTemplatesForPeer(AprsAddress peer);
 }

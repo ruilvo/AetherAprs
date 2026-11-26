@@ -15,6 +15,12 @@ public readonly record struct Callsign
     private const int MaximumBaseLength = 6;
 
     /// <summary>
+    /// Longest accepted text form: the six-character base, the SSID separator and a
+    /// two-digit SSID.
+    /// </summary>
+    public const int MaximumTextLength = MaximumBaseLength + 1 + 2;
+
+    /// <summary>
     /// Gets the base callsign (2-6 characters, letters and digits).
     /// </summary>
     public string Base { get; }

@@ -343,6 +343,45 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticAndroidComponentWithoutExported_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.ScanAndroidIntentSurface(
+        [
+            Source(
+                "AetherAprs.Android/MainActivity.cs",
+                "[Activity(Label = \"AetherAprs\", MainLauncher = true)]\npublic class MainActivity : AvaloniaMainActivity { }"),
+            Source(
+                "AetherAprs.Android/Services/Platform/AndroidForegroundService.cs",
+                "[Service(ForegroundServiceType = ForegroundService.TypeConnectedDevice, Exported = false)]")
+        ]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A014", violation.RuleId);
+        Assert.Equal("[Activity(", violation.Symbol);
+    }
+
+    [Fact]
+    public void Scan_SyntheticPendingIntentWithoutImmutable_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.ScanAndroidIntentSurface(
+            [Source(
+                "AetherAprs.Android/Services/Platform/AndroidNotificationService.cs",
+                "var intent = PendingIntent.GetActivity(context, 0, contentIntent, PendingIntentFlags.UpdateCurrent);")]);
+
+        var violation = Assert.Single(violations);
+        Assert.Equal("A015", violation.RuleId);
+        Assert.Equal("PendingIntent.GetActivity", violation.Symbol);
+    }
+
+    [Fact]
+    public void Scan_AndroidIntentSurface_DeclaresExportsAndImmutablePendingIntents()
+    {
+        var violations = ArchitectureBoundaryScanner.ScanAndroidIntentSurface(SourceScanner.ReadProductionSources());
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

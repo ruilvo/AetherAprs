@@ -1145,6 +1145,48 @@ close the ticket without refactoring unrelated code.
 > `AddEditPortViewModelTests` covers a denied save (general error set, Bluetooth
 > status untouched, no navigation) and a retry that clears the previous error.
 
+> **Status: callsign, addressee and object name types audited and separated (2026-11-26).**
+> The app now states which of the three it means at each boundary. `Callsign` (two to
+> six characters plus SSID) stays on AX.25 station fields only: source, destination,
+> digipeater path and the operator's own station. `AprsAddress` (one to nine characters
+> plus SSID) is the type for anything a message is addressed to: message, ack and
+> reject destinations, bulletin names, conversation peers and the notification deep
+> link. Object and item names are neither, so they are checked against the shared
+> nine-character name field instead of being parsed as addresses.
+>
+> Fixed while auditing: a message to `APRS2SOTA` could not be reopened from its own
+> notification because the deep link parsed a callsign, and templates were scoped by
+> callsign, so a tactical address never found its templates. Both now use
+> `AprsAddress`, and the compose field accepts the full address width (twelve
+> characters with an SSID) with the hint and error text saying "callsign or address".
+> `PacketDetailsViewModel`'s send-from-packet action also stopped dropping the SSID.
+>
+> Storage was wrong in a way that split conversations. The entity keeps the addressee
+> SSID in a required byte, so "no SSID" and SSID 0 collapse to the same column, and the
+> reader rebuilt `N0CALL-0` while the operator had typed `N0CALL`. `AprsAddress`
+> distinguishes the two, so the reloaded message formed a second thread. The new
+> `AprsAddress.FromStored` reads a stored zero back as "no SSID" (they are the same
+> station on the air), and the record mapper and message history loader both use it.
+>
+> `AprsNameField` guards what this application writes into the nine-character object,
+> item and bulletin name fields. The serializer padded with `PadRight(9)`, so a tenth
+> character silently shifted the status byte and the position for every receiver;
+> `PacketFactory` now rejects such a name before a packet exists.
+>
+> Tests: `AprsAddressTests` covers nine-character base addresses, the text-width
+> constants and the stored-zero round trip; `ConversationDeepLinkTests` covers a
+> tactical address, a callsign with SSID, oversized values and path-like input;
+> `PacketRecordMapperTests` proves a stored `APRS2SOTA` plus SSID 0 reloads as the
+> base-only address and that `APRS2SOTA` survives a write/read round trip;
+> `MessageTemplateServiceTests` and `ConversationViewModelTests` prove templates are
+> scoped to a tactical address; `AprsNameFieldTests` and `PacketFactoryTests` prove a
+> nine-character name is accepted and a wider one is rejected by all three factories.
+>
+> Still open: object, item and bulletin names remain `string` fields validated at
+> creation rather than a dedicated value type, `MessageTemplate.Destination` is still a
+> string parsed at use, and none of this has been exercised against a live APRS-IS
+> server or on a device.
+
 ### R7 — Build and distribution maintenance
 
 `build-test.yml` already builds and runs the core suite; Android instrumentation is

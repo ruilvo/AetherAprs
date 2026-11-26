@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Services.Lifecycle;
+using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.Factories.ViewModels;
@@ -35,6 +36,10 @@ namespace AetherAprs.Android;
     Theme = "@style/AetherAprsTheme.Splash",
     Icon = "@drawable/icon_400px",
     MainLauncher = true,
+    // Declared instead of inferred: the launcher filter makes this activity
+    // reachable from other applications, so the export has to be a reviewed
+    // decision and every extra it reads is untrusted input.
+    Exported = true,
     WindowSoftInputMode = SoftInput.AdjustResize,
     ConfigurationChanges = ConfigChanges.Orientation
         | ConfigChanges.ScreenSize
@@ -61,7 +66,7 @@ public class MainActivity : AvaloniaMainActivity
     private bool _backCallbackRegistered;
     private bool _destroyed;
     private bool _initialPermissionBurstStarted;
-    private string? pendingConversationCallsign;
+    private AprsAddress? pendingConversationPeer;
 
     private const int NotificationPermissionRequestCode = 1000;
     private const int BluetoothPermissionRequestCode = 1100;
@@ -342,26 +347,53 @@ public class MainActivity : AvaloniaMainActivity
         if (intent != null)
         {
             Intent = intent;
-            pendingConversationCallsign = intent.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra);
+            pendingConversationPeer = ReadConversationPeer(intent);
         }
+    }
+
+    /// <summary>
+    /// Reads the conversation peer from an intent this activity received.
+    /// </summary>
+    /// <remarks>
+    /// This activity is exported, so the intent may come from any application. The
+    /// extra is only honoured on the notification's launcher intent and only when it
+    /// is a callsign; a missing, oversized or malformed value selects no
+    /// conversation and the caller stays where it was.
+    /// </remarks>
+    private static AprsAddress? ReadConversationPeer(Intent? intent)
+    {
+        if (intent is null
+            || intent.Action != Intent.ActionMain
+            || !intent.HasCategory(Intent.CategoryLauncher))
+        {
+            return null;
+        }
+
+        var extra = intent.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra);
+        if (extra is null)
+        {
+            return null;
+        }
+
+        if (!ConversationDeepLink.TryParsePeer(extra, out var peer))
+        {
+            _logger.LogDebug("Ignored a conversation intent whose callsign extra was not a callsign");
+            return null;
+        }
+
+        return peer;
     }
 
     private void ProcessPendingConversation()
     {
         // Prefer the extra from the current intent, then any OnNewIntent value.
-        var callsign = Intent?.GetStringExtra(AndroidNotificationService.ConversationCallsignExtra)
-            ?? pendingConversationCallsign;
-
-        pendingConversationCallsign = null;
-        if (string.IsNullOrWhiteSpace(callsign))
-        {
-            return;
-        }
+        var peer = ReadConversationPeer(Intent) ?? pendingConversationPeer;
+        pendingConversationPeer = null;
 
         // Clear the extra so a subsequent plain resume does not re-navigate.
         Intent?.RemoveExtra(AndroidNotificationService.ConversationCallsignExtra);
 
-        if (!Callsign.TryParse(callsign, out var peer))
+        if (peer is not { } target)
         {
             return;
         }
@@ -373,7 +405,7 @@ public class MainActivity : AvaloniaMainActivity
         }
 
         var factory = app.ServiceProvider.GetService<IConversationViewModelFactory>();
-        var conversation = factory?.Create(AprsAddress.FromCallsign(peer));
+        var conversation = factory?.Create(target);
         if (conversation != null)
         {
             navigationService?.NavigateTo(conversation);

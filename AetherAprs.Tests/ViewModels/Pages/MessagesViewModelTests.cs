@@ -99,7 +99,7 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         var conversation = Assert.IsType<ConversationViewModel>(navigated);
         Assert.False(conversation.IsDestinationEditable);
         Assert.Equal("K0PEER-1", conversation.Title);
-        Assert.Equal("K0PEER-1", conversation.DestinationCallsign);
+        Assert.Equal("K0PEER-1", conversation.DestinationAddress);
     }
 
     private static MessagesViewModel CreateViewModel(

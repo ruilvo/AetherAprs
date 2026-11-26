@@ -287,7 +287,7 @@ public static class DesignData
         public string? Apply(MessageTemplate messageTemplate, IReadOnlyDictionary<string, string> values) =>
             messageTemplate.Body;
 
-        public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(Callsign peer) => SeedTemplates;
+        public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(AprsAddress peer) => SeedTemplates;
     }
 
     public static MainViewModel MainViewModel => _serviceProvider.GetRequiredService<MainViewModel>();

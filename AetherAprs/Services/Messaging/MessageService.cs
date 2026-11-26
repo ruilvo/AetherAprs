@@ -643,7 +643,7 @@ public sealed class MessageService : IMessageService, IDisposable
             }
 
             var source = AprsAddress.FromCallsign(new Callsign(record.SourceBase, (int)record.SourceSsid));
-            var addressee = new AprsAddress(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
+            var addressee = AprsAddress.FromStored(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
 
             // Determine peer (who we're talking to)
             var peer = record.IsOutbound ? addressee : source;

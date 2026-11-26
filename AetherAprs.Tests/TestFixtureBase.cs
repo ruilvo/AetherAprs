@@ -3,36 +3,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Globalization;
-using AetherAprs.Localization;
 
 namespace AetherAprs.Tests;
 
 /// <summary>
-/// Base class for test fixtures that ensures English culture for consistent string assertions.
+/// Base class for test fixtures.
 /// </summary>
+/// <remarks>
+/// The English UI culture is applied once for the entire test process by
+/// <see cref="TestCulture"/>. Fixtures deliberately do not touch or restore it:
+/// restoring a captured culture from one fixture leaked the host language into
+/// tests running in parallel, which made localized assertions fail intermittently.
+/// The type stays as a base so existing fixtures keep their shape.
+/// </remarks>
 public abstract class TestFixtureBase : IDisposable
 {
-    private readonly CultureInfo _originalCulture;
-    private readonly CultureInfo _originalUiCulture;
-
-    protected TestFixtureBase()
-    {
-        // Save original culture
-        _originalCulture = CultureInfo.CurrentCulture;
-        _originalUiCulture = CultureInfo.CurrentUICulture;
-
-        // Force English culture for tests
-        UiCulture.Apply(CultureInfo.GetCultureInfo("en-US"));
-    }
-
-    public void Dispose()
-    {
-        // Restore original culture
-        CultureInfo.CurrentCulture = _originalCulture;
-        CultureInfo.CurrentUICulture = _originalUiCulture;
-        CultureInfo.DefaultThreadCurrentCulture = _originalCulture;
-        CultureInfo.DefaultThreadCurrentUICulture = _originalUiCulture;
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() => GC.SuppressFinalize(this);
 }

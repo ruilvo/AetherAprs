@@ -35,6 +35,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <StackPanel Spacing="4">
       <TextBox Text="{Binding Destination}"
+               MaxLength="12"
                wpf:TextFieldAssist.Label="{loc:Loc TemplateDestination}"
                UseFloatingPlaceholder="True" />
       <TextBlock Classes="Caption"

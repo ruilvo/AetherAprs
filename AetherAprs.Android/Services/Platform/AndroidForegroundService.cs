@@ -31,7 +31,11 @@ namespace AetherAprs.Android.Services.Platform;
 /// <c>dataSync</c>: on Android 15+ that type is capped at six hours per 24 hours,
 /// which would silently stop continuous operation.
 /// </remarks>
-[Service(ForegroundServiceType = ForegroundService.TypeConnectedDevice | ForegroundService.TypeLocation)]
+[Service(
+    ForegroundServiceType = ForegroundService.TypeConnectedDevice | ForegroundService.TypeLocation,
+    // Started only by this application; declaring the export keeps the generated
+    // manifest honest instead of relying on what the generator defaults to.
+    Exported = false)]
 public class AetherAprsForegroundService : Service
 {
     private const int NotificationId = 1001;
@@ -59,6 +63,12 @@ public class AetherAprsForegroundService : Service
     /// <summary>Intent extra carrying the <see cref="KeepAliveServiceTypes"/> bitmask.</summary>
     internal const string RequiredTypesExtra = "requiredTypes";
     internal const int DefaultRequiredTypes = (int)KeepAliveServiceTypes.ConnectedDevice;
+
+    // The only types this service advertises in the foreground notification. Bits
+    // outside this set are dropped rather than passed through, so an intent from a
+    // stale or foreign caller cannot widen the service type.
+    private const KeepAliveServiceTypes SupportedTypes =
+        KeepAliveServiceTypes.ConnectedDevice | KeepAliveServiceTypes.Location;
     private const string WakeLockTag = "AetherAprs:ForegroundService";
 
     private PowerManager.WakeLock? _wakeLock;
@@ -291,7 +301,7 @@ public class AetherAprsForegroundService : Service
         var rawTypes = intent?.GetIntExtra(RequiredTypesExtra, DefaultRequiredTypes)
             ?? DefaultRequiredTypes;
 
-        return (KeepAliveServiceTypes)rawTypes;
+        return (KeepAliveServiceTypes)rawTypes & SupportedTypes;
     }
 
     private static ForegroundService ToAndroidServiceType(KeepAliveServiceTypes requiredTypes)

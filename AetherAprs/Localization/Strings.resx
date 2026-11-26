@@ -143,12 +143,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="MessagesEmptyState" xml:space="preserve"><value>No message conversations yet.</value></data>
   <data name="Back" xml:space="preserve"><value>Back</value></data>
   <data name="To" xml:space="preserve"><value>To</value></data>
-  <data name="DestinationCallsignPlaceholder" xml:space="preserve"><value>Destination callsign (e.g. N0CALL-1)</value></data>
+  <data name="DestinationAddressPlaceholder" xml:space="preserve"><value>Destination callsign or address (e.g. N0CALL-1 or APRS2SOTA)</value></data>
   <data name="You" xml:space="preserve"><value>You</value></data>
   <data name="Received" xml:space="preserve"><value>Received</value></data>
   <data name="MessageText" xml:space="preserve"><value>Message text</value></data>
   <data name="Send" xml:space="preserve"><value>Send</value></data>
-  <data name="InvalidDestinationCallsign" xml:space="preserve"><value>Enter a valid destination callsign (e.g. N0CALL or N0CALL-1).</value></data>
+  <data name="InvalidDestinationAddress" xml:space="preserve"><value>Enter a valid destination callsign or address (e.g. N0CALL-1 or APRS2SOTA).</value></data>
   <data name="MessageTextRequired" xml:space="preserve"><value>Message text is required.</value></data>
   <data name="LocationTracking" xml:space="preserve"><value>Location Tracking</value></data>
   <data name="Status" xml:space="preserve"><value>Status:</value></data>

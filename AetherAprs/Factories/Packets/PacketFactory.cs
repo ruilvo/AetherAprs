@@ -137,6 +137,8 @@ public sealed class PacketFactory : IPacketFactory
         bool isLive = true,
         string? comment = null)
     {
+        AprsNameField.EnsureValid(name, nameof(name));
+
         var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ObjectPacket
@@ -162,6 +164,8 @@ public sealed class PacketFactory : IPacketFactory
         bool isLive = true,
         string? comment = null)
     {
+        AprsNameField.EnsureValid(name, nameof(name));
+
         var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new ItemPacket
@@ -184,6 +188,8 @@ public sealed class PacketFactory : IPacketFactory
         string text,
         int? messageNumber = null)
     {
+        AprsNameField.EnsureValid(name, nameof(name));
+
         var settings = _configurationService.Current.Aprs;
 
         return CreatePacket(sourceCallsign, settings, (source, destination, path) => new BulletinPacket

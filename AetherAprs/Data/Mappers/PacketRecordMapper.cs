@@ -254,10 +254,7 @@ internal static class PacketRecordMapper
                     {
                         Source = source,
                         Destination = destination,
-                        Addressee = new AprsAddress(
-                            record.Message.AddresseeBase,
-                            (int)record.Message.AddresseeSsid
-                        ),
+                        Addressee = ToAddressee(record.Message.AddresseeBase, record.Message.AddresseeSsid),
                         Text = record.Message.Text,
                         MessageNumber = record.Message.Number,
                         Raw = record.RawInfo,
@@ -395,6 +392,17 @@ internal static class PacketRecordMapper
             return null;
         }
     }
+
+    /// <summary>
+    /// Restores a stored message addressee.
+    /// </summary>
+    /// <remarks>
+    /// The entity stores the SSID as a required byte, so "no SSID" and SSID 0 are the
+    /// same stored value, and they are the same on the air as well; see
+    /// <see cref="AprsAddress.FromStored"/>.
+    /// </remarks>
+    private static AprsAddress ToAddressee(string baseAddress, AprsSsid ssid) =>
+        AprsAddress.FromStored(baseAddress, (int)ssid);
 
     /// <summary>
     /// Rebuilds the telemetry analog-channel list from the five fixed nullable

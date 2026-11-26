@@ -86,6 +86,48 @@ public sealed class PacketRecordMapperTests
     }
 
     [Fact]
+    public void MapToPacket_MessageStoredWithPrimaryStationSsid_ReadsAsNoSsid()
+    {
+        var record = CreateRecord("Message");
+        record.Message = new MessageDataRecord
+        {
+            AddresseeBase = "APRS2SOTA",
+            AddresseeSsid = AprsSsid.PrimaryStation,
+            Text = "Summit",
+            Number = 1
+        };
+
+        var packet = PacketRecordMapper.MapToPacket(record);
+
+        var msg = Assert.IsType<MessagePacket>(packet);
+        Assert.Equal("APRS2SOTA", msg.Addressee.Base);
+        Assert.Null(msg.Addressee.Ssid);
+        Assert.Equal(new AprsAddress("APRS2SOTA"), msg.Addressee);
+        Assert.NotEqual(new AprsAddress("APRS2SOTA", 0), msg.Addressee);
+    }
+
+    [Fact]
+    public void ToRecord_ThenMapToPacket_KeepsATacticalAddresseeWithoutAnSsid()
+    {
+        var packet = new MessagePacket
+        {
+            Source = new Callsign("N0CALL"),
+            Destination = new Callsign("APRS"),
+            Addressee = new AprsAddress("APRS2SOTA"),
+            Text = "SOTA spot",
+            MessageNumber = 1
+        };
+
+        var record = PacketRecordMapper.ToRecord(
+            packet, Guid.NewGuid(), DateTimeOffset.UtcNow, isOutbound: true);
+        var reloaded = PacketRecordMapper.MapToPacket(record);
+
+        var message = Assert.IsType<MessagePacket>(reloaded);
+        Assert.True(AprsAddress.TryParse("APRS2SOTA", out var expected));
+        Assert.Equal(expected, message.Addressee);
+    }
+
+    [Fact]
     public void MapToPacket_StatusRecord_ReturnsStatusPacket()
     {
         var record = CreateRecord("Status");

@@ -23,9 +23,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <StackPanel Grid.Row="0" Classes="PageHeader" Margin="16,16,16,0">
       <TextBlock Text="{Binding Title}" Classes="PageTitle" />
 
-      <TextBox Text="{Binding DestinationCallsign}"
+      <TextBox Text="{Binding DestinationAddress}"
                IsEnabled="{Binding IsDestinationEditable}"
-               PlaceholderText="{loc:Loc DestinationCallsignPlaceholder}"
+               MaxLength="12"
+               PlaceholderText="{loc:Loc DestinationAddressPlaceholder}"
                wpf:TextFieldAssist.Label="{loc:Loc To}"
                UseFloatingPlaceholder="True"
                Margin="0,8,0,0" />

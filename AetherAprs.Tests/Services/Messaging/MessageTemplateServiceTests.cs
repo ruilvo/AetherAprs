@@ -195,7 +195,7 @@ public sealed class MessageTemplateServiceTests
     [Fact]
     public void GetTemplatesForPeer_MatchesBaseIgnoringSsid()
     {
-        Assert.True(Callsign.TryParse("SOTA-1", out var peer));
+        Assert.True(AprsAddress.TryParse("SOTA-1", out var peer));
         AddTemplate(
             new MessageTemplate { Name = "Sota", Destination = "SOTA", Body = "x" });
         AddTemplate(
@@ -205,6 +205,21 @@ public sealed class MessageTemplateServiceTests
 
         var template = Assert.Single(result);
         Assert.Equal("Sota", template.Name);
+    }
+
+    [Fact]
+    public void GetTemplatesForPeer_MatchesATacticalAddress()
+    {
+        Assert.True(AprsAddress.TryParse("APRS2SOTA", out var peer));
+        AddTemplate(
+            new MessageTemplate { Name = "Sota spot", Destination = "APRS2SOTA", Body = "x" });
+        AddTemplate(
+            new MessageTemplate { Name = "Other", Destination = "EMAIL", Body = "y" });
+
+        var result = _service.GetTemplatesForPeer(peer);
+
+        var template = Assert.Single(result);
+        Assert.Equal("Sota spot", template.Name);
     }
 
     [Fact]
