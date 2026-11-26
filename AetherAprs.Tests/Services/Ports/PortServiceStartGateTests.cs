@@ -81,7 +81,7 @@ public sealed class PortServiceStartGateTests
             .Returns([]);
 
         return new PortService(
-            db.Factory,
+            StoreFactory.CreatePortRegistry(db),
             new TestConfigurationService(),
             services.GetRequiredService<ILoggerFactory>(),
             NullLogger<PortService>.Instance,
@@ -91,8 +91,7 @@ public sealed class PortServiceStartGateTests
             digipeater,
             Substitute.For<IAudioStreamService>(),
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>(),
-            new NullSecretProtector());
+            Substitute.For<IPttService>());
     }
 
     private sealed class BlockingKissStreamFactory : IKissStreamFactory

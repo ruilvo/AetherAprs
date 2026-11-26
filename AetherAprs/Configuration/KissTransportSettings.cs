@@ -16,6 +16,8 @@ namespace AetherAprs.Configuration;
 [JsonDerivedType(typeof(BluetoothLeKissTransportSettings), "ble")]
 public interface IKissTransportSettings
 {
+    /// <summary>Creates an independent copy of these transport settings.</summary>
+    IKissTransportSettings Clone();
 }
 
 /// <summary>
@@ -60,6 +62,9 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
             _port = value;
         }
     }
+
+    /// <inheritdoc />
+    public IKissTransportSettings Clone() => new TcpKissTransportSettings { Host = Host, Port = Port };
 }
 
 /// <summary>
@@ -70,6 +75,10 @@ public sealed class BluetoothClassicKissTransportSettings : IKissTransportSettin
     public string DeviceAddress { get; set; } = string.Empty;
 
     public string? DeviceName { get; set; }
+
+    /// <inheritdoc />
+    public IKissTransportSettings Clone() =>
+        new BluetoothClassicKissTransportSettings { DeviceAddress = DeviceAddress, DeviceName = DeviceName };
 }
 
 /// <summary>
@@ -107,4 +116,14 @@ public sealed class BluetoothLeKissTransportSettings : IKissTransportSettings
     /// Characteristic notified by the peripheral (TX from the peripheral's perspective).
     /// </summary>
     public Guid TxCharacteristicUuid { get; set; } = DefaultTxCharacteristicUuid;
+
+    /// <inheritdoc />
+    public IKissTransportSettings Clone() => new BluetoothLeKissTransportSettings
+    {
+        DeviceAddress = DeviceAddress,
+        DeviceName = DeviceName,
+        ServiceUuid = ServiceUuid,
+        RxCharacteristicUuid = RxCharacteristicUuid,
+        TxCharacteristicUuid = TxCharacteristicUuid
+    };
 }

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Threading.Tasks;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Beaconing;
@@ -47,30 +48,30 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void SetActiveModeChangesCurrentConfiguration()
+    public async Task SetActiveModeChangesCurrentConfiguration()
     {
         var service = new BeaconService();
 
-        service.SetActiveMode(DynamicBeaconMode.Drive);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Drive, TestContext.Current.CancellationToken);
         Assert.Equal(DynamicBeaconMode.Drive, service.CurrentConfiguration.Mode);
 
-        service.SetActiveMode(DynamicBeaconMode.Custom);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Custom, TestContext.Current.CancellationToken);
         Assert.Equal(DynamicBeaconMode.Custom, service.CurrentConfiguration.Mode);
 
-        service.SetActiveMode(DynamicBeaconMode.Walk);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Walk, TestContext.Current.CancellationToken);
         Assert.Equal(DynamicBeaconMode.Walk, service.CurrentConfiguration.Mode);
     }
 
     [Fact]
-    public void UpdateConfigurationModifiesCustomMode()
+    public async Task UpdateConfigurationModifiesCustomMode()
     {
         var service = new BeaconService();
         var customConfig = BeaconConfig.CreateCustomPreset();
         var modifiedConfig = customConfig with { SlowIntervalSeconds = 3600 };
 
-        service.UpdateConfiguration(modifiedConfig);
+        await service.UpdateConfigurationAsync(modifiedConfig, TestContext.Current.CancellationToken);
 
-        service.SetActiveMode(DynamicBeaconMode.Custom);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Custom, TestContext.Current.CancellationToken);
         Assert.Equal(3600, service.CurrentConfiguration.SlowIntervalSeconds);
     }
 
@@ -205,12 +206,12 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void CourseChangeThresholdZeroDisablesCourseTrigger()
+    public async Task CourseChangeThresholdZeroDisablesCourseTrigger()
     {
         var config = BeaconConfig.CreateCustomPreset() with { CourseChangeThresholdDegrees = 0 };
         var service = new BeaconService();
-        service.UpdateConfiguration(config);
-        service.SetActiveMode(DynamicBeaconMode.Custom);
+        await service.UpdateConfigurationAsync(config, TestContext.Current.CancellationToken);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Custom, TestContext.Current.CancellationToken);
 
         var time1 = DateTimeOffset.UtcNow;
         var time2 = time1.AddSeconds(5);
@@ -231,10 +232,10 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void ProcessLocationUpdateIncludesIntervalInformation()
+    public async Task ProcessLocationUpdateIncludesIntervalInformation()
     {
         var service = new BeaconService();
-        service.SetActiveMode(DynamicBeaconMode.Walk);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Walk, TestContext.Current.CancellationToken);
 
         // Start far in the past to ensure first transmission
         var time1 = DateTimeOffset.UtcNow.AddSeconds(-2000);
@@ -314,24 +315,24 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
-    public void UpdateConfigurationPersistsWalkAndDriveModes()
+    public async Task UpdateConfigurationPersistsWalkAndDriveModes()
     {
         var service = new BeaconService();
         var walk = BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 };
         var drive = BeaconConfig.CreateDrivePreset() with { FastIntervalSeconds = 33 };
 
-        service.UpdateConfiguration(walk);
-        service.UpdateConfiguration(drive);
+        await service.UpdateConfigurationAsync(walk, TestContext.Current.CancellationToken);
+        await service.UpdateConfigurationAsync(drive, TestContext.Current.CancellationToken);
 
-        service.SetActiveMode(DynamicBeaconMode.Walk);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Walk, TestContext.Current.CancellationToken);
         Assert.Equal(1111, service.CurrentConfiguration.SlowIntervalSeconds);
 
-        service.SetActiveMode(DynamicBeaconMode.Drive);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Drive, TestContext.Current.CancellationToken);
         Assert.Equal(33, service.CurrentConfiguration.FastIntervalSeconds);
     }
 
     [Fact]
-    public void SetActiveMode_SameMode_DoesNotResetTimer()
+    public async Task SetActiveMode_SameMode_DoesNotResetTimer()
     {
         var service = new BeaconService();
         var custom = BeaconConfig.CreateCustomPreset() with
@@ -342,8 +343,8 @@ public class BeaconServiceTests : TestFixtureBase
             CourseChangeThresholdDegrees = 0,
             MinimumDistanceMeters = 1
         };
-        service.UpdateConfiguration(custom);
-        service.SetActiveMode(DynamicBeaconMode.Custom);
+        await service.UpdateConfigurationAsync(custom, TestContext.Current.CancellationToken);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Custom, TestContext.Current.CancellationToken);
 
         var time1 = DateTimeOffset.UtcNow.AddSeconds(-5);
         var time2 = time1.AddSeconds(1);
@@ -356,7 +357,7 @@ public class BeaconServiceTests : TestFixtureBase
         Assert.NotNull(decision1);
         Assert.False(decision1.ShouldTransmit);
 
-        service.SetActiveMode(DynamicBeaconMode.Custom);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Custom, TestContext.Current.CancellationToken);
         service.ProcessLocationUpdate(location2);
         var decision2 = service.CurrentDecision;
         Assert.NotNull(decision2);

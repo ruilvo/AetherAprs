@@ -39,6 +39,41 @@ public class PortConfig
     /// Type-specific configuration. Use AprsIsSettings for APRS-IS ports, KissSettings for KISS ports.
     /// </summary>
     public IPortTypeSettings? TypeSettings { get; set; }
+
+    /// <summary>
+    /// Creates an independent copy, including the type-specific settings graph.
+    /// </summary>
+    /// <remarks>
+    /// Published port configuration is a snapshot: owners hand out copies so a
+    /// caller cannot mutate state that the service believes it has persisted.
+    /// </remarks>
+    public PortConfig Clone() => new()
+    {
+        Id = Id,
+        Name = Name,
+        IsEnabled = IsEnabled,
+        IsRx = IsRx,
+        IsTx = IsTx,
+        ShowOnMap = ShowOnMap,
+        AllowDigipeat = AllowDigipeat,
+        TypeSettings = TypeSettings?.Clone()
+    };
+
+    /// <summary>Returns a copy that differs only in <see cref="IsEnabled"/>.</summary>
+    public PortConfig WithEnabled(bool enabled)
+    {
+        var copy = Clone();
+        copy.IsEnabled = enabled;
+        return copy;
+    }
+
+    /// <summary>Returns a copy that differs only in <see cref="ShowOnMap"/>.</summary>
+    public PortConfig WithShowOnMap(bool showOnMap)
+    {
+        var copy = Clone();
+        copy.ShowOnMap = showOnMap;
+        return copy;
+    }
 }
 
 /// <summary>
@@ -50,6 +85,8 @@ public class PortConfig
 [JsonDerivedType(typeof(AfskSettings), "afsk")]
 public interface IPortTypeSettings
 {
+    /// <summary>Creates an independent copy of these settings.</summary>
+    IPortTypeSettings Clone();
 }
 
 /// <summary>
@@ -129,6 +166,15 @@ public class AprsIsSettings : IPortTypeSettings
         get => _filter;
         set => _filter = string.IsNullOrWhiteSpace(value) ? string.Empty : value;
     }
+
+    /// <inheritdoc />
+    public IPortTypeSettings Clone() => new AprsIsSettings
+    {
+        Server = Server,
+        ServerPort = ServerPort,
+        Passcode = Passcode,
+        Filter = Filter
+    };
 }
 
 /// <summary>
@@ -137,6 +183,9 @@ public class AprsIsSettings : IPortTypeSettings
 public class KissSettings : IPortTypeSettings
 {
     public IKissTransportSettings? Transport { get; set; }
+
+    /// <inheritdoc />
+    public IPortTypeSettings Clone() => new KissSettings { Transport = Transport?.Clone() };
 }
 
 /// <summary>
@@ -297,4 +346,16 @@ public class AfskSettings : IPortTypeSettings
             _squelchThreshold = value;
         }
     }
+
+    /// <inheritdoc />
+    public IPortTypeSettings Clone() => new AfskSettings
+    {
+        PttMode = PttMode,
+        TxDelayMs = TxDelayMs,
+        TxTailMs = TxTailMs,
+        SlotTimeMs = SlotTimeMs,
+        Persist = Persist,
+        AudioLevel = AudioLevel,
+        SquelchThreshold = SquelchThreshold
+    };
 }

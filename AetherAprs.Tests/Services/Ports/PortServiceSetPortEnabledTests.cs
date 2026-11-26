@@ -77,7 +77,7 @@ public sealed class PortServiceSetPortEnabledTests
             .Returns([]);
 
         return new PortService(
-            db.Factory,
+            StoreFactory.CreatePortRegistry(db),
             new TestConfigurationService(),
             services.GetRequiredService<ILoggerFactory>(),
             NullLogger<PortService>.Instance,
@@ -87,8 +87,7 @@ public sealed class PortServiceSetPortEnabledTests
             mockDigipeater,
             Substitute.For<IAudioStreamService>(),
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>(),
-            new NullSecretProtector());
+            Substitute.For<IPttService>());
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

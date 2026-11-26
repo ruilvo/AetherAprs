@@ -46,16 +46,19 @@ public interface IBeaconService
     BeaconTransmitDecision? CurrentDecision { get; }
 
     /// <summary>
-    /// Sets the active beacon mode (Walk, Drive, or Custom).
+    /// Sets the active beacon mode (Walk, Drive, or Custom). The mode is persisted
+    /// before it takes effect, so a failed write leaves the previous mode active.
     /// </summary>
     /// <param name="mode">The beacon mode to activate.</param>
-    void SetActiveMode(DynamicBeaconMode mode);
+    Task SetActiveModeAsync(DynamicBeaconMode mode, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Updates the beacon configuration for the mode specified by <see cref="BeaconConfig.Mode"/>.
+    /// The configuration is persisted before it takes effect, so a failed write
+    /// leaves the previous configuration active.
     /// </summary>
     /// <param name="configuration">The configuration to store for its mode.</param>
-    void UpdateConfiguration(BeaconConfig configuration);
+    Task UpdateConfigurationAsync(BeaconConfig configuration, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Processes a location update. Internally evaluates whether to transmit and raises

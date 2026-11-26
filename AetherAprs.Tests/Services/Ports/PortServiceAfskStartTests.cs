@@ -122,7 +122,7 @@ public sealed class PortServiceAfskStartTests
             .Returns([]);
 
         return new PortService(
-            db.Factory,
+            StoreFactory.CreatePortRegistry(db),
             new TestConfigurationService(),
             services.GetRequiredService<ILoggerFactory>(),
             NullLogger<PortService>.Instance,
@@ -132,8 +132,7 @@ public sealed class PortServiceAfskStartTests
             mockDigipeater,
             audioStream,
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>(),
-            new NullSecretProtector());
+            Substitute.For<IPttService>());
     }
 
     private static async Task<PortService> CreateAndInitializeServiceAsync(

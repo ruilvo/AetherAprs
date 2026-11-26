@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Data.Beaconing;
 using AetherAprs.Data.Packets;
+using AetherAprs.Data.Ports;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
@@ -108,6 +110,11 @@ public static class ServiceProviderFactory
         });
         services.AddSingleton<AppSavedDataInitializer>();
         services.AddSqliteRuntime();
+
+        // Durable configuration stores. Feature services depend on these
+        // interfaces, never on a DbContext or the runtime writer directly.
+        services.AddSingleton<IPortRegistry, PortRegistry>();
+        services.AddSingleton<IBeaconStateStore, BeaconStateStore>();
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();

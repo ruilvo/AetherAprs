@@ -46,37 +46,46 @@ public sealed class SavedDataPersistenceTests
             Aprs = new AprsSettings { Callsign = "N0CALL" }
         });
         
-        var service = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
-        service.UpdateConfiguration(BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 });
-        service.SetActiveMode(DynamicBeaconMode.Drive);
+        var store = StoreFactory.CreateBeaconStateStore(db);
+        await using var service = new BeaconService(store, Substitute.For<ILogger<BeaconService>>());
+        await service.UpdateConfigurationAsync(
+            BeaconConfig.CreateWalkPreset() with { SlowIntervalSeconds = 1111 },
+            TestContext.Current.CancellationToken);
+        await service.SetActiveModeAsync(DynamicBeaconMode.Drive, TestContext.Current.CancellationToken);
 
-        // Persistence is queued to a background worker; poll until the writes land.
-        await WaitForBeaconStateAsync(db, static state => state.ActiveMode == DynamicBeaconMode.Drive);
-
-        var reloaded = new BeaconService(db.Factory, Substitute.For<ILogger<BeaconService>>());
+        // Writes are durable before the call returns, so a fresh service sees them.
+        var reloaded = new BeaconService(
+            StoreFactory.CreateBeaconStateStore(db),
+            Substitute.For<ILogger<BeaconService>>());
         await reloaded.InitializeAsync(TestContext.Current.CancellationToken);
         Assert.Equal(DynamicBeaconMode.Drive, reloaded.CurrentConfiguration.Mode);
         Assert.Equal(1111, reloaded.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk).SlowIntervalSeconds);
     }
 
-    private static async Task WaitForBeaconStateAsync(TempAppDatabase db, Func<BeaconingStateRecord, bool> predicate)
+    [Fact]
+    public async Task BeaconService_FailedWrite_LeavesPreviousStateActive()
     {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        using var db = TempAppDatabase.Create();
+        await using var service = new BeaconService(
+            StoreFactory.CreateBeaconStateStore(db),
+            Substitute.For<ILogger<BeaconService>>());
+        await service.InitializeAsync(TestContext.Current.CancellationToken);
 
-        while (DateTime.UtcNow < deadline)
+        var walk = service.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk);
+
+        // A destroyed schema makes the durable write fail.
+        await using (var context = await db.Factory.CreateDbContextAsync(TestContext.Current.CancellationToken))
         {
-            await using var context = await db.Factory.CreateDbContextAsync(cancellationToken);
-            var state = await context.BeaconingState.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
-            if (state is not null && predicate(state))
-            {
-                return;
-            }
-
-            await Task.Delay(25, cancellationToken);
+            await context.Database.ExecuteSqlRawAsync("DROP TABLE BeaconConfigs", TestContext.Current.CancellationToken);
         }
 
-        Assert.Fail("Beaconing state was not persisted within the timeout.");
+        await Assert.ThrowsAnyAsync<Exception>(() => service.UpdateConfigurationAsync(
+            walk with { SlowIntervalSeconds = 9999 }, TestContext.Current.CancellationToken));
+
+        // Memory must not adopt a value that was never committed.
+        Assert.Equal(
+            walk.SlowIntervalSeconds,
+            service.AllConfigurations.Single(config => config.Mode == DynamicBeaconMode.Walk).SlowIntervalSeconds);
     }
 
     [Fact]

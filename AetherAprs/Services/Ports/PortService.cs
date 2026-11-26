@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
-using AetherAprs.Data;
-using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Afsk;
@@ -18,7 +16,6 @@ using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Transports.Kiss;
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -32,7 +29,7 @@ namespace AetherAprs.Services.Ports;
 
 public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRuntime, IAsyncDisposable
 {
-    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
+    private readonly IPortRegistry _portRegistry;
     private readonly IConfigurationService _configurationService;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<PortService> _logger;
@@ -43,7 +40,6 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private readonly IAudioStreamService _audioStreamService;
     private readonly IAudioPlaybackService _audioPlaybackService;
     private readonly IPttService _pttService;
-    private readonly ISecretProtector _secretProtector;
     private readonly ILocationTrackingService? _locationTrackingService;
 
     // Guards _ports and _activeSessions; also serializes modem start/stop per service.
@@ -87,7 +83,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private sealed record DigipeatCandidate(Guid SourcePortId, AprsPacket Packet);
 
     public PortService(
-        IDbContextFactory<AppDbContext> dbContextFactory,
+        IPortRegistry portRegistry,
         IConfigurationService configurationService,
         ILoggerFactory loggerFactory,
         ILogger<PortService> logger,
@@ -98,15 +94,14 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         IAudioStreamService audioStreamService,
         IAudioPlaybackService audioPlaybackService,
         IPttService pttService,
-        ISecretProtector secretProtector,
         ILocationTrackingService? locationTrackingService = null,
         IDiagnosticEventSink? diagnosticSink = null,
         int packetQueueCapacity = DefaultPacketQueueCapacity,
         int digipeatQueueCapacity = DefaultDigipeatQueueCapacity)
     {
-        ArgumentNullException.ThrowIfNull(secretProtector);
+        ArgumentNullException.ThrowIfNull(portRegistry);
 
-        _dbContextFactory = dbContextFactory;
+        _portRegistry = portRegistry;
         _configurationService = configurationService;
         _loggerFactory = loggerFactory;
         _logger = logger;
@@ -117,7 +112,6 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         _audioStreamService = audioStreamService;
         _audioPlaybackService = audioPlaybackService;
         _pttService = pttService;
-        _secretProtector = secretProtector;
         _locationTrackingService = locationTrackingService;
         _diagnosticSink = diagnosticSink;
 
@@ -164,7 +158,9 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         {
             lock (_stateLock)
             {
-                return [.. _ports];
+                // Hand out copies: a caller must never be able to mutate the
+                // service's authoritative state by editing a published snapshot.
+                return [.. _ports.Select(port => port.Clone())];
             }
         }
     }
@@ -204,12 +200,15 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(port);
 
+        // Durable-first: never expose a port in memory that was not saved.
+        await PersistPortAsync(port, default).ConfigureAwait(false);
+
+        var stored = port.Clone();
         lock (_stateLock)
         {
-            _ports.Add(port);
+            _ports.Add(stored);
         }
 
-        await PersistPortAsync(port, default).ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -217,43 +216,55 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(updatedPort);
 
+        PortConfig? current;
+        lock (_stateLock)
+        {
+            current = _ports.FirstOrDefault(p => p.Id == updatedPort.Id);
+        }
+
+        if (current is null)
+        {
+            return;
+        }
+
+        // Durable-first: the persisted row must match the new settings before
+        // any session is torn down or any in-memory snapshot is replaced.
+        await PersistPortAsync(updatedPort, default).ConfigureAwait(false);
+
         ActivePortSession? sessionToRestart = null;
-        PortConfig? port;
         bool startAfterUpdate;
 
         lock (_stateLock)
         {
-            port = _ports.FirstOrDefault(p => p.Id == updatedPort.Id);
-            if (port is null)
+            var stored = _ports.FirstOrDefault(p => p.Id == updatedPort.Id);
+            if (stored is null)
             {
                 return;
             }
 
-            startAfterUpdate = _activeSessions.ContainsKey(port.Id) || port.IsEnabled;
-            if (_activeSessions.TryGetValue(port.Id, out var session))
+            startAfterUpdate = _activeSessions.ContainsKey(stored.Id) || stored.IsEnabled;
+            if (_activeSessions.TryGetValue(stored.Id, out var session))
             {
                 // Detach the session from the running state before restarting.
-                _activeSessions.Remove(port.Id);
+                _activeSessions.Remove(stored.Id);
                 sessionToRestart = session;
             }
 
-            CopyPortProperties(updatedPort, port);
+            CopyPortProperties(updatedPort, stored);
         }
-
-        await PersistPortAsync(port, default).ConfigureAwait(false);
 
         if (sessionToRestart is not null)
         {
             _logger.LogDebug(
                 "Restarting running port {PortName} ({PortId}) after settings update.",
-                port.Name,
-                port.Id);
+                updatedPort.Name,
+                updatedPort.Id);
             await StopDetachedSessionAsync(sessionToRestart).ConfigureAwait(false);
         }
 
-        if (startAfterUpdate && port.IsEnabled)
+        if (startAfterUpdate && updatedPort.IsEnabled)
         {
-            await StartModemAsync(port).ConfigureAwait(false);
+            await StartModemAsync(updatedPort).ConfigureAwait(false);
         }
 
         await UpdateForegroundServiceAsync().ConfigureAwait(false);
@@ -265,6 +276,10 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         // Stop if running
         await StopModemAsync(id).ConfigureAwait(false);
 
+        // Durable-first: the row must be gone before the port disappears from
+        // the in-memory snapshot.
+        await DeletePortAsync(id, default).ConfigureAwait(false);
+
         lock (_stateLock)
         {
             var port = _ports.FirstOrDefault(p => p.Id == id);
@@ -274,35 +289,76 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             }
         }
 
-        await DeletePortAsync(id, default).ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task SetPortEnabledAsync(Guid id, bool enabled)
     {
-        PortConfig? port;
+        PortConfig? current;
         lock (_stateLock)
         {
-            port = _ports.FirstOrDefault(p => p.Id == id);
+            current = _ports.FirstOrDefault(p => p.Id == id);
         }
 
-        if (port is null)
+        if (current is null)
         {
             return;
         }
 
-        port.IsEnabled = enabled;
-        await PersistPortAsync(port, default).ConfigureAwait(false);
+        var intentChanged = current.IsEnabled != enabled;
 
+        if (intentChanged)
+        {
+            // Durable-first: the store is the authority. Only after the write
+            // succeeds do we publish the new state to memory, so a failed write
+            // can never leave the runtime believing an unpersisted intent is saved.
+            var desired = current.WithEnabled(enabled);
+            await PersistPortAsync(desired, default).ConfigureAwait(false);
+
+            lock (_stateLock)
+            {
+                var stored = _ports.FirstOrDefault(p => p.Id == id);
+                if (stored is not null)
+                {
+                    CopyPortProperties(desired, stored);
+                }
+            }
+        }
+
+        // Read the authoritative snapshot after the write so the session starts
+        // from exactly what was persisted, never from a stale pre-write copy.
+        PortConfig authoritative;
+        lock (_stateLock)
+        {
+            authoritative = _ports.FirstOrDefault(p => p.Id == id)?.Clone() ?? current;
+        }
+
+        // Converge the runtime session to the persisted intent. This part is
+        // idempotent: asking for an already-enabled port still guarantees it is
+        // running, which supervision and startup both rely on.
         if (enabled)
         {
-            var started = await StartModemAsync(port).ConfigureAwait(false);
+            var started = await StartModemAsync(authoritative).ConfigureAwait(false);
             if (!started)
             {
-                port.IsEnabled = false;
-                await PersistPortAsync(port, default).ConfigureAwait(false);
+                // The start failed: roll the installed intent back to disabled,
+                // durably first, before reporting the failure to the caller. This
+                // always writes, because the failure means the persisted intent
+                // cannot be honoured regardless of how it got there.
+                await PersistPortAsync(authoritative.WithEnabled(false), default).ConfigureAwait(false);
+
+                lock (_stateLock)
+                {
+                    var stored = _ports.FirstOrDefault(p => p.Id == id);
+                    if (stored is not null)
+                    {
+                        stored.IsEnabled = false;
+                    }
+                }
+
+                await UpdateForegroundServiceAsync().ConfigureAwait(false);
                 PortsChanged?.Invoke(this, EventArgs.Empty);
-                throw new InvalidOperationException($"Failed to start port '{port.Name}'.");
+                throw new InvalidOperationException($"Failed to start port '{authoritative.Name}'.");
             }
         }
         else
@@ -310,26 +366,34 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             await StopModemAsync(id).ConfigureAwait(false);
         }
 
-        // Start/stop foreground service based on how many ports are running
         await UpdateForegroundServiceAsync().ConfigureAwait(false);
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task SetPortShowOnMapAsync(Guid id, bool showOnMap)
     {
-        PortConfig? port;
+        PortConfig? current;
         lock (_stateLock)
         {
-            port = _ports.FirstOrDefault(p => p.Id == id);
-            if (port is null || port.ShowOnMap == showOnMap)
+            current = _ports.FirstOrDefault(p => p.Id == id);
+            if (current is null || current.ShowOnMap == showOnMap)
             {
                 return;
             }
-
-            port.ShowOnMap = showOnMap;
         }
 
-        await PersistPortAsync(port, default).ConfigureAwait(false);
+        // Durable-first, same ordering rule as SetPortEnabledAsync.
+        await PersistPortAsync(current.WithShowOnMap(showOnMap), default).ConfigureAwait(false);
+
+        lock (_stateLock)
+        {
+            var stored = _ports.FirstOrDefault(p => p.Id == id);
+            if (stored is not null)
+            {
+                stored.ShowOnMap = showOnMap;
+            }
+        }
+
         PortsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -421,90 +485,14 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         }
     }
 
-    private async Task<List<PortConfig>> LoadPortsAsync(CancellationToken cancellationToken = default)
-    {
-        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var records = await db.Ports.ToListAsync(cancellationToken).ConfigureAwait(false);
-        var ports = new List<PortConfig>(records.Count);
-        var migrated = false;
+    private async Task<List<PortConfig>> LoadPortsAsync(CancellationToken cancellationToken = default) =>
+        [.. await _portRegistry.LoadAsync(cancellationToken).ConfigureAwait(false)];
 
-        foreach (var record in records)
-        {
-            if (record.AprsIs is { } aprsIs)
-            {
-                var storedPasscode = aprsIs.Passcode;
-                var passcode = _secretProtector.Unprotect(storedPasscode);
-                aprsIs.Passcode = passcode;
-                ports.Add(PortRecordMapper.ToConfig(record));
+    private Task PersistPortAsync(PortConfig port, CancellationToken cancellationToken = default) =>
+        _portRegistry.SaveAsync(port, cancellationToken);
 
-                if (!_secretProtector.IsProtected(storedPasscode))
-                {
-                    aprsIs.Passcode = _secretProtector.Protect(passcode);
-                    migrated = true;
-                }
-            }
-            else
-            {
-                ports.Add(PortRecordMapper.ToConfig(record));
-            }
-        }
-
-        if (migrated)
-        {
-            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        return ports;
-    }
-
-    private async Task PersistPortAsync(PortConfig port, CancellationToken cancellationToken = default)
-    {
-        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var existing = await db.Ports.FindAsync([port.Id], cancellationToken).ConfigureAwait(false);
-        if (existing is null)
-        {
-            db.Ports.Add(PortRecordMapper.ToRecord(port, ProtectPasscode(port)));
-        }
-        else
-        {
-            PortRecordMapper.CopyTo(existing, port, ProtectPasscode(port));
-        }
-
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (InvalidOperationException)
-        {
-            // Two concurrent saves for the same port (e.g. UI double-tap): the row
-            // was inserted by the other save — retry as an update.
-            db.ChangeTracker.Clear();
-            var retry = await db.Ports.FindAsync([port.Id], cancellationToken).ConfigureAwait(false);
-            if (retry is not null)
-            {
-                PortRecordMapper.CopyTo(retry, port, ProtectPasscode(port));
-                await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            }
-        }
-    }
-
-    private string? ProtectPasscode(PortConfig port)
-    {
-        return port.TypeSettings is AprsIsSettings aprsIs
-            ? _secretProtector.Protect(aprsIs.Passcode)
-            : null;
-    }
-
-    private async Task DeletePortAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var existing = await db.Ports.FindAsync([id], cancellationToken).ConfigureAwait(false);
-        if (existing is not null)
-        {
-            db.Ports.Remove(existing);
-            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-    }
+    private Task DeletePortAsync(Guid id, CancellationToken cancellationToken = default) =>
+        _portRegistry.DeleteAsync(id, cancellationToken);
 
     private static void CopyPortProperties(PortConfig source, PortConfig target)
     {

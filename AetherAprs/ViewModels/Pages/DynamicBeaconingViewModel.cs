@@ -8,6 +8,8 @@ using AetherAprs.Services.UI;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -63,35 +65,59 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
 
 
     [RelayCommand]
-    private void Close()
+    private async Task CloseAsync(CancellationToken cancellationToken)
     {
-        SaveAllConfigurations();
+        await SaveAllConfigurationsAsync(cancellationToken).ConfigureAwait(true);
         _navigationService.GoBack();
     }
 
-    [RelayCommand]
-    public void SetActiveMode(DynamicBeaconMode mode)
+    /// <summary>
+    /// Activates <paramref name="mode"/>. The service persists the choice before it
+    /// takes effect; a failed write is reported and the selection is reverted.
+    /// </summary>
+    public async Task SetActiveModeAsync(DynamicBeaconMode mode)
     {
         if (ActiveMode == mode)
+        {
             return;
+        }
 
+        var previous = ActiveMode;
         ActiveMode = mode;
+        try
+        {
+            await _beaconService.SetActiveModeAsync(mode).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            ActiveMode = previous;
+            throw;
+        }
     }
 
     partial void OnActiveModeChanged(DynamicBeaconMode value)
     {
-        _beaconService.SetActiveMode(value);
+        // The explicit command owns persistence; a property-changed handler cannot
+        // await a write or report its failure, so it must not mutate durable state.
     }
 
     [RelayCommand]
-    public void SaveAllConfigurations()
+    public async Task SaveAllConfigurationsAsync(CancellationToken cancellationToken)
     {
         if (WalkConfiguration?.Configuration is { } walk)
-            _beaconService.UpdateConfiguration(walk);
+        {
+            await _beaconService.UpdateConfigurationAsync(walk, cancellationToken).ConfigureAwait(true);
+        }
+
         if (DriveConfiguration?.Configuration is { } drive)
-            _beaconService.UpdateConfiguration(drive);
+        {
+            await _beaconService.UpdateConfigurationAsync(drive, cancellationToken).ConfigureAwait(true);
+        }
+
         if (CustomConfiguration?.Configuration is { } custom)
-            _beaconService.UpdateConfiguration(custom);
+        {
+            await _beaconService.UpdateConfigurationAsync(custom, cancellationToken).ConfigureAwait(true);
+        }
     }
 
     [RelayCommand]

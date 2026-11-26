@@ -355,7 +355,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         {
         }
 
-        public void SetActiveMode(DynamicBeaconMode mode)
+        public Task SetActiveModeAsync(DynamicBeaconMode mode, CancellationToken cancellationToken = default)
         {
             CurrentConfiguration = mode switch
             {
@@ -364,11 +364,11 @@ public sealed class HomeViewModelTests : TestFixtureBase
                 DynamicBeaconMode.Custom => BeaconConfig.CreateCustomPreset(),
                 _ => CurrentConfiguration
             };
+            return Task.CompletedTask;
         }
 
-        public void UpdateConfiguration(BeaconConfig configuration)
-        {
-        }
+        public Task UpdateConfigurationAsync(BeaconConfig configuration, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
         public void ProcessLocationUpdate(LocationData currentLocation)
         {

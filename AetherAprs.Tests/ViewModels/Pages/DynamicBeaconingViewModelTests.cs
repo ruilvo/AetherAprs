@@ -12,6 +12,7 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
+using CommunityToolkit.Mvvm.Input;
 using Geo;
 using NSubstitute;
 using Xunit;
@@ -21,10 +22,10 @@ namespace AetherAprs.Tests.ViewModels.Pages;
 public sealed class DynamicBeaconingViewModelTests
 {
     [Fact]
-    public void Constructor_LoadsActiveModeFromService()
+    public async Task Constructor_LoadsActiveModeFromService()
     {
         var beacon = new RecordingBeaconService();
-        beacon.SetActiveMode(DynamicBeaconMode.Drive);
+        await beacon.SetActiveModeAsync(DynamicBeaconMode.Drive, TestContext.Current.CancellationToken);
         var navigation = Substitute.For<INavigationService>();
 
         var vm = new DynamicBeaconingViewModel(beacon, navigation);
@@ -33,7 +34,7 @@ public sealed class DynamicBeaconingViewModelTests
     }
 
     [Fact]
-    public void Close_PersistsAllModeConfigurations_ThenNavigatesBack()
+    public async Task Close_PersistsAllModeConfigurations_ThenNavigatesBack()
     {
         var beacon = new RecordingBeaconService();
         var navigation = Substitute.For<INavigationService>();
@@ -43,7 +44,7 @@ public sealed class DynamicBeaconingViewModelTests
         vm.DriveConfiguration!.FastIntervalSeconds = 42;
         vm.CustomConfiguration!.BeaconComment = "Test comment";
 
-        vm.CloseCommand.Execute(null);
+        await ((IAsyncRelayCommand)vm.CloseCommand).ExecuteAsync(null);
 
         Assert.Contains(beacon.Updated, c => c.Mode == DynamicBeaconMode.Walk && c.SlowIntervalSeconds == 1234);
         Assert.Contains(beacon.Updated, c => c.Mode == DynamicBeaconMode.Drive && c.FastIntervalSeconds == 42);
@@ -81,9 +82,13 @@ public sealed class DynamicBeaconingViewModelTests
         {
         }
 
-        public void SetActiveMode(DynamicBeaconMode mode) => _mode = mode;
+        public Task SetActiveModeAsync(DynamicBeaconMode mode, CancellationToken cancellationToken = default)
+        {
+            _mode = mode;
+            return Task.CompletedTask;
+        }
 
-        public void UpdateConfiguration(BeaconConfig configuration)
+        public Task UpdateConfigurationAsync(BeaconConfig configuration, CancellationToken cancellationToken = default)
         {
             Updated.Add(configuration);
             switch (configuration.Mode)
@@ -98,6 +103,8 @@ public sealed class DynamicBeaconingViewModelTests
                     _custom = configuration;
                     break;
             }
+
+            return Task.CompletedTask;
         }
 
         public void ProcessLocationUpdate(LocationData currentLocation)

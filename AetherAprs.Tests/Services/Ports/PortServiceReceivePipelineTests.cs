@@ -470,7 +470,7 @@ public sealed class PortServiceReceivePipelineTests
             .BuildServiceProvider();
         var kissStreamFactory = new ScriptedKissStreamFactory(scriptedPortSettings, injectedKissBuffer, targetWriteTcs);
         return new PortService(
-            db.Factory,
+            StoreFactory.CreatePortRegistry(db),
             new TestConfigurationService(),
             services.GetRequiredService<ILoggerFactory>(),
             NullLogger<PortService>.Instance,
@@ -481,7 +481,6 @@ public sealed class PortServiceReceivePipelineTests
             Substitute.For<IAudioStreamService>(),
             Substitute.For<IAudioPlaybackService>(),
             Substitute.For<IPttService>(),
-            new NullSecretProtector(),
             diagnosticSink: diagnosticSink,
             packetQueueCapacity: packetQueueCapacity,
             digipeatQueueCapacity: digipeatQueueCapacity);
@@ -708,9 +707,13 @@ public sealed class PortServiceReceivePipelineTests
 
         public Task<Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default)
         {
+            // Ports publish copied configuration, so identity cannot be used to
+            // tell the scripted receive port from a plain transmit port.
             if (scriptedPortSettings is not null &&
                 firstPortBuffer is not null &&
-                ReferenceEquals(settings, scriptedPortSettings))
+                settings.Transport is TcpKissTransportSettings tcp &&
+                scriptedPortSettings.Transport is TcpKissTransportSettings scriptedTcp &&
+                tcp.Port == scriptedTcp.Port)
             {
                 return Task.FromResult<Stream>(new ScriptedReadStream(firstPortBuffer));
             }

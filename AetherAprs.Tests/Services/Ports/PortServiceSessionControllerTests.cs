@@ -106,7 +106,7 @@ public sealed class PortServiceSessionControllerTests
             .Returns([]);
 
         return new PortService(
-            db.Factory,
+            StoreFactory.CreatePortRegistry(db),
             new TestConfigurationService(),
             services.GetRequiredService<ILoggerFactory>(),
             NullLogger<PortService>.Instance,
@@ -116,8 +116,7 @@ public sealed class PortServiceSessionControllerTests
             digipeater,
             Substitute.For<IAudioStreamService>(),
             Substitute.For<IAudioPlaybackService>(),
-            Substitute.For<IPttService>(),
-            new NullSecretProtector());
+            Substitute.For<IPttService>());
     }
 
     private sealed class TrackingKissStreamFactory : IKissStreamFactory

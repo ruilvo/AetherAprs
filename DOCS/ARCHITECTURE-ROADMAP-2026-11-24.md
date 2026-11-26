@@ -439,6 +439,45 @@ Acceptance:
 Exit: the source scan finds one approved database writer implementation and approved
 query services only.
 
+Status: implemented.
+
+`IPortRegistry` (`Services/Ports/IPortRegistry.cs`) and `IBeaconStateStore`
+(`Services/Beaconing/IBeaconStateStore.cs`) are the typed capabilities feature code
+sees. Their adapters (`Data/Ports/PortRegistry.cs`,
+`Data/Beaconing/BeaconStateStore.cs`) are the only port/beacon persistence code and
+are allow-listed owners in the R0.2 source scan, so `PortService` and `BeaconService`
+no longer reference `AppDbContext`, `IDbContextFactory`, or `SaveChanges` at all.
+Both adapters run every mutation through `SqliteRuntimeWriter` and every read
+through `SqliteRuntimeReader`.
+
+Every port mutation is now durable-first: the store write must succeed before the
+in-memory snapshot changes. `SetPortEnabledAsync` persists the intent, updates
+memory, then converges the session; a failed start rolls the intent back durably
+before reporting the failure, and re-enabling an already-enabled port still
+guarantees a running session so supervision and startup stay correct.
+`BeaconService.UpdateConfigurationAsync` and `SetActiveModeAsync` follow the same
+order and are async on `IBeaconService`, which removed the fire-and-forget
+`QueuePersistSnapshot` path that used to swallow write failures.
+
+Published configuration is a copy, not a shared instance: `PortConfig` and its
+type settings implement `Clone()`/`WithEnabled()`/`WithShowOnMap()`, and
+`PortService.Ports`, `AddPortAsync`, and `PortItemViewModel.BuildConfig()` all work
+on copies. A caller can no longer mutate service state by editing a published
+snapshot.
+
+`PortServiceSessionController` already isolates reconnect and health supervision on
+`IPortSessionRuntime`, so those paths start and stop modems without touching the
+persisted `IsEnabled` intent. Seeding and migration stay in the exclusive
+`AppSavedDataInitializer` bootstrap.
+
+Failure tests prove the durable-first ordering: `PortServiceTests` drops the
+`Ports` table and asserts that `SetPortEnabledAsync`, `AddPortAsync`, and
+`UpdatePortAsync` throw while leaving memory unchanged,
+`BeaconService_FailedWrite_LeavesPreviousStateActive` does the same for the beacon
+state store, and
+`SetPortEnabledAsync_WhenAlreadyEnabled_StillEnsuresSessionRuns` pins the
+idempotent-start rule.
+
 ### R2 — Port session subsystem
 
 **R2.1 Extract modem factory**

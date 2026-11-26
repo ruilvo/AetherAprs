@@ -132,8 +132,11 @@ public partial class PortItemViewModel : ViewModelBase
 
     public PortConfig BuildConfig()
     {
-        _config.IsEnabled = IsEnabled;
-        _config.ShowOnMap = ShowOnMap;
-        return _config;
+        // Return a copy: the item's config is a snapshot of service state and
+        // must not be mutated as a side effect of opening the edit form.
+        var config = _config.Clone();
+        config.IsEnabled = IsEnabled;
+        config.ShowOnMap = ShowOnMap;
+        return config;
     }
 }

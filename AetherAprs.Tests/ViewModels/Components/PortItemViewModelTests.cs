@@ -101,7 +101,7 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public void BuildConfig_WritesFlagsOntoSameInstance()
+    public void BuildConfig_ReturnsIndependentCopyWithCurrentFlags()
     {
         var config = new PortConfig { Name = "Port", IsEnabled = false, ShowOnMap = false };
         var vm = Create(config);
@@ -110,9 +110,17 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         vm.ShowOnMap = true;
         var built = vm.BuildConfig();
 
-        Assert.Same(config, built);
+        // The item holds a snapshot of service state; building an edit config
+        // must not mutate it, and the returned copy must not alias it either.
+        Assert.NotSame(config, built);
+        Assert.Equal(config.Id, built.Id);
         Assert.True(built.IsEnabled);
         Assert.True(built.ShowOnMap);
+        Assert.False(config.IsEnabled);
+        Assert.False(config.ShowOnMap);
+
+        built.IsEnabled = false;
+        Assert.True(vm.IsEnabled);
     }
 
     [Fact]

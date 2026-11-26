@@ -2,13 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data;
-using AetherAprs.Data.Entities;
-using AetherAprs.Data.Mappers;
 using AetherAprs.Models;
 using Geo.Abstractions.Interfaces;
 using Geo.Geodesy;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
@@ -26,13 +22,11 @@ namespace AetherAprs.Services.Beaconing;
 public sealed class BeaconService : IBeaconService, IAsyncDisposable
 {
     private readonly ILogger<BeaconService> _logger;
-    private readonly IDbContextFactory<AppDbContext>? _dbContextFactory;
+    private readonly IBeaconStateStore? _stateStore;
     private readonly IGeodeticCalculator _geodeticCalculator;
     private readonly Lock _lock = new();
     private readonly Timer _evaluationTimer;
     private readonly CancellationTokenSource _disposalCts = new();
-    private readonly SemaphoreSlim _persistLock = new(1, 1);
-    private BeaconPersistenceSnapshot? _pendingSnapshot;
 
     private DynamicBeaconMode _activeMode = DynamicBeaconMode.Walk;
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
@@ -58,10 +52,10 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     }
 
     public BeaconService(
-        IDbContextFactory<AppDbContext> dbContextFactory,
+        IBeaconStateStore stateStore,
         ILogger<BeaconService> logger)
     {
-        _dbContextFactory = dbContextFactory;
+        _stateStore = stateStore;
         _logger = logger ?? NullLogger<BeaconService>.Instance;
         _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
         _evaluationTimer = new Timer(OnEvaluationTimer, null, EvaluationIntervalMilliseconds, EvaluationIntervalMilliseconds);
@@ -69,7 +63,19 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await LoadFromDatabaseAsync(cancellationToken).ConfigureAwait(false);
+        if (_stateStore is null)
+        {
+            return;
+        }
+
+        var snapshot = await _stateStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        lock (_lock)
+        {
+            _walkConfig = snapshot.Walk;
+            _driveConfig = snapshot.Drive;
+            _customConfig = snapshot.Custom;
+            _activeMode = snapshot.ActiveMode;
+        }
     }
 
     public BeaconConfig CurrentConfiguration
@@ -122,22 +128,39 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         }
     }
 
-    public void SetActiveMode(DynamicBeaconMode mode)
+    public async Task SetActiveModeAsync(DynamicBeaconMode mode, CancellationToken cancellationToken = default)
     {
         lock (_lock)
         {
             if (_activeMode == mode)
+            {
                 return;
+            }
+        }
 
+        if (_stateStore is not null)
+        {
+            await _stateStore.SaveActiveModeAsync(mode, cancellationToken).ConfigureAwait(false);
+        }
+
+        lock (_lock)
+        {
             _logger.LogInformation("Beacon mode changed from {PreviousMode} to {NewMode}", _activeMode, mode);
             _activeMode = mode;
             LastTransmitTime = DateTime.UtcNow;
-            QueuePersistSnapshot();
         }
     }
 
-    public void UpdateConfiguration(BeaconConfig configuration)
+    public async Task UpdateConfigurationAsync(BeaconConfig configuration, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ValidateMode(configuration.Mode);
+
+        if (_stateStore is not null)
+        {
+            await _stateStore.SaveConfigurationAsync(configuration, cancellationToken).ConfigureAwait(false);
+        }
+
         lock (_lock)
         {
             switch (configuration.Mode)
@@ -148,14 +171,18 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
                 case DynamicBeaconMode.Drive:
                     _driveConfig = configuration;
                     break;
-                case DynamicBeaconMode.Custom:
+                default:
                     _customConfig = configuration;
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(configuration), configuration.Mode, "Unknown beacon mode.");
             }
+        }
+    }
 
-            QueuePersistSnapshot();
+    private static void ValidateMode(DynamicBeaconMode mode)
+    {
+        if (mode is not (DynamicBeaconMode.Walk or DynamicBeaconMode.Drive or DynamicBeaconMode.Custom))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unknown beacon mode.");
         }
     }
 
@@ -266,131 +293,6 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             {
                 _logger.LogError(ex, "Error in BeaconRequested event handler");
             }
-        }
-    }
-
-    private async Task LoadFromDatabaseAsync(CancellationToken cancellationToken = default)
-    {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
-        await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-        var configs = await db.BeaconConfigs.AsNoTracking().ToListAsync(cancellationToken).ConfigureAwait(false);
-
-        foreach (var record in configs)
-        {
-            var config = BeaconConfigMapper.ToConfig(record);
-            switch (config.Mode)
-            {
-                case DynamicBeaconMode.Walk:
-                    _walkConfig = config;
-                    break;
-                case DynamicBeaconMode.Drive:
-                    _driveConfig = config;
-                    break;
-                case DynamicBeaconMode.Custom:
-                    _customConfig = config;
-                    break;
-            }
-        }
-
-        var state = await db.BeaconingState.AsNoTracking().FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
-        if (state is not null)
-        {
-            _activeMode = state.ActiveMode;
-        }
-    }
-
-    private sealed record BeaconPersistenceSnapshot(
-        BeaconConfig WalkConfig,
-        BeaconConfig DriveConfig,
-        BeaconConfig CustomConfig,
-        DynamicBeaconMode ActiveMode);
-
-    /// <summary>
-    /// Captures a snapshot of the beaconing state under <see cref="_lock"/> and queues
-    /// a background persist. Database I/O never runs under <see cref="_lock"/>, which is
-    /// also used by the 1-second evaluation timer, and never blocks the calling thread.
-    /// Snapshots are coalesced latest-wins: the writer always persists the most recently
-    /// queued snapshot, so rapid mutations can never land out of order and regress the
-    /// stored state.
-    /// </summary>
-    private void QueuePersistSnapshot()
-    {
-        lock (_lock)
-        {
-            _pendingSnapshot = new BeaconPersistenceSnapshot(_walkConfig, _driveConfig, _customConfig, _activeMode);
-        }
-
-        _ = Task.Run(() => PersistPendingSnapshotAsync(_disposalCts.Token));
-    }
-
-    private async Task PersistPendingSnapshotAsync(CancellationToken cancellationToken)
-    {
-        if (_dbContextFactory is null)
-        {
-            return;
-        }
-
-        await _persistLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            BeaconPersistenceSnapshot? snapshot;
-            lock (_lock)
-            {
-                snapshot = _pendingSnapshot;
-                _pendingSnapshot = null;
-            }
-
-            if (snapshot is null)
-            {
-                // A concurrent writer already persisted this or a newer snapshot.
-                return;
-            }
-
-            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-            UpsertConfig(db, snapshot.WalkConfig);
-            UpsertConfig(db, snapshot.DriveConfig);
-            UpsertConfig(db, snapshot.CustomConfig);
-
-            var state = await db.BeaconingState.FindAsync([BeaconingStateRecord.SingletonId], cancellationToken).ConfigureAwait(false);
-            if (state is null)
-            {
-                db.BeaconingState.Add(new BeaconingStateRecord { ActiveMode = snapshot.ActiveMode });
-            }
-            else
-            {
-                state.ActiveMode = snapshot.ActiveMode;
-            }
-
-            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected during disposal.
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to persist beaconing state.");
-        }
-        finally
-        {
-            _persistLock.Release();
-        }
-    }
-
-    private static void UpsertConfig(AppDbContext db, BeaconConfig config)
-    {
-        var existing = db.BeaconConfigs.Find(config.Mode);
-        if (existing is null)
-        {
-            db.BeaconConfigs.Add(BeaconConfigMapper.ToRecord(config));
-        }
-        else
-        {
-            BeaconConfigMapper.CopyTo(existing, config);
         }
     }
 
@@ -562,16 +464,6 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         if (_evaluationTimer is not null)
         {
             await _evaluationTimer.DisposeAsync();
-        }
-
-        // Wait for any in-flight background persist to complete so the DbContext is
-        // not used after the service is gone — but bound the wait: acquiring the
-        // semaphore and only then disposing it turned an unfinished persist into a
-        // shutdown hang (audit M-08). The semaphore is deliberately not disposed;
-        // SemaphoreSlim only needs disposal when it holds a kernel wait handle.
-        if (await _persistLock.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
-        {
-            _persistLock.Release();
         }
 
         // Do not dispose _disposalCts: a queued timer callback may still read its

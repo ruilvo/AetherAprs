@@ -20,16 +20,5 @@ namespace AetherAprs.Tests.Architecture;
 internal static class ArchitectureBaseline
 {
     /// <summary>Baselined violation key to the roadmap work item that will remove it.</summary>
-    public static IReadOnlyDictionary<string, string> Entries { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
-    {
-        // R1.3 moves port persistence behind IPortRegistry.
-        ["A001 PortService::AppDbContext"] = "R1.3",
-        ["A001 PortService::IDbContextFactory"] = "R1.3",
-        ["A001 PortService::SaveChanges"] = "R1.3",
-
-        // R1.3 moves beacon persistence behind IBeaconStateStore.
-        ["A001 BeaconService::AppDbContext"] = "R1.3",
-        ["A001 BeaconService::IDbContextFactory"] = "R1.3",
-        ["A001 BeaconService::SaveChanges"] = "R1.3"
-    };
+    public static IReadOnlyDictionary<string, string> Entries { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
 }

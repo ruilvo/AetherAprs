@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Data;
+using AetherAprs.Data.Beaconing;
 using AetherAprs.Data.Packets;
+using AetherAprs.Data.Ports;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
@@ -58,6 +60,12 @@ public static class DesignData
         });
         services.AddSingleton<AppSavedDataInitializer>();
         services.AddSqliteRuntime();
+
+        // Design-time durable stores. The designer never has a platform secret
+        // protector, so the cleartext fallback is the honest choice here.
+        services.AddSingleton<ISecretProtector, PlaintextSecretProtector>();
+        services.AddSingleton<IPortRegistry, PortRegistry>();
+        services.AddSingleton<IBeaconStateStore, BeaconStateStore>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
 
