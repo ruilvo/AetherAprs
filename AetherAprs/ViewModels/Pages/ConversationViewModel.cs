@@ -24,7 +24,8 @@ public partial class ConversationViewModel(
     IMessageService messageService,
     IMessageTemplateService templateService,
     IMessageTemplateDialogViewModelFactory templateDialogFactory,
-    ILogger<ConversationViewModel>? logger = null) : ViewModelBase, IOverlayRetireable
+    ILogger<ConversationViewModel>? logger = null,
+    IActiveConversationTracker? activeConversationTracker = null) : ViewModelBase, IOverlayRetireable
 {
     private ConversationThread? _thread;
     private bool _isNewConversation;
@@ -54,7 +55,7 @@ public partial class ConversationViewModel(
         DetachThread();
         _isNewConversation = true;
         _thread = null;
-        messageService.SetActiveConversation(null);
+        activeConversationTracker?.Activate(null);
         Title = Strings.Get("NewMessage");
         DestinationAddress = string.Empty;
         MessageText = string.Empty;
@@ -71,7 +72,7 @@ public partial class ConversationViewModel(
         MessageText = string.Empty;
         ErrorMessage = null;
         IsDestinationEditable = false;
-        messageService.SetActiveConversation(peer);
+        activeConversationTracker?.Activate(peer);
         AttachThread(messageService.GetOrCreateConversation(peer));
     }
 
@@ -179,7 +180,7 @@ public partial class ConversationViewModel(
         _thread = null;
         if (peer.HasValue)
         {
-            messageService.ClearActiveConversation(peer.Value);
+            activeConversationTracker?.Clear(peer.Value);
         }
     }
 

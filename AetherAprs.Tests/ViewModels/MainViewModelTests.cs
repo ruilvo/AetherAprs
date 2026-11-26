@@ -286,14 +286,6 @@ public sealed class MainViewModelTests
             Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public void SetActiveConversation(AprsAddress? peer)
-        {
-        }
-
-        public void ClearActiveConversation(AprsAddress peer)
-        {
-        }
     }
 
     private sealed class TestSymbolBitmapProvider : IAprsSymbolBitmapProvider

@@ -24,6 +24,7 @@ using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.ViewModels;
 using Geo;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -257,6 +258,7 @@ public sealed class MessageServiceTests
     {
         FakePortService portService = new();
         RecordingNotificationService notificationService = new();
+        ActiveConversationTracker tracker = new();
         MessageService service = new(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -265,10 +267,11 @@ public sealed class MessageServiceTests
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance,
-            notificationService: notificationService);
+            notificationService: notificationService,
+            activeConversationTracker: tracker);
 
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
-        service.SetActiveConversation(peer);
+        tracker.Activate(peer);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -290,10 +293,11 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
-    public void ClearActiveConversation_MatchingPeer_ClearsState()
+    public void ClearedActiveConversation_NotifiesTheIncomingMessageAgain()
     {
         FakePortService portService = new();
         RecordingNotificationService notificationService = new();
+        ActiveConversationTracker tracker = new();
         MessageService service = new(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -302,11 +306,12 @@ public sealed class MessageServiceTests
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance,
-            notificationService: notificationService);
+            notificationService: notificationService,
+            activeConversationTracker: tracker);
 
         AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
-        service.SetActiveConversation(peer);
-        service.ClearActiveConversation(peer);
+        tracker.Activate(peer);
+        tracker.Clear(peer);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {
@@ -328,10 +333,11 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
-    public void ClearActiveConversation_DifferentPeer_DoesNotClear()
+    public void ClearingADifferentPeer_KeepsTheVisibleConversationSuppressed()
     {
         FakePortService portService = new();
         RecordingNotificationService notificationService = new();
+        ActiveConversationTracker tracker = new();
         MessageService service = new(
             portService,
             Substitute.For<IPacketStorageService>(),
@@ -340,17 +346,18 @@ public sealed class MessageServiceTests
             new TestPacketFactory(),
             NullLogger<MessageService>.Instance,
             SynchronousUiDispatcher.Instance,
-            notificationService: notificationService);
+            notificationService: notificationService,
+            activeConversationTracker: tracker);
 
         Callsign viewedCallsign = new("K0PEER", 1);
         AprsAddress viewed = AprsAddress.FromCallsign(viewedCallsign);
         Callsign otherCallsign = new("K0OTH", 2);
         AprsAddress other = AprsAddress.FromCallsign(otherCallsign);
-        service.SetActiveConversation(viewed);
+        tracker.Activate(viewed);
 
         // Clearing a different peer (e.g. retiring a stale overlay) must NOT
         // clear the conversation actually being viewed.
-        service.ClearActiveConversation(other);
+        tracker.Clear(other);
 
         portService.RaisePacketReceived(new PortPacketReceivedEventArgs
         {

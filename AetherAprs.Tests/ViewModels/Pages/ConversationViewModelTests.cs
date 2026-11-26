@@ -12,6 +12,7 @@ using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Messaging;
+using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -201,11 +202,13 @@ public sealed class ConversationViewModelTests : TestFixtureBase
     private static ConversationViewModel CreateViewModel(
         IMessageService messageService,
         IMessageTemplateService? templateService = null,
-        IMessageTemplateDialogViewModelFactory? templateDialogFactory = null) => new(
+        IMessageTemplateDialogViewModelFactory? templateDialogFactory = null,
+        IActiveConversationTracker? activeConversationTracker = null) => new(
             messageService,
             templateService ?? Substitute.For<IMessageTemplateService>(),
             templateDialogFactory ?? Substitute.For<IMessageTemplateDialogViewModelFactory>(),
-            NullLogger<ConversationViewModel>.Instance);
+            NullLogger<ConversationViewModel>.Instance,
+            activeConversationTracker);
 
     private sealed class FakeMessageService : IMessageService
     {
@@ -244,13 +247,33 @@ public sealed class ConversationViewModelTests : TestFixtureBase
         }
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
-        public void SetActiveConversation(AprsAddress? peer)
-        {
-        }
+    [Fact]
+    public void InitializeAndDetach_TrackTheVisibleConversation()
+    {
+        FakeMessageService messageService = new();
+        ActiveConversationTracker tracker = new();
+        ConversationViewModel vm = CreateViewModel(messageService, activeConversationTracker: tracker);
+        AprsAddress peer = AprsAddress.FromCallsign(new Callsign("K0PEER", 1));
 
-        public void ClearActiveConversation(AprsAddress peer)
-        {
-        }
+        vm.Initialize(peer);
+        Assert.Equal(peer, tracker.Peer);
+
+        vm.Detach();
+        Assert.Null(tracker.Peer);
+    }
+
+    [Fact]
+    public void InitializeNew_ClearsTheVisibleConversation()
+    {
+        FakeMessageService messageService = new();
+        ActiveConversationTracker tracker = new();
+        ConversationViewModel vm = CreateViewModel(messageService, activeConversationTracker: tracker);
+
+        vm.Initialize(AprsAddress.FromCallsign(new Callsign("K0PEER", 1)));
+        vm.InitializeNew();
+
+        Assert.Null(tracker.Peer);
     }
 }

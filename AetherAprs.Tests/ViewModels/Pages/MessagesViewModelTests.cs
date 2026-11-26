@@ -188,13 +188,5 @@ public sealed class MessagesViewModelTests : TestFixtureBase
             Task.CompletedTask;
 
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-
-        public void SetActiveConversation(AprsAddress? peer)
-        {
-        }
-
-        public void ClearActiveConversation(AprsAddress peer)
-        {
-        }
     }
 }

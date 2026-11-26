@@ -48,6 +48,7 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly INotificationService? _notificationService;
     private readonly IUiDispatcher _uiDispatcher;
     private readonly TimeProvider _timeProvider;
+    private readonly IActiveConversationTracker? _activeConversationTracker;
     private readonly Lock _gate = new();
     private readonly Dictionary<int, StoredMessage> _pendingMessages = [];
     private readonly Lock _dedupLock = new();
@@ -57,7 +58,6 @@ public sealed class MessageService : IMessageService, IDisposable
     private readonly Lock _persistLock = new();
     private TaskCompletionSource _persistSignal = CreatePersistSignal();
     private int _pendingPersists;
-    private AprsAddress? _activeConversationPeer;
     private int _nextMessageNumber = 1;
     private bool _disposed;
 
@@ -127,7 +127,8 @@ public sealed class MessageService : IMessageService, IDisposable
         IUiDispatcher uiDispatcher,
         IPacketQueryService? packetQueryService = null,
         INotificationService? notificationService = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IActiveConversationTracker? activeConversationTracker = null)
     {
         _portService = portService;
         _packetStorageService = packetStorageService;
@@ -139,6 +140,7 @@ public sealed class MessageService : IMessageService, IDisposable
         _packetQueryService = packetQueryService;
         _notificationService = notificationService;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _activeConversationTracker = activeConversationTracker;
         _portService.PacketReceived += OnPacketReceived;
         TimeSpan retryInterval = TimeSpan.FromSeconds(5);
         _retryTimer = _timeProvider.CreateTimer(ProcessRetries, null, retryInterval, retryInterval);
@@ -156,29 +158,6 @@ public sealed class MessageService : IMessageService, IDisposable
 
         NotifyConversationsChanged();
         return thread;
-    }
-
-    public void SetActiveConversation(AprsAddress? peer)
-    {
-        lock (_gate)
-        {
-            _activeConversationPeer = peer;
-        }
-    }
-
-    public void ClearActiveConversation(AprsAddress peer)
-    {
-        lock (_gate)
-        {
-            // Only clear if the retired conversation is still the active one.
-            // Opening conversation B retires conversation A *after* B's
-            // Initialize already ran (MainViewModel retire-ordering), so an
-            // unconditional clear here would wipe B's active state.
-            if (_activeConversationPeer == peer)
-            {
-                _activeConversationPeer = null;
-            }
-        }
     }
 
     public async Task SendAsync(AprsAddress addressee, string text, CancellationToken cancellationToken = default)
@@ -427,12 +406,10 @@ public sealed class MessageService : IMessageService, IDisposable
         // ingestion, so any error is logged and swallowed.
         if (_notificationService is not null)
         {
-            lock (_gate)
+            AprsAddress? activePeer = _activeConversationTracker?.Peer;
+            if (activePeer is null || !activePeer.Equals(peer))
             {
-                if (_activeConversationPeer != peer)
-                {
-                    _ = ShowMessageNotificationAsync(peer, message.Text);
-                }
+                _ = ShowMessageNotificationAsync(peer, message.Text);
             }
         }
 

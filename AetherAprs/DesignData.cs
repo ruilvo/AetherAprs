@@ -67,6 +67,7 @@ public static class DesignData
         services.AddSingleton<IPortRegistry, PortRegistry>();
         services.AddSingleton<IBeaconStateStore, BeaconStateStore>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IActiveConversationTracker, ActiveConversationTracker>();
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
 
         // Design-time UI dispatcher runs actions synchronously (no Avalonia UI thread in designer)

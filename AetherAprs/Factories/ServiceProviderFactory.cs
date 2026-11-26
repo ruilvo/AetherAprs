@@ -163,6 +163,9 @@ public static class ServiceProviderFactory
         // Register navigation service
         services.AddSingleton<INavigationService, NavigationService>();
 
+        // Presentation-owned state the messaging service reads to suppress notifications
+        services.AddSingleton<IActiveConversationTracker, ActiveConversationTracker>();
+
         // Register keyboard insets service
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();
 
