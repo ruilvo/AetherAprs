@@ -887,6 +887,26 @@ Exit: a startup harness proves ordering and a process-death harness proves safe 
 - Move theme application behind `IThemeService`.
 - Add an architecture test for assembly references before physically splitting projects.
 
+> **Status: the ViewLocator fallback is localized and its table is checked
+> (2026-11-26); the rest of this section is still open.**
+> An unmapped view model rendered an English-only `No view for {Type}` built inline
+> in the locator, so the one message an operator could see when a route was missing
+> was the one message translation could not reach. It now formats the
+> `ViewLocatorMissingView` resource, and both language files carry the key.
+> `ViewLocatorRoutingTests` reads the routing table back out of the locator source and
+> asserts every mapped name is a real view-model type, then proves an unmapped view
+> model produces the localized text instead of a hardcoded sentence and that no data
+> produces no control. A misspelled entry still fails the compiler first, so the table
+> check guards its shape (stale entries, a locator that stops being source-readable)
+> rather than replacing type checking.
+>
+> Still open in this section: auditing the remaining Avalonia calls in application
+> services behind `IUiDispatcher`, moving conversation collections and
+> active-conversation state into ViewModels, extracting map interaction controllers
+> from code-behind, replacing stale collection converters with `HasItems`, virtualizing
+> lists with paging on details/search, `IThemeService`, and the assembly-reference test
+> that has to precede any physical project split.
+
 Exit: application services can run in a plain test host with no Avalonia application.
 
 ### R5 — Android platform correctness

@@ -214,6 +214,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PermissionWarningDenied" xml:space="preserve"><value>{0}: permissão recusada. As funcionalidades que dependem dela não funcionarão até ser autorizada.</value></data>
   <data name="PermissionWarningPermanentlyDenied" xml:space="preserve"><value>{0}: permissão bloqueada. Autorize-a nas definições da aplicação para restaurar as funcionalidades que dependem dela.</value></data>
   <data name="PermissionOpenSettingsAction" xml:space="preserve"><value>Abrir definições</value></data>
+  <data name="ViewLocatorMissingView" xml:space="preserve"><value>Não existe vista registada para {0}.</value></data>
   <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
   <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
   <data name="Comment" xml:space="preserve"><value>Comentário</value></data>
