@@ -94,6 +94,19 @@ public interface IPacketQueryService
     Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNameAsync(string name, int limit = 500, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves one page of historical packets for a specific object or item name,
+    /// ordered by most recent first. The row id is a stable cursor, so a page never
+    /// repeats or skips a row.
+    /// </summary>
+    /// <param name="name">The object or item name to query.</param>
+    /// <param name="beforeId">
+    /// The id of the oldest row already shown, or <see langword="null"/> for the first page.
+    /// </param>
+    /// <param name="pageSize">Maximum number of packets in the page.</param>
+    /// <returns>A page of packet records ordered by most recent first.</returns>
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNamePageAsync(string name, long? beforeId = null, int pageSize = 50, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets the most recent bulletin packets, ordered newest first.
     /// </summary>
     /// <param name="limit">Maximum number of bulletins to return.</param>

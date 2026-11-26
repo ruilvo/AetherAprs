@@ -147,10 +147,33 @@ internal sealed class PacketQueryService(
         }
 
         return await ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByObjectNameAsync), async (context, ct) =>
-            await GetLatestAsync(context.Packets.Where(packet =>
-                (packet.Object != null && packet.Object.Name == trimmed) ||
-                (packet.Item != null && packet.Item.Name == trimmed)), limit, ct).ConfigureAwait(false), cancellationToken)
+            await GetLatestAsync(FilterByObjectName(context.Packets, trimmed), limit, ct).ConfigureAwait(false), cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNamePageAsync(
+        string name,
+        long? beforeId = null,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        string? trimmed = name?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return [];
+        }
+
+        return await ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByObjectNamePageAsync), async (context, ct) =>
+        {
+            IQueryable<PacketRecord> query = FilterByObjectName(context.Packets, trimmed);
+            if (beforeId is { } cursor)
+            {
+                query = query.Where(packet => packet.Id < cursor);
+            }
+
+            return await GetLatestAsync(query, pageSize, ct).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(
@@ -275,6 +298,11 @@ internal sealed class PacketQueryService(
 
         return query;
     }
+
+    private static IQueryable<PacketRecord> FilterByObjectName(IQueryable<PacketRecord> packets, string name) =>
+        packets.Where(packet =>
+            (packet.Object != null && packet.Object.Name == name) ||
+            (packet.Item != null && packet.Item.Name == name));
 
     private static Task<List<PacketRecord>> GetLatestByIdsAsync(
         AppDbContext context, List<long> ids, int limit, CancellationToken cancellationToken) =>

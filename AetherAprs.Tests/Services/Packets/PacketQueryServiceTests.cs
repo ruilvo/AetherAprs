@@ -781,6 +781,55 @@ public sealed class PacketQueryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPacketsByObjectNamePageAsync_PagesReportsNewestFirst()
+    {
+        // Arrange
+        Guid portId = Guid.NewGuid();
+        using (AppDbContext context = _db.CreateContext())
+        {
+            for (int index = 0; index < 3; index++)
+            {
+                context.Packets.Add(new PacketRecord
+                {
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.PrimaryStation,
+                    DestinationBase = "APRS",
+                    DestinationSsid = AprsSsid.PrimaryStation,
+                    Timestamp = DateTime.UtcNow.AddMinutes(-index),
+                    PortId = portId,
+                    PacketType = PacketTypes.Object,
+                    RawInfo = $";OBJ1     *11111{index}z",
+                    IsOutbound = false,
+                    Object = new ObjectDataRecord
+                    {
+                        Name = "OBJ1",
+                        IsLive = true,
+                        Location = new Coordinate(38.5, -9.0),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.HyphenMinus
+                    }
+                });
+            }
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using PacketQueryService service = new(_reader, _logger);
+
+        // Act
+        IReadOnlyList<PacketRecord> first = await service.GetPacketsByObjectNamePageAsync(
+            "OBJ1", pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> second = await service.GetPacketsByObjectNamePageAsync(
+            "OBJ1", beforeId: first[^1].Id, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(2, first.Count);
+        PacketRecord remaining = Assert.Single(second);
+        Assert.True(first[0].Id > first[1].Id);
+        Assert.True(first[^1].Id > remaining.Id);
+    }
+
+    [Fact]
     public async Task GetMostRecentItemsAsync_ReturnsLatestPerItemName()
     {
         // Arrange

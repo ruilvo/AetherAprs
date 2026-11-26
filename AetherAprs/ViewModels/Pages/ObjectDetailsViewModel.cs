@@ -25,8 +25,15 @@ public partial class ObjectDetailsViewModel(
     IPacketQueryService packetQueryService,
     ILogger<ObjectDetailsViewModel>? logger = null) : ViewModelBase
 {
+    private const int PageSize = 50;
+
     private readonly IPacketQueryService _packetQueryService = packetQueryService ?? throw new ArgumentNullException(nameof(packetQueryService));
     private readonly ILogger<ObjectDetailsViewModel>? _logger = logger;
+
+    // An object that reports for months has thousands of rows. Load one page at a
+    // time, newest first, using the oldest loaded id as a cursor.
+    private long? _oldestLoadedId;
+    private bool _isLoadingPage;
 
     [ObservableProperty]
     public partial string Name { get; set; } = string.Empty;
@@ -66,38 +73,75 @@ public partial class ObjectDetailsViewModel(
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    /// <summary>
+    /// True while older reports remain, so the page can request the next page when the
+    /// list reaches its end.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool HasMore { get; set; }
+
     public void Initialize(string name)
     {
         Name = name;
         Title = Strings.Format("ObjectReportsFrom", name);
 
-        _ = LoadAsync();
+        HasMore = true;
+        _ = LoadNextPageAsync();
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Appends the next page of reports. Invoked by the page when the list reaches its end.
+    /// </summary>
+    [RelayCommand]
+    private Task LoadMoreAsync() => LoadNextPageAsync();
+
+    private async Task LoadNextPageAsync()
     {
+        if (_isLoadingPage || !HasMore)
+        {
+            return;
+        }
+
+        _isLoadingPage = true;
+        IsLoading = true;
         try
         {
-            IsLoading = true;
+            IReadOnlyList<PacketRecord> reports = await _packetQueryService
+                .GetPacketsByObjectNamePageAsync(Name, _oldestLoadedId, PageSize);
 
-            IReadOnlyList<PacketRecord> reports = await _packetQueryService.GetPacketsByObjectNameAsync(Name, 500);
+            // The current state belongs to the newest report, which is only in the
+            // first page; later pages append history and never rewrite the header.
+            bool isFirstPage = Reports.Count == 0;
 
-            Reports.Clear();
+            long? oldest = null;
             foreach (PacketRecord report in reports)
             {
                 Reports.Add(report);
+                oldest = oldest.HasValue ? Math.Min(oldest.Value, report.Id) : report.Id;
             }
 
-            ApplyCurrentState(reports.Count > 0 ? reports[0] : null);
+            if (oldest is { } cursor)
+            {
+                _oldestLoadedId = cursor;
+            }
+
+            if (isFirstPage)
+            {
+                ApplyCurrentState(reports.Count > 0 ? reports[0] : null);
+            }
+
+            HasMore = reports.Count == PageSize;
 
             _logger?.LogInformation("Loaded {Count} reports for object/item {Name}", reports.Count, Name);
         }
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Failed to load reports for object/item {Name}", Name);
+            HasMore = false;
         }
         finally
         {
+            _isLoadingPage = false;
             OnPropertyChanged(nameof(HasReports));
             IsLoading = false;
         }
