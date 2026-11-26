@@ -206,9 +206,14 @@ public sealed class LocationTrackingService(
         if (_permissionService is null)
         {
             bool granted = await _locationService.RequestLocationPermissionAsync().ConfigureAwait(false);
-            return granted
+            PermissionRequestResult fallback = granted
                 ? PermissionRequestResult.Granted(PermissionKind.Location)
                 : PermissionRequestResult.Denied(PermissionKind.Location);
+
+            // The dialog cannot distinguish a permanent denial, but the outcome still
+            // belongs in the same attention record the adapter path reports to.
+            _permissionAttention?.Report(fallback);
+            return fallback;
         }
 
         PermissionRequestResult result = await _permissionService

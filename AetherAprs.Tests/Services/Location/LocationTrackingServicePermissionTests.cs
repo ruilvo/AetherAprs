@@ -100,16 +100,25 @@ public sealed class LocationTrackingServicePermissionTests
     {
         ILocationService locationService = CreateAvailableLocationService();
         locationService.RequestLocationPermissionAsync().Returns(Task.FromResult(false));
+        PermissionAttentionService attention = new();
         IKeepAliveService keepAlive = Substitute.For<IKeepAliveService>();
         using LocationTrackingService service = new(
             locationService,
             keepAlive,
-            NullLogger<LocationTrackingService>.Instance);
+            NullLogger<LocationTrackingService>.Instance,
+            permissionService: null,
+            permissionAttention: attention);
 
         await service.RequestPermissionAndStartTrackingAsync();
 
         Assert.False(service.IsTracking);
         await locationService.Received(1).RequestLocationPermissionAsync();
+
+        // The dialog's answer reaches the same attention banner as the adapter path,
+        // without claiming the denial is permanent.
+        PermissionAttention reported = Assert.Single(attention.Outstanding);
+        Assert.Equal(PermissionKind.Location, reported.Kind);
+        Assert.False(reported.RequiresApplicationSettings);
     }
 
     private static ILocationService CreateAvailableLocationService()
