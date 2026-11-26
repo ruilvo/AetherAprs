@@ -166,6 +166,33 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void Scan_SyntheticForegroundServiceInFeatureCode_IsRejected()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+        [
+            Source(
+                "AetherAprs/Services/Location/LocationTrackingService.cs",
+                "private readonly IForegroundService _foregroundService;"),
+            Source(
+                "AetherAprs/Services/Ports/PortService.cs",
+                "public IForegroundService ForegroundService { get; init; }")
+        ]);
+
+        Assert.Equal(2, violations.Count);
+        Assert.All(violations, violation => Assert.Equal("A008", violation.RuleId));
+    }
+
+    [Fact]
+    public void Scan_KeepAliveService_MayDriveTheForegroundService()
+    {
+        var violations = ArchitectureBoundaryScanner.Scan(
+            [Source("AetherAprs/Services/Platform/KeepAliveService.cs",
+                "await _foregroundService.StartAsync(requiredTypes);")]);
+
+        Assert.Empty(violations);
+    }
+
+    [Fact]
     public void Scan_ApprovedOwnerFile_IsNotReported()
     {
         var violations = ArchitectureBoundaryScanner.Scan(

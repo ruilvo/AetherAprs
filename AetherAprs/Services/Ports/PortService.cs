@@ -34,7 +34,6 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private readonly ILogger<PortService> _logger;
     private readonly IKeepAliveService _keepAliveService;
 
-    private bool _portsKeepAliveActive;
     private bool _disposed;
 
     public PortService(
@@ -331,24 +330,19 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     }
 
     /// <summary>
-    /// Keeps the ports keep-alive reason aligned with whether any session is
-    /// running.
+    /// States the ports keep-alive requirement as intent. The service owns the
+    /// hold: a repeated acquire is a no-op unless the hold is degraded, in which
+    /// case it retries, so this type keeps no copy of the platform state.
     /// </summary>
     private async Task SyncKeepAliveAsync()
     {
-        var hasRunningSessions = _sessionManager.RunningPortIds.Count > 0;
-
-        if (hasRunningSessions && !_portsKeepAliveActive)
+        if (_sessionManager.RunningPortIds.Count > 0)
         {
-            _portsKeepAliveActive = true;
             await _keepAliveService.AcquireAsync(KeepAliveReason.Ports).ConfigureAwait(false);
-            _logger.LogInformation("Acquired keep-alive for ports");
         }
-        else if (!hasRunningSessions && _portsKeepAliveActive)
+        else
         {
-            _portsKeepAliveActive = false;
             await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
-            _logger.LogInformation("Released keep-alive for ports");
         }
     }
 
@@ -392,11 +386,8 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
             }
         }
 
-        // Release the port keep-alive reason on disposal.
-        if (_portsKeepAliveActive)
-        {
-            _portsKeepAliveActive = false;
-            await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
-        }
+        // Release the port keep-alive reason on disposal. Releasing a reason that
+        // is not held is a no-op, so this needs no local bookkeeping.
+        await _keepAliveService.ReleaseAsync(KeepAliveReason.Ports).ConfigureAwait(false);
     }
 }

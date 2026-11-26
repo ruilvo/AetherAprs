@@ -5,6 +5,7 @@
 using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -109,6 +110,46 @@ public sealed class DiagnosticsTests
             coordinator).GenerateJson();
 
         Assert.Contains("\"lifecycle\": null", report, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SupportReport_IncludesTheKeepAliveHoldState()
+    {
+        using var keepAlive = new KeepAliveService(
+            new StubForegroundService(),
+            NullLogger<KeepAliveService>.Instance);
+        await keepAlive.AcquireAsync(KeepAliveReason.LocationTracking);
+
+        await using var coordinator = new SessionCoordinator(
+            new FakePortController(),
+            new FakeStateStore());
+
+        var report = new RedactedSupportReportService(
+            new BoundedDiagnosticEventStore(),
+            coordinator,
+            keepAlive: keepAlive).GenerateJson();
+
+        Assert.Contains("\"state\": \"Active\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"LocationTracking\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"requiredTypes\": \"Location\"", report, StringComparison.Ordinal);
+        Assert.Contains("\"degradedReason\": null", report, StringComparison.Ordinal);
+    }
+
+    private sealed class StubForegroundService : IForegroundService
+    {
+        public bool IsRunning { get; private set; }
+
+        public Task<ForegroundServiceStartResult> StartAsync(ForegroundServiceType requiredTypes)
+        {
+            IsRunning = true;
+            return Task.FromResult(ForegroundServiceStartResult.Started());
+        }
+
+        public Task StopAsync()
+        {
+            IsRunning = false;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakePortController : ISessionPortController

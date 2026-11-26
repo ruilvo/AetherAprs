@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Platform;
 using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -13,81 +15,320 @@ namespace AetherAprs.Tests.Services.Platform;
 public sealed class KeepAliveServiceTests
 {
     [Fact]
-    public async Task AcquireAsync_FirstReason_StartsForegroundService()
+    public async Task AcquireAsync_FirstReason_StartsTheForegroundServiceAndReportsActive()
     {
-        var foreground = Substitute.For<IForegroundService>();
-        var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
 
-        await service.AcquireAsync(KeepAliveReason.Ports);
+        var status = await service.AcquireAsync(KeepAliveReason.Ports);
 
-        await foreground.Received(1).StartAsync(ForegroundServiceType.ConnectedDevice);
-        await foreground.DidNotReceive().StopAsync();
+        Assert.Equal(KeepAliveState.Active, status.State);
+        Assert.Equal([ForegroundServiceType.ConnectedDevice], foreground.StartRequests);
+        Assert.Equal(0, foreground.StopCount);
+        Assert.Same(status, service.Status);
     }
 
     [Fact]
     public async Task AcquireAsync_SameReasonTwice_StartsOnlyOnce()
     {
-        var foreground = Substitute.For<IForegroundService>();
-        var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
         await service.AcquireAsync(KeepAliveReason.Ports);
 
-        await foreground.Received(1).StartAsync(Arg.Any<ForegroundServiceType>());
+        Assert.Single(foreground.StartRequests);
+        Assert.Equal(KeepAliveState.Active, service.Status.State);
     }
 
     [Fact]
     public async Task AcquireAsync_DistinctReasons_RefreshesDeclaredTypes()
     {
-        var foreground = Substitute.For<IForegroundService>();
-        var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
-        await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        var status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
 
-        await foreground.Received(1).StartAsync(ForegroundServiceType.ConnectedDevice);
-        await foreground.Received(1).StartAsync(
-            ForegroundServiceType.ConnectedDevice | ForegroundServiceType.Location);
+        Assert.Equal(
+            [
+                ForegroundServiceType.ConnectedDevice,
+                ForegroundServiceType.ConnectedDevice | ForegroundServiceType.Location
+            ],
+            foreground.StartRequests);
+        Assert.Equal(
+            ForegroundServiceType.ConnectedDevice | ForegroundServiceType.Location,
+            status.RequiredTypes);
+        Assert.Equal(
+            [KeepAliveReason.Ports, KeepAliveReason.LocationTracking],
+            status.Reasons);
     }
 
     [Fact]
-    public async Task ReleaseAsync_WhileOtherReasonActive_DoesNotStop()
+    public async Task AcquireAsync_WhenThePlatformRejectsTheStart_ReportsDegradedAndNeverActive()
     {
-        var foreground = Substitute.For<IForegroundService>();
-        var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
+        var foreground = new ScriptedForegroundService
+        {
+            RejectionReason = "The platform refused the request."
+        };
+        var service = CreateService(foreground);
+        var states = RecordStates(service);
 
-        await service.AcquireAsync(KeepAliveReason.Ports);
-        await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        var status = await service.AcquireAsync(KeepAliveReason.Ports);
 
-        await service.ReleaseAsync(KeepAliveReason.Ports);
-
-        await foreground.DidNotReceive().StopAsync();
+        Assert.Equal(KeepAliveState.Degraded, status.State);
+        Assert.Equal("The platform refused the request.", status.DegradedReason);
+        Assert.DoesNotContain(KeepAliveState.Active, states);
+        Assert.Equal([KeepAliveReason.Ports], status.Reasons);
     }
 
     [Fact]
-    public async Task ReleaseAsync_LastReason_StopsForegroundService()
+    public async Task AcquireAsync_AfterADegradedStart_RetriesTheHold()
     {
-        var foreground = Substitute.For<IForegroundService>();
-        var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
+        var foreground = new ScriptedForegroundService
+        {
+            RejectionReason = "The platform refused the request."
+        };
+        var service = CreateService(foreground);
 
         await service.AcquireAsync(KeepAliveReason.Ports);
-        await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        foreground.RejectionReason = null;
+        var status = await service.AcquireAsync(KeepAliveReason.Ports);
 
-        await service.ReleaseAsync(KeepAliveReason.Ports);
-        await service.ReleaseAsync(KeepAliveReason.LocationTracking);
-
-        await foreground.Received(1).StopAsync();
+        Assert.Equal(KeepAliveState.Active, status.State);
+        Assert.Equal(2, foreground.StartRequests.Count);
     }
 
     [Fact]
-    public async Task ReleaseAsync_WithoutAcquire_DoesNotStop()
+    public async Task AcquireAsync_WhenThePlatformThrows_ReportsDegradedWithTheFailure()
     {
-        var foreground = Substitute.For<IForegroundService>();
-        var service = new KeepAliveService(foreground, NullLogger<KeepAliveService>.Instance);
+        var foreground = new ScriptedForegroundService
+        {
+            StartException = new InvalidOperationException("binder failed")
+        };
+        var service = CreateService(foreground);
 
-        await service.ReleaseAsync(KeepAliveReason.Ports);
+        var status = await service.AcquireAsync(KeepAliveReason.LocationTracking);
 
-        await foreground.DidNotReceive().StopAsync();
-        await foreground.DidNotReceive().StartAsync(Arg.Any<ForegroundServiceType>());
+        Assert.Equal(KeepAliveState.Degraded, status.State);
+        Assert.Contains("binder failed", status.DegradedReason ?? string.Empty, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_WhileAnotherReasonIsHeld_KeepsTheServiceRunning()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+
+        await service.AcquireAsync(KeepAliveReason.Ports);
+        await service.AcquireAsync(KeepAliveReason.LocationTracking);
+        foreground.StartRequests.Clear();
+
+        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+
+        Assert.Equal(KeepAliveState.Active, status.State);
+        Assert.Equal(0, foreground.StopCount);
+
+        // Dropping a reason narrows the declared types, so the platform is told.
+        Assert.Equal([ForegroundServiceType.Location], foreground.StartRequests);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_LastReason_ReportsStoppingThenStopped()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+        var states = RecordStates(service);
+
+        await service.AcquireAsync(KeepAliveReason.Ports);
+        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+
+        Assert.Equal(
+            [KeepAliveState.Active, KeepAliveState.Stopping, KeepAliveState.Stopped],
+            states);
+        Assert.Equal(KeepAliveState.Stopped, status.State);
+        Assert.Equal(1, foreground.StopCount);
+        Assert.False(foreground.IsRunning);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_WithoutAcquire_DoesNotTouchThePlatform()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+
+        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+
+        Assert.Equal(KeepAliveState.Stopped, status.State);
+        Assert.Empty(foreground.StartRequests);
+        Assert.Equal(0, foreground.StopCount);
+    }
+
+    [Fact]
+    public async Task ReleaseAsync_WhenThePlatformKeepsRunning_ReportsDegraded()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+
+        await service.AcquireAsync(KeepAliveReason.Ports);
+        foreground.KeepsRunningAfterStop = true;
+
+        var status = await service.ReleaseAsync(KeepAliveReason.Ports);
+
+        Assert.Equal(KeepAliveState.Degraded, status.State);
+        Assert.Empty(status.Reasons);
+        Assert.NotNull(status.DegradedReason);
+    }
+
+    [Fact]
+    public async Task ConcurrentAcquireAndRelease_ApplyInOrderAndConverge()
+    {
+        var bridge = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var foreground = new ScriptedForegroundService { StartGate = bridge };
+        var service = CreateService(foreground);
+
+        var acquire = service.AcquireAsync(KeepAliveReason.Ports);
+        await foreground.StartEntered.Task.WaitAsync(
+            TestTimeouts.TestTimeout,
+            TestContext.Current.CancellationToken);
+
+        // The release arrives while the start is still in flight. It must wait,
+        // never race the start with a stop.
+        var release = service.ReleaseAsync(KeepAliveReason.Ports);
+        Assert.False(release.IsCompleted);
+
+        bridge.SetResult();
+        await acquire.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+        await release.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.False(foreground.StopAttemptedWhileStarting);
+        Assert.Single(foreground.StartRequests);
+        Assert.Equal(1, foreground.StopCount);
+        Assert.Equal(KeepAliveState.Stopped, service.Status.State);
+        Assert.False(foreground.IsRunning);
+    }
+
+    [Fact]
+    public async Task ConcurrentAcquiresForDistinctReasons_HoldEveryReasonOnce()
+    {
+        var foreground = new ScriptedForegroundService();
+        var service = CreateService(foreground);
+
+        await Task.WhenAll(
+                service.AcquireAsync(KeepAliveReason.Ports),
+                service.AcquireAsync(KeepAliveReason.LocationTracking),
+                service.AcquireAsync(KeepAliveReason.Ports))
+            .WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Equal(KeepAliveState.Active, service.Status.State);
+        Assert.Equal(
+            [KeepAliveReason.Ports, KeepAliveReason.LocationTracking],
+            service.Status.Reasons);
+        Assert.Equal(
+            ForegroundServiceType.ConnectedDevice | ForegroundServiceType.Location,
+            service.Status.RequiredTypes);
+
+        // Whichever reason arrives second refreshes the declared types, and the
+        // duplicate acquire after that finds the hold already correct.
+        Assert.Equal(
+            ForegroundServiceType.ConnectedDevice | ForegroundServiceType.Location,
+            foreground.StartRequests[^1]);
+    }
+
+    [Fact]
+    public async Task DegradedTransition_IsRecordedInDiagnostics()
+    {
+        var foreground = new ScriptedForegroundService { RejectionReason = "refused by policy" };
+        var diagnostics = new BoundedDiagnosticEventStore();
+        var service = new KeepAliveService(
+            foreground,
+            NullLogger<KeepAliveService>.Instance,
+            diagnostics);
+
+        await service.AcquireAsync(KeepAliveReason.Ports);
+
+        var recorded = Assert.Single(diagnostics.Events);
+        Assert.Equal("keepalive", recorded.Category, ignoreCase: true);
+        Assert.Equal(DiagnosticSeverity.Warning, recorded.Severity);
+        Assert.Equal(nameof(KeepAliveState.Degraded), recorded.State);
+        Assert.Contains("refused by policy", recorded.Reason, StringComparison.Ordinal);
+    }
+
+    private static KeepAliveService CreateService(IForegroundService foreground) =>
+        new(foreground, NullLogger<KeepAliveService>.Instance);
+
+    private static List<KeepAliveState> RecordStates(IKeepAliveService service)
+    {
+        var states = new List<KeepAliveState>();
+        service.StatusChanged += (_, args) => states.Add(args.Status.State);
+        return states;
+    }
+
+    /// <summary>
+    /// Foreground service double that can reject, throw, block a start, and keep
+    /// running after a stop, so each degraded path is reachable.
+    /// </summary>
+    private sealed class ScriptedForegroundService : IForegroundService
+    {
+        public List<ForegroundServiceType> StartRequests { get; } = [];
+
+        public int StopCount { get; private set; }
+
+        public bool IsRunning { get; set; }
+
+        public bool KeepsRunningAfterStop { get; set; }
+
+        public string? RejectionReason { get; set; }
+
+        public Exception? StartException { get; set; }
+
+        public TaskCompletionSource? StartGate { get; set; }
+
+        public TaskCompletionSource StartEntered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool StopAttemptedWhileStarting { get; private set; }
+
+        public async Task<ForegroundServiceStartResult> StartAsync(ForegroundServiceType requiredTypes)
+        {
+            StartRequests.Add(requiredTypes);
+            StartEntered.TrySetResult();
+
+            if (StartGate is not null)
+            {
+                await StartGate.Task.ConfigureAwait(false);
+            }
+
+            if (StartException is not null)
+            {
+                throw StartException;
+            }
+
+            if (RejectionReason is not null)
+            {
+                return ForegroundServiceStartResult.Rejected(RejectionReason);
+            }
+
+            IsRunning = true;
+            return ForegroundServiceStartResult.Started();
+        }
+
+        public Task StopAsync()
+        {
+            StopCount++;
+
+            if (StartGate is { Task.IsCompleted: false })
+            {
+                StopAttemptedWhileStarting = true;
+            }
+
+            if (!KeepsRunningAfterStop)
+            {
+                IsRunning = false;
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

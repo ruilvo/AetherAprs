@@ -85,6 +85,22 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs.Android/Services/Transports/BluetoothLeGattDuplexStream.cs"
     };
 
+    /// <summary>
+    /// Files permitted to name the platform foreground service. Keep-alive state
+    /// is serialized by the keep-alive service, so feature code holds a reason
+    /// instead of starting or stopping the platform service itself.
+    /// </summary>
+    private static readonly HashSet<string> ForegroundServiceOwners = new(StringComparer.Ordinal)
+    {
+        "AetherAprs/Services/Platform/IForegroundService.cs",
+        "AetherAprs/Services/Platform/NoOpForegroundService.cs",
+        "AetherAprs/Services/Platform/KeepAliveService.cs",
+        "AetherAprs.Android/Services/Platform/AndroidForegroundService.cs",
+        "AetherAprs.Android/Application.cs",
+        "AetherAprs/Factories/ServiceProviderFactory.cs",
+        "AetherAprs/DesignData.cs"
+    };
+
     /// <summary>Every rule, in the order it is reported.</summary>
     public static IReadOnlyList<ArchitectureRule> Rules { get; } =
     [
@@ -130,7 +146,13 @@ internal static class ArchitectureBoundaryScanner
             "A007",
             "Bounded queues belong to a named owner that also owns the consumer and drop policy.",
             ["Channel.CreateBounded", "Channel.CreateUnbounded"],
-            BoundedQueueOwners)
+            BoundedQueueOwners),
+
+        new ArchitectureRule(
+            "A008",
+            "Keep-alive transitions are serialized by IKeepAliveService; feature code holds a reason instead of driving the platform foreground service.",
+            ["IForegroundService"],
+            ForegroundServiceOwners)
     ];
 
     /// <summary>Scans the live production tree.</summary>

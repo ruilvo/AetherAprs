@@ -351,9 +351,10 @@ explicit "Check architecture boundaries" step in `build-test.yml`.
 
 Implemented rules: `A001` (persistence ownership), `A002` (UI thread dispatch),
 `A003` (`Debug.WriteLine`), `A004` (modem construction, added with `R2.1`),
-`A005` (modem handle ownership), `A006` (no bulk start-all path) and `A007`
-(bounded queues need a named owner), the last three added alongside the port
-runtime work items `R2.2` and `R2.3`. The
+`A005` (modem handle ownership), `A006` (no bulk start-all path), `A007`
+(bounded queues need a named owner) and `A008` (keep-alive transitions belong to
+`IKeepAliveService`), the last four added alongside the port runtime and
+keep-alive work items `R2.2`, `R2.3` and `R2.4`. The
 baseline in `ArchitectureBaseline.cs` is now empty: the `PortService` and
 `BeaconService` `A001` entries were removed when `R1.3` landed. `MessageService` and
 `ReceivedBeaconsMapLayerService` now receive `IUiDispatcher`, so their `A002` entries
@@ -623,6 +624,53 @@ Tests:
 - Foreground start failure produces `Degraded`, never `Active`.
 - Report `Active`, `Degraded(reason)`, `Stopping`, and `Stopped`.
 - Pair every acquire/release under concurrent transitions.
+
+> **Status: implemented.** `IKeepAliveService` is now a serialized state machine
+> rather than a reference-counting wrapper. `KeepAliveService` holds the set of
+> active reasons and applies every transition under one gate that also spans the
+> platform call, so a release that arrives while a start is in flight waits for
+> that start and is applied after it; the platform never sees a stop racing a
+> start, and the reported state always describes the last completed transition.
+> `KeepAliveStatus` reports `Active`, `Degraded` with a reason, `Stopping` and
+> `Stopped`, together with the held reasons and the declared service types, and
+> `StatusChanged` publishes only real changes. `Stopping` is published before the
+> platform stop, so no observer sees `Stopped` for a service that is still
+> running.
+>
+> The platform contract became honest first, which is what makes `Degraded`
+> reachable: `IForegroundService.StartAsync` returns a
+> `ForegroundServiceStartResult` instead of `Task`. `AndroidForegroundService`
+> records the request, waits for the service to publish `started` or `failed`
+> over its existing state broadcast (five-second deadline) and reports a
+> refusal, a rejection or a timeout as `Rejected` with a reason, so a start is
+> never assumed from the fact that the intent was delivered. The no-op and the
+> design-time adapter report success because no platform service exists to hold.
+> A refusal never loses a reason: the hold becomes `Degraded`, the reason stays
+> held, and the next acquire retries, so supervision or the operator can recover
+> without restarting the application. A stop that leaves the service running, or
+> that throws, is reported as `Degraded` with no reasons held rather than as
+> `Stopped`.
+>
+> `PortService` no longer keeps its own `_portsKeepAliveActive` copy of the
+> platform state: it states intent (`AcquireAsync` while a session runs,
+> `ReleaseAsync` otherwise) and the state machine deduplicates. Transitions are
+> recorded in the diagnostic sink under the `keepalive` category (degraded
+> entries as warnings), and the redacted support report exposes the hold state,
+> reasons, declared types and degraded reason. A008 confines
+> `IForegroundService` to the platform adapters, the keep-alive service, the
+> composition root and the design-time provider.
+>
+> Tests: `KeepAliveServiceTests` proves first acquire starts and reports
+> `Active`, a repeated reason starts once, a distinct reason refreshes the
+> declared types, a rejected start reports `Degraded` and never `Active`, a
+> degraded hold retries on the next acquire, a throwing platform call degrades
+> with the failure, a release keeps the service while another reason is held,
+> the last release reports `Stopping` then `Stopped`, releasing an unheld reason
+> never touches the platform, a service that keeps running after a stop degrades,
+> a release queued behind an in-flight start applies after it without a racing
+> stop, concurrent acquires converge on the held reasons, and a degraded
+> transition is recorded in diagnostics. `DiagnosticsTests` proves the support
+> report includes the hold state.
 
 Exit: each mutable resource has one owner; `PortService` delegates if a
 compatibility façade is still needed.

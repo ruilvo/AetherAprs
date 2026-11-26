@@ -231,13 +231,15 @@ public static class DesignData
 
     /// <summary>
     /// Design-time stub implementation of IForegroundService. There is no
-    /// runtime desktop implementation of IForegroundService.
+    /// runtime desktop implementation of IForegroundService; the designer has no
+    /// process to keep alive, so a start is reported as successful.
     /// </summary>
     private class DesignTimeForegroundService : IForegroundService
     {
         public bool IsRunning => false;
 
-        public Task StartAsync(ForegroundServiceType requiredTypes) => Task.CompletedTask;
+        public Task<ForegroundServiceStartResult> StartAsync(ForegroundServiceType requiredTypes) =>
+            Task.FromResult(ForegroundServiceStartResult.Started());
 
         public Task StopAsync() => Task.CompletedTask;
     }

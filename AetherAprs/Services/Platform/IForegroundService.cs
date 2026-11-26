@@ -30,6 +30,45 @@ public enum ForegroundServiceType
 }
 
 /// <summary>
+/// Outcome of a request to hold the application in the foreground.
+/// </summary>
+/// <remarks>
+/// A platform can refuse the request (for example Android rejects a
+/// <c>startForegroundService</c> call made from the background) or accept it and
+/// never publish the notification. Implementations must report both cases as
+/// <see cref="Rejected"/> rather than assuming success, because the caller turns
+/// the result into the keep-alive state and must never report
+/// <c>Active</c> for a service that is not actually running.
+/// </remarks>
+public sealed class ForegroundServiceStartResult
+{
+    private ForegroundServiceStartResult(bool isRunning, string? failureReason)
+    {
+        IsRunning = isRunning;
+        FailureReason = failureReason;
+    }
+
+    /// <summary>Whether the foreground service is running with the required types.</summary>
+    public bool IsRunning { get; }
+
+    /// <summary>
+    /// Why the request was refused, or <see langword="null"/> when it was
+    /// honoured. This text is safe for diagnostics: it never contains user data.
+    /// </summary>
+    public string? FailureReason { get; }
+
+    /// <summary>The foreground service is running and holds the required types.</summary>
+    public static ForegroundServiceStartResult Started() => new(true, null);
+
+    /// <summary>The foreground service is not running; the caller must degrade.</summary>
+    public static ForegroundServiceStartResult Rejected(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        return new(false, reason);
+    }
+}
+
+/// <summary>
 /// Service for managing foreground notification to keep the app active.
 /// </summary>
 public interface IForegroundService
@@ -43,7 +82,12 @@ public interface IForegroundService
     /// <param name="requiredTypes">
     /// Foreground service capabilities that must stay declared while running.
     /// </param>
-    Task StartAsync(ForegroundServiceType requiredTypes);
+    /// <returns>
+    /// Whether the service is now running. A refusal is reported through the
+    /// result instead of an exception so the keep-alive state machine can
+    /// degrade without losing the reasons that are still held.
+    /// </returns>
+    Task<ForegroundServiceStartResult> StartAsync(ForegroundServiceType requiredTypes);
 
     /// <summary>
     /// Stops the foreground service.

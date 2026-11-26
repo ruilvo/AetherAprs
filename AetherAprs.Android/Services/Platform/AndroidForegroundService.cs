@@ -12,6 +12,7 @@ using Android.OS;
 using AndroidX.Core.App;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 // Android's Service base class exposes a ForegroundServiceType property that
@@ -338,12 +339,15 @@ public class AetherAprsForegroundService : Service
 public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IForegroundService, IDisposable
 {
     private const string ActionStop = "STOP_FOREGROUND";
+    private const int StartConfirmationTimeoutSeconds = 5;
 
     private readonly Context _context;
     private readonly ILogger<AndroidForegroundService>? _logger;
     private readonly ForegroundServiceStateReceiver _stateReceiver;
+    private readonly Lock _pendingStartLock = new();
     private volatile bool _isRunning;
     private volatile bool _startRequested;
+    private TaskCompletionSource<ForegroundServiceStartResult>? _pendingStart;
 
     public AndroidForegroundService(ILogger<AndroidForegroundService>? logger = null)
     {
@@ -356,27 +360,45 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
 
     public bool IsRunning => _isRunning;
 
-    public Task StartAsync(KeepAliveServiceTypes requiredTypes)
+    public async Task<ForegroundServiceStartResult> StartAsync(KeepAliveServiceTypes requiredTypes)
     {
         var types = requiredTypes == KeepAliveServiceTypes.None
             ? KeepAliveServiceTypes.ConnectedDevice
             : requiredTypes;
 
+        var wasRunning = _isRunning;
+
         var intent = new Intent(_context, typeof(AetherAprsForegroundService));
         intent.PutExtra(AetherAprsForegroundService.RequiredTypesExtra, (int)types);
 
+        TaskCompletionSource<ForegroundServiceStartResult> confirmation;
+        lock (_pendingStartLock)
+        {
+            // Concurrent requests share one answer: the service reports a single
+            // state for the types it currently declares.
+            confirmation = _pendingStart ??=
+                new TaskCompletionSource<ForegroundServiceStartResult>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
+            if (!wasRunning)
+            {
+                _startRequested = true;
+            }
+        }
+
         try
         {
-            if (_isRunning)
+            if (wasRunning)
             {
                 // Already foreground: refresh the declared service types (for
                 // example when location tracking starts after the ports did).
+                // The service republishes its state, so the refresh is confirmed
+                // the same way a first start is.
                 _context.StartService(intent);
             }
             else
             {
                 AndroidLifecycleTelemetry.State.ForegroundStartRequested();
-                _startRequested = true;
                 if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
                 {
                     _context.StartForegroundService(intent);
@@ -390,13 +412,52 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         catch (Exception ex)
         {
             // API 31+ throws ForegroundServiceStartNotAllowedException when the app
-            // is in the background (e.g. BLE reconnect path); do not abort the caller.
+            // is in the background (e.g. BLE reconnect path). The caller degrades
+            // instead of losing the keep-alive reason.
             _logger?.LogWarning(ex, "Failed to start foreground service");
             AndroidLifecycleTelemetry.State.ForegroundRejected();
-            _startRequested = false;
+            lock (_pendingStartLock)
+            {
+                _startRequested = false;
+            }
+
+            var rejected = ForegroundServiceStartResult.Rejected(
+                $"The platform refused the foreground service request: {ex.Message}");
+            CompletePendingStart(rejected);
+            return rejected;
         }
 
-        return Task.CompletedTask;
+        try
+        {
+            return await confirmation.Task
+                .WaitAsync(TimeSpan.FromSeconds(StartConfirmationTimeoutSeconds))
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            var rejected = ForegroundServiceStartResult.Rejected(
+                $"The foreground service did not confirm startup within {StartConfirmationTimeoutSeconds} seconds.");
+            _logger?.LogWarning("{Reason}", rejected.FailureReason);
+            AndroidLifecycleTelemetry.State.ForegroundRejected();
+            CompletePendingStart(rejected);
+            return rejected;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the request that is waiting for the service state broadcast, so
+    /// startup is never assumed from the fact that the intent was delivered.
+    /// </summary>
+    private void CompletePendingStart(ForegroundServiceStartResult result)
+    {
+        TaskCompletionSource<ForegroundServiceStartResult>? pending;
+        lock (_pendingStartLock)
+        {
+            pending = _pendingStart;
+            _pendingStart = null;
+        }
+
+        pending?.TrySetResult(result);
     }
 
     public Task StopAsync()
@@ -436,10 +497,13 @@ public sealed class AndroidForegroundService : AetherAprs.Services.Platform.IFor
         {
             AndroidLifecycleTelemetry.State.ForegroundRejected();
             _logger?.LogWarning("Foreground service failed before notification publication");
+            CompletePendingStart(ForegroundServiceStartResult.Rejected(
+                "The platform rejected the foreground service notification."));
         }
         else if (state == AetherAprsForegroundService.StateStarted)
         {
             AndroidLifecycleTelemetry.State.ForegroundStarted();
+            CompletePendingStart(ForegroundServiceStartResult.Started());
         }
         else if (state == AetherAprsForegroundService.StateStopped)
         {

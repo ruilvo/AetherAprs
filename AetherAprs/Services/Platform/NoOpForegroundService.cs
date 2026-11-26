@@ -9,11 +9,18 @@ namespace AetherAprs.Services.Platform;
 /// <summary>
 /// No-op implementation of IForegroundService for desktop platforms.
 /// </summary>
+/// <remarks>
+/// There is no foreground service outside Android: the process lifetime is the
+/// keep-alive mechanism, so the requirement is already satisfied and a start is
+/// reported as successful. <see cref="IsRunning"/> stays <see langword="false"/>
+/// because no platform service object exists to report on.
+/// </remarks>
 public sealed class NoOpForegroundService : IForegroundService
 {
     public bool IsRunning => false;
 
-    public Task StartAsync(ForegroundServiceType requiredTypes) => Task.CompletedTask;
+    public Task<ForegroundServiceStartResult> StartAsync(ForegroundServiceType requiredTypes) =>
+        Task.FromResult(ForegroundServiceStartResult.Started());
 
     public Task StopAsync() => Task.CompletedTask;
 }

@@ -17,7 +17,8 @@ public sealed class RedactedSupportReportService(
     IDiagnosticEventSink diagnostics,
     SessionCoordinator coordinator,
     IPortServiceTelemetry? portTelemetry = null,
-    AndroidLifecycleState? lifecycle = null)
+    AndroidLifecycleState? lifecycle = null,
+    IKeepAliveService? keepAlive = null)
 {
     private const int ReportSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -54,6 +55,9 @@ public sealed class RedactedSupportReportService(
             lifecycle = lifecycle is null
                 ? null
                 : BuildLifecycle(lifecycle.Snapshot),
+            keepAlive = keepAlive is null
+                ? null
+                : BuildKeepAlive(keepAlive.Status),
             packetIngest = portTelemetry is null
                 ? null
                 : new
@@ -87,6 +91,16 @@ public sealed class RedactedSupportReportService(
                 granted = entry.Value
             })
             .ToArray()
+    };
+
+    private static object BuildKeepAlive(KeepAliveStatus status) => new
+    {
+        state = status.State.ToString(),
+        reasons = status.Reasons
+            .Select(reason => reason.ToString())
+            .ToArray(),
+        requiredTypes = status.RequiredTypes.ToString(),
+        degradedReason = status.DegradedReason
     };
 
     public async Task WriteAsync(string path, CancellationToken cancellationToken = default)
