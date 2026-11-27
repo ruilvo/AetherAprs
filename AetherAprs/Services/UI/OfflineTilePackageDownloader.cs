@@ -29,15 +29,31 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
 
     private static readonly CompositeFormat TileUrlFormat = CompositeFormat.Parse(TileUrlTemplate);
 
+    /// <summary>A conservative per-tile estimate used for the storage-quota check.</summary>
+    public const long EstimatedBytesPerTile = 16 * 1024;
+
+    /// <summary>Allowance for the SQLite schema, metadata and page overhead.</summary>
+    public const long PackageOverheadBytes = 64 * 1024;
+
+    internal const string TemporaryFileSuffix = ".partial";
+
     private readonly HttpClient _httpClient;
+    private readonly IFreeSpaceProvider _freeSpaceProvider;
 
     public OfflineTilePackageDownloader()
-        : this(new HttpClientHandler())
+        : this(new HttpClientHandler(), new DriveFreeSpaceProvider())
     {
     }
 
     internal OfflineTilePackageDownloader(HttpMessageHandler handler)
+        : this(handler, new DriveFreeSpaceProvider())
     {
+    }
+
+    internal OfflineTilePackageDownloader(HttpMessageHandler handler, IFreeSpaceProvider freeSpaceProvider)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        _freeSpaceProvider = freeSpaceProvider ?? throw new ArgumentNullException(nameof(freeSpaceProvider));
         _httpClient = new HttpClient(handler);
         _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", OsmUserAgent);
     }
@@ -58,47 +74,57 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
         ValidateRegion(region);
 
-        TryDeleteFile(outputPath);
-
-        string? directory = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+        string fullOutputPath = Path.GetFullPath(outputPath);
+        string? directory = Path.GetDirectoryName(fullOutputPath);
         if (!string.IsNullOrEmpty(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
         int totalTiles = CountTiles(region);
+        EnsureSufficientStorage(directory ?? Directory.GetCurrentDirectory(), totalTiles);
+
+        // Download into a sibling temporary file and only publish it on success, so a
+        // cancelled or failed download never leaves a half-written package behind.
+        string temporaryPath = fullOutputPath + TemporaryFileSuffix;
+        TryDeleteFile(temporaryPath);
+
         int completed = 0;
 
         try
         {
-            await using SqliteConnection connection = await OpenPackageAsync(region, outputPath, cancellationToken).ConfigureAwait(false);
-            for (int zoom = region.MinZoom; zoom <= region.MaxZoom; zoom++)
+            await using (SqliteConnection connection = await OpenPackageAsync(region, temporaryPath, cancellationToken).ConfigureAwait(false))
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                TileRange range = GetTileRange(region, zoom);
-
-                for (int x = range.MinX; x <= range.MaxX; x++)
+                for (int zoom = region.MinZoom; zoom <= region.MaxZoom; zoom++)
                 {
-                    for (int y = range.MinY; y <= range.MaxY; y++)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    TileRange range = GetTileRange(region, zoom);
+
+                    for (int x = range.MinX; x <= range.MaxX; x++)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        byte[]? data = await DownloadTileAsync(zoom, x, y, cancellationToken).ConfigureAwait(false);
-                        if (data is not null)
+                        for (int y = range.MinY; y <= range.MaxY; y++)
                         {
-                            int tmsRow = (1 << zoom) - 1 - y;
-                            await InsertTileAsync(connection, zoom, x, tmsRow, data, cancellationToken).ConfigureAwait(false);
-                        }
+                            cancellationToken.ThrowIfCancellationRequested();
 
-                        completed++;
-                        progress?.Report(new OfflineDownloadProgress(completed, totalTiles));
+                            byte[]? data = await DownloadTileAsync(zoom, x, y, cancellationToken).ConfigureAwait(false);
+                            if (data is not null)
+                            {
+                                int tmsRow = (1 << zoom) - 1 - y;
+                                await InsertTileAsync(connection, zoom, x, tmsRow, data, cancellationToken).ConfigureAwait(false);
+                            }
+
+                            completed++;
+                            progress?.Report(new OfflineDownloadProgress(completed, totalTiles));
+                        }
                     }
                 }
             }
+
+            File.Move(temporaryPath, fullOutputPath, overwrite: true);
         }
         catch
         {
-            TryDeleteFile(outputPath);
+            TryDeleteFile(temporaryPath);
             throw;
         }
     }
@@ -120,6 +146,17 @@ public sealed class OfflineTilePackageDownloader : IOfflineTilePackageDownloader
             throw new ArgumentException(
                 $"Zoom levels must satisfy 0 <= MinZoom <= MaxZoom <= {MaxZoomLevel}.",
                 nameof(region));
+        }
+    }
+
+    private void EnsureSufficientStorage(string directoryPath, int totalTiles)
+    {
+        long requiredBytes = ((long)totalTiles * EstimatedBytesPerTile) + PackageOverheadBytes;
+        long availableBytes = _freeSpaceProvider.GetAvailableBytes(directoryPath);
+
+        if (availableBytes < requiredBytes)
+        {
+            throw new InsufficientStorageException(directoryPath, requiredBytes, availableBytes);
         }
     }
 

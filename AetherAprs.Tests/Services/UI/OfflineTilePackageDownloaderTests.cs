@@ -38,11 +38,15 @@ public sealed class OfflineTilePackageDownloaderTests
             Assert.Equal("-180,-85,180,85", metadata["bounds"]);
             Assert.Equal("0", metadata["minzoom"]);
             Assert.Equal("0", metadata["maxzoom"]);
+            Assert.Equal("© OpenStreetMap contributors", metadata["attribution"]);
 
             List<StoredTile> tiles = ReadTiles(outputPath);
             StoredTile tile = Assert.Single(tiles);
             Assert.Equal((0, 0, 0), tile.Coordinates);
             Assert.Equal(new byte[] { 1, 2, 3 }, tile.Data);
+
+            // The package is published from a temporary file only after a complete write.
+            Assert.Empty(Directory.GetFiles(directory, "*.partial"));
         }
         finally
         {
@@ -143,6 +147,64 @@ public sealed class OfflineTilePackageDownloaderTests
                 cancellationToken: TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task DownloadRegion_TooLittleFreeSpace_ThrowsBeforeContactingNetwork()
+    {
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        try
+        {
+            string outputPath = Path.Combine(directory, "quota.mbtiles");
+            StubTileHandler handler = new(_ => Ok([1]));
+            FakeFreeSpaceProvider freeSpace = new(OfflineTilePackageDownloader.PackageOverheadBytes);
+            using OfflineTilePackageDownloader downloader = new(handler, freeSpace);
+
+            InsufficientStorageException ex = await Assert.ThrowsAsync<InsufficientStorageException>(() =>
+                downloader.DownloadRegionAsync(
+                    new OfflineDownloadRegion(-180, -85, 180, 85, 0, 0), outputPath,
+                    cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Equal(1, freeSpace.CallCount);
+            Assert.Equal(0, handler.RequestCount);
+            Assert.Equal(freeSpace.AvailableBytes, ex.AvailableBytes);
+            Assert.True(ex.RequiredBytes > ex.AvailableBytes);
+            Assert.False(File.Exists(outputPath));
+            Assert.Empty(Directory.GetFiles(directory, "*.partial"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task DownloadRegion_Cancelled_LeavesNoOutputOrTemporaryPackage()
+    {
+        string directory = MbTilesTestFixture.CreateTemporaryDirectory();
+        try
+        {
+            string outputPath = Path.Combine(directory, "cancelled.mbtiles");
+            using CancellationTokenSource cancellation = new();
+            StubTileHandler handler = new(_ =>
+            {
+                cancellation.Cancel();
+                return Ok([1]);
+            });
+            using OfflineTilePackageDownloader downloader = new(handler);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                downloader.DownloadRegionAsync(
+                    new OfflineDownloadRegion(-180, 1, 180, 85, 1, 1), outputPath,
+                    cancellationToken: cancellation.Token));
+
+            // Neither the published package nor any temporary/journal artifact survives.
+            Assert.Empty(Directory.GetFiles(directory, "cancelled.mbtiles*"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static HttpResponseMessage Ok(byte[] data) =>
         new(HttpStatusCode.OK) { Content = new ByteArrayContent(data) };
 
@@ -198,7 +260,25 @@ public sealed class OfflineTilePackageDownloaderTests
 
     private sealed class StubTileHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(responder(request));
+        public int RequestCount { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            return Task.FromResult(responder(request));
+        }
+    }
+
+    private sealed class FakeFreeSpaceProvider(long availableBytes) : IFreeSpaceProvider
+    {
+        public long AvailableBytes { get; } = availableBytes;
+
+        public int CallCount { get; private set; }
+
+        public long GetAvailableBytes(string directoryPath)
+        {
+            CallCount++;
+            return AvailableBytes;
+        }
     }
 }

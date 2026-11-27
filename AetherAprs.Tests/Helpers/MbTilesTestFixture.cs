@@ -4,6 +4,7 @@
 
 using Microsoft.Data.Sqlite;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace AetherAprs.Tests.Helpers;
@@ -31,6 +32,33 @@ internal static class MbTilesTestFixture
     /// </summary>
     public static string Create(string directory, string fileName = "fixture.mbtiles")
     {
+        Dictionary<string, string> metadata = new(StringComparer.Ordinal)
+        {
+            ["name"] = "Test Map",
+            ["format"] = "png",
+            ["bounds"] = "-10,40,10,50",
+            ["minzoom"] = "0",
+            ["maxzoom"] = "2",
+            ["attribution"] = "Test attribution"
+        };
+
+        string path = CreateWithMetadata(directory, fileName, metadata);
+
+        using SqliteConnection connection = new($"Data Source={path};Pooling=false");
+        connection.Open();
+        InsertTile(connection, 0, 0, 0, [1, 2, 3, 4]);
+
+        return path;
+    }
+
+    /// <summary>
+    /// Creates an MBTiles package with exactly the supplied metadata and no tiles.
+    /// </summary>
+    public static string CreateWithMetadata(
+        string directory,
+        string fileName,
+        IReadOnlyDictionary<string, string> metadata)
+    {
         string path = Path.Combine(directory, fileName);
 
         using SqliteConnection connection = new($"Data Source={path};Pooling=false");
@@ -40,15 +68,36 @@ internal static class MbTilesTestFixture
         Execute(connection,
             "CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB);");
 
-        InsertMetadata(connection, "name", "Test Map");
-        InsertMetadata(connection, "format", "png");
-        InsertMetadata(connection, "bounds", "-10,40,10,50");
-        InsertMetadata(connection, "minzoom", "0");
-        InsertMetadata(connection, "maxzoom", "2");
-        InsertMetadata(connection, "attribution", "Test attribution");
+        foreach ((string name, string value) in metadata)
+        {
+            InsertMetadata(connection, name, value);
+        }
 
-        InsertTile(connection, 0, 0, 0, [1, 2, 3, 4]);
+        return path;
+    }
 
+    /// <summary>
+    /// Creates a SQLite database that is not an MBTiles package: it has no
+    /// <c>metadata</c> or <c>tiles</c> table.
+    /// </summary>
+    public static string CreateWithoutMbTilesSchema(string directory, string fileName = "not-mbtiles.mbtiles")
+    {
+        string path = Path.Combine(directory, fileName);
+
+        using SqliteConnection connection = new($"Data Source={path};Pooling=false");
+        connection.Open();
+        Execute(connection, "CREATE TABLE unrelated (id INTEGER PRIMARY KEY);");
+
+        return path;
+    }
+
+    /// <summary>
+    /// Writes arbitrary bytes to a <c>.mbtiles</c> path so it cannot be opened as SQLite.
+    /// </summary>
+    public static string CreateGarbageFile(string directory, string fileName = "garbage.mbtiles")
+    {
+        string path = Path.Combine(directory, fileName);
+        File.WriteAllBytes(path, [0x00, 0xFF, 0x13, 0x37, 0x42, 0x99]);
         return path;
     }
 
