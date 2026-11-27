@@ -14,6 +14,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
@@ -235,6 +236,7 @@ public sealed class SearchViewModelTests : TestFixtureBase
             Substitute.For<IConversationViewModelFactory>(),
             Substitute.For<ILocationCoordinator>(),
             Substitute.For<ICompassService>(),
+            Substitute.For<IPortService>(),
             NullLogger<PacketDetailsViewModel>.Instance);
 
     [Fact]

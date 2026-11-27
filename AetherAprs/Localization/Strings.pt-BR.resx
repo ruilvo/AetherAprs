@@ -529,4 +529,30 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconPreviewPath" xml:space="preserve"><value>Caminho</value></data>
   <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Símbolo</value></data>
   <data name="BeaconStaleCount" xml:space="preserve"><value>{0} beacon(s) na fila expiraram ou foram descartados antes da transmissão.</value></data>
+  <data name="PacketDetailDirection" xml:space="preserve"><value>Direção</value></data>
+  <data name="PacketDetailSent" xml:space="preserve"><value>Enviado</value></data>
+  <data name="PacketDetailReceived" xml:space="preserve"><value>Recebido</value></data>
+  <data name="PacketDetailPortUnknown" xml:space="preserve"><value>Porta desconhecida</value></data>
+  <data name="PacketDetailPath" xml:space="preserve"><value>Caminho</value></data>
+  <data name="PacketDetailReceivedAt" xml:space="preserve"><value>Recebido em</value></data>
+  <data name="PacketDetailProtocolTime" xml:space="preserve"><value>Hora do protocolo</value></data>
+  <data name="PacketDetailLive" xml:space="preserve"><value>Ativo</value></data>
+  <data name="PacketDetailUnknownFrame" xml:space="preserve"><value>Quadro desconhecido</value></data>
+  <data name="PacketDetailUndecoded" xml:space="preserve"><value>Nada além do envelope do pacote pôde ser decodificado.</value></data>
+  <data name="PacketDetailAddressee" xml:space="preserve"><value>Destinatário</value></data>
+  <data name="PacketDetailNumber" xml:space="preserve"><value>Número</value></data>
+  <data name="PacketDetailLabelStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="PacketDetailLabelAltitude" xml:space="preserve"><value>Altitude</value></data>
+  <data name="PacketDetailLabelCourse" xml:space="preserve"><value>Rumo</value></data>
+  <data name="PacketDetailLabelSpeed" xml:space="preserve"><value>Velocidade</value></data>
+  <data name="PacketDetailTemperatureFormat" xml:space="preserve"><value>{0:F1} °F</value></data>
+  <data name="PacketDetailWindSpeedFormat" xml:space="preserve"><value>{0:F1} kn</value></data>
+  <data name="PacketDetailWindDirectionFormat" xml:space="preserve"><value>{0:F0}°</value></data>
+  <data name="PacketDetailHumidityFormat" xml:space="preserve"><value>{0:F0} %</value></data>
+  <data name="PacketDetailPressureFormat" xml:space="preserve"><value>{0:F1} mbar</value></data>
+  <data name="PacketDetailInchesFormat" xml:space="preserve"><value>{0:F2} in</value></data>
+  <data name="PacketDetailMetersFormat" xml:space="preserve"><value>{0:F0} m</value></data>
+  <data name="PacketDetailDegreesFormat" xml:space="preserve"><value>{0:F0}°</value></data>
+  <data name="PacketDetailKnotsFormat" xml:space="preserve"><value>{0:F1} kn</value></data>
+  <data name="PacketDetailScalarFormat" xml:space="preserve"><value>{0:F2}</value></data>
 </root>

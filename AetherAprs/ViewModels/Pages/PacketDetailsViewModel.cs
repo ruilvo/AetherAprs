@@ -11,6 +11,7 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,6 +24,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AetherAprs.ViewModels.Components;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -37,11 +39,17 @@ public partial class PacketDetailsViewModel(
     IConversationViewModelFactory conversationFactory,
     ILocationCoordinator locationCoordinator,
     ICompassService compassService,
+    IPortService portService,
     ILogger<PacketDetailsViewModel> logger) : ViewModelBase, IOverlayRetireable
 {
     private const int PageSize = 50;
 
     private readonly IGeodeticCalculator _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
+    private readonly IPortService _portService = portService ?? throw new ArgumentNullException(nameof(portService));
+
+    // Port names change rarely and the page is short-lived, so the lookup is cached
+    // rather than re-read for every row in a page.
+    private readonly Dictionary<Guid, string> _portNames = [];
     private double? _bearingDegrees;
 
     // A station can have thousands of rows. The page loads one page at a time using
@@ -61,11 +69,31 @@ public partial class PacketDetailsViewModel(
     [ObservableProperty]
     public partial ObservableCollection<PacketRecord> Packets { get; set; } = [];
 
+    /// <summary>
+    /// The same packets as <see cref="Packets"/>, wrapped with their receipt and
+    /// protocol times, provenance and decoded fields for display.
+    /// </summary>
+    [ObservableProperty]
+    public partial ObservableCollection<PacketDetailItemViewModel> PacketDetails { get; set; } = [];
+
     [ObservableProperty]
     public partial ObservableCollection<PacketRecord> PositionHistory { get; set; } = [];
 
+    /// <summary>
+    /// The position rows as they are presented, so the tab shows receipt time as well
+    /// as the decoded movement fields.
+    /// </summary>
+    [ObservableProperty]
+    public partial ObservableCollection<PacketDetailItemViewModel> PositionDetails { get; set; } = [];
+
     [ObservableProperty]
     public partial ObservableCollection<PacketRecord> WeatherStatusTelemetry { get; set; } = [];
+
+    /// <summary>
+    /// The weather/status/telemetry rows as they are presented.
+    /// </summary>
+    [ObservableProperty]
+    public partial ObservableCollection<PacketDetailItemViewModel> WeatherStatusTelemetryDetails { get; set; } = [];
 
     public bool HasPackets => Packets.Count > 0;
 
@@ -200,17 +228,23 @@ public partial class PacketDetailsViewModel(
         PacketPageCursor? oldest = null;
         foreach (PacketRecord packet in page)
         {
+            // The raw records stay the paging source; the presentation collection is
+            // built alongside it so the view binds to decoded values, not entities.
+            PacketDetailItemViewModel item = new(packet, ResolvePortName(packet.PortId));
             Packets.Add(packet);
+            PacketDetails.Add(item);
 
             if (packet.Position != null)
             {
                 PositionHistory.Add(packet);
+                PositionDetails.Add(item);
             }
 
             if (packet.Weather != null || packet.Status != null
                 || packet.Telemetry != null || packet.Capabilities != null)
             {
                 WeatherStatusTelemetry.Add(packet);
+                WeatherStatusTelemetryDetails.Add(item);
             }
 
             PacketPageCursor candidate = PacketPageCursor.FromPacket(packet);
@@ -235,6 +269,32 @@ public partial class PacketDetailsViewModel(
     private static bool IsOlder(PacketPageCursor candidate, PacketPageCursor current) =>
         candidate.Timestamp < current.Timestamp ||
         (candidate.Timestamp == current.Timestamp && candidate.Id < current.Id);
+
+    /// <summary>
+    /// Resolves the display name of the port a packet arrived on. Packets written
+    /// before ports were recorded, or whose port was deleted, render as unknown.
+    /// </summary>
+    private string? ResolvePortName(Guid? portId)
+    {
+        if (portId is not { } id)
+        {
+            return null;
+        }
+
+        if (_portNames.TryGetValue(id, out string? cached))
+        {
+            return cached;
+        }
+
+        string? name = _portService.Ports
+            .FirstOrDefault(port => port.Id == id)?.Name;
+        if (!string.IsNullOrEmpty(name))
+        {
+            _portNames[id] = name;
+        }
+
+        return name;
+    }
 
     private void UpdateDistanceAndBearing()
     {

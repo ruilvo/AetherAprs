@@ -9,12 +9,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data.Entities;
+using AetherAprs.Configuration;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels.Pages;
@@ -53,14 +55,24 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     private static PacketDetailsViewModel CreateViewModel(
         IPacketQueryService query,
         FakeLocationCoordinator locationTracking,
-        ICompassService compass) =>
+        ICompassService compass,
+        IPortService? portService = null) =>
         new(
             query,
             Substitute.For<INavigationService>(),
             Substitute.For<IConversationViewModelFactory>(),
             locationTracking,
             compass,
+            portService ?? CreatePortService(),
             NullLogger<PacketDetailsViewModel>.Instance);
+
+    /// <summary>An idle port service: the details page reads names, nothing else.</summary>
+    private static IPortService CreatePortService(params PortConfig[] ports)
+    {
+        IPortService portService = Substitute.For<IPortService>();
+        portService.Ports.Returns(ports);
+        return portService;
+    }
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
     {
@@ -180,7 +192,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
-        // Station is due west (270Ãƒâ€šÃ‚Â°), phone heading is 45Ãƒâ€šÃ‚Â° ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ needle at 225Ãƒâ€šÃ‚Â°.
+        // Station is due west (270ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°), phone heading is 45ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ needle at 225ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°.
         Assert.Equal(225.0, vm.RelativeBearingDegrees, 1.0);
     }
 
@@ -289,6 +301,63 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         Assert.Equal(50, vm.Packets.Count);
         Assert.Equal(50, vm.PositionHistory.Count);
         Assert.True(vm.HasMore);
+    }
+
+    [Fact]
+    public async Task Initialize_ResolvesThePortNameAndBuildsThePresentedRows()
+    {
+        Guid portId = Guid.NewGuid();
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
+            [
+                new PacketRecord
+                {
+                    Id = 1,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Position",
+                    RawInfo = "!",
+                    Timestamp = DateTime.UtcNow,
+                    PortId = portId,
+                    Position = new PositionDataRecord { Location = new Coordinate(38.5, -9.0) }
+                },
+                new PacketRecord
+                {
+                    Id = 2,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Status",
+                    Timestamp = DateTime.UtcNow,
+                    Status = new StatusDataRecord { Text = "On air" }
+                }
+            ]));
+
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
+        IPortService portService = CreatePortService(new PortConfig { Id = portId, Name = "APRS-IS" });
+
+        PacketDetailsViewModel vm = CreateViewModel(
+            query,
+            locationTracking,
+            Substitute.For<ICompassService>(),
+            portService);
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        // Each presented row is paired with the raw record the paging cursor uses.
+        Assert.Equal(2, vm.PacketDetails.Count);
+        Assert.Equal(vm.Packets.Select(packet => packet.Id), vm.PacketDetails.Select(detail => detail.PacketId));
+        Assert.Single(vm.PositionDetails);
+        Assert.Single(vm.WeatherStatusTelemetryDetails);
+
+        // The port name is resolved once and cached for the page.
+        Assert.Contains(
+            vm.PacketDetails[0].Provenance,
+            field => field.Label == AetherAprs.Localization.Strings.Get("Port") && field.Value == "APRS-IS");
+        Assert.Contains(
+            vm.PacketDetails[1].Provenance,
+            field => field.Value == AetherAprs.Localization.Strings.Get("PacketDetailPortUnknown"));
     }
 
     [Fact]
@@ -408,6 +477,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             Substitute.For<IConversationViewModelFactory>(),
             locationTracking,
             Substitute.For<ICompassService>(),
+            CreatePortService(),
             NullLogger<PacketDetailsViewModel>.Instance);
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
