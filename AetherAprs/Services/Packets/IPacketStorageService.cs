@@ -11,6 +11,21 @@ using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Packets;
 
+/// <summary>
+/// Describes a write that failed because the SQLite volume ran out of room or
+/// hit an I/O limit.
+/// </summary>
+/// <param name="Operation">The storage operation that failed.</param>
+/// <param name="Exception">The provider exception that reported the pressure.</param>
+public sealed class StoragePressureEventArgs(string operation, Exception exception) : EventArgs
+{
+    /// <summary>Gets the storage operation that failed.</summary>
+    public string Operation { get; } = operation;
+
+    /// <summary>Gets the provider exception that reported the pressure.</summary>
+    public Exception Exception { get; } = exception;
+}
+
 /// <summary>Persists APRS packets and their delivery state.</summary>
 public interface IPacketStorageService
 {
@@ -33,4 +48,10 @@ public interface IPacketStorageService
 
     /// <summary>Raised after a newly stored packet is committed.</summary>
     event EventHandler? PacketStored;
+
+    /// <summary>
+    /// Raised when a write fails because the volume is full or read-only, so
+    /// callers and diagnostics can report pressure instead of a generic error.
+    /// </summary>
+    event EventHandler<StoragePressureEventArgs>? StoragePressureDetected;
 }

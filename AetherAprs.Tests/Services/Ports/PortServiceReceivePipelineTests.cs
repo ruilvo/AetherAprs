@@ -528,6 +528,7 @@ public sealed class PortServiceReceivePipelineTests
     {
 #pragma warning disable CS0067 // Event is never used - required by interface
         public event EventHandler? PacketStored;
+        public event EventHandler<StoragePressureEventArgs>? StoragePressureDetected;
 #pragma warning restore CS0067
 
         private TaskCompletionSource<bool>? _storeGate;

@@ -529,4 +529,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconPreviewPath" xml:space="preserve"><value>Pfad</value></data>
   <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="BeaconStaleCount" xml:space="preserve"><value>{0} wartende Bake(n) sind vor der Übertragung abgelaufen oder verworfen worden.</value></data>
+  <data name="RetentionSettings" xml:space="preserve"><value>Aufbewahrung des Paketverlaufs</value></data>
+  <data name="RetentionSettingsDescription" xml:space="preserve"><value>Alte Pakete werden automatisch entfernt, damit der lokale Speicher begrenzt bleibt.</value></data>
+  <data name="PacketRetentionDaysLabel" xml:space="preserve"><value>Aufbewahrungsdauer (Tage)</value></data>
+  <data name="PacketRetentionDaysDescription" xml:space="preserve"><value>Ältere Pakete werden gelöscht. Empfohlener Standardwert sind 30 Tage.</value></data>
+  <data name="PacketRetentionMaxRowsLabel" xml:space="preserve"><value>Maximal gespeicherte Pakete</value></data>
+  <data name="PacketRetentionMaxRowsDescription" xml:space="preserve"><value>Darüber werden zuerst die ältesten Pakete entfernt. Ausstehende ausgehende Nachrichten bleiben immer erhalten.</value></data>
+  <data name="ValidationRetentionDaysRange" xml:space="preserve"><value>Die Aufbewahrung muss zwischen {0} und {1} Tagen liegen</value></data>
+  <data name="ValidationRetentionRowsRange" xml:space="preserve"><value>Die maximale Anzahl gespeicherter Pakete muss zwischen {0} und {1} liegen</value></data>
+  <data name="StorageHealthSection" xml:space="preserve"><value>Lokaler Speicher</value></data>
+  <data name="StorageHealthDescription" xml:space="preserve"><value>Freier Speicher auf dem Datenträger mit Datenbank, Zwischenspeichern und Protokollen.</value></data>
+  <data name="StorageHealthUnknown" xml:space="preserve"><value>Dieses Gerät meldet keinen freien Speicher.</value></data>
+  <data name="StorageHealthHealthy" xml:space="preserve"><value>{0} verfügbar.</value></data>
+  <data name="StorageHealthWarning" xml:space="preserve"><value>Nur {0} verfügbar. Ältere Pakete werden früher als nach der Aufbewahrungsdauer entfernt.</value></data>
+  <data name="StorageHealthCritical" xml:space="preserve"><value>Nur {0} verfügbar. Neue Pakete und Zwischenspeicher können erst nach dem Freigeben von Speicher gesichert werden.</value></data>
+  <data name="StorageHealthRefresh" xml:space="preserve"><value>Erneut prüfen</value></data>
 </root>

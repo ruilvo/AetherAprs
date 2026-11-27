@@ -170,6 +170,43 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </StackPanel>
         </StackPanel>
 
+        <!-- Packet history retention -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc RetentionSettings}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc RetentionSettingsDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+          <StackPanel Spacing="12">
+            <TextBox Text="{Binding PacketRetentionDays}"
+                     PlaceholderText="30"
+                     wpf:TextFieldAssist.Label="{loc:Loc PacketRetentionDaysLabel}"
+                     UseFloatingPlaceholder="True"
+                     x:Name="RetentionDaysBox" />
+
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc PacketRetentionDaysDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}"
+                       Margin="0,-8,0,0" />
+
+            <TextBox Text="{Binding PacketRetentionMaxRows}"
+                     PlaceholderText="100000"
+                     wpf:TextFieldAssist.Label="{loc:Loc PacketRetentionMaxRowsLabel}"
+                     UseFloatingPlaceholder="True"
+                     x:Name="RetentionRowsBox" />
+
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc PacketRetentionMaxRowsDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}"
+                       Margin="0,-8,0,0" />
+          </StackPanel>
+        </StackPanel>
+
         <!-- Dynamic Beaconing Section -->
         <StackPanel Spacing="16">
           <TextBlock Classes="SectionTitle"

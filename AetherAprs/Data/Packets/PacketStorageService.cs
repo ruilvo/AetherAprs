@@ -19,13 +19,6 @@ using System.Collections.Generic;
 
 namespace AetherAprs.Data.Packets;
 
-internal sealed class StoragePressureEventArgs(string operation, Exception exception) : EventArgs
-{
-    public string Operation { get; } = operation;
-
-    public Exception Exception { get; } = exception;
-}
-
 internal sealed class PacketStorageService(
     SqliteRuntimeWriter writer,
     IConfigurationService configurationService,

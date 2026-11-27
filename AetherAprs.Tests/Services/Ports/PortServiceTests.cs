@@ -399,6 +399,7 @@ public sealed class PortServiceTests
     {
 #pragma warning disable CS0067 // Event is never used - required by interface
         public event EventHandler? PacketStored;
+        public event EventHandler<StoragePressureEventArgs>? StoragePressureDetected;
 #pragma warning restore CS0067
 
         public Task StorePacketAsync(AprsPacket packet, Guid? portId, bool isOutbound = false, CancellationToken cancellationToken = default) => Task.CompletedTask;

@@ -18,6 +18,8 @@ internal sealed class AprsSettingsDocument
     private SymbolCode _symbolCode = SymbolCode.LeftSquareBracket;
     private SymbolCode? _symbolOverlay;
     private string _callsign = "N0CALL";
+    private int _packetRetentionDays = AprsSettings.DefaultPacketRetentionDays;
+    private int _packetRetentionMaxRows = AprsSettings.DefaultPacketRetentionMaxRows;
 
     public string Callsign
     {
@@ -52,9 +54,17 @@ internal sealed class AprsSettingsDocument
         set => _symbolOverlay = SettingsValidation.SymbolOverlay(value);
     }
 
-    public int PacketRetentionDays { get; set; } = 30;
+    public int PacketRetentionDays
+    {
+        get => _packetRetentionDays;
+        set => _packetRetentionDays = SettingsValidation.PacketRetentionDays(value);
+    }
 
-    public int PacketRetentionMaxRows { get; set; } = 100_000;
+    public int PacketRetentionMaxRows
+    {
+        get => _packetRetentionMaxRows;
+        set => _packetRetentionMaxRows = SettingsValidation.PacketRetentionMaxRows(value);
+    }
 
     public PacketDisplayTimeRange DisplayTimeRange { get; set; } = PacketDisplayTimeRange.LastDay;
 

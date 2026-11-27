@@ -61,6 +61,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     [ObservableProperty]
+    public partial int PacketRetentionDays { get; set; } = AprsSettings.DefaultPacketRetentionDays;
+
+    [ObservableProperty]
+    public partial int PacketRetentionMaxRows { get; set; } = AprsSettings.DefaultPacketRetentionMaxRows;
+
+    [ObservableProperty]
     public partial bool LoadHistoryOnStartup { get; set; } = true;
 
     [ObservableProperty]
@@ -169,6 +175,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SymbolOverlayCharacter = aprs.SymbolOverlay?.ToChar().ToString();
         DisplayTimeRange = aprs.DisplayTimeRange;
         CustomDisplayTimeRangeHours = aprs.CustomDisplayTimeRangeHours;
+        PacketRetentionDays = aprs.PacketRetentionDays;
+        PacketRetentionMaxRows = aprs.PacketRetentionMaxRows;
         LoadHistoryOnStartup = aprs.LoadHistoryOnStartup;
         EnableDigipeater = aprs.EnableDigipeater;
         DigipeaterInsertCallsign = aprs.DigipeaterInsertCallsign;
@@ -288,6 +296,34 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     {
         SetErrors(nameof(CustomDisplayTimeRangeHours), ValidateRange(value, 1, 100, Strings.ValidationDisplayHoursRange));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { CustomDisplayTimeRangeHours = value } }, nameof(CustomDisplayTimeRangeHours));
+    }
+
+    partial void OnPacketRetentionDaysChanged(int value)
+    {
+        SetErrors(
+            nameof(PacketRetentionDays),
+            ValidateRange(
+                value,
+                SettingsValidation.MinPacketRetentionDays,
+                SettingsValidation.MaxPacketRetentionDays,
+                Strings.ValidationRetentionDaysRange));
+        SaveSettings(
+            settings => settings with { Aprs = settings.Aprs with { PacketRetentionDays = value } },
+            nameof(PacketRetentionDays));
+    }
+
+    partial void OnPacketRetentionMaxRowsChanged(int value)
+    {
+        SetErrors(
+            nameof(PacketRetentionMaxRows),
+            ValidateRange(
+                value,
+                SettingsValidation.MinPacketRetentionMaxRows,
+                SettingsValidation.MaxPacketRetentionMaxRows,
+                Strings.ValidationRetentionRowsRange));
+        SaveSettings(
+            settings => settings with { Aprs = settings.Aprs with { PacketRetentionMaxRows = value } },
+            nameof(PacketRetentionMaxRows));
     }
 
     partial void OnLoadHistoryOnStartupChanged(bool value)

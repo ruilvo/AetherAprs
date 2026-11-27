@@ -177,6 +177,7 @@ public sealed class PacketIngestPipelineTests
     {
 #pragma warning disable CS0067 // The pipeline observes its own stored event.
         public event EventHandler? PacketStored;
+        public event EventHandler<StoragePressureEventArgs>? StoragePressureDetected;
 #pragma warning restore CS0067
 
         private readonly TaskCompletionSource _firstStoreEntered =

@@ -165,6 +165,13 @@ public static class ServiceProviderFactory
         // deferred retention worker. The steps are declared in StartupStepFactory.
         services.AddSingleton<SessionStartup>();
         services.AddSingleton<IDatabaseMaintenanceWorker, DatabaseMaintenanceWorker>();
+        services.AddSingleton<IFreeSpaceProvider, DriveFreeSpaceProvider>();
+        services.AddSingleton<IStorageHealthMonitor>(provider => new StorageHealthMonitor(
+            provider.GetRequiredService<IAppDataDirProviderService>(),
+            provider.GetRequiredService<IFreeSpaceProvider>(),
+            provider.GetRequiredService<ILogger<StorageHealthMonitor>>(),
+            provider.GetRequiredService<IDiagnosticEventSink>(),
+            provider.GetRequiredService<TimeProvider>()));
         services.AddSingleton<ILocalDataMaintenanceService, LocalDataMaintenanceService>();
         services.AddSingleton<IApplicationStartup>(provider => new ApplicationStartup(
             StartupStepFactory.Create(provider),

@@ -140,6 +140,34 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </controls:Card>
         </StackPanel>
 
+        <!-- Local storage -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc StorageHealthSection}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc StorageHealthDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+          <controls:Card Classes="StandardCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="{Binding StorageHealthDescription}"
+                         TextWrapping="Wrap"
+                         VerticalAlignment="Center"
+                         Classes="Body2" />
+              <Button Grid.Column="1"
+                      Content="{loc:Loc StorageHealthRefresh}"
+                      Command="{Binding RefreshStorageHealthCommand}"
+                      MinWidth="80"
+                      MinHeight="48"
+                      Classes="Outline"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </controls:Card>
+        </StackPanel>
+
         <!-- Support report -->
         <StackPanel Spacing="12">
           <TextBlock Classes="SectionTitle"

@@ -23,13 +23,15 @@ namespace AetherAprs.ViewModels.Pages;
 /// or writes the report; it only renders what the builder produced so the operator
 /// can review it before choosing to share it elsewhere.
 /// </remarks>
-public partial class SupportViewModel : ViewModelBase
+public partial class SupportViewModel : ViewModelBase, IDisposable
 {
     private readonly ILocalDataMaintenanceService _maintenanceService;
     private readonly IConfirmationDialogService _confirmationDialogService;
     private readonly ITransientFeedbackService _transientFeedbackService;
     private readonly ISupportReportBuilder _supportReportBuilder;
     private readonly INavigationService _navigationService;
+    private readonly IStorageHealthMonitor? _storageHealthMonitor;
+    private bool _disposed;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ClearPacketHistoryCommand))]
@@ -57,18 +59,91 @@ public partial class SupportViewModel : ViewModelBase
     [ObservableProperty]
     public partial string ReportPreview { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial string StorageHealthDescription { get; set; } =
+        Strings.Get("StorageHealthUnknown");
+
+    [ObservableProperty]
+    public partial bool HasStoragePressure { get; set; }
+
     public SupportViewModel(
         ILocalDataMaintenanceService maintenanceService,
         IConfirmationDialogService confirmationDialogService,
         ITransientFeedbackService transientFeedbackService,
         ISupportReportBuilder supportReportBuilder,
-        INavigationService navigationService)
+        INavigationService navigationService,
+        IStorageHealthMonitor? storageHealthMonitor = null)
     {
         _maintenanceService = maintenanceService;
         _confirmationDialogService = confirmationDialogService;
         _transientFeedbackService = transientFeedbackService;
         _supportReportBuilder = supportReportBuilder;
         _navigationService = navigationService;
+        _storageHealthMonitor = storageHealthMonitor;
+
+        if (_storageHealthMonitor is not null)
+        {
+            _storageHealthMonitor.HealthChanged += OnStorageHealthChanged;
+            ApplyStorageHealth(_storageHealthMonitor.Current);
+        }
+    }
+
+    private void OnStorageHealthChanged(object? sender, StorageHealthSnapshot snapshot) =>
+        ApplyStorageHealth(snapshot);
+
+    /// <summary>
+    /// Detaches from the shared storage monitor. The page is transient while the
+    /// monitor is a singleton, so without this the monitor would keep every page
+    /// it ever reported to alive.
+    /// </summary>
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        if (_storageHealthMonitor is not null)
+        {
+            _storageHealthMonitor.HealthChanged -= OnStorageHealthChanged;
+        }
+    }
+
+    /// <summary>
+    /// Renders one observation. A missing free-space figure is reported as
+    /// unknown instead of as plenty of room, so an unavailable probe never looks
+    /// like a healthy volume.
+    /// </summary>
+    private void ApplyStorageHealth(StorageHealthSnapshot snapshot)
+    {
+        HasStoragePressure = snapshot.NeedsAttention;
+        StorageHealthDescription = snapshot switch
+        {
+            { Level: StorageHealthLevel.Unknown } => Strings.Get("StorageHealthUnknown"),
+            { Level: StorageHealthLevel.Healthy } =>
+                Strings.Format("StorageHealthHealthy", FormatAvailable(snapshot)),
+            { Level: StorageHealthLevel.Warning } =>
+                Strings.Format("StorageHealthWarning", FormatAvailable(snapshot)),
+            _ => Strings.Format("StorageHealthCritical", FormatAvailable(snapshot)),
+        };
+    }
+
+    private static string FormatAvailable(StorageHealthSnapshot snapshot) =>
+        StorageSizeFormatter.Format(snapshot.AvailableBytes ?? 0);
+
+    [RelayCommand]
+    private async Task RefreshStorageHealthAsync()
+    {
+        if (_storageHealthMonitor is null)
+        {
+            return;
+        }
+
+        await _storageHealthMonitor.RefreshAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     private bool CanClear() => !IsBusy;

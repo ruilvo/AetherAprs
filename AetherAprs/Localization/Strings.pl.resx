@@ -529,4 +529,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconPreviewPath" xml:space="preserve"><value>Ścieżka</value></data>
   <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="BeaconStaleCount" xml:space="preserve"><value>{0} oczekujących beaconów wygasło lub zostało odrzuconych przed transmisją.</value></data>
+  <data name="RetentionSettings" xml:space="preserve"><value>Przechowywanie historii pakietów</value></data>
+  <data name="RetentionSettingsDescription" xml:space="preserve"><value>Stare pakiety są usuwane automatycznie, aby pamięć lokalna pozostawała ograniczona.</value></data>
+  <data name="PacketRetentionDaysLabel" xml:space="preserve"><value>Okres przechowywania (dni)</value></data>
+  <data name="PacketRetentionDaysDescription" xml:space="preserve"><value>Starsze pakiety są usuwane. Zalecana wartość domyślna to 30 dni.</value></data>
+  <data name="PacketRetentionMaxRowsLabel" xml:space="preserve"><value>Maksymalna liczba przechowywanych pakietów</value></data>
+  <data name="PacketRetentionMaxRowsDescription" xml:space="preserve"><value>Powyżej tej liczby najpierw usuwane są najstarsze pakiety. Oczekujące wiadomości wychodzące są zawsze zachowywane.</value></data>
+  <data name="ValidationRetentionDaysRange" xml:space="preserve"><value>Okres przechowywania musi mieścić się między {0} a {1} dni</value></data>
+  <data name="ValidationRetentionRowsRange" xml:space="preserve"><value>Maksymalna liczba przechowywanych pakietów musi mieścić się między {0} a {1}</value></data>
+  <data name="StorageHealthSection" xml:space="preserve"><value>Pamięć lokalna</value></data>
+  <data name="StorageHealthDescription" xml:space="preserve"><value>Wolne miejsce na woluminie z bazą danych, pamięciami podręcznymi i logami.</value></data>
+  <data name="StorageHealthUnknown" xml:space="preserve"><value>To urządzenie nie zgłasza wolnego miejsca.</value></data>
+  <data name="StorageHealthHealthy" xml:space="preserve"><value>Dostępne {0}.</value></data>
+  <data name="StorageHealthWarning" xml:space="preserve"><value>Dostępne tylko {0}. Starsze pakiety zostaną usunięte wcześniej niż wynika z okresu przechowywania.</value></data>
+  <data name="StorageHealthCritical" xml:space="preserve"><value>Dostępne tylko {0}. Nowe pakiety i pamięci podręczne nie zostaną zapisane, dopóki nie zwolnisz miejsca.</value></data>
+  <data name="StorageHealthRefresh" xml:space="preserve"><value>Sprawdź ponownie</value></data>
 </root>

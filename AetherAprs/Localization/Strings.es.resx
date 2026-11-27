@@ -529,4 +529,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconPreviewPath" xml:space="preserve"><value>Ruta</value></data>
   <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Símbolo</value></data>
   <data name="BeaconStaleCount" xml:space="preserve"><value>{0} baliza(s) en cola caducaron o se descartaron antes de la transmisión.</value></data>
+  <data name="RetentionSettings" xml:space="preserve"><value>Retención del historial de paquetes</value></data>
+  <data name="RetentionSettingsDescription" xml:space="preserve"><value>Los paquetes antiguos se eliminan automáticamente para que el almacenamiento local siga acotado.</value></data>
+  <data name="PacketRetentionDaysLabel" xml:space="preserve"><value>Periodo de retención (días)</value></data>
+  <data name="PacketRetentionDaysDescription" xml:space="preserve"><value>Los paquetes más antiguos se eliminan. El valor recomendado por defecto es 30 días.</value></data>
+  <data name="PacketRetentionMaxRowsLabel" xml:space="preserve"><value>Máximo de paquetes almacenados</value></data>
+  <data name="PacketRetentionMaxRowsDescription" xml:space="preserve"><value>Por encima de esta cifra se eliminan primero los paquetes más antiguos. Los mensajes salientes pendientes siempre se conservan.</value></data>
+  <data name="ValidationRetentionDaysRange" xml:space="preserve"><value>La retención debe estar entre {0} y {1} días</value></data>
+  <data name="ValidationRetentionRowsRange" xml:space="preserve"><value>El máximo de paquetes almacenados debe estar entre {0} y {1}</value></data>
+  <data name="StorageHealthSection" xml:space="preserve"><value>Almacenamiento local</value></data>
+  <data name="StorageHealthDescription" xml:space="preserve"><value>Espacio libre en el volumen que contiene la base de datos, las cachés y los registros.</value></data>
+  <data name="StorageHealthUnknown" xml:space="preserve"><value>Este dispositivo no informa del espacio libre.</value></data>
+  <data name="StorageHealthHealthy" xml:space="preserve"><value>{0} disponibles.</value></data>
+  <data name="StorageHealthWarning" xml:space="preserve"><value>Solo {0} disponibles. Los paquetes antiguos se eliminarán antes del periodo de retención.</value></data>
+  <data name="StorageHealthCritical" xml:space="preserve"><value>Solo {0} disponibles. No se podrán guardar paquetes ni cachés nuevos hasta liberar espacio.</value></data>
+  <data name="StorageHealthRefresh" xml:space="preserve"><value>Comprobar de nuevo</value></data>
 </root>

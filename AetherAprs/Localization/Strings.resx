@@ -529,4 +529,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconPreviewPath" xml:space="preserve"><value>Path</value></data>
   <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="BeaconStaleCount" xml:space="preserve"><value>{0} queued beacon(s) expired or were dropped before transmission.</value></data>
+  <data name="RetentionSettings" xml:space="preserve"><value>Packet history retention</value></data>
+  <data name="RetentionSettingsDescription" xml:space="preserve"><value>Old packets are removed automatically so local storage stays bounded.</value></data>
+  <data name="PacketRetentionDaysLabel" xml:space="preserve"><value>Retention window (days)</value></data>
+  <data name="PacketRetentionDaysDescription" xml:space="preserve"><value>Packets older than this are deleted. The recommended default is 30 days.</value></data>
+  <data name="PacketRetentionMaxRowsLabel" xml:space="preserve"><value>Maximum stored packets</value></data>
+  <data name="PacketRetentionMaxRowsDescription" xml:space="preserve"><value>Above this count the oldest packets are removed first. Pending outbound messages are always kept.</value></data>
+  <data name="ValidationRetentionDaysRange" xml:space="preserve"><value>Retention must be between {0} and {1} days</value></data>
+  <data name="ValidationRetentionRowsRange" xml:space="preserve"><value>Maximum stored packets must be between {0} and {1}</value></data>
+  <data name="StorageHealthSection" xml:space="preserve"><value>Local storage</value></data>
+  <data name="StorageHealthDescription" xml:space="preserve"><value>Free space on the volume that holds the database, caches and logs.</value></data>
+  <data name="StorageHealthUnknown" xml:space="preserve"><value>This device does not report free space.</value></data>
+  <data name="StorageHealthHealthy" xml:space="preserve"><value>{0} available.</value></data>
+  <data name="StorageHealthWarning" xml:space="preserve"><value>Only {0} available. Older packets will be removed sooner than the retention window.</value></data>
+  <data name="StorageHealthCritical" xml:space="preserve"><value>Only {0} available. New packets and caches cannot be stored until space is freed.</value></data>
+  <data name="StorageHealthRefresh" xml:space="preserve"><value>Check again</value></data>
 </root>

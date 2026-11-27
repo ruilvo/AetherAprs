@@ -78,6 +78,12 @@ internal static class StartupStepFactory
                 services.GetRequiredService<IDatabaseMaintenanceWorker>().StartAsync(cancellationToken),
                 isRequired: false),
 
+            // Free-space observation is optional: a platform that cannot report
+            // it reports unknown, and nothing depends on the sample succeeding.
+            new StartupStep("storage", cancellationToken =>
+                StartStorageHealthAsync(services, cancellationToken),
+                isRequired: false),
+
             // Ingest and forwarding consumers must be draining before any port can
             // deliver a packet or a stored packet needs forwarding.
             new StartupStep("consumers", cancellationToken =>
@@ -97,6 +103,18 @@ internal static class StartupStepFactory
         await services.GetRequiredService<IDigipeatRouter>()
             .StartAsync(cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static Task StartStorageHealthAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        // The packet store is the only writer that can notice a full volume
+        // between samples, so the monitor watches it as well as its own timer.
+        if (services.GetRequiredService<IStorageHealthMonitor>() is StorageHealthMonitor monitor)
+        {
+            monitor.Observe(services.GetRequiredService<IPacketStorageService>());
+        }
+
+        return services.GetRequiredService<IStorageHealthMonitor>().StartAsync(cancellationToken);
     }
 
     private static Task RequestPortPermissionsAsync(IServiceProvider services, CancellationToken cancellationToken) =>

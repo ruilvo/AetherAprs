@@ -529,4 +529,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="BeaconPreviewPath" xml:space="preserve"><value>Percorso</value></data>
   <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Simbolo</value></data>
   <data name="BeaconStaleCount" xml:space="preserve"><value>{0} beacon in coda sono scaduti o sono stati scartati prima della trasmissione.</value></data>
+  <data name="RetentionSettings" xml:space="preserve"><value>Conservazione della cronologia dei pacchetti</value></data>
+  <data name="RetentionSettingsDescription" xml:space="preserve"><value>I pacchetti vecchi vengono rimossi automaticamente per mantenere limitato lo spazio locale.</value></data>
+  <data name="PacketRetentionDaysLabel" xml:space="preserve"><value>Periodo di conservazione (giorni)</value></data>
+  <data name="PacketRetentionDaysDescription" xml:space="preserve"><value>I pacchetti più vecchi vengono eliminati. Il valore predefinito consigliato è 30 giorni.</value></data>
+  <data name="PacketRetentionMaxRowsLabel" xml:space="preserve"><value>Numero massimo di pacchetti memorizzati</value></data>
+  <data name="PacketRetentionMaxRowsDescription" xml:space="preserve"><value>Oltre questo numero vengono rimossi prima i pacchetti più vecchi. I messaggi in uscita in attesa vengono sempre conservati.</value></data>
+  <data name="ValidationRetentionDaysRange" xml:space="preserve"><value>La conservazione deve essere compresa tra {0} e {1} giorni</value></data>
+  <data name="ValidationRetentionRowsRange" xml:space="preserve"><value>Il numero massimo di pacchetti memorizzati deve essere compreso tra {0} e {1}</value></data>
+  <data name="StorageHealthSection" xml:space="preserve"><value>Spazio locale</value></data>
+  <data name="StorageHealthDescription" xml:space="preserve"><value>Spazio libero sul volume che contiene il database, le cache e i log.</value></data>
+  <data name="StorageHealthUnknown" xml:space="preserve"><value>Questo dispositivo non riporta lo spazio libero.</value></data>
+  <data name="StorageHealthHealthy" xml:space="preserve"><value>{0} disponibili.</value></data>
+  <data name="StorageHealthWarning" xml:space="preserve"><value>Solo {0} disponibili. I pacchetti più vecchi verranno rimossi prima del periodo di conservazione.</value></data>
+  <data name="StorageHealthCritical" xml:space="preserve"><value>Solo {0} disponibili. Non sarà possibile salvare nuovi pacchetti e cache finché non viene liberato spazio.</value></data>
+  <data name="StorageHealthRefresh" xml:space="preserve"><value>Controlla di nuovo</value></data>
 </root>

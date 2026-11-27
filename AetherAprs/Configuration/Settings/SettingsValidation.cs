@@ -25,6 +25,58 @@ internal static class SettingsValidation
     public const int MaxCallsignLength = 6;
 
     /// <summary>
+    /// Shortest packet retention window the operator may configure, in days.
+    /// </summary>
+    public const int MinPacketRetentionDays = 1;
+
+    /// <summary>
+    /// Longest packet retention window the operator may configure, in days.
+    /// </summary>
+    public const int MaxPacketRetentionDays = 3650;
+
+    /// <summary>
+    /// Smallest packet retention row bound the operator may configure.
+    /// </summary>
+    /// <remarks>
+    /// Any positive bound is meaningful: it is a deliberate cap, not a target, so
+    /// a small value simply keeps very little history.
+    /// </remarks>
+    public const int MinPacketRetentionMaxRows = 1;
+
+    /// <summary>
+    /// Largest packet retention row bound the operator may configure.
+    /// </summary>
+    public const int MaxPacketRetentionMaxRows = 5_000_000;
+
+    /// <summary>
+    /// Validates the packet retention window in days.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The value is outside <see cref="MinPacketRetentionDays"/>..
+    /// <see cref="MaxPacketRetentionDays"/>.
+    /// </exception>
+    public static int PacketRetentionDays(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, MinPacketRetentionDays);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, MaxPacketRetentionDays);
+        return value;
+    }
+
+    /// <summary>
+    /// Validates the packet retention row bound.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// The value is outside <see cref="MinPacketRetentionMaxRows"/>..
+    /// <see cref="MaxPacketRetentionMaxRows"/>.
+    /// </exception>
+    public static int PacketRetentionMaxRows(int value)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, MinPacketRetentionMaxRows);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, MaxPacketRetentionMaxRows);
+        return value;
+    }
+
+    /// <summary>
     /// Validates and normalizes an APRS callsign.
     /// </summary>
     /// <exception cref="ArgumentException">

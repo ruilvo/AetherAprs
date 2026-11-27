@@ -20,6 +20,19 @@ public sealed record AprsSettings
     private SymbolCode _symbolCode = SymbolCode.LeftSquareBracket;
     private SymbolCode? _symbolOverlay;
     private string _callsign = "N0CALL";
+    private int _packetRetentionDays = DefaultPacketRetentionDays;
+    private int _packetRetentionMaxRows = DefaultPacketRetentionMaxRows;
+
+    /// <summary>
+    /// The default number of days of packet history to keep: the 30-day target
+    /// the roadmap requires the operator to be able to configure.
+    /// </summary>
+    public const int DefaultPacketRetentionDays = 30;
+
+    /// <summary>
+    /// The default number of packet rows to keep regardless of age.
+    /// </summary>
+    public const int DefaultPacketRetentionMaxRows = 100_000;
 
     /// <summary>
     /// Gets the APRS callsign (without SSID).
@@ -76,13 +89,21 @@ public sealed record AprsSettings
     /// database. Packets older than this are automatically deleted.
     /// Default is 30 days.
     /// </summary>
-    public int PacketRetentionDays { get; init; } = 30;
+    public int PacketRetentionDays
+    {
+        get => _packetRetentionDays;
+        init => _packetRetentionDays = SettingsValidation.PacketRetentionDays(value);
+    }
 
     /// <summary>
     /// Gets the maximum number of packet records retained after cleanup.
     /// Pending outbound messages are preserved beyond this bound until terminal.
     /// </summary>
-    public int PacketRetentionMaxRows { get; init; } = 100_000;
+    public int PacketRetentionMaxRows
+    {
+        get => _packetRetentionMaxRows;
+        init => _packetRetentionMaxRows = SettingsValidation.PacketRetentionMaxRows(value);
+    }
 
     /// <summary>
     /// Gets the time range for displaying packets in the list and on the map.
