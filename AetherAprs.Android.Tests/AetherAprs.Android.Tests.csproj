@@ -10,13 +10,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
-    <IsTestProject>true</IsTestProject>
     <ApplicationId>com.AetherRadio.AetherAprs.Tests</ApplicationId>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishReadyToRun>false</PublishReadyToRun>
     <AndroidLinkMode>None</AndroidLinkMode>
   </PropertyGroup>
+
+  <!--
+    IsTestProject is deliberately not set. The instrumentation APK is driven by
+    TestSuiteInstrumentation and adb, not by `dotnet test`; marking it as a test
+    project makes the SDK classify it as a VSTest project, which conflicts with
+    the Microsoft.Testing.Platform runner required by global.json.
+  -->
 
   <ItemGroup>
     <PackageReference Include="Xamarin.Legacy.NUnitLite" />
