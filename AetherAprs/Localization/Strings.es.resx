@@ -1,0 +1,482 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Home" xml:space="preserve"><value>Inicio</value></data>
+  <data name="Messages" xml:space="preserve"><value>Mensajes</value></data>
+  <data name="Ports" xml:space="preserve"><value>Puertos</value></data>
+  <data name="Settings" xml:space="preserve"><value>Ajustes</value></data>
+  <data name="CenterOnMyLocation" xml:space="preserve"><value>Centrar en mi ubicación</value></data>
+  <data name="ManageYourAprsPorts" xml:space="preserve"><value>Gestiona tus puertos APRS</value></data>
+  <data name="ShowOnMap" xml:space="preserve"><value>Mostrar en el mapa</value></data>
+  <data name="DeletePort" xml:space="preserve"><value>Eliminar puerto</value></data>
+  <data name="Running" xml:space="preserve"><value>En ejecución</value></data>
+  <data name="Stopped" xml:space="preserve"><value>Detenido</value></data>
+  <data name="PortTypeAprsIs" xml:space="preserve"><value>APRS-IS</value></data>
+  <data name="PortTypeKiss" xml:space="preserve"><value>KISS</value></data>
+  <data name="PortTypeUnknown" xml:space="preserve"><value>Desconocido</value></data>
+  <data name="AddPort" xml:space="preserve"><value>Añadir puerto</value></data>
+  <data name="PortsEmptyState" xml:space="preserve"><value>Aún no hay puertos configurados.</value></data>
+  <data name="PortStartedFeedback" xml:space="preserve"><value>Puerto {0} iniciado.</value></data>
+  <data name="PortStoppedFeedback" xml:space="preserve"><value>Puerto {0} detenido.</value></data>
+  <data name="PortSavedFeedback" xml:space="preserve"><value>Puerto guardado.</value></data>
+  <data name="OfflineMapDownloadFinishedFeedback" xml:space="preserve"><value>Mapa sin conexión descargado.</value></data>
+  <data name="EditPort" xml:space="preserve"><value>Editar puerto</value></data>
+  <data name="EditPortNamed" xml:space="preserve"><value>Editar {0}</value></data>
+  <data name="ConfigureAprsPortSettings" xml:space="preserve"><value>Configura los ajustes de tu puerto APRS</value></data>
+  <data name="PortName" xml:space="preserve"><value>Nombre del puerto</value></data>
+  <data name="PortNamePlaceholder" xml:space="preserve"><value>p. ej. Puerto APRS-IS 1</value></data>
+  <data name="PortDirection" xml:space="preserve"><value>Dirección del puerto</value></data>
+  <data name="ReceiveRx" xml:space="preserve"><value>Recibir (Rx)</value></data>
+  <data name="TransmitTx" xml:space="preserve"><value>Transmitir (Tx)</value></data>
+  <data name="DynamicBeaconingMode" xml:space="preserve"><value>Modo de baliza dinámica</value></data>
+  <data name="UseDefaultBeaconMode" xml:space="preserve"><value>&lt;Usar valor predeterminado&gt;</value></data>
+  <data name="BeaconModeWalk" xml:space="preserve"><value>A pie</value></data>
+  <data name="BeaconModeDrive" xml:space="preserve"><value>En coche</value></data>
+  <data name="BeaconModeCustom" xml:space="preserve"><value>Personalizado</value></data>
+  <data name="SelectPortType" xml:space="preserve"><value>Selecciona un tipo de puerto</value></data>
+  <data name="AprsIsSettings" xml:space="preserve"><value>Ajustes de APRS-IS</value></data>
+  <data name="Server" xml:space="preserve"><value>Servidor</value></data>
+  <data name="ServerPlaceholder" xml:space="preserve"><value>p. ej. euro.aprs2.net</value></data>
+  <data name="Port" xml:space="preserve"><value>Puerto</value></data>
+  <data name="Passcode" xml:space="preserve"><value>Código de acceso</value></data>
+  <data name="PasscodePlaceholder" xml:space="preserve"><value>Se rellena a partir del indicativo</value></data>
+  <data name="PortCredentialsUnavailableNotice" xml:space="preserve"><value>No se pudo leer el código de acceso guardado de este puerto. Vuelve a introducirlo para restablecer la transmisión; hasta entonces el puerto permanece en solo recepción.</value></data>
+  <data name="UseTls" xml:space="preserve"><value>Usar TLS (conexión cifrada con validación del certificado)</value></data>
+  <data name="FilterOptional" xml:space="preserve"><value>Filtro (opcional)</value></data>
+  <data name="FilterRangeSection" xml:space="preserve"><value>Filtro de rango (alrededor de un punto)</value></data>
+  <data name="FilterLatitude" xml:space="preserve"><value>Latitud</value></data>
+  <data name="FilterLongitude" xml:space="preserve"><value>Longitud</value></data>
+  <data name="FilterDistanceKm" xml:space="preserve"><value>Distancia (km)</value></data>
+  <data name="FilterPrefixSection" xml:space="preserve"><value>Filtro de prefijo</value></data>
+  <data name="FilterPrefixes" xml:space="preserve"><value>Prefijos (separados por espacios)</value></data>
+  <data name="FilterBuddySection" xml:space="preserve"><value>Filtro de amigos</value></data>
+  <data name="FilterBuddies" xml:space="preserve"><value>Indicativos (separados por espacios)</value></data>
+  <data name="FilterTypeSection" xml:space="preserve"><value>Tipos de paquete</value></data>
+  <data name="PacketTypePosition" xml:space="preserve"><value>Posición</value></data>
+  <data name="PacketTypeObject" xml:space="preserve"><value>Objeto</value></data>
+  <data name="PacketTypeItem" xml:space="preserve"><value>Ítem</value></data>
+  <data name="PacketTypeMessage" xml:space="preserve"><value>Mensaje</value></data>
+  <data name="PacketTypeQuery" xml:space="preserve"><value>Consulta</value></data>
+  <data name="PacketTypeStatus" xml:space="preserve"><value>Estado</value></data>
+  <data name="PacketTypeTelemetry" xml:space="preserve"><value>Telemetría</value></data>
+  <data name="PacketTypeUserDefined" xml:space="preserve"><value>Definido por el usuario</value></data>
+  <data name="PacketTypeNws" xml:space="preserve"><value>NWS</value></data>
+  <data name="PacketTypeWeather" xml:space="preserve"><value>Meteorología</value></data>
+  <data name="FilterAreaSection" xml:space="preserve"><value>Filtro de área (cuadro delimitador)</value></data>
+  <data name="FilterNorthLatitude" xml:space="preserve"><value>Latitud norte</value></data>
+  <data name="FilterWestLongitude" xml:space="preserve"><value>Longitud oeste</value></data>
+  <data name="FilterSouthLatitude" xml:space="preserve"><value>Latitud sur</value></data>
+  <data name="FilterEastLongitude" xml:space="preserve"><value>Longitud este</value></data>
+  <data name="FilterMyRangeSection" xml:space="preserve"><value>Filtro de mi rango</value></data>
+  <data name="FilterPreview" xml:space="preserve"><value>Filtro generado</value></data>
+  <data name="KissSettings" xml:space="preserve"><value>Ajustes de KISS</value></data>
+  <data name="Transport" xml:space="preserve"><value>Transporte</value></data>
+  <data name="Host" xml:space="preserve"><value>Host</value></data>
+  <data name="Scan" xml:space="preserve"><value>Buscar</value></data>
+  <data name="Stop" xml:space="preserve"><value>Detener</value></data>
+  <data name="Refresh" xml:space="preserve"><value>Actualizar</value></data>
+  <data name="UnnamedDevice" xml:space="preserve"><value>(sin nombre)</value></data>
+  <data name="TransportTcp" xml:space="preserve"><value>TCP</value></data>
+  <data name="TransportBluetoothClassicSpp" xml:space="preserve"><value>Bluetooth Classic (SPP)</value></data>
+  <data name="TransportBluetoothLe" xml:space="preserve"><value>Bluetooth LE</value></data>
+  <data name="DefaultAprsIsPortName" xml:space="preserve"><value>Puerto APRS-IS {0}</value></data>
+  <data name="DefaultKissPortName" xml:space="preserve"><value>Puerto KISS {0}</value></data>
+  <data name="Cancel" xml:space="preserve"><value>Cancelar</value></data>
+  <data name="Confirm" xml:space="preserve"><value>Confirmar</value></data>
+  <data name="DeletePortConfirmation" xml:space="preserve"><value>¿Eliminar el puerto '{0}'? Esta acción no se puede deshacer.</value></data>
+  <data name="Save" xml:space="preserve"><value>Guardar</value></data>
+  <data name="StationSettings" xml:space="preserve"><value>Ajustes de la estación</value></data>
+  <data name="StationSettingsDescription" xml:space="preserve"><value>Configura la identidad de tu estación usada para APRS.</value></data>
+  <data name="Callsign" xml:space="preserve"><value>Indicativo</value></data>
+  <data name="CallsignPlaceholder" xml:space="preserve"><value>p. ej. N0CALL</value></data>
+  <data name="DefaultSsid" xml:space="preserve"><value>SSID predeterminado</value></data>
+  <data name="DynamicBeaconing" xml:space="preserve"><value>Baliza dinámica</value></data>
+  <data name="DynamicBeaconingDescription" xml:space="preserve"><value>Configura el envío inteligente de balizas de posición con intervalos de transmisión adaptativos.</value></data>
+  <data name="ConfigureBeaconingModes" xml:space="preserve"><value>Configurar modos de baliza</value></data>
+  <data name="DynamicBeaconingDescriptionLong" xml:space="preserve"><value>Configura el envío inteligente de balizas de posición con intervalos de transmisión basados en tu velocidad y dirección de movimiento.</value></data>
+  <data name="ActiveBeaconMode" xml:space="preserve"><value>Modo de baliza activo</value></data>
+  <data name="Mode" xml:space="preserve"><value>Modo</value></data>
+  <data name="WalkPedestrian" xml:space="preserve"><value>A pie (peatón)</value></data>
+  <data name="DriveVehicular" xml:space="preserve"><value>En coche (vehículo)</value></data>
+  <data name="Custom" xml:space="preserve"><value>Personalizado</value></data>
+  <data name="WalkMode" xml:space="preserve"><value>Modo a pie</value></data>
+  <data name="DriveMode" xml:space="preserve"><value>Modo en coche</value></data>
+  <data name="CustomMode" xml:space="preserve"><value>Modo personalizado</value></data>
+  <data name="ResetToDefault" xml:space="preserve"><value>Restablecer valores predeterminados</value></data>
+  <data name="WalkModeDescription" xml:space="preserve"><value>Optimizado para el desplazamiento a pie, con intervalos más largos y sensible a los cambios de dirección.</value></data>
+  <data name="DriveModeDescription" xml:space="preserve"><value>Optimizado para el desplazamiento en vehículo, con intervalos más cortos para el seguimiento en tiempo real.</value></data>
+  <data name="CustomModeDescription" xml:space="preserve"><value>Configuración de baliza totalmente personalizable para usuarios avanzados.</value></data>
+  <data name="SlowSpeedIntervalStationary" xml:space="preserve"><value>Intervalo de velocidad lenta (parado o muy lento)</value></data>
+  <data name="NormalSpeedInterval" xml:space="preserve"><value>Intervalo de velocidad normal</value></data>
+  <data name="FastSpeedIntervalMovingQuickly" xml:space="preserve"><value>Intervalo de velocidad rápida (avanzando rápido)</value></data>
+  <data name="FastSpeedIntervalHighway" xml:space="preserve"><value>Intervalo de velocidad rápida (velocidad de autopista)</value></data>
+  <data name="FastSpeedInterval" xml:space="preserve"><value>Intervalo de velocidad rápida</value></data>
+  <data name="SlowSpeedThreshold" xml:space="preserve"><value>Umbral de velocidad lenta</value></data>
+  <data name="FastSpeedThreshold" xml:space="preserve"><value>Umbral de velocidad rápida</value></data>
+  <data name="CourseChangeThreshold" xml:space="preserve"><value>Umbral de cambio de rumbo</value></data>
+  <data name="CourseChangeThresholdDisabled" xml:space="preserve"><value>Umbral de cambio de rumbo (0 = desactivado)</value></data>
+  <data name="MinimumDistance" xml:space="preserve"><value>Distancia mínima</value></data>
+  <data name="Seconds" xml:space="preserve"><value>segundos</value></data>
+  <data name="KilometersPerHour" xml:space="preserve"><value>km/h</value></data>
+  <data name="Degrees" xml:space="preserve"><value>grados</value></data>
+  <data name="Meters" xml:space="preserve"><value>metros</value></data>
+  <data name="BeaconComment" xml:space="preserve"><value>Comentario de la baliza</value></data>
+  <data name="OptionalBeaconComment" xml:space="preserve"><value>Comentario de baliza opcional</value></data>
+  <data name="Close" xml:space="preserve"><value>CERRAR</value></data>
+  <data name="AprsMessageConversations" xml:space="preserve"><value>Conversaciones de mensajes APRS</value></data>
+  <data name="NewMessage" xml:space="preserve"><value>Nuevo mensaje</value></data>
+  <data name="MessagesEmptyState" xml:space="preserve"><value>Aún no hay conversaciones de mensajes.</value></data>
+  <data name="Back" xml:space="preserve"><value>Atrás</value></data>
+  <data name="To" xml:space="preserve"><value>Para</value></data>
+  <data name="DestinationAddressPlaceholder" xml:space="preserve"><value>Indicativo o dirección de destino (p. ej. N0CALL-1 o APRS2SOTA)</value></data>
+  <data name="You" xml:space="preserve"><value>Tú</value></data>
+  <data name="Received" xml:space="preserve"><value>Recibido</value></data>
+  <data name="MessageText" xml:space="preserve"><value>Texto del mensaje</value></data>
+  <data name="Send" xml:space="preserve"><value>Enviar</value></data>
+  <data name="InvalidDestinationAddress" xml:space="preserve"><value>Introduce un indicativo o dirección de destino válido (p. ej. N0CALL-1 o APRS2SOTA).</value></data>
+  <data name="MessageTextRequired" xml:space="preserve"><value>El texto del mensaje es obligatorio.</value></data>
+  <data name="LocationTracking" xml:space="preserve"><value>Seguimiento de ubicación</value></data>
+  <data name="Status" xml:space="preserve"><value>Estado:</value></data>
+  <data name="Tracking" xml:space="preserve"><value>Seguimiento</value></data>
+  <data name="Position" xml:space="preserve"><value>Posición:</value></data>
+  <data name="Altitude" xml:space="preserve"><value>Altitud:</value></data>
+  <data name="BeaconTransmission" xml:space="preserve"><value>Transmisión de baliza</value></data>
+  <data name="LastDecision" xml:space="preserve"><value>Última decisión:</value></data>
+  <data name="Speed" xml:space="preserve"><value>Velocidad:</value></data>
+  <data name="Course" xml:space="preserve"><value>Rumbo:</value></data>
+  <data name="Interval" xml:space="preserve"><value>Intervalo:</value></data>
+  <data name="BeaconSystemReady" xml:space="preserve"><value>Sistema de balizas listo</value></data>
+  <data name="NextBeaconIn" xml:space="preserve"><value>Próxima baliza en {0}s ({1})</value></data>
+  <data name="NoTxPortsEnabled" xml:space="preserve"><value>Ningún puerto de transmisión activado</value></data>
+  <data name="CallsignNotConfigured" xml:space="preserve"><value>Indicativo no configurado</value></data>
+  <data name="BeaconTransmissionFailed" xml:space="preserve"><value>Error al transmitir la baliza</value></data>
+  <data name="BeaconSentStatus" xml:space="preserve"><value>✓ Baliza enviada ({0}) - Velocidad: {1:F1}km/h, Rumbo: {2:F0}°</value></data>
+  <data name="BeaconError" xml:space="preserve"><value>Error de baliza: {0}</value></data>
+  <data name="NoLocationAvailable" xml:space="preserve"><value>No hay ubicación disponible</value></data>
+  <data name="ManualBeaconSent" xml:space="preserve"><value>✓ Baliza manual enviada</value></data>
+  <data name="ManualBeaconTransmissionFailed" xml:space="preserve"><value>Error al transmitir la baliza manual</value></data>
+  <data name="ErrorPrefix" xml:space="preserve"><value>Error: {0}</value></data>
+  <data name="InitialBeaconSentOnPortActivation" xml:space="preserve"><value>✓ Baliza inicial enviada al activar el puerto ({0})</value></data>
+  <data name="ReasonInitialOrIntervalExceeded" xml:space="preserve"><value>Baliza inicial o intervalo de tiempo superado</value></data>
+  <data name="ReasonAwaitingTimeInterval" xml:space="preserve"><value>Esperando el intervalo de tiempo</value></data>
+  <data name="ReasonDistanceBelowMinimum" xml:space="preserve"><value>Distancia {0:F0}m por debajo del mínimo {1}m</value></data>
+  <data name="ReasonCourseChanged" xml:space="preserve"><value>Rumbo cambiado {0:F0}°</value></data>
+  <data name="ReasonIntervalExceeded" xml:space="preserve"><value>Intervalo de baliza ({0}s) superado</value></data>
+  <data name="ReasonWaitingForNextInterval" xml:space="preserve"><value>Esperando el siguiente intervalo (en {0}s)</value></data>
+  <data name="AprsSymbol" xml:space="preserve"><value>Símbolo APRS</value></data>
+  <data name="Table" xml:space="preserve"><value>Tabla</value></data>
+  <data name="Code" xml:space="preserve"><value>Código</value></data>
+  <data name="ChooseASymbol" xml:space="preserve"><value>Elige un símbolo</value></data>
+  <data name="EnterAprsTableAndCode" xml:space="preserve"><value>Introduce los caracteres de tabla y código de APRS.</value></data>
+  <data name="Default" xml:space="preserve"><value>Predeterminado</value></data>
+  <data name="SymbolHuman" xml:space="preserve"><value>Persona</value></data>
+  <data name="SymbolAmbulance" xml:space="preserve"><value>Ambulancia</value></data>
+  <data name="SymbolCar" xml:space="preserve"><value>Coche</value></data>
+  <data name="SymbolTruck" xml:space="preserve"><value>Camión</value></data>
+  <data name="SymbolBoat" xml:space="preserve"><value>Barco</value></data>
+  <data name="SymbolEmergency" xml:space="preserve"><value>Emergencia</value></data>
+  <data name="SymbolHospital" xml:space="preserve"><value>Hospital</value></data>
+  <data name="BaseSymbol" xml:space="preserve"><value>Símbolo base</value></data>
+  <data name="Overlay" xml:space="preserve"><value>Superposición</value></data>
+  <data name="Result" xml:space="preserve"><value>Resultado</value></data>
+  <data name="SymbolPickerDescription" xml:space="preserve"><value>Selecciona un símbolo base de la tabla primaria o alternativa. Si eliges la tabla alternativa, también puedes añadir un carácter de superposición.</value></data>
+  <data name="PrimaryTable" xml:space="preserve"><value>Primaria (/)</value></data>
+  <data name="AlternateTable" xml:space="preserve"><value>Alternativa (\)</value></data>
+  <data name="Packets" xml:space="preserve"><value>Paquetes</value></data>
+  <data name="PacketDetails" xml:space="preserve"><value>Detalles del paquete</value></data>
+  <data name="SendMessage" xml:space="preserve"><value>Enviar mensaje</value></data>
+  <data name="NoPacketsFound" xml:space="preserve"><value>No se encontraron paquetes</value></data>
+  <data name="NoPacketsReceivedYet" xml:space="preserve"><value>Aún no se han recibido paquetes</value></data>
+  <data name="Time" xml:space="preserve"><value>Hora</value></data>
+  <data name="Type" xml:space="preserve"><value>Tipo</value></data>
+  <data name="Location" xml:space="preserve"><value>Ubicación</value></data>
+  <data name="PermissionKindNotifications" xml:space="preserve"><value>Notificaciones</value></data>
+  <data name="PermissionKindBluetooth" xml:space="preserve"><value>Bluetooth</value></data>
+  <data name="PermissionKindAudio" xml:space="preserve"><value>Micrófono</value></data>
+  <data name="PermissionKindBatteryOptimization" xml:space="preserve"><value>Optimización de batería</value></data>
+  <data name="PermissionKindBackgroundLocation" xml:space="preserve"><value>Ubicación en segundo plano</value></data>
+  <data name="PermissionWarningBackgroundLocation" xml:space="preserve"><value>{0}: el seguimiento en segundo plano es limitado. El seguimiento continúa mientras la aplicación está abierta; permite la ubicación «todo el tiempo» en los ajustes de la aplicación para seguir rastreando con la pantalla apagada.</value></data>
+  <data name="PermissionWarningDenied" xml:space="preserve"><value>El permiso {0} está denegado. Las funciones que dependen de él no funcionarán hasta que se permita.</value></data>
+  <data name="PermissionWarningPermanentlyDenied" xml:space="preserve"><value>El permiso {0} está bloqueado. Permítelo en los ajustes de la aplicación para recuperar las funciones que dependen de él.</value></data>
+  <data name="PermissionOpenSettingsAction" xml:space="preserve"><value>Abrir ajustes</value></data>
+  <data name="ViewLocatorMissingView" xml:space="preserve"><value>No hay ninguna vista registrada para {0}.</value></data>
+  <data name="Latitude" xml:space="preserve"><value>Lat</value></data>
+  <data name="Longitude" xml:space="preserve"><value>Lon</value></data>
+  <data name="Comment" xml:space="preserve"><value>Comentario</value></data>
+  <data name="Message" xml:space="preserve"><value>Mensaje</value></data>
+  <data name="BackTooltip" xml:space="preserve"><value>Atrás</value></data>
+  <data name="CenterOnMyLocationTooltip" xml:space="preserve"><value>Centrar en mi ubicación</value></data>
+  <data name="ShowOnMapTooltip" xml:space="preserve"><value>Mostrar en el mapa</value></data>
+  <data name="ZoomInTooltip" xml:space="preserve"><value>Acercar</value></data>
+  <data name="ZoomOutTooltip" xml:space="preserve"><value>Alejar</value></data>
+  <data name="PreviewLatLon" xml:space="preserve"><value>Lat: {0}, Lon: {1}</value></data>
+  <data name="PreviewMessageTo" xml:space="preserve"><value>Para {0}: {1}</value></data>
+  <data name="PreviewTemperature" xml:space="preserve"><value>Temp: {0}F</value></data>
+  <data name="PacketDetailsTitle" xml:space="preserve"><value>Detalles del paquete</value></data>
+  <data name="PacketsFromCallsign" xml:space="preserve"><value>Paquetes de {0}</value></data>
+  <data name="PacketDisplayTimeRangeLabel" xml:space="preserve"><value>Intervalo de tiempo de visualización de paquetes</value></data>
+  <data name="CustomTimeRangeHoursLabel" xml:space="preserve"><value>Intervalo de tiempo personalizado (horas)</value></data>
+  <data name="LoadHistoryOnStartup" xml:space="preserve"><value>Cargar historial al iniciar</value></data>
+  <data name="LoadHistoryOnStartupDescription" xml:space="preserve"><value>Si se desactiva, el mapa y la lista de paquetes empiezan vacíos en cada sesión y solo muestran los datos recibidos mientras la aplicación está abierta.</value></data>
+  <data name="CustomTimeRangeHoursDescription" xml:space="preserve"><value>Se usa cuando se selecciona Personalizado</value></data>
+  <data name="RssiFormat" xml:space="preserve"><value>RSSI: {0} dBm</value></data>
+  <data name="DeletePortTooltip" xml:space="preserve"><value>Eliminar puerto</value></data>
+  <data name="PortPlaceholder" xml:space="preserve"><value>14580</value></data>
+  <data name="HostPlaceholder" xml:space="preserve"><value>127.0.0.1</value></data>
+  <data name="SerialPortPlaceholder" xml:space="preserve"><value>8001</value></data>
+  <data name="DefaultSsidLabel" xml:space="preserve"><value>SSID predeterminado</value></data>
+  <data name="MessageTextPlaceholder" xml:space="preserve"><value>Texto del mensaje</value></data>
+  <data name="AllowDigipeating" xml:space="preserve"><value>Permitir digipeating</value></data>
+  <data name="DigipeaterAndGating" xml:space="preserve"><value>Digipeater y pasarela</value></data>
+  <data name="DigipeaterGatingDescription" xml:space="preserve"><value>Configura la función de digipeater y la pasarela APRS-IS/RF. El digipeating reenvía paquetes entre puertos. La pasarela controla si los paquetes pueden cruzar entre las redes APRS-IS y RF.</value></data>
+  <data name="EnableDigipeater" xml:space="preserve"><value>Activar digipeater</value></data>
+  <data name="InsertStationCallsignInPath" xml:space="preserve"><value>Insertar el indicativo de la estación en la ruta</value></data>
+  <data name="EnableAprsIsToRfGating" xml:space="preserve"><value>Activar pasarela de APRS-IS a RF</value></data>
+  <data name="EnableRfToAprsIsGating" xml:space="preserve"><value>Activar pasarela de RF a APRS-IS</value></data>
+  <data name="Messaging" xml:space="preserve"><value>Mensajería</value></data>
+  <data name="MessagingDescription" xml:space="preserve"><value>Configura el comportamiento de confirmación y reintento de mensajes.</value></data>
+  <data name="AutoAcknowledgeIncomingMessages" xml:space="preserve"><value>Confirmar automáticamente los mensajes entrantes</value></data>
+  <data name="MaximumRetryAttempts" xml:space="preserve"><value>Número máximo de reintentos</value></data>
+  <data name="InitialRetryTimeoutSeconds" xml:space="preserve"><value>Tiempo de espera inicial de reintento (segundos)</value></data>
+  <data name="MessageExpiryMinutes" xml:space="preserve"><value>Caducidad del mensaje (minutos)</value></data>
+  <data name="ValidationExpiryMinutesRange" xml:space="preserve"><value>La caducidad debe estar entre 1 y 1440 minutos</value></data>
+  <data name="ShowMessageTextInNotifications" xml:space="preserve"><value>Mostrar el texto del mensaje en las notificaciones</value></data>
+  <data name="MessageNotificationHiddenBody" xml:space="preserve"><value>Nuevo mensaje APRS</value></data>
+  <data name="Pending" xml:space="preserve"><value>Pendiente</value></data>
+  <data name="Acknowledged" xml:space="preserve"><value>Confirmado</value></data>
+  <data name="Rejected" xml:space="preserve"><value>Rechazado</value></data>
+  <data name="Timeout" xml:space="preserve"><value>Tiempo agotado</value></data>
+  <data name="Failed" xml:space="preserve"><value>Fallido</value></data>
+  <data name="Queued" xml:space="preserve"><value>En cola</value></data>
+  <data name="Sending" xml:space="preserve"><value>Enviando</value></data>
+  <data name="MessageDetailAttempts" xml:space="preserve"><value>Intento {0} de {1}</value></data>
+  <data name="MessageDetailRoute" xml:space="preserve"><value>vía {0}</value></data>
+  <data name="MessageDetailQueued" xml:space="preserve"><value>Esperando un número de mensaje libre</value></data>
+  <data name="MessageDetailHeardOn" xml:space="preserve"><value>Recibido en {0} puertos</value></data>
+  <data name="MessageDetailNoRoute" xml:space="preserve"><value>No hay ruta de transmisión disponible</value></data>
+  <data name="Expired" xml:space="preserve"><value>Caducado</value></data>
+  <data name="DisplaySettings" xml:space="preserve"><value>Ajustes de pantalla</value></data>
+  <data name="DisplaySettingsDescription" xml:space="preserve"><value>Configura qué intervalo de tiempo de paquetes mostrar en la lista y en el mapa.</value></data>
+  <data name="ThemeLabel" xml:space="preserve"><value>Tema</value></data>
+  <data name="ThemeModeSystem" xml:space="preserve"><value>Predeterminado del sistema</value></data>
+  <data name="ThemeModeLight" xml:space="preserve"><value>Claro</value></data>
+  <data name="ThemeModeDark" xml:space="preserve"><value>Oscuro</value></data>
+  <data name="MapSettings" xml:space="preserve"><value>Ajustes del mapa</value></data>
+  <data name="MapSettingsDescription" xml:space="preserve"><value>Elige la fuente de teselas del mapa base. Selecciona un paquete MBTiles para usar el mapa sin conexión a Internet.</value></data>
+  <data name="TileSourceLabel" xml:space="preserve"><value>Fuente de teselas</value></data>
+  <data name="TileSourceOsmOnline" xml:space="preserve"><value>OpenStreetMap (en línea)</value></data>
+  <data name="TileSourceMbTilesOffline" xml:space="preserve"><value>Paquete MBTiles (sin conexión)</value></data>
+  <data name="MbTilesFilePathLabel" xml:space="preserve"><value>Ruta del archivo MBTiles</value></data>
+  <data name="MbTilesFilePathPlaceholder" xml:space="preserve"><value>/ruta/al/mapa.mbtiles</value></data>
+  <data name="DownloadOfflineMap" xml:space="preserve"><value>Descargar mapa sin conexión</value></data>
+  <data name="DownloadOfflineMapDescription" xml:space="preserve"><value>Descarga previamente una región de teselas de OpenStreetMap en un paquete sin conexión para usarla sin conexión a Internet.</value></data>
+  <data name="DownloadRegion" xml:space="preserve"><value>Región</value></data>
+  <data name="MinLatitude" xml:space="preserve"><value>Latitud mínima</value></data>
+  <data name="MaxLatitude" xml:space="preserve"><value>Latitud máxima</value></data>
+  <data name="MinLongitude" xml:space="preserve"><value>Longitud mínima</value></data>
+  <data name="MaxLongitude" xml:space="preserve"><value>Longitud máxima</value></data>
+  <data name="DownloadZoomRange" xml:space="preserve"><value>Niveles de zoom</value></data>
+  <data name="DownloadZoomRangeDescription" xml:space="preserve"><value>Los niveles de zoom más altos incluyen muchas más teselas y tardan mucho más en descargarse.</value></data>
+  <data name="MinZoom" xml:space="preserve"><value>Zoom mínimo</value></data>
+  <data name="MaxZoom" xml:space="preserve"><value>Zoom máximo</value></data>
+  <data name="Download" xml:space="preserve"><value>Descargar</value></data>
+  <data name="OfflineMapDownloading" xml:space="preserve"><value>Descargando teselas…</value></data>
+  <data name="OfflineMapDownloadComplete" xml:space="preserve"><value>Descarga completada. Guardada en {0} y seleccionada como fuente de mapa activa.</value></data>
+  <data name="OfflineMapDownloadCancelled" xml:space="preserve"><value>Descarga cancelada.</value></data>
+  <data name="OfflineMapDownloadFailed" xml:space="preserve"><value>Error en la descarga. Comprueba tu conexión e inténtalo de nuevo.</value></data>
+  <data name="OfflineMapInvalidLongitude" xml:space="preserve"><value>La longitud mínima debe ser menor que la longitud máxima.</value></data>
+  <data name="OfflineMapInvalidLatitude" xml:space="preserve"><value>La latitud mínima debe ser menor que la latitud máxima.</value></data>
+  <data name="OfflineMapInvalidZoom" xml:space="preserve"><value>Los niveles de zoom deben estar entre {0} y {1}, con el mínimo menor o igual que el máximo.</value></data>
+  <data name="OfflineMapDrawArea" xml:space="preserve"><value>Dibujar área</value></data>
+  <data name="OfflineMapStopDrawing" xml:space="preserve"><value>Dejar de dibujar</value></data>
+  <data name="OfflineMapDrawInstructions" xml:space="preserve"><value>Toca «Dibujar área» y luego arrastra sobre el mapa para seleccionar la región que quieres descargar.</value></data>
+  <data name="OfflineMapRegionSelected" xml:space="preserve"><value>Región seleccionada: {0}</value></data>
+  <data name="OfflineMapClearSelection" xml:space="preserve"><value>Borrar selección</value></data>
+  <data name="DefaultBeaconComment" xml:space="preserve"><value>Comentario de baliza predeterminado</value></data>
+  <data name="DefaultBeaconCommentPlaceholder" xml:space="preserve"><value>Introduce un comentario (opcional)</value></data>
+  <data name="DigipeaterPath" xml:space="preserve"><value>Ruta del digipeater</value></data>
+  <data name="DigipeaterPathPlaceholder" xml:space="preserve"><value>WIDE1-1,WIDE2-1</value></data>
+  <data name="DigipeaterPathDescription" xml:space="preserve"><value>La ruta del digipeater para los paquetes transmitidos. Valores habituales: WIDE1-1,WIDE2-1 (recomendado), WIDE2-2, o déjala vacía para solo directo.</value></data>
+  <data name="RespondToWide1" xml:space="preserve"><value>Responder a WIDE1-N (digi de relleno)</value></data>
+  <data name="RespondToWide2" xml:space="preserve"><value>Responder a WIDE2-N (digi completo)</value></data>
+  <data name="RespondToTrace" xml:space="preserve"><value>Responder a TRACEn-N (digi de trazado)</value></data>
+  <data name="BeaconSettings" xml:space="preserve"><value>Ajustes de baliza</value></data>
+  <data name="BeaconSettingsDescription" xml:space="preserve"><value>Configura el comentario y la ruta predeterminados para las balizas de posición.</value></data>
+  <data name="PositionFormatLabel" xml:space="preserve"><value>Codificación de posición</value></data>
+  <data name="PositionFormatDescription" xml:space="preserve"><value>Formato de transmisión usado al enviar informes de posición. Comprimido es la opción habitual; Mic-E empaqueta la latitud en la dirección de destino y es el más compacto.</value></data>
+  <data name="PositionFormatUncompressed" xml:space="preserve"><value>Sin comprimir</value></data>
+  <data name="PositionFormatCompressed" xml:space="preserve"><value>Comprimido</value></data>
+  <data name="PositionFormatMicE" xml:space="preserve"><value>Mic-E</value></data>
+  <data name="ValidationCallsignRequired" xml:space="preserve"><value>El indicativo es obligatorio</value></data>
+  <data name="ValidationCallsignFormat" xml:space="preserve"><value>El indicativo debe tener entre 1 y 6 caracteres alfanuméricos</value></data>
+  <data name="ValidationSsidRange" xml:space="preserve"><value>El SSID debe estar entre 0 y 15</value></data>
+  <data name="ValidationDisplayHoursRange" xml:space="preserve"><value>Las horas de visualización deben estar entre 1 y 100</value></data>
+  <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Los reintentos máximos deben estar entre 0 y 20</value></data>
+  <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>El tiempo de espera de reintento debe estar entre 5 y 300 segundos</value></data>
+  <data name="ValidationCommentMaxLength" xml:space="preserve"><value>El comentario no puede superar los 43 caracteres</value></data>
+  <data name="TimeRangeLastHour" xml:space="preserve"><value>Última hora</value></data>
+  <data name="TimeRangeLastDay" xml:space="preserve"><value>Último día</value></data>
+  <data name="TimeRangeLastWeek" xml:space="preserve"><value>Última semana</value></data>
+  <data name="TimeRangeLastMonth" xml:space="preserve"><value>Último mes</value></data>
+  <data name="TimeRangeAll" xml:space="preserve"><value>Todos los paquetes</value></data>
+  <data name="TimeRangeCustom" xml:space="preserve"><value>Personalizado</value></data>
+  <data name="SsidPrimaryStation" xml:space="preserve"><value>0 - Estación principal</value></data>
+  <data name="SsidAdditionalStation1" xml:space="preserve"><value>1 - Estación adicional</value></data>
+  <data name="SsidAdditionalStation2" xml:space="preserve"><value>2 - Estación adicional</value></data>
+  <data name="SsidAdditionalStation3" xml:space="preserve"><value>3 - Estación adicional</value></data>
+  <data name="SsidAdditionalStation4" xml:space="preserve"><value>4 - Estación adicional</value></data>
+  <data name="SsidOtherNetworks" xml:space="preserve"><value>5 - Otras redes (D-STAR, etc.)</value></data>
+  <data name="SsidSpecialActivity" xml:space="preserve"><value>6 - Actividad especial (satélite, etc.)</value></data>
+  <data name="SsidHumanPortable" xml:space="preserve"><value>7 - Portátil / persona a pie</value></data>
+  <data name="SsidSecondaryMobile" xml:space="preserve"><value>8 - Móvil secundario (barco, autocaravana)</value></data>
+  <data name="SsidPrimaryMobile" xml:space="preserve"><value>9 - Móvil principal</value></data>
+  <data name="SsidInternetGateway" xml:space="preserve"><value>10 - Internet / IGate</value></data>
+  <data name="SsidAircraft" xml:space="preserve"><value>11 - Aeronave / globo</value></data>
+  <data name="SsidDevices" xml:space="preserve"><value>12 - Rastreador / dispositivo</value></data>
+  <data name="SsidWeatherStation" xml:space="preserve"><value>13 - Estación meteorológica</value></data>
+  <data name="SsidTrucker" xml:space="preserve"><value>14 - Camionero</value></data>
+  <data name="SsidAdditionalStation15" xml:space="preserve"><value>15 - Estación adicional</value></data>
+  <data name="ForegroundServiceNotificationTitle" xml:space="preserve"><value>AetherAprs activo</value></data>
+  <data name="ForegroundServiceNotificationText" xml:space="preserve"><value>Recibiendo y transmitiendo paquetes APRS</value></data>
+  <data name="ForegroundServiceNotificationChannelName" xml:space="preserve"><value>Servicio en primer plano de AetherAprs</value></data>
+  <data name="ForegroundServiceNotificationChannelDescription" xml:space="preserve"><value>Mantiene AetherAprs activo mientras recibe y transmite paquetes</value></data>
+  <data name="ForegroundServiceCloseAction" xml:space="preserve"><value>Cerrar</value></data>
+  <data name="ForegroundServiceTimeoutTitle" xml:space="preserve"><value>AetherAprs detenido</value></data>
+  <data name="ForegroundServiceTimeoutText" xml:space="preserve"><value>Android detuvo el funcionamiento en segundo plano al alcanzarse el límite de tiempo del servicio en primer plano. Los puertos y el seguimiento de ubicación se desactivaron. Vuelve a abrir la aplicación para reanudar.</value></data>
+  <data name="ForegroundServiceTimeoutChannelName" xml:space="preserve"><value>Alertas de AetherAprs</value></data>
+  <data name="ForegroundServiceTimeoutChannelDescription" xml:space="preserve"><value>Notifica cuándo hay que detener el funcionamiento en segundo plano</value></data>
+  <data name="MessageNotificationChannelName" xml:space="preserve"><value>Mensajes APRS</value></data>
+  <data name="MessageNotificationChannelDescription" xml:space="preserve"><value>Notificaciones de mensajes APRS entrantes</value></data>
+  <data name="UseTemplate" xml:space="preserve"><value>Usar plantilla</value></data>
+  <data name="TemplatePickerTitle" xml:space="preserve"><value>Plantillas de mensajes</value></data>
+  <data name="TemplatePickerTemplate" xml:space="preserve"><value>Plantilla</value></data>
+  <data name="TemplatePickerDestination" xml:space="preserve"><value>Destino</value></data>
+  <data name="TemplatePickerPreview" xml:space="preserve"><value>Vista previa</value></data>
+  <data name="TemplatePickerConfirm" xml:space="preserve"><value>Insertar</value></data>
+  <data name="TemplatePickerNoTemplates" xml:space="preserve"><value>No hay plantillas configuradas. Añade plantillas en los ajustes de plantillas de mensajes.</value></data>
+  <data name="MessageTemplatesPageTitle" xml:space="preserve"><value>Plantillas de mensajes</value></data>
+  <data name="MessageTemplatesSectionEntry" xml:space="preserve"><value>Plantillas de mensajes</value></data>
+  <data name="MessageTemplatesSectionEntryDescription" xml:space="preserve"><value>Crea y edita plantillas de mensajes rápidos.</value></data>
+  <data name="AddTemplate" xml:space="preserve"><value>Añadir plantilla</value></data>
+  <data name="EditTemplate" xml:space="preserve"><value>Editar</value></data>
+  <data name="DeleteTemplate" xml:space="preserve"><value>Eliminar</value></data>
+  <data name="TemplateName" xml:space="preserve"><value>Nombre</value></data>
+  <data name="TemplateDestination" xml:space="preserve"><value>Destino</value></data>
+  <data name="TemplateBody" xml:space="preserve"><value>Mensaje</value></data>
+  <data name="TemplatePlaceholdersHint" xml:space="preserve"><value>Los marcadores como {summit} o {freq} se rellenan cuando se usa la plantilla.</value></data>
+  <data name="DeleteTemplateConfirmationTitle" xml:space="preserve"><value>Eliminar plantilla</value></data>
+  <data name="DeleteTemplateConfirmationMessage" xml:space="preserve"><value>¿Eliminar la plantilla '{0}'? Esta acción no se puede deshacer.</value></data>
+  <data name="TemplatesEmptyState" xml:space="preserve"><value>Aún no hay plantillas. Toca + para añadir una.</value></data>
+  <data name="ValidationTemplateNameRequired" xml:space="preserve"><value>El nombre es obligatorio</value></data>
+  <data name="ValidationTemplateNameDuplicate" xml:space="preserve"><value>Ya existe una plantilla con este nombre</value></data>
+  <data name="ValidationTemplateBodyMaxLength" xml:space="preserve"><value>El mensaje no puede superar los {0} caracteres</value></data>
+  <data name="TemplateField_summit" xml:space="preserve"><value>Cumbre</value></data>
+  <data name="TemplateField_freq" xml:space="preserve"><value>Frecuencia</value></data>
+  <data name="TemplateField_mode" xml:space="preserve"><value>Modo</value></data>
+  <data name="TemplateField_comment" xml:space="preserve"><value>Comentario</value></data>
+  <data name="TemplateField_call" xml:space="preserve"><value>Indicativo</value></data>
+  <data name="TemplateField_name" xml:space="preserve"><value>Nombre</value></data>
+  <data name="TemplateField_qth" xml:space="preserve"><value>Ubicación</value></data>
+  <data name="TemplateField_power" xml:space="preserve"><value>Potencia</value></data>
+  <data name="TemplateField_antenna" xml:space="preserve"><value>Antena</value></data>
+  <data name="ObjectsPageTitle" xml:space="preserve"><value>Objetos</value></data>
+  <data name="ObjectsEmptyState" xml:space="preserve"><value>Aún no hay objetos. Toca + para añadir uno.</value></data>
+  <data name="KilledObjectBadge" xml:space="preserve"><value>Desactivado</value></data>
+  <data name="KillObject" xml:space="preserve"><value>Desactivar</value></data>
+  <data name="KillObjectConfirmationTitle" xml:space="preserve"><value>Desactivar objeto</value></data>
+  <data name="KillObjectConfirmationMessage" xml:space="preserve"><value>¿Desactivar el objeto '{0}'? Se marcará como ya no activo.</value></data>
+  <data name="ObjectName" xml:space="preserve"><value>Nombre del objeto</value></data>
+  <data name="ObjectNamePlaceholder" xml:space="preserve"><value>p. ej. REFUGIO1</value></data>
+  <data name="ObjectCommentPlaceholder" xml:space="preserve"><value>Comentario opcional</value></data>
+  <data name="LatitudePlaceholder" xml:space="preserve"><value>p. ej. 38.7223</value></data>
+  <data name="LongitudePlaceholder" xml:space="preserve"><value>p. ej. -9.1393</value></data>
+  <data name="ObjectLatitude" xml:space="preserve"><value>Latitud</value></data>
+  <data name="ObjectLongitude" xml:space="preserve"><value>Longitud</value></data>
+  <data name="BulletinsPageTitle" xml:space="preserve"><value>Boletines</value></data>
+  <data name="BulletinsEmptyState" xml:space="preserve"><value>Aún no hay boletines.</value></data>
+  <data name="BulletinName" xml:space="preserve"><value>Nombre del boletín</value></data>
+  <data name="BulletinNamePlaceholder" xml:space="preserve"><value>p. ej. BLN0SPCL</value></data>
+  <data name="BulletinText" xml:space="preserve"><value>Texto del boletín</value></data>
+  <data name="BulletinTextPlaceholder" xml:space="preserve"><value>Texto del boletín</value></data>
+  <data name="ObjectsAndBulletins" xml:space="preserve"><value>Objetos y boletines</value></data>
+  <data name="ObjectsAndBulletinsDescription" xml:space="preserve"><value>Gestiona objetos APRS y emite boletines.</value></data>
+  <data name="ObjectsSectionEntry" xml:space="preserve"><value>Objetos</value></data>
+  <data name="ObjectsSectionEntryDescription" xml:space="preserve"><value>Crea, edita y desactiva objetos APRS.</value></data>
+  <data name="BulletinsSectionEntry" xml:space="preserve"><value>Boletines</value></data>
+  <data name="BulletinsSectionEntryDescription" xml:space="preserve"><value>Envía y lee boletines APRS.</value></data>
+  <data name="AddObject" xml:space="preserve"><value>Añadir objeto</value></data>
+  <data name="EditObject" xml:space="preserve"><value>Editar objeto</value></data>
+  <data name="ValidationObjectNameRequired" xml:space="preserve"><value>El nombre del objeto es obligatorio</value></data>
+  <data name="ValidationObjectNameMaxLength" xml:space="preserve"><value>El nombre del objeto debe tener 9 caracteres o menos</value></data>
+  <data name="ValidationObjectLatitudeInvalid" xml:space="preserve"><value>Introduce una latitud válida</value></data>
+  <data name="ValidationObjectLongitudeInvalid" xml:space="preserve"><value>Introduce una longitud válida</value></data>
+  <data name="ValidationBulletinNameRequired" xml:space="preserve"><value>El nombre del boletín es obligatorio</value></data>
+  <data name="ValidationBulletinNamePrefix" xml:space="preserve"><value>El nombre del boletín debe empezar por 'BLN'</value></data>
+  <data name="ValidationBulletinNameMaxLength" xml:space="preserve"><value>El nombre del boletín debe tener 9 caracteres o menos</value></data>
+  <data name="ValidationBulletinTextRequired" xml:space="preserve"><value>El texto del boletín es obligatorio</value></data>
+  <data name="ValidationBulletinTextMaxLength" xml:space="preserve"><value>El texto del boletín debe tener 67 caracteres o menos</value></data>
+  <data name="PacketDetailsTabHistory" xml:space="preserve"><value>Historial</value></data>
+  <data name="PacketDetailsTabPosition" xml:space="preserve"><value>Posición</value></data>
+  <data name="PacketDetailsTabRaw" xml:space="preserve"><value>Bruto</value></data>
+  <data name="PacketDetailsTabTelemetry" xml:space="preserve"><value>Telemetría</value></data>
+  <data name="CompassNorth" xml:space="preserve"><value>N</value></data>
+  <data name="CompassEast" xml:space="preserve"><value>E</value></data>
+  <data name="CompassSouth" xml:space="preserve"><value>S</value></data>
+  <data name="CompassWest" xml:space="preserve"><value>O</value></data>
+  <data name="Distance" xml:space="preserve"><value>Distancia</value></data>
+  <data name="Bearing" xml:space="preserve"><value>Rumbo</value></data>
+  <data name="DistanceMetersFormat" xml:space="preserve"><value>{0:F0} m</value></data>
+  <data name="DistanceKilometersFormat" xml:space="preserve"><value>{0:F1} km</value></data>
+  <data name="BearingDegreesFormat" xml:space="preserve"><value>{0:F0}°</value></data>
+  <data name="RawLine" xml:space="preserve"><value>Línea bruta</value></data>
+  <data name="RawFrameHex" xml:space="preserve"><value>Trama bruta (hex)</value></data>
+  <data name="Weather" xml:space="preserve"><value>Meteorología</value></data>
+  <data name="Temperature" xml:space="preserve"><value>Temperatura</value></data>
+  <data name="WindSpeed" xml:space="preserve"><value>Velocidad del viento</value></data>
+  <data name="WindDirection" xml:space="preserve"><value>Dirección del viento</value></data>
+  <data name="Humidity" xml:space="preserve"><value>Humedad</value></data>
+  <data name="Pressure" xml:space="preserve"><value>Presión</value></data>
+  <data name="RainLastHour" xml:space="preserve"><value>Lluvia (1 h)</value></data>
+  <data name="RainLast24Hours" xml:space="preserve"><value>Lluvia (24 h)</value></data>
+  <data name="Telemetry" xml:space="preserve"><value>Telemetría</value></data>
+  <data name="TelemetrySequence" xml:space="preserve"><value>Secuencia</value></data>
+  <data name="TelemetryAnalog1" xml:space="preserve"><value>Analógico 1</value></data>
+  <data name="TelemetryAnalog2" xml:space="preserve"><value>Analógico 2</value></data>
+  <data name="TelemetryAnalog3" xml:space="preserve"><value>Analógico 3</value></data>
+  <data name="TelemetryAnalog4" xml:space="preserve"><value>Analógico 4</value></data>
+  <data name="TelemetryAnalog5" xml:space="preserve"><value>Analógico 5</value></data>
+  <data name="TelemetryDigital" xml:space="preserve"><value>Digital</value></data>
+  <data name="Capabilities" xml:space="preserve"><value>Capacidades</value></data>
+  <data name="NoPositionHistory" xml:space="preserve"><value>Sin historial de posición</value></data>
+  <data name="NoWeatherTelemetry" xml:space="preserve"><value>Sin datos de meteorología ni telemetría</value></data>
+  <data name="SearchPageTitle" xml:space="preserve"><value>Buscar</value></data>
+  <data name="SearchPlaceholder" xml:space="preserve"><value>Buscar indicativo u objeto</value></data>
+  <data name="SearchInitialPrompt" xml:space="preserve"><value>Escribe para buscar una estación u objeto</value></data>
+  <data name="SearchNoResults" xml:space="preserve"><value>No se encontraron estaciones u objetos</value></data>
+  <data name="SearchStationKind" xml:space="preserve"><value>Estación</value></data>
+  <data name="SearchObjectKind" xml:space="preserve"><value>Objeto</value></data>
+  <data name="SearchObjectReportedBy" xml:space="preserve"><value>Informado por {0}</value></data>
+  <data name="SearchSectionEntry" xml:space="preserve"><value>Buscar</value></data>
+  <data name="SearchSectionEntryDescription" xml:space="preserve"><value>Encuentra estaciones y objetos por indicativo o nombre.</value></data>
+  <data name="ObjectDetailsTitle" xml:space="preserve"><value>Detalles del objeto</value></data>
+  <data name="ObjectReportsFrom" xml:space="preserve"><value>Informes de {0}</value></data>
+  <data name="ObjectReportHistory" xml:space="preserve"><value>Historial de informes</value></data>
+  <data name="ObjectSymbol" xml:space="preserve"><value>Símbolo</value></data>
+  <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Buscar paquetes</value></data>
+</root>
