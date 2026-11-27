@@ -152,6 +152,73 @@ public sealed class BluetoothLeFrameWriterTests
     }
 
     [Fact]
+    public async Task WriteAsync_SlicedChunks_ReassembleToTheOriginalFrame()
+    {
+        FakeBluetoothLeTransport transport = new(payloadSize: 7);
+        byte[] frame = Frame(23);
+
+        await CreateWriter(transport).WriteAsync(frame, TestContext.Current.CancellationToken);
+
+        // Order matters as much as the slice boundaries: a KISS frame whose bytes are
+        // reordered is silently a different packet, not a corrupted-looking one.
+        Assert.Equal(frame, transport.BytesWrittenInOrder());
+    }
+
+    [Fact]
+    public async Task WriteAsync_TransientFailureOnAMiddleChunk_KeepsTheOrderOfTheRest()
+    {
+        FakeBluetoothLeTransport transport = new(payloadSize: 4);
+        byte[] frame = Frame(12);
+
+        // The third write is busy once, so the chunk is retried in place and must not
+        // be written after the chunks that follow it.
+        transport.Enqueue(
+            GattWriteOutcome.Success,
+            GattWriteOutcome.Success,
+            GattWriteOutcome.Busy,
+            GattWriteOutcome.Success,
+            GattWriteOutcome.Success);
+
+        await CreateWriter(transport).WriteAsync(frame, TestContext.Current.CancellationToken);
+
+        Assert.Equal(frame, transport.BytesWrittenInOrder());
+        Assert.Equal(new[] { 4, 4, 4, 4 }, transport.ChunkLengths());
+    }
+
+    [Fact]
+    public async Task WriteAsync_RetryExhaustedMidFrame_StopsBeforeTheRemainingChunks()
+    {
+        FakeBluetoothLeTransport transport = new(payloadSize: 4);
+        transport.Enqueue(
+            GattWriteOutcome.Success,
+            GattWriteOutcome.Busy,
+            GattWriteOutcome.Busy,
+            GattWriteOutcome.Busy,
+            GattWriteOutcome.Busy);
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await CreateWriter(transport).WriteAsync(Frame(16), TestContext.Current.CancellationToken));
+
+        // The failing chunk is retried up to the bound; the frame is abandoned there
+        // instead of half-writing the remaining chunks over a broken connection.
+        Assert.Equal(1 + BluetoothLeFrameWriter.DefaultMaxAttempts, transport.Attempts);
+        Assert.Equal(new[] { 4, 4, 4, 4, 4 }, transport.ChunkLengths());
+    }
+
+    [Fact]
+    public async Task WriteAsync_WithoutResponse_PacesOnlyBetweenChunks()
+    {
+        FakeBluetoothLeTransport transport = new(payloadSize: 5, supportsWithoutResponse: true);
+
+        await CreateWriter(transport).WriteAsync(Frame(10), TestContext.Current.CancellationToken);
+
+        // Two chunks, and the last one is not followed by a pointless pacing delay
+        // (the test's pacing delay is zero, so only the chunk count is asserted here).
+        Assert.Equal(2, transport.Attempts);
+        Assert.All(transport.Modes, mode => Assert.True(mode));
+    }
+
+    [Fact]
     public async Task WriteAsync_WhenTheTransportHasNoPayloadSize_Throws()
     {
         FakeBluetoothLeTransport transport = new(payloadSize: 0);
@@ -185,6 +252,7 @@ public sealed class BluetoothLeFrameWriterTests
     {
         private readonly Queue<GattWriteOutcome> _outcomes = new();
         private readonly List<byte[]> _chunks = [];
+        private readonly List<byte[]> _acceptedChunks = [];
         private TaskCompletionSource? _gate;
 
         public bool SupportsWriteWithoutResponse { get; } = supportsWithoutResponse;
@@ -221,7 +289,13 @@ public sealed class BluetoothLeFrameWriterTests
                 await _gate.Task.WaitAsync(cancellationToken);
             }
 
-            return _outcomes.Count > 0 ? _outcomes.Dequeue() : GattWriteOutcome.Success;
+            GattWriteOutcome outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : GattWriteOutcome.Success;
+            if (outcome == GattWriteOutcome.Success)
+            {
+                _acceptedChunks.Add(chunk.ToArray());
+            }
+
+            return outcome;
         }
 
         public int[] ChunkLengths() => [.. _chunks.ConvertAll(chunk => chunk.Length)];
@@ -235,6 +309,18 @@ public sealed class BluetoothLeFrameWriterTests
             }
 
             return total;
+        }
+
+        /// <summary>Concatenates the chunks in write order, for a reassembly check.</summary>
+        public byte[] BytesWrittenInOrder()
+        {
+            List<byte> bytes = [];
+            foreach (byte[] chunk in _acceptedChunks)
+            {
+                bytes.AddRange(chunk);
+            }
+
+            return [.. bytes];
         }
     }
 }
