@@ -544,4 +544,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="StorageHealthWarning" xml:space="preserve"><value>Only {0} available. Older packets will be removed sooner than the retention window.</value></data>
   <data name="StorageHealthCritical" xml:space="preserve"><value>Only {0} available. New packets and caches cannot be stored until space is freed.</value></data>
   <data name="StorageHealthRefresh" xml:space="preserve"><value>Check again</value></data>
+  <data name="FailureNoTransmitRoute" xml:space="preserve"><value>No port is enabled for transmit. Enable a port in Ports to send this.</value></data>
+  <data name="FailureUnknownObject" xml:space="preserve"><value>This object has not been received, so there is no position to report.</value></data>
+  <data name="FailureTransmissionRejected" xml:space="preserve"><value>The transmission was not accepted by the transport.</value></data>
+  <data name="FailurePermissionBlocked" xml:space="preserve"><value>The required permission is blocked. Allow it in the application settings.</value></data>
+  <data name="FailureStorageUnavailable" xml:space="preserve"><value>Local storage is full or unavailable. Free space and try again.</value></data>
+  <data name="FailureUnavailable" xml:space="preserve"><value>That action is not available right now. Check the port configuration and try again.</value></data>
+  <data name="FailureCancelled" xml:space="preserve"><value>The operation was cancelled.</value></data>
+  <data name="FailureUnexpected" xml:space="preserve"><value>Something went wrong. Details were written to the diagnostic report.</value></data>
 </root>

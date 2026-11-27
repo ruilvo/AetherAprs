@@ -7,6 +7,7 @@ using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Objects;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
@@ -101,7 +102,7 @@ public sealed class BulletinService(
         List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
-            throw new InvalidOperationException("No enabled TX ports available to send the bulletin.");
+            throw new BroadcastFailedException(BroadcastFailure.NoTransmitRoute);
         }
 
         foreach (PortConfig port in txPorts)

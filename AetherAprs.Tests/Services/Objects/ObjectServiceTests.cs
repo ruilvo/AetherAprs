@@ -11,6 +11,7 @@ using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Objects;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Objects;
@@ -76,13 +77,16 @@ public sealed class ObjectServiceTests
         };
         ObjectService service = CreateObjectService(new FakePortService(port), Substitute.For<IPacketStorageService>());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        // The caller needs the reason as a domain state, not as a message it has to
+        // parse, so the failure carries the operator-visible category.
+        BroadcastFailedException failure = await Assert.ThrowsAsync<BroadcastFailedException>(
             () => service.CreateOrUpdateAsync(
                 "OBJ1",
                 new Coordinate(38.5, -9.0),
                 SymbolTable.Primary,
                 SymbolCode.HyphenMinus,
                 cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(BroadcastFailure.NoTransmitRoute, failure.Failure);
     }
 
     [Fact]
@@ -144,8 +148,9 @@ public sealed class ObjectServiceTests
             Substitute.For<IPacketStorageService>(),
             query);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        BroadcastFailedException failure = await Assert.ThrowsAsync<BroadcastFailedException>(
             () => service.KillAsync("UNKNOWN", TestContext.Current.CancellationToken));
+        Assert.Equal(BroadcastFailure.UnknownObject, failure.Failure);
     }
 
     [Fact]

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Factories.ViewModels;
+using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Objects;
@@ -53,6 +54,14 @@ public sealed partial class ObjectsViewModel(
     /// </summary>
     [ObservableProperty]
     public partial bool IsObjectsEmpty { get; set; } = true;
+
+    /// <summary>
+    /// Gets the reason the last kill request failed, or an empty string when the
+    /// last action succeeded. Killing an object is the only action on this page that
+    /// can fail after confirmation, so the text belongs next to the list.
+    /// </summary>
+    [ObservableProperty]
+    public partial string ErrorMessage { get; set; } = string.Empty;
 
     /// <summary>
     /// Reloads the object list from the object service. Called by the page
@@ -119,6 +128,9 @@ public sealed partial class ObjectsViewModel(
             return;
         }
 
+        // A retry must not keep showing the previous failure.
+        ErrorMessage = string.Empty;
+
         try
         {
             await _objectService.KillAsync(obj.Name);
@@ -126,7 +138,10 @@ public sealed partial class ObjectsViewModel(
         }
         catch (Exception ex)
         {
+            // The broadcast reason is a domain state, so the operator learns whether
+            // to enable a port or free storage instead of reading a provider message.
             _logger?.LogError(ex, "Failed to kill object {ObjectName}", obj.Name);
+            ErrorMessage = UserFacingFailure.Describe(ex);
         }
     }
 

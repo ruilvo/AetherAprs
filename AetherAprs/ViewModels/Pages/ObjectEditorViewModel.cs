@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -163,7 +164,7 @@ public partial class ObjectEditorViewModel(
         {
             // Surface the failure instead of silently swallowing it; the user
             // stays on the form and the button remains usable for a retry.
-            ErrorMessage = ex.Message;
+            ErrorMessage = UserFacingFailure.Describe(ex);
             _logger?.LogError(ex, "Failed to save or kill object {ObjectName}", name);
         }
         finally

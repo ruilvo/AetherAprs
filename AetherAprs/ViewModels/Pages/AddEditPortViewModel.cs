@@ -237,8 +237,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         {
             // Surface the failure instead of silently swallowing it; the user
             // stays on the form and the button remains usable for a retry. The
-            // message belongs to the save action, not to the Bluetooth scan status.
-            SaveErrorText = Strings.Format("ErrorPrefix", ex.Message);
+            // text belongs to the save action, not to the Bluetooth scan status,
+            // and it names the category rather than echoing the provider message.
+            SaveErrorText = Strings.Format("ErrorPrefix", UserFacingFailure.Describe(ex));
             _logger?.LogError(ex, "Failed to save port configuration");
         }
         finally
@@ -268,7 +269,10 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            BleStatusText = ex.Message;
+            // The adapter's message names Android internals; the category names the
+            // action (grant the permission, enable Bluetooth) the operator can take.
+            _logger?.LogWarning(ex, "Bluetooth LE permission check failed");
+            BleStatusText = UserFacingFailure.Describe(ex);
             return;
         }
 
@@ -306,7 +310,8 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            BleStatusText = ex.Message;
+            _logger?.LogWarning(ex, "Bluetooth LE scan failed");
+            BleStatusText = UserFacingFailure.Describe(ex);
         }
         finally
         {
@@ -359,7 +364,8 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            SppStatusText = ex.Message;
+            _logger?.LogWarning(ex, "Bluetooth Classic device refresh failed");
+            SppStatusText = UserFacingFailure.Describe(ex);
         }
     }
 

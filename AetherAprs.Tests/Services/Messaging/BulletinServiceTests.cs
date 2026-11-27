@@ -11,6 +11,7 @@ using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Objects;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Messaging;
@@ -93,8 +94,9 @@ public sealed class BulletinServiceTests
         };
         BulletinService service = CreateBulletinService(new FakePortService(port), Substitute.For<IPacketStorageService>());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        BroadcastFailedException failure = await Assert.ThrowsAsync<BroadcastFailedException>(
             () => service.SendAsync("BLN0SPCL", "text", TestContext.Current.CancellationToken));
+        Assert.Equal(BroadcastFailure.NoTransmitRoute, failure.Failure);
     }
 
     [Fact]

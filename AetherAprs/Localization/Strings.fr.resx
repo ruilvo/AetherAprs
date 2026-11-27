@@ -544,4 +544,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="StorageHealthWarning" xml:space="preserve"><value>Seulement {0} disponibles. Les anciens paquets seront supprimés avant la fin de la durée de conservation.</value></data>
   <data name="StorageHealthCritical" xml:space="preserve"><value>Seulement {0} disponibles. Les nouveaux paquets et caches ne pourront pas être enregistrés avant de libérer de l'espace.</value></data>
   <data name="StorageHealthRefresh" xml:space="preserve"><value>Vérifier à nouveau</value></data>
+  <data name="FailureNoTransmitRoute" xml:space="preserve"><value>Aucun port n'est activé pour l'émission. Activez un port dans Ports pour envoyer ceci.</value></data>
+  <data name="FailureUnknownObject" xml:space="preserve"><value>Cet objet n'a pas été reçu, il n'y a donc aucune position à signaler.</value></data>
+  <data name="FailureTransmissionRejected" xml:space="preserve"><value>Le transport n'a pas accepté la transmission.</value></data>
+  <data name="FailurePermissionBlocked" xml:space="preserve"><value>L'autorisation requise est bloquée. Autorisez-la dans les paramètres de l'application.</value></data>
+  <data name="FailureStorageUnavailable" xml:space="preserve"><value>Le stockage local est plein ou indisponible. Libérez de l'espace et réessayez.</value></data>
+  <data name="FailureUnavailable" xml:space="preserve"><value>Cette action n'est pas disponible pour le moment. Vérifiez la configuration du port et réessayez.</value></data>
+  <data name="FailureCancelled" xml:space="preserve"><value>L'opération a été annulée.</value></data>
+  <data name="FailureUnexpected" xml:space="preserve"><value>Une erreur est survenue. Les détails ont été écrits dans le rapport de diagnostic.</value></data>
 </root>

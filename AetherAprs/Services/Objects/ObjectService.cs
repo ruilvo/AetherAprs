@@ -8,6 +8,7 @@ using AetherAprs.Data.Mappers;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Objects;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
@@ -67,7 +68,9 @@ public sealed class ObjectService(
 
         if (existing?.Object is null)
         {
-            throw new InvalidOperationException($"No object named '{name}' is known.");
+            // Nothing was received from this object, so a killed report cannot reuse
+            // its last position. The reason is a domain state, not a message.
+            throw new BroadcastFailedException(BroadcastFailure.UnknownObject);
         }
 
         ObjectPacket packet = BuildPacket(
@@ -124,7 +127,7 @@ public sealed class ObjectService(
         List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
-            throw new InvalidOperationException("No enabled TX ports available to transmit the object.");
+            throw new BroadcastFailedException(BroadcastFailure.NoTransmitRoute);
         }
 
         foreach (PortConfig port in txPorts)

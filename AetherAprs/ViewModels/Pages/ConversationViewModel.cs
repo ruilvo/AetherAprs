@@ -4,6 +4,7 @@
 
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
+using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
@@ -120,7 +121,7 @@ public partial class ConversationViewModel(
         catch (Exception ex)
         {
             logger?.LogWarning(ex, "Failed to send message to {Addressee}", DestinationAddress);
-            ErrorMessage = ex.Message;
+            ErrorMessage = UserFacingFailure.Describe(ex);
         }
         finally
         {

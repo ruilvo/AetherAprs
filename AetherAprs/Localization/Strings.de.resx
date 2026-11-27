@@ -544,4 +544,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="StorageHealthWarning" xml:space="preserve"><value>Nur {0} verfügbar. Ältere Pakete werden früher als nach der Aufbewahrungsdauer entfernt.</value></data>
   <data name="StorageHealthCritical" xml:space="preserve"><value>Nur {0} verfügbar. Neue Pakete und Zwischenspeicher können erst nach dem Freigeben von Speicher gesichert werden.</value></data>
   <data name="StorageHealthRefresh" xml:space="preserve"><value>Erneut prüfen</value></data>
+  <data name="FailureNoTransmitRoute" xml:space="preserve"><value>Kein Port ist zum Senden aktiviert. Aktiviere einen Port unter Ports, um dies zu senden.</value></data>
+  <data name="FailureUnknownObject" xml:space="preserve"><value>Dieses Objekt wurde nicht empfangen, daher gibt es keine Position zu melden.</value></data>
+  <data name="FailureTransmissionRejected" xml:space="preserve"><value>Die Übertragung wurde vom Transport nicht angenommen.</value></data>
+  <data name="FailurePermissionBlocked" xml:space="preserve"><value>Die erforderliche Berechtigung ist gesperrt. Erlaube sie in den Anwendungseinstellungen.</value></data>
+  <data name="FailureStorageUnavailable" xml:space="preserve"><value>Der lokale Speicher ist voll oder nicht verfügbar. Gib Speicher frei und versuche es erneut.</value></data>
+  <data name="FailureUnavailable" xml:space="preserve"><value>Diese Aktion ist derzeit nicht verfügbar. Prüfe die Portkonfiguration und versuche es erneut.</value></data>
+  <data name="FailureCancelled" xml:space="preserve"><value>Der Vorgang wurde abgebrochen.</value></data>
+  <data name="FailureUnexpected" xml:space="preserve"><value>Etwas ist schiefgelaufen. Details stehen im Diagnosebericht.</value></data>
 </root>

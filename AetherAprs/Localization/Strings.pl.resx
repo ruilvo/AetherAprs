@@ -544,4 +544,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="StorageHealthWarning" xml:space="preserve"><value>Dostępne tylko {0}. Starsze pakiety zostaną usunięte wcześniej niż wynika z okresu przechowywania.</value></data>
   <data name="StorageHealthCritical" xml:space="preserve"><value>Dostępne tylko {0}. Nowe pakiety i pamięci podręczne nie zostaną zapisane, dopóki nie zwolnisz miejsca.</value></data>
   <data name="StorageHealthRefresh" xml:space="preserve"><value>Sprawdź ponownie</value></data>
+  <data name="FailureNoTransmitRoute" xml:space="preserve"><value>Żaden port nie jest włączony do nadawania. Włącz port w sekcji Porty, aby to wysłać.</value></data>
+  <data name="FailureUnknownObject" xml:space="preserve"><value>Ten obiekt nie został odebrany, więc nie ma pozycji do zgłoszenia.</value></data>
+  <data name="FailureTransmissionRejected" xml:space="preserve"><value>Transport nie przyjął transmisji.</value></data>
+  <data name="FailurePermissionBlocked" xml:space="preserve"><value>Wymagane uprawnienie jest zablokowane. Zezwól na nie w ustawieniach aplikacji.</value></data>
+  <data name="FailureStorageUnavailable" xml:space="preserve"><value>Pamięć lokalna jest pełna lub niedostępna. Zwolnij miejsce i spróbuj ponownie.</value></data>
+  <data name="FailureUnavailable" xml:space="preserve"><value>Ta czynność jest teraz niedostępna. Sprawdź konfigurację portu i spróbuj ponownie.</value></data>
+  <data name="FailureCancelled" xml:space="preserve"><value>Operacja została anulowana.</value></data>
+  <data name="FailureUnexpected" xml:space="preserve"><value>Coś poszło nie tak. Szczegóły zapisano w raporcie diagnostycznym.</value></data>
 </root>

@@ -161,7 +161,29 @@ public sealed class BulletinsViewModelTests : TestFixtureBase
 
         await vm.SendCommand.ExecuteAsync(null);
 
-        Assert.Equal("No TX ports", vm.ErrorMessage);
+        // The view model must not echo the provider text; it shows the localized
+        // category the operator can act on.
+        Assert.Equal(AetherAprs.Localization.Strings.Get("FailureUnavailable"), vm.ErrorMessage);
+        Assert.DoesNotContain("No TX ports", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Send_NoTransmitRoute_NamesTheMissingRoute()
+    {
+        IBulletinService bulletinService = Substitute.For<IBulletinService>();
+        bulletinService
+            .When(s => s.SendAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => throw new AetherAprs.Models.Objects.BroadcastFailedException(
+                AetherAprs.Models.Objects.BroadcastFailure.NoTransmitRoute));
+        BulletinsViewModel vm = CreateViewModel(bulletinService: bulletinService);
+        vm.Name = "BLN0SPCL";
+        vm.Text = "Special event";
+
+        await vm.SendCommand.ExecuteAsync(null);
+
+        // A typed reason is more specific than the generic category, so the operator
+        // is told exactly which configuration is missing.
+        Assert.Equal(AetherAprs.Localization.Strings.Get("FailureNoTransmitRoute"), vm.ErrorMessage);
     }
 
     [Fact]

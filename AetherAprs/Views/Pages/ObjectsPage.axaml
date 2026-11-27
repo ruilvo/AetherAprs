@@ -44,6 +44,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
                    Classes="EmptyState"
                    IsVisible="{Binding IsObjectsEmpty}" />
 
+        <!-- Failure from the last kill request -->
+        <TextBlock Text="{Binding ErrorMessage}"
+                   Classes="Caption"
+                   Foreground="{DynamicResource MaterialValidationErrorBrush}"
+                   TextWrapping="Wrap"
+                   Margin="0,8,0,0"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
         <!-- Object cards -->
         <ItemsControl ItemsSource="{Binding Objects}"
                       Classes="CardList"

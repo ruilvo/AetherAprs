@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Messaging;
@@ -144,7 +145,7 @@ public sealed partial class BulletinsViewModel(
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "Failed to send bulletin {BulletinName}", name);
-            ErrorMessage = ex.Message;
+            ErrorMessage = UserFacingFailure.Describe(ex);
         }
         finally
         {

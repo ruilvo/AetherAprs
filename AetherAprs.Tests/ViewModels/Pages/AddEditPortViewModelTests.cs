@@ -191,7 +191,12 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
 
         await viewModel.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal("Error: storage unavailable", viewModel.SaveErrorText);
+        // The provider text stays in the log; the operator sees a stable, localized
+        // category instead of an English exception message.
+        Assert.Equal(
+            Strings.Format("ErrorPrefix", Strings.Get("FailureUnavailable")),
+            viewModel.SaveErrorText);
+        Assert.DoesNotContain("storage unavailable", viewModel.SaveErrorText);
         Assert.Equal(string.Empty, viewModel.BleStatusText);
         nav.DidNotReceive().GoBack();
     }
@@ -209,7 +214,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
             Substitute.For<IBluetoothClassicDeviceProvider>(),
             new AprsIsFilterBuilderViewModel());
         viewModel.Initialize("N0CALL", 1);
-        viewModel.SaveErrorText = "Error: storage unavailable";
+        viewModel.SaveErrorText = Strings.Format("ErrorPrefix", Strings.Get("FailureUnavailable"));
 
         await viewModel.SaveCommand.ExecuteAsync(null);
 

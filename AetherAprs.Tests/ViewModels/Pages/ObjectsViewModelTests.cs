@@ -7,8 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
+using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Objects;
 using AetherAprs.Services.Objects;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
@@ -188,6 +190,26 @@ public sealed class ObjectsViewModelTests
         await vm.KillCommand.ExecuteAsync(new ObjectPacket { Name = "SHELTER1" });
 
         await objectService.Received(1).KillAsync("SHELTER1", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Kill_WhenTheServiceRejectsTheBroadcast_ShowsTheReason()
+    {
+        IObjectService objectService = Substitute.For<IObjectService>();
+        objectService
+            .When(s => s.KillAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => throw new BroadcastFailedException(BroadcastFailure.NoTransmitRoute));
+        IConfirmationDialogService confirmation = Substitute.For<IConfirmationDialogService>();
+        confirmation.ShowConfirmationAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        ObjectsViewModel vm = CreateViewModel(objectService: objectService, confirmationDialogService: confirmation);
+        Assert.Equal(string.Empty, vm.ErrorMessage);
+
+        await vm.KillCommand.ExecuteAsync(new ObjectPacket { Name = "SHELTER1" });
+
+        // A failed kill used to be logged and swallowed, leaving the operator with no
+        // feedback and the object silently still live.
+        Assert.Equal(Strings.Get("FailureNoTransmitRoute"), vm.ErrorMessage);
     }
 
     [Fact]

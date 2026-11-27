@@ -544,4 +544,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="StorageHealthWarning" xml:space="preserve"><value>Apenas {0} disponíveis. Os pacotes antigos serão removidos antes da janela de retenção.</value></data>
   <data name="StorageHealthCritical" xml:space="preserve"><value>Apenas {0} disponíveis. Não será possível armazenar pacotes nem caches novos até liberar espaço.</value></data>
   <data name="StorageHealthRefresh" xml:space="preserve"><value>Verificar novamente</value></data>
+  <data name="FailureNoTransmitRoute" xml:space="preserve"><value>Nenhuma porta está habilitada para transmissão. Habilite uma porta em Portas para enviar isto.</value></data>
+  <data name="FailureUnknownObject" xml:space="preserve"><value>Este objeto não foi recebido, então não há posição para informar.</value></data>
+  <data name="FailureTransmissionRejected" xml:space="preserve"><value>O transporte não aceitou a transmissão.</value></data>
+  <data name="FailurePermissionBlocked" xml:space="preserve"><value>A permissão necessária está bloqueada. Permita-a nas configurações do aplicativo.</value></data>
+  <data name="FailureStorageUnavailable" xml:space="preserve"><value>O armazenamento local está cheio ou indisponível. Libere espaço e tente novamente.</value></data>
+  <data name="FailureUnavailable" xml:space="preserve"><value>Essa ação não está disponível no momento. Verifique a configuração da porta e tente novamente.</value></data>
+  <data name="FailureCancelled" xml:space="preserve"><value>A operação foi cancelada.</value></data>
+  <data name="FailureUnexpected" xml:space="preserve"><value>Algo deu errado. Os detalhes foram gravados no relatório de diagnóstico.</value></data>
 </root>
