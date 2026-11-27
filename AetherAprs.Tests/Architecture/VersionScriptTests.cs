@@ -106,6 +106,23 @@ public sealed class VersionScriptTests
     }
 
     [Fact]
+    public void ReleaseBuildScriptInvokesTheVersionScriptThroughBash()
+    {
+        // The version script is not guaranteed to carry the execute bit after a
+        // checkout (Windows working copies and checkouts that ignore file modes
+        // both drop it), so calling it directly fails with exit code 126 on Linux.
+        // Invoking it through bash is mode-independent and works on every platform.
+        string repositoryRoot = SourceScanner.FindRepositoryRoot();
+        string script = File.ReadAllText(
+            Path.Combine(repositoryRoot, BuildScriptRelativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+        Assert.Contains(
+            "bash \"$REPO_ROOT/.github/scripts/extract-version.sh\"",
+            script,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReleaseBuildScriptSignsAndPinsBuildToolsOnlyWhenTheEnvironmentProvidesThem()
     {
         VersionResult result = RunScriptFile(

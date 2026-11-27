@@ -24,7 +24,9 @@ cd "$REPO_ROOT"
 
 TAG=${TAG:-$(git describe --tags --abbrev=0)}
 
-VERSION_OUTPUT=$("$REPO_ROOT/.github/scripts/extract-version.sh" "$TAG")
+# Invoke through bash rather than relying on the execute bit: a checkout that does
+# not preserve file modes (or a Windows working copy) would otherwise fail with 126.
+VERSION_OUTPUT=$(bash "$REPO_ROOT/.github/scripts/extract-version.sh" "$TAG")
 VERSION_CODE=$(printf '%s\n' "$VERSION_OUTPUT" | sed -n 's/^version_code=//p')
 VERSION_NAME=$(printf '%s\n' "$VERSION_OUTPUT" | sed -n 's/^version_name=//p')
 
