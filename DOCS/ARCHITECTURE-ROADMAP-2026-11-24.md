@@ -207,9 +207,7 @@ contract and its callers together, and test the observable result.
 
 | ID / prerequisite | Starting points and change | Acceptance |
 |---|---|---|
-| R6.3 Position and beaconing / R1.3, R2.2 | `BeaconService`, beacon decision/transmit code, `ILocationService`, `HomeViewModel`. Give the application a single location coordinator with purposes for map and beacon; snapshots carry sample time and optional accuracy. Ship configurable Walk/Drive/Custom (targets Walk 5 min/100 m, Drive 2 min/500 m); inspect actual defaults and preserve explicit user config. Preview encoded position/path/symbol. Coalesce queued position work per identity/profile, require freshness at send, and expire stale work visibly. | Fake clock and location prove manual/periodic behaviour, bad-fix suppression, partial send, and one location worker across navigation. |
 | R6.4 Packet explorer / R1.2, R4 | `ReceivedBeaconsMapLayerService`, map views, history/search ViewModels. Bound query and layer work; use stable paging `(timestamp, id)` and cancel superseded search/render. Preserve selected and own station through updates; support trails, age/port filters, clustering and follow mode. Show receipt/protocol times separately with raw/path/port provenance plus decoded weather, telemetry, objects/items and unknown-frame detail. | In-process dataset with paging ties and rapid filter switches; superseded search and render cancellation observed; selection and own station preserved across updates. |
-| R6.5 Forwarding / R2.2, R2.3 | Digipeat/gateway settings UI: independent direction switches, default off, explicit operator enablement and arm, per-port participation and validated aliases. The pure path-mutation policy, loop checks, scoped duplicate cache, bounded age, rate limits, Internet-to-RF allowlists, bounded counters and route/reason history are in place; wire them to the operator settings and keep provenance. Route all sends through the same TX policy. Never replay forwarding after reconnect or restart. | Golden tests cover third-party encapsulation and prove no stale RF send after reconnect or restart; settings tests prove nothing is forwarded until the operator enables and arms it. |
 | R6.6 Transport setup and audio / R2.1, R5 | Port editor, `KissStreamFactory`, Android Bluetooth adapters, AFSK/audio/PTT. Distinguish generic Classic SPP, supported BLE profiles (including the compatible LilyGO T-Echo Plus firmware target) and KISS TCP. Report connection stage, GATT service/characteristics, CCCD, write mode, negotiated usable payload and reconnect outcome. For AFSK show route, sample rate, level, calibration, RX/TX state and audio focus; separate VOX from physical PTT capability. Revalidate route and authorization before TX after a route switch. | Fake connector covers each negotiation failure; GATT tests cover chunk/retry and stale callbacks, audio tests cover short writes and focus/route loss, one brief device check exercises each changed native behaviour. Keep unsupported routes visibly unavailable. |
 | R6.7 Local data and support / R1, R3 | `AppSavedDataInitializer`, retention, configuration providers, diagnostics, Android backup resources. Private database/log/cache paths, configurable packet retention (30-day target), disk-pressure signalling and preserve-on-migration-failure. | Disk-backed migration/reopen with synthetic data, low-space and failed-upgrade cases, and backup rule review. A missing key blocks affected TX without hiding unrelated ports. |
 | R6.8 Presentation finish / R4 | ViewLocator, dialogs, styles, strings and packet converters. Replace misleading errors and placeholders, use domain success/failure states, keep the language resources together, and review labels, dynamic text, contrast and portrait/landscape. English, Portuguese and Spanish resources ship today and `AetherAprs.Tests/Architecture/StringsResourceTests.cs` fails the suite when a language file is missing a key, drops a format argument or carries an empty value; add the remaining common languages on top of that check. | Typed-binding and localization checks, targeted navigation/dialog tests, brief accessibility check on the touched screen. |
@@ -224,11 +222,11 @@ existing functionality unless a documented safety decision changes it.
 ### R7 Build and distribution maintenance
 
 - Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
-   framework only; trimming the application and its dependencies adds IL2026 for the
-   `GroupBy` key projections in `PacketQueryService` and for the `SettingsViewModel`
-   setters reached from two-way bindings, and IL2104 for EF Core, which has no compiled
-   model, and for `Material.Styles`. Clear those hazards, then validate a fully trimmed
-   APK on a device before making it the release default.
+   framework only; trimming the application and its dependencies adds IL2104 for EF
+   Core, which has no compiled model, and for `Material.Styles`. The application's own
+   IL2026 hazards are cleared. Clear the remaining third-party warnings or record why
+   they are accepted, then validate a fully trimmed APK on a device before making it
+   the release default.
 
 ## Definition of architectural done
 
