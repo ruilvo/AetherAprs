@@ -330,6 +330,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Max retries must be between 0 and 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Retry timeout must be between 5 and 300 seconds</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Comment cannot exceed 43 characters</value></data>
+  <data name="ValidationPortNameRequired" xml:space="preserve"><value>Enter a name for this port</value></data>
+  <data name="ValidationPortNameTooLong" xml:space="preserve"><value>Port name cannot exceed {0} characters</value></data>
+  <data name="ValidationServerRequired" xml:space="preserve"><value>Enter the APRS-IS server address</value></data>
+  <data name="ValidationServerTooLong" xml:space="preserve"><value>Server address cannot exceed {0} characters</value></data>
+  <data name="ValidationPortRange" xml:space="preserve"><value>Port must be between {0} and {1}</value></data>
+  <data name="ValidationPasscodeRequired" xml:space="preserve"><value>Enter a passcode, or -1 for receive-only access</value></data>
+  <data name="ValidationPasscodeTooLong" xml:space="preserve"><value>Passcode cannot exceed {0} characters</value></data>
+  <data name="ValidationFilterTooLong" xml:space="preserve"><value>Filter cannot exceed {0} characters</value></data>
+  <data name="ValidationTcpHostRequired" xml:space="preserve"><value>Enter the KISS TCP host</value></data>
+  <data name="ValidationTcpHostTooLong" xml:space="preserve"><value>KISS TCP host cannot exceed {0} characters</value></data>
+  <data name="ValidationBluetoothDeviceRequired" xml:space="preserve"><value>Select a Bluetooth device for this port</value></data>
   <data name="TimeRangeLastHour" xml:space="preserve"><value>Last Hour</value></data>
   <data name="TimeRangeLastDay" xml:space="preserve"><value>Last Day</value></data>
   <data name="TimeRangeLastWeek" xml:space="preserve"><value>Last Week</value></data>

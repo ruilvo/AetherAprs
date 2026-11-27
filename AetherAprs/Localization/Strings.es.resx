@@ -330,6 +330,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Los reintentos máximos deben estar entre 0 y 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>El tiempo de espera de reintento debe estar entre 5 y 300 segundos</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>El comentario no puede superar los 43 caracteres</value></data>
+  <data name="ValidationPortNameRequired" xml:space="preserve"><value>Introduzca un nombre para este puerto</value></data>
+  <data name="ValidationPortNameTooLong" xml:space="preserve"><value>El nombre del puerto no puede superar los {0} caracteres</value></data>
+  <data name="ValidationServerRequired" xml:space="preserve"><value>Introduzca la dirección del servidor APRS-IS</value></data>
+  <data name="ValidationServerTooLong" xml:space="preserve"><value>La dirección del servidor no puede superar los {0} caracteres</value></data>
+  <data name="ValidationPortRange" xml:space="preserve"><value>El puerto debe estar entre {0} y {1}</value></data>
+  <data name="ValidationPasscodeRequired" xml:space="preserve"><value>Introduzca un código de acceso, o -1 para acceso de solo recepción</value></data>
+  <data name="ValidationPasscodeTooLong" xml:space="preserve"><value>El código de acceso no puede superar los {0} caracteres</value></data>
+  <data name="ValidationFilterTooLong" xml:space="preserve"><value>El filtro no puede superar los {0} caracteres</value></data>
+  <data name="ValidationTcpHostRequired" xml:space="preserve"><value>Introduzca el host TCP de KISS</value></data>
+  <data name="ValidationTcpHostTooLong" xml:space="preserve"><value>El host TCP de KISS no puede superar los {0} caracteres</value></data>
+  <data name="ValidationBluetoothDeviceRequired" xml:space="preserve"><value>Seleccione un dispositivo Bluetooth para este puerto</value></data>
   <data name="TimeRangeLastHour" xml:space="preserve"><value>Última hora</value></data>
   <data name="TimeRangeLastDay" xml:space="preserve"><value>Último día</value></data>
   <data name="TimeRangeLastWeek" xml:space="preserve"><value>Última semana</value></data>
