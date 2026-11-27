@@ -31,13 +31,11 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyDictionary<string, PacketRecord>>(nameof(GetMostRecentPacketsAsync), async (context, ct) =>
         {
-            // Use max IDs in a separate query to avoid EF SQLite group-projection limitations.
-            List<long> maxIds = await context.Packets
-                .GroupBy(packet => new { packet.SourceBase, packet.SourceSsid })
-                .Select(group => group.Max(packet => packet.Id))
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            List<PacketRecord> packets = await GetLatestByIdsAsync(context, maxIds, limit, ct).ConfigureAwait(false);
+            // A correlated subquery selects the newest row per station without grouping by
+            // a projected key: an anonymous-type GroupBy selector compiles to
+            // Expression.New, which the trimmer cannot verify so it reports IL2026.
+            List<PacketRecord> packets = await GetLatestAsync(NewestPerStation(context.Packets), limit, ct)
+                .ConfigureAwait(false);
             return ByCallsign(packets);
         }, cancellationToken);
 
@@ -46,13 +44,10 @@ internal sealed class PacketQueryService(
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyDictionary<string, PacketRecord>>(nameof(GetMostRecentPositionPacketsAsync), async (context, ct) =>
         {
-            List<long> maxIds = await context.Packets
-                .Where(packet => packet.Position != null)
-                .GroupBy(packet => new { packet.SourceBase, packet.SourceSsid })
-                .Select(group => group.Max(packet => packet.Id))
-                .ToListAsync(ct).ConfigureAwait(false);
-
-            List<PacketRecord> packets = await GetLatestByIdsAsync(context, maxIds, limit, ct).ConfigureAwait(false);
+            List<PacketRecord> packets = await GetLatestAsync(
+                NewestPerStation(context.Packets.Where(packet => packet.Position != null)),
+                limit,
+                ct).ConfigureAwait(false);
             return ByCallsign(packets);
         }, cancellationToken);
 
@@ -274,6 +269,11 @@ internal sealed class PacketQueryService(
             throw;
         }
     }
+
+    private static IQueryable<PacketRecord> NewestPerStation(IQueryable<PacketRecord> packets) =>
+        packets.Where(packet => packet.Id == packets
+            .Where(inner => inner.SourceBase == packet.SourceBase && inner.SourceSsid == packet.SourceSsid)
+            .Max(inner => inner.Id));
 
     private static IQueryable<PacketRecord> FilterByCallsign(IQueryable<PacketRecord> packets, string callsign)
     {
