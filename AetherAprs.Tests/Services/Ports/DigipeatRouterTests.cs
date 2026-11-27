@@ -231,6 +231,33 @@ public sealed class DigipeatRouterTests
     }
 
     [Fact]
+    public async Task DiscardedCandidate_IsRecordedInTheSharedDecisionHistory()
+    {
+        PortConfig source = CreatePort("RF");
+        PortConfig target = CreatePort("Target");
+        DigipeatDecisionLog decisionLog = new();
+
+        await using DigipeatRouter router = CreateRouter(
+            source,
+            target,
+            CreateSessionManager(source.Id, target.Id),
+            CreateDigipeater(target.Id),
+            decisionLog: decisionLog);
+
+        Guid unknownSource = Guid.NewGuid();
+        router.Enqueue(unknownSource, CreatePacket());
+
+        await WaitForAsync(
+            () => router.GetDiscardedCandidateCount(unknownSource) == 1,
+            "A candidate from an unknown source must be discarded.");
+
+        DigipeatDecisionRecord record = Assert.Single(router.GetRecentDecisions());
+        Assert.Equal(unknownSource, record.SourcePortId);
+        Assert.Equal(DigipeatReason.SourcePortUnknown, record.Reason);
+        Assert.Equal(1, router.GetDecisionCount(DigipeatReason.SourcePortUnknown));
+    }
+
+    [Fact]
     public async Task Enqueue_BeforeStart_IsForwardedOnceTheRouterStarts()
     {
         PortConfig source = CreatePort("Source");
@@ -266,7 +293,8 @@ public sealed class DigipeatRouterTests
         IPortSessionManager sessionManager,
         IDigipeaterService digipeater,
         DigipeatRouterOptions? options = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        DigipeatDecisionLog? decisionLog = null)
     {
         DigipeatRouter router = new(
             new FakeConfigurationSource(source, target),
@@ -274,7 +302,8 @@ public sealed class DigipeatRouterTests
             digipeater,
             NullLogger<DigipeatRouter>.Instance,
             options: options,
-            timeProvider: timeProvider);
+            timeProvider: timeProvider,
+            decisionLog: decisionLog);
 
         // The consumer is a startup phase, so the helper starts it explicitly.
         // StartAsync completes synchronously.

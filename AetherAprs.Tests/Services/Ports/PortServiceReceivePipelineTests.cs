@@ -634,6 +634,16 @@ public sealed class PortServiceReceivePipelineTests
             return OnGetDigipeatTargets?.Invoke(packet, sourcePortId, sourcePortIsAprsIs, availablePorts)
                 ?? [];
         }
+
+        public IReadOnlyList<DigipeatDecision> Evaluate(
+            AprsPacket packet,
+            Guid sourcePortId,
+            bool sourcePortIsAprsIs,
+            IReadOnlyList<PortInfo> availablePorts) => [];
+
+        public IReadOnlyList<DigipeatDecisionRecord> GetRecentDecisions(int maximum = DigipeatDecisionLog.DefaultCapacity) => [];
+
+        public long GetDecisionCount(DigipeatReason reason) => 0;
     }
 
     /// <summary>
@@ -687,6 +697,16 @@ public sealed class PortServiceReceivePipelineTests
 
             return [];
         }
+
+        public IReadOnlyList<DigipeatDecision> Evaluate(
+            AprsPacket packet,
+            Guid sourcePortId,
+            bool sourcePortIsAprsIs,
+            IReadOnlyList<PortInfo> availablePorts) => [];
+
+        public IReadOnlyList<DigipeatDecisionRecord> GetRecentDecisions(int maximum = DigipeatDecisionLog.DefaultCapacity) => [];
+
+        public long GetDecisionCount(DigipeatReason reason) => 0;
     }
 
     /// <summary>

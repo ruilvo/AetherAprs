@@ -420,6 +420,16 @@ public sealed class PortServiceTests
             Guid sourcePortId,
             bool sourcePortIsAprsIs,
             IReadOnlyList<PortInfo> availablePorts) => [];
+
+        public IReadOnlyList<DigipeatDecision> Evaluate(
+            AprsPacket packet,
+            Guid sourcePortId,
+            bool sourcePortIsAprsIs,
+            IReadOnlyList<PortInfo> availablePorts) => [];
+
+        public IReadOnlyList<DigipeatDecisionRecord> GetRecentDecisions(int maximum = DigipeatDecisionLog.DefaultCapacity) => [];
+
+        public long GetDecisionCount(DigipeatReason reason) => 0;
     }
 
     private sealed class CountingKissStreamFactory : IKissStreamFactory
