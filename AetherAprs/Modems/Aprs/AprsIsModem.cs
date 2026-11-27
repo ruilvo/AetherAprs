@@ -48,6 +48,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private CancellationTokenSource? _readCts;
     private Task? _readTask;
     private TaskCompletionSource<bool> _connectionReady = CreateConnectionReadySource();
+    private AprsIsLoginStatus _loginStatus;
     private int _connectionVersion;
     private bool _started;
     private bool _disposed;
@@ -155,6 +156,25 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the login outcome the server reported for the current connection.
+    /// </summary>
+    /// <remarks>
+    /// Only <see cref="AprsIsLoginStatus.Verified"/> permits transmission: the
+    /// APRS-IS server silently ignores lines from an unverified connection, so a
+    /// send on one is refused instead of appearing to succeed.
+    /// </remarks>
+    internal AprsIsLoginStatus LoginStatus
+    {
+        get
+        {
+            lock (_connectionLock)
+            {
+                return _loginStatus;
+            }
+        }
+    }
+
     /// <inheritdoc />
     public void Start()
     {
@@ -236,6 +256,10 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
             _reader = null;
             _writer = null;
             _stream = null;
+
+            // A disconnected modem has no login outcome yet. Keeping the previous
+            // one would let a stale "verified" outlive the connection it described.
+            _loginStatus = AprsIsLoginStatus.Pending;
         }
     }
 
@@ -262,16 +286,28 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         await readyTask.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         StreamWriter? writer;
+        AprsIsLoginStatus loginStatus;
         int connectionVersion;
         lock (_connectionLock)
         {
             writer = _writer;
+            loginStatus = _loginStatus;
             connectionVersion = _connectionVersion;
         }
 
         if (writer is null)
         {
             throw new InvalidOperationException("Modem is not connected. Call Start() first and ensure connection is established.");
+        }
+
+        if (loginStatus != AprsIsLoginStatus.Verified)
+        {
+            // The server acknowledged the connection but not the passcode, so it
+            // will not relay anything we write. Failing here keeps the port
+            // honestly read-only instead of reporting a send the server drops.
+            throw new InvalidOperationException(
+                "APRS-IS login is unverified, so the server will not relay transmitted packets. " +
+                "Provide a valid passcode for the station callsign to enable transmit.");
         }
 
         try
@@ -553,10 +589,12 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                     _logger.LogWarning(
                         "APRS-IS login is unverified (read-only): {Response}. Receiving works, but transmitted packets will not be relayed.",
                         line);
+                    SetLoginStatus(AprsIsLoginStatus.Unverified);
                     connectionReady.TrySetResult(true);
                 }
                 else if (line.Contains(" verified", StringComparison.OrdinalIgnoreCase))
                 {
+                    SetLoginStatus(AprsIsLoginStatus.Verified);
                     connectionReady.TrySetResult(true);
                 }
                 else
@@ -590,6 +628,17 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         FaultConnectionReady(
             connectionReady,
             new IOException("APRS-IS connection closed before authentication completed."));
+    }
+
+    /// <summary>
+    /// Records the login outcome the server reported for the current connection.
+    /// </summary>
+    private void SetLoginStatus(AprsIsLoginStatus status)
+    {
+        lock (_connectionLock)
+        {
+            _loginStatus = status;
+        }
     }
 
     /// <summary>

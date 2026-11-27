@@ -327,10 +327,11 @@ public class AprsIsModemTests
     // ---------------------------------------------------------------
 
     [Fact]
-    public async Task SendAsync_AfterUnverifiedLogin_UsesQaoConstructor()
+    public async Task SendAsync_AfterUnverifiedLogin_RefusesToTransmit()
     {
-        // "unverified" is a successful READ-ONLY login (invalid/missing
-        // passcode): the modem must accept it and keep transmitting.
+        // "unverified" is a successful READ-ONLY login (missing/invalid passcode):
+        // receiving works, but the server silently discards anything we transmit.
+        // The modem must refuse the send rather than report one the server drops.
         using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
         IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
@@ -348,6 +349,11 @@ public class AprsIsModemTests
         _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
         await writer.WriteLineAsync("# logresp N0CALL unverified, server TEST");
         await writer.FlushAsync(TestContext.Current.CancellationToken);
+        await modem.ConnectionReady.WaitAsync(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AprsIsLoginStatus.Unverified, modem.LoginStatus);
 
         PositionPacket packet = new()
         {
@@ -358,10 +364,43 @@ public class AprsIsModemTests
             Precision = 2
         };
 
-        await modem.SendAsync(packet, TestContext.Current.CancellationToken);
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => modem.SendAsync(packet, TestContext.Current.CancellationToken));
 
-        string? transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
+        Assert.Contains("unverified", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StopAsync_AfterVerifiedLogin_ResetsLoginStatusToPending()
+    {
+        // The login outcome belongs to one connection. Keeping "verified" after a
+        // teardown would let the next connection's senders skip the new login.
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345", "m/50");
+
+        modem.Start();
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream stream = server.GetStream();
+        using StreamReader reader = new(stream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(stream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        _ = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+        await modem.ConnectionReady.WaitAsync(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AprsIsLoginStatus.Verified, modem.LoginStatus);
+
+        await modem.StopAsync();
+
+        Assert.Equal(AprsIsLoginStatus.Pending, modem.LoginStatus);
     }
 
     [Fact]
