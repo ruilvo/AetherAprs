@@ -226,15 +226,12 @@ existing functionality unless a documented safety decision changes it.
 
 ### R7 Build and distribution maintenance
 
-1. Pass signing secrets using a supported secret-safe channel and verify masking and
-   workspace cleanup. Validate tag/version-code inputs for collisions and check
-   release source before signing.
-2. Pin external actions where practical. If publishing an SBOM, generate it from the
+1. Pin external actions where practical. If publishing an SBOM, generate it from the
    actual resolved build, publish it and verify its association with the APK; keep the
    claim out of the documentation until the workflow really does it.
-3. Preserve GitHub Releases as the distribution channel and keep artifact checksum,
+2. Preserve GitHub Releases as the distribution channel and keep artifact checksum,
    signature and upgrade behaviour verifiable. Use release notes for version history.
-4. Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
+3. Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
    framework only; trimming the application and its dependencies adds IL2026 for the
    `GroupBy` key projections in `PacketQueryService` and for the `SettingsViewModel`
    setters reached from two-way bindings, and IL2104 for EF Core, which has no compiled
