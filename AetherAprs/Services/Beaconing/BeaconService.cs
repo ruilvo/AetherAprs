@@ -34,11 +34,25 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private BeaconConfig _walkConfig = BeaconConfig.CreateWalkPreset();
     private BeaconConfig _driveConfig = BeaconConfig.CreateDrivePreset();
     private BeaconConfig _customConfig = BeaconConfig.CreateCustomPreset();
-    internal DateTime LastTransmitTime { get; set; }
+
+    /// <summary>
+    /// When the last beacon was <em>confirmed</em> on a route. A decision to transmit
+    /// never advances this: only a successful send does, so a failure cannot quietly
+    /// postpone the next attempt by a whole interval.
+    /// </summary>
+    internal DateTime LastSuccessfulTransmitTime { get; set; }
+
     private double? _lastCourseDegrees;
     private LocationData? _currentLocation;
     private LocationData? _previousLocation;
     private BeaconTransmitDecision? _currentDecision;
+
+    /// <summary>Whether a request was raised and its send result has not arrived yet.</summary>
+    private bool _awaitingTransmissionResult;
+
+    /// <summary>Earliest instant the next attempt may be requested after a failure.</summary>
+    private DateTime? _retryNotBefore;
+
     private bool _disposed;
 
     public event EventHandler<BeaconRequestedEventArgs>? BeaconRequested;
@@ -59,7 +73,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         _logger = logger ?? NullLogger<BeaconService>.Instance;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _geodeticCalculator = new SpheroidCalculator(Spheroid.Wgs84);
-        LastTransmitTime = UtcNow;
+        LastSuccessfulTransmitTime = UtcNow;
         TimeSpan interval = TimeSpan.FromMilliseconds(EvaluationIntervalMilliseconds);
         _evaluationTimer = _timeProvider.CreateTimer(OnEvaluationTimer, null, interval, interval);
     }
@@ -153,7 +167,12 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         {
             _logger.LogInformation("Beacon mode changed from {PreviousMode} to {NewMode}", _activeMode, mode);
             _activeMode = mode;
-            LastTransmitTime = UtcNow;
+
+            // A mode switch restarts the schedule from now: the operator asked for a
+            // different cadence, not for an immediate beacon under the old one.
+            LastSuccessfulTransmitTime = UtcNow;
+            _awaitingTransmissionResult = false;
+            _retryNotBefore = null;
         }
     }
 
@@ -209,29 +228,30 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
     public void ReportBeaconTransmissionResult(bool success)
     {
-        if (!success)
+        lock (_lock)
         {
-            lock (_lock)
+            // The send outcome resolves the pending request either way. Only a
+            // confirmed send moves the schedule forward.
+            _awaitingTransmissionResult = false;
+
+            if (success)
             {
-                BeaconTransmitDecision? decision = _currentDecision;
-                if (decision is null || !decision.ShouldTransmit)
-                {
-                    return;
-                }
-
-                // Schedule a retry after the backoff window: wind LastTransmitTime back so
-                // the next evaluation reports ShouldTransmit only once the backoff elapses.
-                int remainingBackoff = Math.Max(0, decision.ActiveIntervalSeconds - TransmissionRetryBackoffSeconds);
-                LastTransmitTime = UtcNow - TimeSpan.FromSeconds(remainingBackoff);
-
+                LastSuccessfulTransmitTime = UtcNow;
+                _retryNotBefore = null;
+            }
+            else
+            {
+                // A failure leaves the last-successful instant untouched, so the
+                // caller retries after a short backoff instead of a full interval.
+                _retryNotBefore = UtcNow + TimeSpan.FromSeconds(TransmissionRetryBackoffSeconds);
                 _logger.LogWarning(
                     "Beacon transmission failed; retry scheduled in {RetrySeconds}s",
-                    decision.ActiveIntervalSeconds - remainingBackoff);
+                    TransmissionRetryBackoffSeconds);
             }
         }
 
-        // Re-evaluate so CurrentDecision reflects the updated timer without waiting
-        // for the next evaluation tick.
+        // Re-evaluate so CurrentDecision reflects the confirmed outcome without
+        // waiting for the next evaluation tick.
         EvaluateBeaconConditions();
     }
 
@@ -252,6 +272,37 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
         lock (_lock)
         {
+            // While a request is in flight, an evaluation must not raise a second
+            // one: the outcome decides whether the schedule advanced or a retry is due.
+            if (_awaitingTransmissionResult)
+            {
+                _currentDecision = new BeaconTransmitDecision
+                {
+                    ShouldTransmit = false,
+                    Reason = new BeaconTransmitReason.AwaitingTimeInterval(),
+                    ActiveIntervalSeconds = CurrentConfigurationNoLock().SlowIntervalSeconds,
+                    SecondsUntilNextBeacon = 0
+                };
+                return;
+            }
+
+            // After a failed attempt the retry window is honoured before the normal
+            // interval is considered again.
+            if (_retryNotBefore is { } retryAt && UtcNow < retryAt)
+            {
+                int secondsUntilRetry = Math.Max(
+                    0,
+                    (int)Math.Ceiling((retryAt - UtcNow).TotalSeconds));
+                _currentDecision = new BeaconTransmitDecision
+                {
+                    ShouldTransmit = false,
+                    Reason = new BeaconTransmitReason.AwaitingTimeInterval(),
+                    ActiveIntervalSeconds = CurrentConfigurationNoLock().SlowIntervalSeconds,
+                    SecondsUntilNextBeacon = secondsUntilRetry
+                };
+                return;
+            }
+
             if (_currentLocation == null)
             {
                 // No location available yet
@@ -276,8 +327,10 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
 
             if (decision.ShouldTransmit)
             {
-                // Reset timer automatically when beacon is requested
-                LastTransmitTime = UtcNow;
+                // The schedule is not advanced here: it only moves once the send is
+                // confirmed. Marking the request pending keeps the timer from asking
+                // again while the outcome is on its way.
+                _awaitingTransmissionResult = true;
 
                 // Prepare event args to raise outside the lock
                 eventArgs = new BeaconRequestedEventArgs
@@ -302,16 +355,21 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         }
     }
 
+    /// <summary>Reads the active configuration; callers already hold <see cref="_lock"/>.</summary>
+    private BeaconConfig CurrentConfigurationNoLock() => _activeMode switch
+    {
+        DynamicBeaconMode.Walk => _walkConfig,
+        DynamicBeaconMode.Drive => _driveConfig,
+        DynamicBeaconMode.Custom => _customConfig,
+        _ => _walkConfig
+    };
+
     private BeaconTransmitDecision EvaluateLocationUpdateInternal(LocationData currentLocation, LocationData? previousLocation)
     {
-        TimeSpan timeSinceLastTransmit = UtcNow - LastTransmitTime;
-        BeaconConfig config = _activeMode switch
-        {
-            DynamicBeaconMode.Walk => _walkConfig,
-            DynamicBeaconMode.Drive => _driveConfig,
-            DynamicBeaconMode.Custom => _customConfig,
-            _ => _walkConfig
-        };
+        // The interval is measured from the last confirmed send, so a failed attempt
+        // never makes the next one wait a full interval.
+        TimeSpan timeSinceLastTransmit = UtcNow - LastSuccessfulTransmitTime;
+        BeaconConfig config = CurrentConfigurationNoLock();
 
         // No previous location - can't calculate speed/course, use time-based decision
         if (previousLocation == null)

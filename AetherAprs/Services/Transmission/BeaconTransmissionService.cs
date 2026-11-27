@@ -68,8 +68,15 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     private readonly IPacketFactory _packetFactory;
     private readonly ILogger<BeaconTransmissionService> _logger;
     private readonly IBeaconTransmitQueue? _queue;
+    private readonly TimeProvider _timeProvider;
     private string _beaconStatus = Strings.Get("BeaconSystemReady");
     private bool _disposed;
+
+    /// <summary>Oldest sample still worth putting on the air.</summary>
+    internal static readonly TimeSpan MaximumFixAge = TimeSpan.FromMinutes(5);
+
+    /// <summary>Worst reported horizontal accuracy still accepted for a beacon.</summary>
+    internal const double MaximumAccuracyMeters = 500;
 
     public BeaconTransmitDecision? LastBeaconDecision { get; private set; }
 
@@ -95,7 +102,8 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         IAprsPortSettingsResolver portSettingsResolver,
         IPacketFactory packetFactory,
         ILogger<BeaconTransmissionService> logger,
-        IBeaconTransmitQueue? queue = null)
+        IBeaconTransmitQueue? queue = null,
+        TimeProvider? timeProvider = null)
     {
         _beaconService = beaconService;
         _portService = portService;
@@ -104,8 +112,47 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         _packetFactory = packetFactory;
         _logger = logger;
         _queue = queue;
+        _timeProvider = timeProvider ?? TimeProvider.System;
 
         _beaconService.BeaconRequested += OnBeaconRequested;
+    }
+
+    /// <summary>
+    /// Decides whether a fix may be beaconed. A missing fix, the 0,0 null-island
+    /// placeholder, an expired sample or one reported with very poor accuracy must
+    /// not be transmitted: a stale or empty position is worse than no beacon.
+    /// </summary>
+    /// <param name="location">The candidate fix.</param>
+    /// <param name="now">The instant the decision is made, from the injected clock.</param>
+    /// <param name="reason">A developer-facing explanation when the fix is rejected.</param>
+    internal static bool IsUsableFix(LocationData? location, DateTimeOffset now, out string reason)
+    {
+        if (location is null)
+        {
+            reason = "no fix available";
+            return false;
+        }
+
+        if (location.Location.Latitude == 0 && location.Location.Longitude == 0)
+        {
+            reason = "fix is the 0,0 null-island placeholder";
+            return false;
+        }
+
+        if (location.Timestamp != default && now - location.Timestamp > MaximumFixAge)
+        {
+            reason = "fix is older than the freshness window";
+            return false;
+        }
+
+        if (location.Accuracy > MaximumAccuracyMeters)
+        {
+            reason = "fix accuracy is worse than the accepted threshold";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
     }
 
     public void ProcessLocationUpdate(LocationData currentLocation)
@@ -137,12 +184,22 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
     private async Task TransmitBeaconAsync(LocationData location, BeaconTransmitDecision decision)
     {
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        if (!IsUsableFix(location, now, out string fixReason))
+        {
+            _logger.LogWarning("Beacon suppressed: {Reason}", fixReason);
+            BeaconStatus = Strings.Get("BeaconPositionRejected");
+            _beaconService.ReportBeaconTransmissionResult(success: false);
+            return;
+        }
+
         List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
         if (txPorts.Count == 0)
         {
-            await QueueWithoutRouteAsync(location).ConfigureAwait(false);
+            await QueueWithoutRouteAsync(location, now).ConfigureAwait(false);
             BeaconStatus = Strings.Get("NoTxPortsEnabled");
             _logger.LogWarning("Cannot transmit beacon: no TX ports enabled");
+            _beaconService.ReportBeaconTransmissionResult(success: false);
             return;
         }
 
@@ -151,10 +208,11 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         {
             BeaconStatus = Strings.Get("CallsignNotConfigured");
             _logger.LogWarning("Cannot transmit beacon: callsign not configured");
+            _beaconService.ReportBeaconTransmissionResult(success: false);
             return;
         }
 
-        await DrainPendingAsync(callsign).ConfigureAwait(false);
+        await DrainPendingAsync(callsign, now).ConfigureAwait(false);
         PositionPacket packet = CreateBeaconPacket(location, callsign);
 
         int sentPortCount = 0;
@@ -166,7 +224,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                 if (_queue is not null)
                 {
                     BeaconEnqueueResult enqueueResult = await _queue
-                        .EnqueueAsync(port.Id, location, DateTimeOffset.UtcNow)
+                        .EnqueueAsync(port.Id, location, now)
                         .ConfigureAwait(false);
                     queued = enqueueResult.Queued;
                     LogEnqueueResult(enqueueResult, port.Name);
@@ -196,7 +254,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                 if (queued is not null)
                 {
                     await _queue!
-                        .MarkAttemptFailedAsync(queued.Id, ex.Message, DateTimeOffset.UtcNow)
+                        .MarkAttemptFailedAsync(queued.Id, ex.Message, _timeProvider.GetUtcNow())
                         .ConfigureAwait(false);
                 }
                 _logger.LogError(ex, "Error transmitting beacon on port {PortName}", port.Name);
@@ -222,6 +280,14 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             return;
         }
 
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+        if (!IsUsableFix(userLocation, now, out string fixReason))
+        {
+            _logger.LogWarning("Manual beacon suppressed: {Reason}", fixReason);
+            BeaconStatus = Strings.Get("BeaconPositionRejected");
+            return;
+        }
+
         try
         {
             string callsign = _configurationService.Current.Aprs.Callsign;
@@ -234,14 +300,14 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             List<PortConfig> txPorts = [.. _portService.Ports.Where(p => p.IsEnabled && p.IsTx)];
             if (txPorts.Count == 0)
             {
-                await QueueWithoutRouteAsync(userLocation).ConfigureAwait(false);
+                await QueueWithoutRouteAsync(userLocation, now).ConfigureAwait(false);
                 BeaconStatus = Strings.Get("NoTxPortsEnabled");
                 return;
             }
 
             PositionPacket packet = CreateBeaconPacket(userLocation, callsign);
 
-            await DrainPendingAsync(callsign).ConfigureAwait(false);
+            await DrainPendingAsync(callsign, now).ConfigureAwait(false);
             int sentPortCount = 0;
             foreach (PortConfig port in txPorts)
             {
@@ -251,7 +317,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                     if (_queue is not null)
                     {
                         BeaconEnqueueResult enqueueResult = await _queue
-                            .EnqueueAsync(port.Id, userLocation, DateTimeOffset.UtcNow)
+                            .EnqueueAsync(port.Id, userLocation, now)
                             .ConfigureAwait(false);
                         queued = enqueueResult.Queued;
                         LogEnqueueResult(enqueueResult, port.Name);
@@ -275,7 +341,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
                     if (queued is not null)
                     {
                         await _queue!
-                            .MarkAttemptFailedAsync(queued.Id, ex.Message, DateTimeOffset.UtcNow)
+                            .MarkAttemptFailedAsync(queued.Id, ex.Message, _timeProvider.GetUtcNow())
                             .ConfigureAwait(false);
                     }
                     _logger.LogError(ex, "Error sending manual beacon on port {PortName}", port.Name);
@@ -297,6 +363,12 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     {
         if (userLocation == null || !portsJustEnabled.Any())
             return;
+
+        if (!IsUsableFix(userLocation, _timeProvider.GetUtcNow(), out string fixReason))
+        {
+            _logger.LogWarning("Initial beacon suppressed: {Reason}", fixReason);
+            return;
+        }
 
         string callsign = _configurationService.Current.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
@@ -343,7 +415,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             comment);
     }
 
-    private async Task DrainPendingAsync(string callsign)
+    private async Task DrainPendingAsync(string callsign, DateTimeOffset now)
     {
         if (_queue is null)
         {
@@ -354,8 +426,20 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             .Where(port => port.IsEnabled && port.IsTx)
             .Select(port => port.Id)];
 
-        foreach (BeaconQueueItem item in await _queue.ReconcileAsync(DateTimeOffset.UtcNow).ConfigureAwait(false))
+        foreach (BeaconQueueItem item in await _queue.ReconcileAsync(now).ConfigureAwait(false))
         {
+            // A position captured too long ago must never be sent late: it is worse
+            // than a fresh fix and would broadcast a wrong location. The outbox
+            // expires it visibly on the next reconcile.
+            if (now - item.CreatedUtc > MaximumFixAge)
+            {
+                _logger.LogWarning(
+                    "Skipping stale queued beacon {BeaconId}: captured {AgeSeconds:F0}s ago.",
+                    item.Id,
+                    (now - item.CreatedUtc).TotalSeconds);
+                continue;
+            }
+
             Guid portId = item.PortId == Guid.Empty
                 ? activePorts.FirstOrDefault()
                 : item.PortId;
@@ -381,14 +465,14 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
             catch (Exception exception)
             {
                 await _queue
-                    .MarkAttemptFailedAsync(item.Id, exception.Message, DateTimeOffset.UtcNow)
+                    .MarkAttemptFailedAsync(item.Id, exception.Message, now)
                     .ConfigureAwait(false);
                 _logger.LogWarning(exception, "Queued beacon {BeaconId} remains pending.", item.Id);
             }
         }
     }
 
-    private async Task QueueWithoutRouteAsync(LocationData location)
+    private async Task QueueWithoutRouteAsync(LocationData location, DateTimeOffset now)
     {
         if (_queue is null)
         {
@@ -396,7 +480,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         }
 
         BeaconEnqueueResult result = await _queue
-            .EnqueueAsync(Guid.Empty, location, DateTimeOffset.UtcNow)
+            .EnqueueAsync(Guid.Empty, location, now)
             .ConfigureAwait(false);
         LogEnqueueResult(result, "any usable route");
         BeaconStatus = Strings.Get("NoTxPortsEnabled");
