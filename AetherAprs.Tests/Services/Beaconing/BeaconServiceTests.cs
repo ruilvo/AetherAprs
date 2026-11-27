@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -260,7 +260,7 @@ public class BeaconServiceTests : TestFixtureBase
         TestClock clock = new();
         BeaconService service = new(timeProvider: clock)
         {
-            LastTransmitTime = clock.UtcDateTime.AddHours(-1)
+            LastSuccessfulTransmitTime = clock.UtcDateTime.AddHours(-1)
         };
 
         LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
@@ -282,7 +282,7 @@ public class BeaconServiceTests : TestFixtureBase
         TestClock clock = new();
         BeaconService service = new(timeProvider: clock)
         {
-            LastTransmitTime = clock.UtcDateTime.AddHours(-1)
+            LastSuccessfulTransmitTime = clock.UtcDateTime.AddHours(-1)
         };
 
         LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
@@ -316,7 +316,7 @@ public class BeaconServiceTests : TestFixtureBase
         TestClock clock = new();
         BeaconService service = new(timeProvider: clock)
         {
-            LastTransmitTime = clock.UtcDateTime.AddHours(-1)
+            LastSuccessfulTransmitTime = clock.UtcDateTime.AddHours(-1)
         };
 
         LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
@@ -328,6 +328,74 @@ public class BeaconServiceTests : TestFixtureBase
         BeaconTransmitDecision afterSuccess = service.CurrentDecision;
         Assert.NotNull(afterSuccess);
         Assert.False(afterSuccess!.ShouldTransmit);
+    }
+
+    [Fact]
+    public void ReportBeaconTransmissionResult_Failure_DoesNotAdvanceLastSuccessfulTransmitTime()
+    {
+        // The schedule must measure from a beacon that actually left the station. A
+        // failure that moved this instant would silently postpone the next attempt by a
+        // whole interval, which is exactly what the retry window exists to avoid.
+        TestClock clock = new();
+        DateTime seeded = clock.UtcDateTime.AddHours(-1);
+        BeaconService service = new(timeProvider: clock)
+        {
+            LastSuccessfulTransmitTime = seeded
+        };
+
+        service.ProcessLocationUpdate(CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow));
+        Assert.True(service.CurrentDecision!.ShouldTransmit);
+
+        service.ReportBeaconTransmissionResult(success: false);
+
+        Assert.Equal(seeded, service.LastSuccessfulTransmitTime);
+    }
+
+    [Fact]
+    public void ReportBeaconTransmissionResult_Success_AdvancesLastSuccessfulTransmitTime()
+    {
+        TestClock clock = new();
+        BeaconService service = new(timeProvider: clock)
+        {
+            LastSuccessfulTransmitTime = clock.UtcDateTime.AddHours(-1)
+        };
+
+        service.ProcessLocationUpdate(CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow));
+        Assert.True(service.CurrentDecision!.ShouldTransmit);
+
+        clock.Advance(TimeSpan.FromSeconds(5));
+        service.ReportBeaconTransmissionResult(success: true);
+
+        Assert.Equal(clock.UtcDateTime, service.LastSuccessfulTransmitTime);
+        Assert.False(service.CurrentDecision!.ShouldTransmit);
+    }
+
+    [Fact]
+    public void PendingRequest_CoalescesLocationUpdatesIntoOneRequest()
+    {
+        // Location updates arrive faster than a send completes. While one request is
+        // awaiting its result the service must not raise another, otherwise a slow
+        // route produces a burst of duplicate beacons for one position.
+        TestClock clock = new();
+        BeaconService service = new(timeProvider: clock)
+        {
+            LastSuccessfulTransmitTime = clock.UtcDateTime.AddHours(-1)
+        };
+
+        int requested = 0;
+        service.BeaconRequested += (_, _) => requested++;
+
+        LocationData location = CreateLocation(38.7223, -9.1393, timestamp: clock.UtcNow);
+        service.ProcessLocationUpdate(location);
+        service.ProcessLocationUpdate(location);
+        clock.Advance(TimeSpan.FromSeconds(30));
+        service.ProcessLocationUpdate(location);
+
+        Assert.Equal(1, requested);
+        Assert.False(service.CurrentDecision!.ShouldTransmit);
+
+        service.ReportBeaconTransmissionResult(success: false);
+        Assert.Equal(1, requested);
     }
 
     [Fact]
