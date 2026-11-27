@@ -263,6 +263,131 @@ public sealed class SettingsViewModelTests
         Assert.Equal("WIDE1-1*,WIDE2-1", configuration.Current.Aprs.DigipeaterPath);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("N0CALL-9")]
+    [InlineData("n0call")]
+    public async Task InvalidCallsignIsRejectedAndLeavesTheSavedValue(string callsign)
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        string saved = configuration.Current.Aprs.Callsign;
+        int updatesBefore = configuration.UpdateCount;
+
+        viewModel.Callsign = callsign;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.Callsign)));
+        Assert.Equal(updatesBefore, configuration.UpdateCount);
+        Assert.Equal(saved, configuration.Current.Aprs.Callsign);
+    }
+
+    [Fact]
+    public async Task CallsignFormatErrorClearsWhenTheValueBecomesValid()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        viewModel.Callsign = "not a callsign";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.Callsign)));
+
+        viewModel.Callsign = "N0CALL";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Empty(viewModel.GetErrors(nameof(SettingsViewModel.Callsign)));
+        Assert.False(viewModel.HasErrors);
+        Assert.Equal("N0CALL", configuration.Current.Aprs.Callsign);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public async Task OutOfRangeDisplayHoursIsRejectedAndLeavesTheSavedValue(int hours)
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        int saved = configuration.Current.Aprs.CustomDisplayTimeRangeHours;
+        int updatesBefore = configuration.UpdateCount;
+
+        viewModel.CustomDisplayTimeRangeHours = hours;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.CustomDisplayTimeRangeHours)));
+        Assert.Equal(updatesBefore, configuration.UpdateCount);
+        Assert.Equal(saved, configuration.Current.Aprs.CustomDisplayTimeRangeHours);
+    }
+
+    [Theory]
+    [InlineData(21)]
+    [InlineData(-1)]
+    public async Task OutOfRangeMessageRetriesIsRejected(int retries)
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        int updatesBefore = configuration.UpdateCount;
+
+        viewModel.MessageMaxRetries = retries;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.MessageMaxRetries)));
+        Assert.Equal(updatesBefore, configuration.UpdateCount);
+    }
+
+    [Fact]
+    public async Task TooLongBeaconCommentIsRejectedAndLeavesTheSavedValue()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        string? saved = configuration.Current.Aprs.BeaconComment;
+        int updatesBefore = configuration.UpdateCount;
+
+        viewModel.BeaconComment = new string('x', 44);
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.BeaconComment)));
+        Assert.Equal(updatesBefore, configuration.UpdateCount);
+        Assert.Equal(saved, configuration.Current.Aprs.BeaconComment);
+    }
+
+    [Fact]
+    public async Task BeaconCommentAtTheLengthLimitIsAccepted()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        string comment = new('x', 43);
+
+        viewModel.BeaconComment = comment;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Empty(viewModel.GetErrors(nameof(SettingsViewModel.BeaconComment)));
+        Assert.Equal(comment, configuration.Current.Aprs.BeaconComment);
+    }
+
     private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation) => new(
             Substitute.For<IMessageTemplateService>(),
             Substitute.For<IConfirmationDialogService>(),

@@ -12,19 +12,15 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
-using System.ComponentModel.DataAnnotations;
-using System.Diagnostics.CodeAnalysis;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Configuration.Settings;
 
 namespace AetherAprs.ViewModels.Pages;
 
-[UnconditionalSuppressMessage(
-    "Trimming",
-    "IL2026",
-    Justification = "The settings properties validate through ObservableValidator, which reflects over the attributes declared on them. The settings view binds every one of these properties, so they and their attributes are preserved.")]
 public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
     // NOTE: SettingsViewModel is registered as a Singleton in ServiceProviderFactory.
@@ -41,9 +37,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private Task _currentSaveTask = Task.CompletedTask;
 
     [ObservableProperty]
-    [Required(ErrorMessageResourceName = nameof(Strings.ValidationCallsignRequired), ErrorMessageResourceType = typeof(Strings))]
-    [RegularExpression(@"^[A-Z0-9]{1,6}$", ErrorMessageResourceName = nameof(Strings.ValidationCallsignFormat), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial string Callsign { get; set; } = "N0CALL";
 
     [ObservableProperty]
@@ -65,8 +58,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial Configuration.PacketDisplayTimeRange DisplayTimeRange { get; set; } = Configuration.PacketDisplayTimeRange.LastDay;
 
     [ObservableProperty]
-    [Range(1, 100, ErrorMessageResourceName = nameof(Strings.ValidationDisplayHoursRange), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial int CustomDisplayTimeRangeHours { get; set; } = 12;
 
     [ObservableProperty]
@@ -94,18 +85,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool EnableRfToAprsIsGate { get; set; } = true;
 
     [ObservableProperty]
-    [Range(0, 20, ErrorMessageResourceName = nameof(Strings.ValidationMaxRetriesRange), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial int MessageMaxRetries { get; set; } = 5;
 
     [ObservableProperty]
-    [Range(5, 300, ErrorMessageResourceName = nameof(Strings.ValidationRetryTimeoutRange), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial int MessageRetryTimeoutSeconds { get; set; } = 30;
 
     [ObservableProperty]
-    [Range(1, 1440, ErrorMessageResourceName = nameof(Strings.ValidationExpiryMinutesRange), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial int MessageExpiryMinutes { get; set; } = 15;
 
     [ObservableProperty]
@@ -115,13 +100,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool AutoAcknowledgeMessages { get; set; } = true;
 
     [ObservableProperty]
-    [MaxTextLength(43, ErrorMessageResourceName = nameof(Strings.ValidationCommentMaxLength), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial string? BeaconComment { get; set; } = "Using AetherAPRS!";
 
     [ObservableProperty]
-    [AprsPath(ErrorMessageResourceName = nameof(Strings.ValidationDigipeaterPathFormat), ErrorMessageResourceType = typeof(Strings))]
-    [NotifyDataErrorInfo]
     public partial string? DigipeaterPath { get; set; } = "WIDE1-1,WIDE2-1";
 
     [ObservableProperty]
@@ -248,6 +229,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     // Auto-save methods triggered by property changes
     partial void OnCallsignChanged(string value)
     {
+        SetErrors(nameof(Callsign), ValidateCallsign(value));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { Callsign = value } }, nameof(Callsign));
     }
 
@@ -290,6 +272,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnCustomDisplayTimeRangeHoursChanged(int value)
     {
+        SetErrors(nameof(CustomDisplayTimeRangeHours), ValidateRange(value, 1, 100, Strings.ValidationDisplayHoursRange));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { CustomDisplayTimeRangeHours = value } }, nameof(CustomDisplayTimeRangeHours));
     }
 
@@ -343,16 +326,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnMessageMaxRetriesChanged(int value)
     {
+        SetErrors(nameof(MessageMaxRetries), ValidateRange(value, 0, 20, Strings.ValidationMaxRetriesRange));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageMaxRetries = value } }, nameof(MessageMaxRetries));
     }
 
     partial void OnMessageRetryTimeoutSecondsChanged(int value)
     {
+        SetErrors(nameof(MessageRetryTimeoutSeconds), ValidateRange(value, 5, 300, Strings.ValidationRetryTimeoutRange));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageRetryTimeoutSeconds = value } }, nameof(MessageRetryTimeoutSeconds));
     }
 
     partial void OnMessageExpiryMinutesChanged(int value)
     {
+        SetErrors(nameof(MessageExpiryMinutes), ValidateRange(value, 1, 1440, Strings.ValidationExpiryMinutesRange));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageExpiryMinutes = value } }, nameof(MessageExpiryMinutes));
     }
 
@@ -368,12 +354,57 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnBeaconCommentChanged(string? value)
     {
+        SetErrors(nameof(BeaconComment), ValidateBeaconComment(value));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { BeaconComment = value } }, nameof(BeaconComment));
     }
 
     partial void OnDigipeaterPathChanged(string? value)
     {
+        SetErrors(nameof(DigipeaterPath), ValidateDigipeaterPath(value));
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterPath = value } }, nameof(DigipeaterPath));
+    }
+
+    /// <summary>Longest beacon comment the APRS status/position encoders accept.</summary>
+    private const int BeaconCommentMaxLength = 43;
+
+    private static readonly AprsPathAttribute DigipeaterPathRule = new();
+
+    [GeneratedRegex("^[A-Z0-9]{1,6}$")]
+    private static partial Regex CallsignFormatPattern();
+
+    private static IReadOnlyList<string> ValidateCallsign(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [Strings.ValidationCallsignRequired];
+        }
+
+        return CallsignFormatPattern().IsMatch(value)
+            ? []
+            : [Strings.ValidationCallsignFormat];
+    }
+
+    private static IReadOnlyList<string> ValidateRange(
+        int value,
+        int minimum,
+        int maximum,
+        string message)
+    {
+        return value >= minimum && value <= maximum ? [] : [message];
+    }
+
+    private static IReadOnlyList<string> ValidateBeaconComment(string? value)
+    {
+        return value is null || value.Length <= BeaconCommentMaxLength
+            ? []
+            : [Strings.ValidationCommentMaxLength];
+    }
+
+    private static IReadOnlyList<string> ValidateDigipeaterPath(string? value)
+    {
+        return DigipeaterPathRule.IsValid(value)
+            ? []
+            : [Strings.ValidationDigipeaterPathFormat];
     }
 
     partial void OnDigipeaterRespondToWide1Changed(bool value)
@@ -396,7 +427,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         string? validatedProperty = null)
     {
         if (_isInitializing || _disposed ||
-            (validatedProperty is not null && GetErrors(validatedProperty).Any()))
+            (validatedProperty is not null && GetErrors(validatedProperty).Cast<string>().Any()))
         {
             return;
         }
