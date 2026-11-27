@@ -598,5 +598,5 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ConnectionDetailNotifications" xml:space="preserve"><value>notifications activées</value></data>
   <data name="ConnectionDetailSppConnected" xml:space="preserve"><value>SPP connecté</value></data>
   <data name="ConnectionDetailAttempt" xml:space="preserve"><value>tentative {0}</value></data>
-  <data name="KissTransportUnavailable" xml:space="preserve"><value>n'est pas disponible sur cette plateforme : {0}</value></data>
+  <data name="KissTransportUnavailable" xml:space="preserve"><value>{0} n'est pas disponible sur cette plateforme</value></data>
 </root>
