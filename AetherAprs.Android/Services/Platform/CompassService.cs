@@ -30,10 +30,9 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
 
     private readonly Sensor? _accelerometer;
     private readonly Sensor? _magnetometer;
+    private readonly CompassSubscriptionGuard _subscriptions = new();
     private bool _hasGravity;
     private bool _hasGeomagnetic;
-    private bool _listening;
-    private bool _disposed;
 
     public CompassService(ILogger<CompassService>? logger = null)
     {
@@ -57,7 +56,7 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
     /// <inheritdoc/>
     public void StartListening()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(_subscriptions.IsDisposed, this);
 
         if (!IsAvailable)
         {
@@ -65,14 +64,9 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
             return;
         }
 
-        lock (_lock)
+        if (!_subscriptions.TryStart())
         {
-            if (_listening)
-            {
-                return;
-            }
-
-            _listening = true;
+            return;
         }
 
         _sensorManager.RegisterListener(this, _accelerometer, SensorDelay.Ui);
@@ -83,19 +77,9 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
     /// <inheritdoc/>
     public void StopListening()
     {
-        if (_disposed)
+        if (!_subscriptions.TryStop())
         {
             return;
-        }
-
-        lock (_lock)
-        {
-            if (!_listening)
-            {
-                return;
-            }
-
-            _listening = false;
         }
 
         _sensorManager.UnregisterListener(this);
@@ -155,13 +139,12 @@ public sealed class CompassService : Java.Lang.Object, ICompassService, ISensorE
 
     protected override void Dispose(bool disposing)
     {
-        if (_disposed)
+        if (disposing && _subscriptions.DisposeOnce())
         {
-            return;
+            _sensorManager.UnregisterListener(this);
+            _logger?.LogInformation("Compass service stopped");
         }
 
-        StopListening();
-        _disposed = true;
         base.Dispose(disposing);
     }
 

@@ -40,8 +40,8 @@ public class AetherAprsForegroundService : Service
 {
     private const int NotificationId = 1001;
     private const int TimeoutNotificationId = 1002;
-    private const string ChannelId = "aetheraprs_foreground";
-    private const string AlertChannelId = "aetheraprs_alerts";
+    private const string ChannelId = NotificationSpecs.ForegroundChannelId;
+    private const string AlertChannelId = NotificationSpecs.AlertChannelId;
     private const string ActionStart = "START_FOREGROUND";
     private const string ActionStop = "STOP_FOREGROUND";
 
@@ -53,7 +53,7 @@ public class AetherAprsForegroundService : Service
     /// Action of the notification "Stop" button. Handled by the service itself so
     /// it works even when no activity (and therefore no runtime receiver) exists.
     /// </summary>
-    private const string ActionStopAll = "STOP_ALL_PORTS";
+    private const string ActionStopAll = NotificationSpecs.StopAllActionId;
     internal const string StateAction = "com.aetheraprs.FOREGROUND_SERVICE_STATE";
     internal const string StateExtra = "state";
     internal const string StateStarted = "started";
@@ -234,6 +234,11 @@ public class AetherAprsForegroundService : Service
             notificationIntent,
             PendingIntentFlags.Immutable);
 
+        NotificationContentSpec spec = NotificationSpecs.Foreground(
+            Strings.Get("ForegroundServiceNotificationTitle"),
+            Strings.Get("ForegroundServiceNotificationText"),
+            Strings.Get("ForegroundServiceCloseAction"));
+
         // Explicit service delivery: no runtime activity receiver is required.
         Intent stopAllIntent = new(this, typeof(AetherAprsForegroundService));
         stopAllIntent.SetAction(ActionStopAll);
@@ -243,12 +248,17 @@ public class AetherAprsForegroundService : Service
             stopAllIntent,
             PendingIntentFlags.Immutable);
 
-        NotificationCompat.Builder builder = new(this, ChannelId);
-        builder.SetContentTitle(Strings.Get("ForegroundServiceNotificationTitle"));
-        builder.SetContentText(Strings.Get("ForegroundServiceNotificationText"));
-        builder.SetSmallIcon(Resource.Drawable.ic_notification);
+        int iconResource = AndroidNotificationIcons.Resolve(spec.IconResourceName);
+        NotificationCompat.Builder builder = new(this, spec.ChannelId);
+        builder.SetContentTitle(spec.Title);
+        builder.SetContentText(spec.Text);
+        builder.SetSmallIcon(iconResource);
         builder.SetContentIntent(pendingIntent);
-        builder.AddAction(Resource.Drawable.ic_notification, Strings.Get("ForegroundServiceCloseAction"), stopPendingIntent);
+        foreach (NotificationActionSpec notificationAction in spec.Actions)
+        {
+            builder.AddAction(iconResource, notificationAction.Label, stopPendingIntent);
+        }
+
         builder.SetOngoing(true);
         Notification? notification = builder.Build();
 
@@ -413,12 +423,16 @@ public class AetherAprsForegroundService : Service
             notificationIntent,
             PendingIntentFlags.Immutable);
 
-        NotificationCompat.Builder builder = new(this, AlertChannelId);
-        builder.SetContentTitle(Strings.Get("ForegroundServiceTimeoutTitle"));
-        builder.SetContentText(Strings.Get("ForegroundServiceTimeoutText"));
-        builder.SetSmallIcon(Resource.Drawable.ic_notification);
+        NotificationContentSpec spec = NotificationSpecs.ForegroundTimeout(
+            Strings.Get("ForegroundServiceTimeoutTitle"),
+            Strings.Get("ForegroundServiceTimeoutText"));
+
+        NotificationCompat.Builder builder = new(this, spec.ChannelId);
+        builder.SetContentTitle(spec.Title);
+        builder.SetContentText(spec.Text);
+        builder.SetSmallIcon(AndroidNotificationIcons.Resolve(spec.IconResourceName));
         builder.SetContentIntent(pendingIntent);
-        builder.SetAutoCancel(true);
+        builder.SetAutoCancel(spec.AutoCancel);
 
         Notification? notification = builder.Build();
         if (notification == null)
