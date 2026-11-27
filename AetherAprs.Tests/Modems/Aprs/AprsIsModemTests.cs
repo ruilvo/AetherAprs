@@ -23,6 +23,24 @@ public class AprsIsModemTests
     private static readonly Callsign Source = new("N0CALL");
     private static readonly Callsign Dest = new("APZ001");
 
+    /// <summary>
+    /// Returns a loopback port with nothing listening on it.
+    /// </summary>
+    /// <remarks>
+    /// The read loop dials as soon as <c>Start</c> is called, so these lifecycle
+    /// tests need an address whose connect fails immediately: a hardcoded port could
+    /// meet a real APRS-IS server on the developer's machine, and a listener that
+    /// accepts would leave the read loop parked on a socket read during teardown.
+    /// </remarks>
+    private static int ClosedLoopbackPort()
+    {
+        TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
@@ -49,7 +67,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task Start_FirstCall_Succeeds()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
         modem.Start();
         // No exception is the assertion
     }
@@ -57,7 +75,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task Start_DoubleCall_ThrowsInvalidOperationException()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
         modem.Start();
         Assert.Throws<InvalidOperationException>(() => modem.Start());
     }
@@ -65,7 +83,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task Start_ConcurrentCalls_OnlyOneSucceeds()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
 
         const int contenders = 8;
         int started = 0;
@@ -104,7 +122,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task StopAsync_WithoutStart_IsNoOp()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
         await modem.StopAsync();
         // No exception is the assertion
     }
@@ -112,7 +130,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task StartThenStopAsync_CompletesCleanly()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
         modem.Start();
         await modem.StopAsync();
     }
@@ -124,7 +142,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task SendAsync_NotStarted_ThrowsInvalidOperationException()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
 
         PositionPacket packet = new()
         {
@@ -142,7 +160,7 @@ public class AprsIsModemTests
     [Fact]
     public async Task SendAsync_NullPacket_ThrowsArgumentNullException()
     {
-        await using AprsIsModem modem = new("localhost", 14580, Source, "12345");
+        await using AprsIsModem modem = new("127.0.0.1", ClosedLoopbackPort(), Source, "12345");
 
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
             modem.SendAsync(null!, TestContext.Current.CancellationToken));

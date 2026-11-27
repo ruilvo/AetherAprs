@@ -401,6 +401,24 @@ public sealed class MessageService : IMessageService, IDisposable
     }
 
     /// <summary>
+    /// Takes the durable outcome as the cache's new status.
+    /// </summary>
+    /// <param name="current">The cached status, or <see langword="null"/> for inbound messages.</param>
+    /// <param name="outcome">The terminal status the durable record now holds.</param>
+    /// <returns>
+    /// The state the transition table reaches from <paramref name="current"/>, or
+    /// <paramref name="outcome"/> when the cache no longer accepts it. The durable
+    /// record owns the outcome, so a stale cache is refreshed rather than kept.
+    /// </returns>
+    private static MessageDeliveryStatus AdoptOutcome(
+        MessageDeliveryStatus? current,
+        MessageDeliveryStatus outcome) =>
+        current is { } status
+            && MessageDelivery.TryFire(status, MessageDelivery.TriggerForOutcome(outcome), out MessageDeliveryStatus next)
+                ? next
+                : outcome;
+
+    /// <summary>
     /// Counts the attempt on the durable record before the wire is used. A record
     /// that is already terminal (for example ACKed by a concurrent path) stops the
     /// transmission instead of resurrecting it.
@@ -636,21 +654,11 @@ public sealed class MessageService : IMessageService, IDisposable
 
             if (message is not null)
             {
-                // The durable record is authoritative, so the in-memory view follows
-                // the outcome even when it lags the legal transition: a Queued
-                // message can be resolved before the promotion that would have made
-                // it Pending.
-                MessageDeliveryStatus resolved = outcome;
-                if (message.DeliveryStatus is { } current
-                    && MessageDelivery.TryFire(
-                        current,
-                        MessageDelivery.TriggerForOutcome(outcome),
-                        out MessageDeliveryStatus next))
-                {
-                    resolved = next;
-                }
-
-                message.DeliveryStatus = resolved;
+                // The durable record already holds the outcome and this object only
+                // caches it for the conversation list, so a cache that no longer
+                // accepts the transition is refreshed from the record instead of
+                // being allowed to keep a stale status.
+                message.DeliveryStatus = AdoptOutcome(message.DeliveryStatus, outcome);
                 PersistMessageStatusInBackground(message);
             }
 
@@ -697,23 +705,20 @@ public sealed class MessageService : IMessageService, IDisposable
 
                 if (message.RetryCount >= settings.MessageMaxRetries)
                 {
-                    MessageDeliveryStatus timedOutStatus = MessageDeliveryStatus.Timeout;
-                    if (message.DeliveryStatus is { } current
-                        && MessageDelivery.TryFire(current, DeliveryTrigger.Timeout, out MessageDeliveryStatus next))
+                    // Only a pending or in-flight message is tracked here, so an
+                    // illegal timeout means the message already resolved. Leave its
+                    // status alone - recording a timeout over an acknowledgment would
+                    // mislabel it - and stop tracking it.
+                    if (message.DeliveryStatus is not { } current
+                        || !MessageDelivery.TryFire(current, DeliveryTrigger.Timeout, out MessageDeliveryStatus timedOutStatus))
                     {
-                        timedOutStatus = next;
-                    }
-                    else
-                    {
-                        // Only a pending or in-flight message reaches this loop, so
-                        // this means the in-memory view drifted from the durable
-                        // record. Record the timeout anyway: the retry budget is
-                        // spent, and retrying forever is worse than a stale hint.
-                        _logger.LogWarning(
-                            "Message #{MessageNumber} to {Peer} timed out from unexpected state {State}",
+                        _pendingMessages.Remove(kvp.Key);
+                        _logger.LogDebug(
+                            "Message #{MessageNumber} to {Peer} stopped retrying from {State}",
                             message.MessageNumber,
                             message.Peer,
                             message.DeliveryStatus);
+                        continue;
                     }
 
                     message.DeliveryStatus = timedOutStatus;
@@ -784,7 +789,6 @@ public sealed class MessageService : IMessageService, IDisposable
     /// <summary>One scheduled retry, with the values that belong to that attempt.</summary>
     private sealed record RetryAttempt(StoredMessage Message, int RetryCount, DateTimeOffset NextAttemptAt);
 
-
     /// <summary>Marks expired durable work so it is no longer replayed after a restart.</summary>
     /// <param name="asOf">
     /// The instant the retry pass acted for. Using the pass's instant instead of the
@@ -816,16 +820,9 @@ public sealed class MessageService : IMessageService, IDisposable
 
             if (message is not null)
             {
-                // The durable sweep already expired the row, so the in-memory view
-                // follows it even when it lagged the legal transition.
-                MessageDeliveryStatus expiredStatus = MessageDeliveryStatus.Expired;
-                if (message.DeliveryStatus is { } current
-                    && MessageDelivery.TryFire(current, DeliveryTrigger.Expire, out MessageDeliveryStatus next))
-                {
-                    expiredStatus = next;
-                }
-
-                message.DeliveryStatus = expiredStatus;
+                // The durable sweep already expired the row, so this cache entry
+                // follows it.
+                message.DeliveryStatus = AdoptOutcome(message.DeliveryStatus, MessageDeliveryStatus.Expired);
                 message.NextRetryTime = null;
                 PersistMessageStatusInBackground(message);
                 NotifyConversationUpdated(message.Peer);

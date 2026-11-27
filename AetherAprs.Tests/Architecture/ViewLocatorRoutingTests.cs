@@ -30,6 +30,11 @@ public sealed partial class ViewLocatorRoutingTests
     [Fact]
     public void Build_ForAnUnmappedViewModel_ShowsLocalizedFallbackText()
     {
+        // Building the fallback label sets TextBlock.Text, and text layout asks
+        // Avalonia for its platform render interface. The test host has no platform
+        // initialised, so that lookup throws and Avalonia falls back internally. It is
+        // a first-chance exception in the debugger, not a failure: the string still
+        // reaches Text.Text, which is what this test asserts.
         Control? view = new AetherAprs.ViewLocator().Build(new TemplateFieldViewModel("summit"));
 
         TextBlock text = Assert.IsType<TextBlock>(view);

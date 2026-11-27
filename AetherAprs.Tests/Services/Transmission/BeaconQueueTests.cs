@@ -130,12 +130,23 @@ public sealed class BeaconQueueTests
             if (trigger == BeaconQueueTrigger.AttemptFailed)
             {
                 Assert.False(BeaconQueue.TryFailAttempt(status, retryBudgetSpent: false, out _));
+                Assert.False(BeaconQueue.TryFailAttempt(status, retryBudgetSpent: true, out _));
                 continue;
             }
 
             Assert.False(BeaconQueue.CanFire(status, trigger));
-            Assert.Throws<InvalidOperationException>(() => BeaconQueue.Fire(status, trigger));
         }
+    }
+
+    [Theory]
+    [InlineData(BeaconQueueStatus.Sent)]
+    [InlineData(BeaconQueueStatus.Failed)]
+    [InlineData(BeaconQueueStatus.Expired)]
+    [InlineData(BeaconQueueStatus.Dropped)]
+    public void TerminalBeacon_FireReportsTheIllegalTrigger(BeaconQueueStatus status)
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => BeaconQueue.Fire(status, BeaconQueueTrigger.Sent));
     }
 
     [Fact]

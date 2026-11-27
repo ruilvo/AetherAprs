@@ -101,8 +101,19 @@ public sealed class MessageDeliveryTests
         foreach (DeliveryTrigger trigger in Enum.GetValues<DeliveryTrigger>())
         {
             Assert.False(MessageDelivery.CanFire(status, trigger));
-            Assert.Throws<InvalidOperationException>(() => MessageDelivery.Fire(status, trigger));
         }
+    }
+
+    [Theory]
+    [InlineData(MessageDeliveryStatus.Acknowledged)]
+    [InlineData(MessageDeliveryStatus.Rejected)]
+    [InlineData(MessageDeliveryStatus.Timeout)]
+    [InlineData(MessageDeliveryStatus.Failed)]
+    [InlineData(MessageDeliveryStatus.Expired)]
+    public void TerminalMessage_FireReportsTheIllegalTrigger(MessageDeliveryStatus status)
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => MessageDelivery.Fire(status, DeliveryTrigger.Acknowledge));
     }
 
     [Fact]
