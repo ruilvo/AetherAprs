@@ -84,6 +84,8 @@ internal sealed class AprsSettingsDocument
 
     public bool EnableAprsIsToRfGate { get; set; }
 
+    public string? AprsIsToRfAllowlist { get; set; }
+
     public bool EnableRfToAprsIsGate { get; set; } = true;
 
     public string? BeaconComment { get; set; } = "Using AetherAPRS!";
@@ -115,6 +117,7 @@ internal sealed class AprsSettingsDocument
         DigipeaterRespondToWide2 = DigipeaterRespondToWide2,
         DigipeaterRespondToTrace = DigipeaterRespondToTrace,
         EnableAprsIsToRfGate = EnableAprsIsToRfGate,
+        AprsIsToRfAllowlist = AprsIsToRfAllowlist,
         EnableRfToAprsIsGate = EnableRfToAprsIsGate,
         BeaconComment = BeaconComment,
         PositionFormat = PositionFormat,

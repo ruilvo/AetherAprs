@@ -28,6 +28,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     private readonly ILogger<DigipeatRouter> _logger;
     private readonly IDiagnosticEventSink? _diagnosticSink;
     private readonly TimeProvider _timeProvider;
+    private readonly DigipeatDecisionLog _decisionLog;
     private readonly Channel<DigipeatCandidate> _channel;
     private readonly Lock _startLock = new();
     private Task? _consumerTask;
@@ -52,7 +53,8 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         ILogger<DigipeatRouter> logger,
         IDiagnosticEventSink? diagnosticSink = null,
         DigipeatRouterOptions? options = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        DigipeatDecisionLog? decisionLog = null)
     {
         ArgumentNullException.ThrowIfNull(configurationSource);
         ArgumentNullException.ThrowIfNull(sessionManager);
@@ -66,6 +68,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         _logger = logger;
         _diagnosticSink = diagnosticSink;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _decisionLog = decisionLog ?? new DigipeatDecisionLog();
 
         // Candidates are relayed by their own consumer so a slow RF transmission
         // never holds up ingest for other ports. TryWrite never blocks,
@@ -113,11 +116,16 @@ internal sealed class DigipeatRouter : IDigipeatRouter
             return;
         }
 
-        Discard(sourcePortId, packet, "Digipeat queue full; candidate dropped.");
+        Discard(sourcePortId, packet, DigipeatReason.QueueFull, "Digipeat queue full; candidate dropped.");
     }
 
     public long GetDiscardedCandidateCount(Guid sourcePortId) =>
         _discardedCandidates.TryGetValue(sourcePortId, out long count) ? count : 0;
+
+    public IReadOnlyList<DigipeatDecisionRecord> GetRecentDecisions(int maximum = DigipeatDecisionLog.DefaultCapacity) =>
+        _decisionLog.GetRecentDecisions(maximum);
+
+    public long GetDecisionCount(DigipeatReason reason) => _decisionLog.GetCount(reason);
 
     public DigipeatMetrics GetMetrics() => new(
         Interlocked.Read(ref _enqueuedCandidates),
@@ -169,6 +177,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
             Discard(
                 candidate.SourcePortId,
                 candidate.Packet,
+                DigipeatReason.CandidateExpired,
                 "Digipeat candidate expired before it could be forwarded.");
             return;
         }
@@ -181,6 +190,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
             Discard(
                 candidate.SourcePortId,
                 candidate.Packet,
+                DigipeatReason.SourcePortUnknown,
                 "Source port is no longer configured; forward discarded.");
             return;
         }
@@ -210,6 +220,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
                 Discard(
                     candidate.SourcePortId,
                     target.Packet,
+                    DigipeatReason.TargetNotRunning,
                     "Target port is not running; forward discarded.");
                 continue;
             }
@@ -236,6 +247,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
                 Discard(
                     candidate.SourcePortId,
                     target.Packet,
+                    DigipeatReason.TargetNotRunning,
                     "Target port is not running; forward discarded.");
                 return;
             }
@@ -253,6 +265,11 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         catch (OperationCanceledException)
         {
             Interlocked.Increment(ref _failedTransmissions);
+            _decisionLog.Record(
+                _timeProvider.GetUtcNow(),
+                candidate.SourcePortId,
+                target.PortId,
+                DigipeatReason.TransmitFailed);
             _logger.LogWarning(
                 "Digipeat transmit from {Source} to port {TargetPortId} timed out after {TimeoutSeconds} seconds.",
                 candidate.Packet.Source,
@@ -262,6 +279,11 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         catch (Exception exception)
         {
             Interlocked.Increment(ref _failedTransmissions);
+            _decisionLog.Record(
+                _timeProvider.GetUtcNow(),
+                candidate.SourcePortId,
+                target.PortId,
+                DigipeatReason.TransmitFailed);
             _diagnosticSink?.Record(
                 "digipeat",
                 DiagnosticSeverity.Warning,
@@ -276,7 +298,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         }
     }
 
-    private void Discard(Guid sourcePortId, AprsPacket packet, string reason)
+    private void Discard(Guid sourcePortId, AprsPacket packet, DigipeatReason reason, string description)
     {
         if (_disposed)
         {
@@ -286,19 +308,20 @@ internal sealed class DigipeatRouter : IDigipeatRouter
 
         _discardedCandidates.AddOrUpdate(sourcePortId, 1, static (_, current) => current + 1);
         Interlocked.Increment(ref _totalDiscardedCandidates);
+        _decisionLog.Record(_timeProvider.GetUtcNow(), sourcePortId, targetPortId: null, reason);
 
         _diagnosticSink?.Record(
             "digipeat",
             DiagnosticSeverity.Error,
             "Dropped",
-            reason,
+            description,
             sourcePortId.ToString("N"));
 
         _logger.LogWarning(
             "Discarded digipeat candidate from {Source} received on port {SourcePortId}: {Reason}",
             packet.Source,
             sourcePortId,
-            reason);
+            description);
     }
 
     private static DigipeatRouterOptions Validate(DigipeatRouterOptions options)

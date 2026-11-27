@@ -175,6 +175,14 @@ public sealed record AprsSettings
     public bool EnableAprsIsToRfGate { get; init; }
 
     /// <summary>
+    /// Gets the callsign allowlist that limits which APRS-IS sources may be gated to
+    /// RF. Entries are comma, semicolon or whitespace separated; an entry without an
+    /// SSID matches every SSID of that base. Empty or missing means no restriction,
+    /// so every source that passed the other gates may be transmitted on RF.
+    /// </summary>
+    public string? AprsIsToRfAllowlist { get; init; }
+
+    /// <summary>
     /// Gets whether RF to APRS-IS gating is enabled. When enabled, packets
     /// received from RF ports can be transmitted to APRS-IS.
     /// Default is true.

@@ -14,12 +14,12 @@ using System.Threading;
 namespace AetherAprs.Services.Ports;
 
 /// <summary>
-/// Implements digipeater functionality for APRS packets.
+/// Applies the forwarding policy: global enablement, packet eligibility, loop and
+/// duplicate checks, per-direction gates, per-port participation and the rate limit.
+/// Path mutation itself lives in <see cref="DigipeatPolicy"/>; this type only binds the
+/// policy to configuration, the clock and the bounded decision history.
 /// </summary>
-public class DigipeaterService(
-    IConfigurationService configurationService,
-    ILogger<DigipeaterService> logger,
-    TimeProvider? timeProvider = null) : IDigipeaterService
+public class DigipeaterService : IDigipeaterService
 {
     /// <summary>
     /// Maximum number of recently heard packets tracked for duplicate suppression.
@@ -31,150 +31,286 @@ public class DigipeaterService(
     /// </summary>
     private static readonly TimeSpan DedupRetention = TimeSpan.FromSeconds(30);
 
-    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly IConfigurationService _configurationService;
+    private readonly ILogger<DigipeaterService> _logger;
+    private readonly TimeProvider _timeProvider;
+    private readonly DigipeatDecisionLog _decisionLog;
+    private readonly DigipeatRateLimiter _rateLimiter;
     private readonly Lock _dedupLock = new();
     private readonly Queue<(int Key, DateTimeOffset Seen)> _dedupOrder = new();
     private readonly Dictionary<int, DateTimeOffset> _dedupTable = [];
+
+    /// <summary>Initializes a new instance of <see cref="DigipeaterService"/>.</summary>
+    /// <param name="configurationService">Provides the current operator settings.</param>
+    /// <param name="logger">Receives structured forwarding diagnostics.</param>
+    /// <param name="timeProvider">Clock used for duplicate and rate-limit windows.</param>
+    /// <param name="rateLimitOptions">Per-source-port forwarding rate limit.</param>
+    /// <param name="decisionLog">Bounded counters and route/reason history, shared with the router.</param>
+    public DigipeaterService(
+        IConfigurationService configurationService,
+        ILogger<DigipeaterService> logger,
+        TimeProvider? timeProvider = null,
+        DigipeatRateLimitOptions? rateLimitOptions = null,
+        DigipeatDecisionLog? decisionLog = null)
+    {
+        ArgumentNullException.ThrowIfNull(configurationService);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _configurationService = configurationService;
+        _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _decisionLog = decisionLog ?? new DigipeatDecisionLog();
+        _rateLimiter = new DigipeatRateLimiter(rateLimitOptions ?? DigipeatRateLimitOptions.Default);
+    }
 
     /// <inheritdoc />
     public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
         AprsPacket packet,
         Guid sourcePortId,
         bool sourcePortIsAprsIs,
+        IReadOnlyList<PortInfo> availablePorts) =>
+        EvaluateInternal(packet, sourcePortId, sourcePortIsAprsIs, availablePorts).Targets;
+
+    /// <inheritdoc />
+    public IReadOnlyList<DigipeatDecision> Evaluate(
+        AprsPacket packet,
+        Guid sourcePortId,
+        bool sourcePortIsAprsIs,
+        IReadOnlyList<PortInfo> availablePorts) =>
+        EvaluateInternal(packet, sourcePortId, sourcePortIsAprsIs, availablePorts).Decisions;
+
+    /// <inheritdoc />
+    public IReadOnlyList<DigipeatDecisionRecord> GetRecentDecisions(int maximum = DigipeatDecisionLog.DefaultCapacity) =>
+        _decisionLog.GetRecentDecisions(maximum);
+
+    /// <inheritdoc />
+    public long GetDecisionCount(DigipeatReason reason) => _decisionLog.GetCount(reason);
+
+    private (IReadOnlyList<DigipeatTarget> Targets, IReadOnlyList<DigipeatDecision> Decisions) EvaluateInternal(
+        AprsPacket packet,
+        Guid sourcePortId,
+        bool sourcePortIsAprsIs,
         IReadOnlyList<PortInfo> availablePorts)
     {
-        AprsSettings settings = configurationService.Current.Aprs;
+        ArgumentNullException.ThrowIfNull(packet);
+        ArgumentNullException.ThrowIfNull(availablePorts);
 
-        // Check if digipeater is globally enabled
+        AprsSettings settings = _configurationService.Current.Aprs;
+        DateTimeOffset now = _timeProvider.GetUtcNow();
+
+        DigipeatReason? packetLevelReject = FirstPacketLevelReject(packet, settings, out Callsign? ownCallsign);
+        if (packetLevelReject is DigipeatReason reject)
+        {
+            return Reject(packetLevelReject: reject, sourcePortId, now);
+        }
+
+        DigipeatAliasPolicy aliasPolicy = new()
+        {
+            RespondToWide1 = settings.DigipeaterRespondToWide1,
+            RespondToWide2 = settings.DigipeaterRespondToWide2,
+            RespondToTrace = settings.DigipeaterRespondToTrace,
+            InsertCallsign = settings.DigipeaterInsertCallsign,
+        };
+
+        // Only RF-to-RF retransmission mutates the path. RF-to-APRS-IS keeps the packet
+        // as heard, and APRS-IS-to-RF has no RF path to service.
+        DigipeatPathDecision pathDecision = sourcePortIsAprsIs
+            ? new DigipeatPathDecision([.. packet.Path], DigipeatReason.Accepted)
+            : DigipeatPolicy.EvaluatePath(packet.Path, ownCallsign, aliasPolicy);
+
+        List<Callsign> allowlist = [.. DigipeatPolicy.ParseAllowlist(settings.AprsIsToRfAllowlist)];
+        bool isAprsIsToRf = sourcePortIsAprsIs;
+
+        List<DigipeatTarget> targets = [];
+        List<DigipeatDecision> decisions = [];
+
+        foreach (PortInfo port in availablePorts)
+        {
+            DigipeatReason? rejectReason = EvaluatePort(
+                packet,
+                port,
+                sourcePortId,
+                isAprsIsToRf,
+                settings,
+                allowlist,
+                pathDecision,
+                out AprsPacket? targetPacket);
+
+            if (rejectReason is DigipeatReason portReject)
+            {
+                decisions.Add(new DigipeatDecision(port.Id, portReject));
+                continue;
+            }
+
+            targets.Add(new DigipeatTarget(port.Id, targetPacket!));
+            decisions.Add(new DigipeatDecision(port.Id, DigipeatReason.Accepted));
+        }
+
+        // The rate limit counts accepted candidates, not gated ports: one received
+        // frame consumes one slot no matter how many ports it would reach.
+        if (targets.Count > 0 && !_rateLimiter.TryConsume(sourcePortId, now))
+        {
+            _logger.LogWarning(
+                "Forwarding rate limit reached for source port {SourcePortId}; candidate dropped.",
+                sourcePortId);
+            return Reject(packetLevelReject: DigipeatReason.RateLimited, sourcePortId, now);
+        }
+
+        if (decisions.Count == 0)
+        {
+            // The port set held only the source port, so no route existed to evaluate.
+            decisions.Add(new DigipeatDecision(TargetPortId: null, DigipeatReason.NoTargetPorts));
+        }
+
+        Record(decisions, sourcePortId, now);
+
+        foreach (DigipeatTarget target in targets)
+        {
+            _logger.LogDebug(
+                "Digipeating packet from {Source} (port {SourcePortId}) to port {TargetPortId}",
+                packet.Source,
+                sourcePortId,
+                target.PortId);
+        }
+
+        return (targets, decisions);
+    }
+
+    private DigipeatReason? FirstPacketLevelReject(AprsPacket packet, AprsSettings settings, out Callsign? ownCallsign)
+    {
+        ownCallsign = BuildOwnCallsign(settings);
+
         if (!settings.EnableDigipeater)
         {
-            return [];
+            return DigipeatReason.DigipeaterDisabled;
         }
 
-        // Only forward packet types we can re-serialize for transmission; the
-        // APRS serializer throws for telemetry/capabilities payloads, which would
-        // make every target send fail (silently logged) downstream.
-        if (!IsDigipeatable(packet))
+        if (!DigipeatPolicy.IsDigipeatable(packet))
         {
-            return [];
+            return DigipeatReason.PacketTypeNotForwardable;
         }
 
-        // Never digipeat packets that originated from our own station: when our own
-        // digipeated transmission is heard again by our TNC (normal APRS behavior),
+        // Never forward packets that originated from our own station: when our own
+        // digipeated transmission is heard again by our TNC (normal APRS behaviour),
         // re-digipeating it would create an unbounded RF loop.
-        Callsign? ownCallsign = BuildOwnCallsign(settings);
         if (PacketIsFromOwnStation(packet, ownCallsign))
         {
-            return [];
+            return DigipeatReason.OwnStationSource;
+        }
+
+        // A path that already shows our repeated hop means the frame has passed through
+        // this station; repeating it again would loop even though the duplicate window
+        // may have lapsed.
+        if (DigipeatPolicy.IsLoop(packet.Path, ownCallsign))
+        {
+            return DigipeatReason.LoopDetected;
         }
 
         // Duplicate suppression: the same packet (source+destination+info) heard again
         // within the retention window must not be digipeated twice.
         if (IsDuplicate(packet))
         {
-            logger.LogDebug(
-                "Suppressing duplicate packet from {Source} for digipeating.",
-                packet.Source);
-            return [];
+            _logger.LogDebug("Suppressing duplicate packet from {Source} for digipeating.", packet.Source);
+            return DigipeatReason.DuplicateSuppressed;
         }
 
-        List<DigipeatTarget> targets = [];
-
-        // Determine gating rules
-        bool isRfToAprsIs = !sourcePortIsAprsIs;
-        bool isAprsIsToRf = sourcePortIsAprsIs;
-
-        // For RF-sourced packets, compute the forwarded path once: find the first
-        // untraced WIDE hop, decrement it, and insert our callsign. When true,
-        // suppressRfForwarding means the packet must not be digipeated on RF
-        // (hops exhausted).
-        bool suppressRfForwarding = false;
-        IReadOnlyList<Callsign> forwardedPath = [];
-        if (isRfToAprsIs)
-        {
-            forwardedPath = BuildForwardedPath(packet, ownCallsign, settings, out suppressRfForwarding);
-        }
-
-        foreach (PortInfo port in availablePorts)
-        {
-            // Skip source port
-            if (port.Id == sourcePortId)
-            {
-                continue;
-            }
-
-            // Skip ports that don't have TX enabled or don't allow digipeat
-            if (!port.IsTxEnabled || !port.AllowDigipeat)
-            {
-                continue;
-            }
-
-            // Check gating rules
-            if (isAprsIsToRf && port.IsAprsIs)
-            {
-                // APRS-IS to APRS-IS: never forward (APRS-IS servers handle distribution)
-                continue;
-            }
-
-            if (isAprsIsToRf && !port.IsAprsIs)
-            {
-                // APRS-IS to RF: only if enabled
-                if (!settings.EnableAprsIsToRfGate)
-                {
-                    continue;
-                }
-            }
-
-            if (isRfToAprsIs && port.IsAprsIs)
-            {
-                // RF to APRS-IS: only if enabled
-                if (!settings.EnableRfToAprsIsGate)
-                {
-                    continue;
-                }
-            }
-
-            if (isRfToAprsIs && !port.IsAprsIs)
-            {
-                // RF to RF: only forward if there is still an untraced hop to service.
-                if (suppressRfForwarding)
-                {
-                    continue;
-                }
-
-                targets.Add(new DigipeatTarget(port.Id, packet with { Path = forwardedPath }));
-                logger.LogDebug(
-                    "Digipeating packet from {Source} (port {SourcePortId}) to port {TargetPortId} with path {Path}",
-                    packet.Source,
-                    sourcePortId,
-                    port.Id,
-                    PathHelper.FormatPath(forwardedPath));
-                continue;
-            }
-
-            targets.Add(new DigipeatTarget(port.Id, packet));
-            logger.LogDebug(
-                "Digipeating packet from {Source} (port {SourcePortId}) to port {TargetPortId}",
-                packet.Source,
-                sourcePortId,
-                port.Id);
-        }
-
-        return targets;
+        return null;
     }
 
-    /// <summary>
-    /// Determines whether the packet's info field can be re-serialized for transmission.
-    /// Telemetry and capability payloads have no APRS serializer support and cannot be
-    /// forwarded.
-    /// </summary>
-    private static bool IsDigipeatable(AprsPacket packet) => packet switch
+    private static DigipeatReason? EvaluatePort(
+        AprsPacket packet,
+        PortInfo port,
+        Guid sourcePortId,
+        bool isAprsIsToRf,
+        AprsSettings settings,
+        IReadOnlyList<Callsign> allowlist,
+        DigipeatPathDecision pathDecision,
+        out AprsPacket? targetPacket)
     {
-        PositionPacket or ObjectPacket or ItemPacket or MessagePacket or MessageAckPacket
-            or MessageRejPacket or BulletinPacket or StatusPacket or WeatherPacket
-            or ThirdPartyPacket or QueryPacket or RawGpsPacket or UnknownPacket => true,
-        _ => false
-    };
+        targetPacket = null;
+
+        if (port.Id == sourcePortId)
+        {
+            return DigipeatReason.SourcePortIsTarget;
+        }
+
+        if (!port.IsTxEnabled)
+        {
+            return DigipeatReason.TargetNotTransmitCapable;
+        }
+
+        if (!port.AllowDigipeat)
+        {
+            return DigipeatReason.TargetDoesNotAllowDigipeat;
+        }
+
+        if (isAprsIsToRf)
+        {
+            if (port.IsAprsIs)
+            {
+                return DigipeatReason.InternetToInternetNotForwarded;
+            }
+
+            if (!settings.EnableAprsIsToRfGate)
+            {
+                return DigipeatReason.InternetToRfDisabled;
+            }
+
+            if (!DigipeatPolicy.IsInternetToRfSourceAllowed(packet.Source, allowlist))
+            {
+                return DigipeatReason.InternetToRfSourceNotAllowed;
+            }
+
+            targetPacket = packet;
+            return null;
+        }
+
+        if (port.IsAprsIs)
+        {
+            if (!settings.EnableRfToAprsIsGate)
+            {
+                return DigipeatReason.RfToInternetDisabled;
+            }
+
+            // RF-to-APRS-IS forwards the packet exactly as heard, preserving the path.
+            targetPacket = packet;
+            return null;
+        }
+
+        // RF-to-RF retransmits the mutated path so provenance and repeated bits travel
+        // with the frame.
+        if (pathDecision.Reason != DigipeatReason.Accepted)
+        {
+            return pathDecision.Reason;
+        }
+
+        targetPacket = packet with { Path = pathDecision.Path };
+        return null;
+    }
+
+    private void Record(IReadOnlyList<DigipeatDecision> decisions, Guid sourcePortId, DateTimeOffset now)
+    {
+        foreach (DigipeatDecision decision in decisions)
+        {
+            _decisionLog.Record(now, sourcePortId, decision.TargetPortId, decision.Reason);
+        }
+    }
+
+    private (IReadOnlyList<DigipeatTarget> Targets, IReadOnlyList<DigipeatDecision> Decisions) Reject(
+        DigipeatReason packetLevelReject,
+        Guid sourcePortId,
+        DateTimeOffset now)
+    {
+        DigipeatDecision decision = new(TargetPortId: null, packetLevelReject);
+        _decisionLog.Record(now, sourcePortId, targetPortId: null, packetLevelReject);
+
+        _logger.LogDebug(
+            "Digipeat candidate from source port {SourcePortId} rejected: {Reason}",
+            sourcePortId,
+            packetLevelReject);
+
+        return ([], [decision]);
+    }
 
     /// <summary>
     /// Builds our own full callsign (base + SSID) for own-station detection.
@@ -254,115 +390,4 @@ public class DigipeaterService(
             return false;
         }
     }
-
-    /// <summary>
-    /// Computes the forwarded path for RF digipeating: inserts our callsign into the
-    /// path and decrements the first untraced WIDE/TRACE alias hop that this station is
-    /// configured to respond to.
-    /// </summary>
-    /// <param name="packet">The received packet.</param>
-    /// <param name="ownCallsign">Our own callsign, or <c>null</c> when none is configured.</param>
-    /// <param name="settings">APRS settings controlling which aliases we respond to.</param>
-    /// <param name="suppressForwarding">
-    /// Set to <c>true</c> when the packet must not be forwarded on RF at all (the first
-    /// untraced alias is one we do not respond to, or was already exhausted).
-    /// </param>
-    /// <returns>The path to transmit the packet with.</returns>
-    private static IReadOnlyList<Callsign> BuildForwardedPath(
-        AprsPacket packet,
-        Callsign? ownCallsign,
-        AprsSettings settings,
-        out bool suppressForwarding)
-    {
-        suppressForwarding = false;
-
-        // With no own callsign configured we cannot insert ourselves into the path;
-        // forward without modification rather than corrupting the path.
-        if (ownCallsign is null)
-        {
-            return packet.Path;
-        }
-
-        // Packets that arrived without a parsed path (e.g. some IS sources): just
-        // mark our retransmission by prepending our callsign.
-        if (packet.Path.Count == 0)
-        {
-            return [ownCallsign.Value];
-        }
-
-        List<Callsign> forwarded = [with(packet.Path.Count + 1)];
-
-        foreach (Callsign hop in packet.Path)
-        {
-            // A hop already marked "has been repeated" was serviced by an upstream
-            // digipeater. Preserve it and keep scanning for the first unserviced hop
-            // this station is responsible for.
-            if (hop.HasBeenRepeated)
-            {
-                forwarded.Add(hop);
-                continue;
-            }
-
-            // Explicit digipeater callsigns (not a WIDE/TRACE alias) are left as-is;
-            // keep scanning for the first alias this station is responsible for.
-            if (!IsDigipeaterAlias(hop))
-            {
-                forwarded.Add(hop);
-                continue;
-            }
-
-            // The first unserviced WIDE/TRACE alias determines whether we forward.
-            if (hop.Ssid is > 0)
-            {
-                if (!RespondsToAlias(hop, settings))
-                {
-                    // An alias we are not configured to service: do not digipeat.
-                    suppressForwarding = true;
-                    return forwarded;
-                }
-
-                // Insert our callsign (honoring the insert-callsign setting; TRACE
-                // always inserts) so the forwarded path records that we digipeated it.
-                if (settings.DigipeaterInsertCallsign || hop.Base == "TRACE")
-                {
-                    forwarded.Add(new Callsign(
-                        ownCallsign.Value.Base,
-                        ownCallsign.Value.Ssid,
-                        hasBeenRepeated: true));
-                }
-
-                // Decrement the hop we are servicing, mark it as repeated, and stop
-                // modifying the path.
-                forwarded.Add(new Callsign(hop.Base, hop.Ssid.Value - 1, hasBeenRepeated: true));
-                return forwarded;
-            }
-
-            // An alias with no remaining hops has already been serviced — it must not
-            // travel further via us.
-            suppressForwarding = true;
-            return forwarded;
-        }
-
-        // Path contained no unserviced alias (e.g. only explicit digipeaters):
-        // forward with our insertion only.
-        return forwarded;
-    }
-
-    /// <summary>
-    /// Determines whether a path hop is a digipeater alias
-    /// (<c>WIDE1</c>, <c>WIDE2</c>, or <c>TRACE</c>).
-    /// </summary>
-    private static bool IsDigipeaterAlias(Callsign hop) =>
-        hop.Base is "WIDE1" or "WIDE2" or "TRACE";
-
-    /// <summary>
-    /// Determines whether this station is configured to respond to the given alias.
-    /// </summary>
-    private static bool RespondsToAlias(Callsign hop, AprsSettings settings) => hop.Base switch
-    {
-        "WIDE1" => settings.DigipeaterRespondToWide1,
-        "WIDE2" => settings.DigipeaterRespondToWide2,
-        "TRACE" => settings.DigipeaterRespondToTrace,
-        _ => false
-    };
 }
