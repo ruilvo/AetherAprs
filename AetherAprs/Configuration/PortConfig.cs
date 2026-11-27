@@ -12,6 +12,11 @@ namespace AetherAprs.Configuration;
 /// </summary>
 public class PortConfig
 {
+    /// <summary>
+    /// Longest port name that fits the persisted column.
+    /// </summary>
+    public const int MaxNameLength = 200;
+
     public Guid Id { get; set; } = Guid.NewGuid();
 
     public string Name { get; set; } = string.Empty;
@@ -128,6 +133,21 @@ public class AprsIsSettings : IPortTypeSettings
     public const string DefaultFilter = "m/50";
     public const AprsIsSecurityMode DefaultSecurity = AprsIsSecurityMode.Plaintext;
 
+    /// <summary>
+    /// Longest server address that fits the persisted column.
+    /// </summary>
+    public const int MaxServerLength = 255;
+
+    /// <summary>
+    /// Longest passcode that fits the persisted column.
+    /// </summary>
+    public const int MaxPasscodeLength = 32;
+
+    /// <summary>
+    /// Longest filter expression that fits the persisted column.
+    /// </summary>
+    public const int MaxFilterLength = 256;
+
     private string _server = DefaultServer;
     private int _serverPort = DefaultServerPort;
     private string _passcode = DefaultPasscode;
@@ -187,10 +207,6 @@ public class AprsIsSettings : IPortTypeSettings
         }
     }
 
-    /// <summary>
-    /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
-    /// An empty or whitespace string represents "no filter" (receive everything).
-    /// </summary>
     /// <summary>
     /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
     /// An empty or whitespace string represents "no filter" (receive everything).

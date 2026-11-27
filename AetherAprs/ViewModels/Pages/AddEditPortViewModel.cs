@@ -211,6 +211,12 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         {
             StopBleScan();
 
+            if (!TryValidate(out string validationError))
+            {
+                SaveErrorText = validationError;
+                return;
+            }
+
             PortConfig config = BuildConfig();
 
             if (_existingConfig != null)
@@ -463,6 +469,126 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Checks the editable fields in context before anything is persisted, so an
+    /// invalid edit is reported with a localized message instead of a raw
+    /// configuration exception, and the stored port keeps working unchanged.
+    /// </summary>
+    private bool TryValidate(out string error)
+    {
+        if (string.IsNullOrWhiteSpace(Name))
+        {
+            error = Strings.Get("ValidationPortNameRequired");
+            return false;
+        }
+
+        if (Name.Length > PortConfig.MaxNameLength)
+        {
+            error = Strings.Format("ValidationPortNameTooLong", PortConfig.MaxNameLength);
+            return false;
+        }
+
+        if (SelectedPortSettingsType == typeof(AprsIsSettings))
+        {
+            return TryValidateAprsIs(out error);
+        }
+
+        if (SelectedPortSettingsType == typeof(KissSettings))
+        {
+            return TryValidateKiss(out error);
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private bool TryValidateAprsIs(out string error)
+    {
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(Server))
+        {
+            error = Strings.Get("ValidationServerRequired");
+            return false;
+        }
+
+        if (Server.Length > AprsIsSettings.MaxServerLength)
+        {
+            error = Strings.Format("ValidationServerTooLong", AprsIsSettings.MaxServerLength);
+            return false;
+        }
+
+        if (ServerPort is < 1 or > 65535)
+        {
+            error = Strings.Format("ValidationPortRange", 1, 65535);
+            return false;
+        }
+
+        // A credentials failure that the operator has not re-entered keeps the port
+        // receive-only, which BuildConfig persists as the anonymous passcode; that is
+        // a deliberate choice, not an invalid edit.
+        bool credentialsMissing = HasUnavailableCredentials && string.IsNullOrWhiteSpace(Passcode);
+        if (!credentialsMissing && string.IsNullOrWhiteSpace(Passcode))
+        {
+            error = Strings.Get("ValidationPasscodeRequired");
+            return false;
+        }
+
+        if (Passcode.Length > AprsIsSettings.MaxPasscodeLength)
+        {
+            error = Strings.Format("ValidationPasscodeTooLong", AprsIsSettings.MaxPasscodeLength);
+            return false;
+        }
+
+        if (FilterBuilder.Filter.Length > AprsIsSettings.MaxFilterLength)
+        {
+            error = Strings.Format("ValidationFilterTooLong", AprsIsSettings.MaxFilterLength);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool TryValidateKiss(out string error)
+    {
+        error = string.Empty;
+
+        if (SelectedKissTransportType == typeof(TcpKissTransportSettings))
+        {
+            if (string.IsNullOrWhiteSpace(TcpHost))
+            {
+                error = Strings.Get("ValidationTcpHostRequired");
+                return false;
+            }
+
+            if (TcpHost.Length > TcpKissTransportSettings.MaxHostLength)
+            {
+                error = Strings.Format("ValidationTcpHostTooLong", TcpKissTransportSettings.MaxHostLength);
+                return false;
+            }
+
+            if (TcpPort is < 1 or > 65535)
+            {
+                error = Strings.Format("ValidationPortRange", 1, 65535);
+                return false;
+            }
+
+            return true;
+        }
+
+        bool needsBluetoothDevice =
+            (SelectedKissTransportType == typeof(BluetoothLeKissTransportSettings) && SelectedBleDevice is null) ||
+            (SelectedKissTransportType == typeof(BluetoothClassicKissTransportSettings) && SelectedSppDevice is null);
+
+        if (needsBluetoothDevice)
+        {
+            error = Strings.Get("ValidationBluetoothDeviceRequired");
+            return false;
+        }
+
+        return true;
     }
 
     internal PortConfig BuildConfig()

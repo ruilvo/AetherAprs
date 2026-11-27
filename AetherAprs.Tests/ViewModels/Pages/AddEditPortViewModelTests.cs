@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Localization;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
@@ -268,6 +269,147 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         Assert.False(config.CredentialsUnavailable);
         Assert.Equal("23456", Assert.IsType<AprsIsSettings>(config.TypeSettings).Passcode);
     }
+
+    [Fact]
+    public async Task Save_WithBlankServer_ReportsTheFieldAndKeepsTheStoredPort()
+    {
+        PortEditingHarness harness = CreateHarness(ExistingAprsIsPort());
+        harness.ViewModel.Server = " ";
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(Strings.Get("ValidationServerRequired"), harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().UpdatePortAsync(Arg.Any<PortConfig>());
+        harness.Navigation.DidNotReceive().GoBack();
+    }
+
+    [Fact]
+    public async Task Save_WithOutOfRangeServerPort_ReportsTheField()
+    {
+        PortEditingHarness harness = CreateHarness(ExistingAprsIsPort());
+        harness.ViewModel.ServerPort = 70000;
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(Strings.Format("ValidationPortRange", 1, 65535), harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().UpdatePortAsync(Arg.Any<PortConfig>());
+    }
+
+    [Fact]
+    public async Task Save_WithServerLongerThanTheStoredColumn_ReportsTheField()
+    {
+        PortEditingHarness harness = CreateHarness(ExistingAprsIsPort());
+        harness.ViewModel.Server = new string('a', AprsIsSettings.MaxServerLength + 1);
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            Strings.Format("ValidationServerTooLong", AprsIsSettings.MaxServerLength),
+            harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().UpdatePortAsync(Arg.Any<PortConfig>());
+    }
+
+    [Fact]
+    public async Task Save_WithBlankPasscode_ReportsTheField()
+    {
+        PortEditingHarness harness = CreateHarness(ExistingAprsIsPort());
+        harness.ViewModel.Passcode = string.Empty;
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(Strings.Get("ValidationPasscodeRequired"), harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().UpdatePortAsync(Arg.Any<PortConfig>());
+    }
+
+    [Fact]
+    public async Task Save_WithBlankName_ReportsTheField()
+    {
+        PortEditingHarness harness = CreateHarness(ExistingAprsIsPort());
+        harness.ViewModel.Name = "   ";
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(Strings.Get("ValidationPortNameRequired"), harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().UpdatePortAsync(Arg.Any<PortConfig>());
+    }
+
+    [Fact]
+    public async Task Save_WithBluetoothTransportAndNoDevice_ReportsTheField()
+    {
+        PortEditingHarness harness = CreateHarness();
+        harness.ViewModel.SelectedPortSettingsType = typeof(KissSettings);
+        harness.ViewModel.SelectedKissTransportType = typeof(BluetoothLeKissTransportSettings);
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(Strings.Get("ValidationBluetoothDeviceRequired"), harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().AddPortAsync(Arg.Any<PortConfig>());
+    }
+
+    [Fact]
+    public async Task Save_WhenThePasscodeIsStillUnavailable_PersistsAReceiveOnlyPort()
+    {
+        PortEditingHarness harness = CreateHarness(UnavailableCredentialsPort());
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, harness.ViewModel.SaveErrorText);
+        await harness.PortService.Received(1).UpdatePortAsync(Arg.Is<PortConfig>(config =>
+            config.CredentialsUnavailable &&
+            config.TypeSettings != null &&
+            ((AprsIsSettings)config.TypeSettings).Passcode == AprsIsSettings.DefaultPasscode));
+    }
+
+    [Fact]
+    public async Task Save_WithValidEdits_PersistsTheEditedValues()
+    {
+        PortEditingHarness harness = CreateHarness(ExistingAprsIsPort());
+        harness.ViewModel.Server = "second.example.org";
+        harness.ViewModel.ServerPort = 14581;
+        harness.ViewModel.Passcode = "23456";
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, harness.ViewModel.SaveErrorText);
+        await harness.PortService.Received(1).UpdatePortAsync(Arg.Is<PortConfig>(config =>
+            config.TypeSettings != null &&
+            ((AprsIsSettings)config.TypeSettings).Server == "second.example.org" &&
+            ((AprsIsSettings)config.TypeSettings).ServerPort == 14581 &&
+            ((AprsIsSettings)config.TypeSettings).Passcode == "23456"));
+        harness.Navigation.Received(1).GoBack();
+    }
+
+    private static PortConfig ExistingAprsIsPort() => new()
+    {
+        Name = "Test Port",
+        TypeSettings = new AprsIsSettings
+        {
+            Server = AprsIsSettings.DefaultServer,
+            ServerPort = AprsIsSettings.DefaultServerPort,
+            Passcode = "12345",
+            Filter = string.Empty
+        }
+    };
+
+    private static PortEditingHarness CreateHarness(PortConfig? existingConfig = null)
+    {
+        INavigationService navigation = Substitute.For<INavigationService>();
+        IPortService portService = Substitute.For<IPortService>();
+        AddEditPortViewModel viewModel = new(
+            navigation,
+            portService,
+            new KissStreamFactory([]),
+            Substitute.For<IBluetoothLeScanner>(),
+            Substitute.For<IBluetoothClassicDeviceProvider>(),
+            new AprsIsFilterBuilderViewModel());
+        viewModel.Initialize("N0CALL", 1, existingConfig);
+        return new PortEditingHarness(viewModel, portService, navigation);
+    }
+
+    private sealed record PortEditingHarness(
+        AddEditPortViewModel ViewModel,
+        IPortService PortService,
+        INavigationService Navigation);
 
     private static PortConfig UnavailableCredentialsPort() => new()
     {

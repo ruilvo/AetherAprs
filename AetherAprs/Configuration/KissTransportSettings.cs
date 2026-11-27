@@ -28,6 +28,11 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
     public const string DefaultHost = "127.0.0.1";
     public const int DefaultPort = 8001;
 
+    /// <summary>
+    /// Longest host name that fits the persisted column.
+    /// </summary>
+    public const int MaxHostLength = 255;
+
     private string _host = DefaultHost;
     private int _port = DefaultPort;
 
