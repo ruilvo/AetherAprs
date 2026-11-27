@@ -34,6 +34,7 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Data/SqliteRuntimeWriter.cs",
         "AetherAprs/Data/Packets/PacketQueryService.cs",
         "AetherAprs/Data/Packets/PacketStorageService.cs",
+        "AetherAprs/Data/Maintenance/LocalDataMaintenanceService.cs",
         "AetherAprs/Data/Ports/PortRegistry.cs",
         "AetherAprs/Data/Ports/SessionStateStore.cs",
         "AetherAprs/Data/Messaging/OutboxMessageStore.cs",
