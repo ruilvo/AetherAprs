@@ -4,6 +4,7 @@
 
 using AetherAprs.Data;
 using AetherAprs.Data.Beaconing;
+using AetherAprs.Data.Maintenance;
 using AetherAprs.Data.MapTiles;
 using AetherAprs.Data.Messaging;
 using AetherAprs.Data.Packets;
@@ -162,6 +163,7 @@ public static class ServiceProviderFactory
         // deferred retention worker. The steps are declared in StartupStepFactory.
         services.AddSingleton<SessionStartup>();
         services.AddSingleton<IDatabaseMaintenanceWorker, DatabaseMaintenanceWorker>();
+        services.AddSingleton<ILocalDataMaintenanceService, LocalDataMaintenanceService>();
         services.AddSingleton<IApplicationStartup>(provider => new ApplicationStartup(
             StartupStepFactory.Create(provider),
             provider.GetRequiredService<ILogger<ApplicationStartup>>(),
