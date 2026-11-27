@@ -501,6 +501,67 @@ public class AprsIsModemTests
         Assert.Contains("rejected", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Reconnect_AfterServerCloses_LogsInAgainAndRestoresVerifiedStatus()
+    {
+        // A dropped APRS-IS session must come back with a fresh login: the replacement
+        // connection's outcome, not the stale one, decides whether transmit is allowed.
+        // The server closes the socket after the first login and expects a second
+        // login line on the connection that follows.
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+        await using AprsIsModem modem = new("127.0.0.1", endpoint.Port, Source, "12345");
+
+        modem.Start();
+
+        TcpClient firstServer = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using (NetworkStream firstStream = firstServer.GetStream())
+        using (firstServer)
+        {
+            using StreamReader firstReader = new(firstStream, Encoding.ASCII, leaveOpen: true);
+            await using StreamWriter firstWriter = new(firstStream, Encoding.ASCII, leaveOpen: true)
+            {
+                NewLine = "\r\n"
+            };
+
+            _ = await firstReader.ReadLineAsync(TestContext.Current.CancellationToken);
+            await firstWriter.WriteLineAsync("# logresp N0CALL verified, server TEST");
+            await firstWriter.FlushAsync(TestContext.Current.CancellationToken);
+
+            await modem.ConnectionReady.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(AprsIsLoginStatus.Verified, modem.LoginStatus);
+        }
+
+        // The first socket is closed now, so the modem's read loop sees end of stream
+        // and dials again instead of waiting for the operator to restart the port.
+        using TcpClient secondServer = await listener
+            .AcceptTcpClientAsync(TestContext.Current.CancellationToken)
+            .AsTask()
+            .WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        await using NetworkStream secondStream = secondServer.GetStream();
+        using StreamReader secondReader = new(secondStream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter secondWriter = new(secondStream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        string? secondLogin = await secondReader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(secondLogin);
+        Assert.StartsWith("user N0CALL pass 12345", secondLogin, StringComparison.Ordinal);
+
+        await secondWriter.WriteLineAsync("# logresp N0CALL verified, server TEST");
+        await secondWriter.FlushAsync(TestContext.Current.CancellationToken);
+
+        await modem.ConnectionReady.WaitAsync(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AprsIsLoginStatus.Verified, modem.LoginStatus);
+    }
+
     // ---------------------------------------------------------------
     // TLS transport
     // ---------------------------------------------------------------
