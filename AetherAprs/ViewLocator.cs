@@ -29,6 +29,7 @@ public class ViewLocator : IDataTemplate
         SettingsViewModel => new SettingsPage(),
         DynamicBeaconingViewModel => new DynamicBeaconingPage(),
         DownloadOfflineMapViewModel => new DownloadOfflineMapPage(),
+        SupportViewModel => new SupportPage(),
         AddEditPortViewModel => new AddEditPortPage(),
         ConversationViewModel => new ConversationPage(),
         MessageTemplatesViewModel => new MessageTemplatesPage(),

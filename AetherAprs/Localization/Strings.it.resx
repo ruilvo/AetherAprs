@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Cronologia report</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Simbolo</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Cerca pacchetti</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Supporto</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Cancella dati locali e rivedi il rapporto di diagnostica che puoi condividere con l'assistenza.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Supporto e dati locali</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Dati locali</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Ogni categoria viene cancellata separatamente e non può essere ripristinata in seguito.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Cancella</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Cronologia pacchetti</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Cronologia messaggi</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Messaggi in uscita in attesa</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Tessere mappa offline</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnostica</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>Cancellare i dati locali?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>Cancellare la cronologia dei pacchetti salvata? I messaggi vengono conservati.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>Cancellare la cronologia dei messaggi salvata? I messaggi in uscita in attesa vengono conservati.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>Cancellare i messaggi in uscita in attesa? Non verranno inviati.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>Cancellare le tessere mappa offline memorizzate nella cache?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>Cancellare il registro di diagnostica in memoria?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>Rimosse {0} righe della cronologia pacchetti.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>Rimosse {0} righe della cronologia messaggi.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>Rimosse {0} righe di messaggi in uscita in attesa.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>Rimosse {0} tessere mappa offline.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>Rimossi {0} eventi di diagnostica.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Non ancora cancellato.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Rapporto di assistenza</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Genera un'anteprima del rapporto di diagnostica oscurato da condividere con l'assistenza se hai bisogno di aiuto.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>Il rapporto non include mai il testo dei messaggi né coordinate precise.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Genera anteprima</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Genera un'anteprima per rivedere il rapporto qui.</value></data>
 </root>

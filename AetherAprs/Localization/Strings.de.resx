@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Meldeverlauf</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Pakete durchsuchen</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Support</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Lokale Daten löschen und den Diagnosebericht prüfen, den du an den Support weitergeben kannst.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Support und lokale Daten</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Lokale Daten</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Jede Kategorie wird einzeln gelöscht und kann danach nicht wiederhergestellt werden.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Löschen</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Paketverlauf</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Nachrichtenverlauf</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Ausstehende ausgehende Nachrichten</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Offline-Kartenkacheln</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnose</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>Lokale Daten löschen?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>Den gespeicherten Paketverlauf löschen? Nachrichten bleiben erhalten.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>Den gespeicherten Nachrichtenverlauf löschen? Ausstehende ausgehende Nachrichten bleiben erhalten.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>Ausstehende ausgehende Nachrichten löschen? Sie werden nicht gesendet.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>Die zwischengespeicherten Offline-Kartenkacheln löschen?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>Das Diagnoseprotokoll im Speicher löschen?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>{0} Paketverlaufszeilen entfernt.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>{0} Nachrichtenverlaufszeilen entfernt.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>{0} ausstehende ausgehende Zeilen entfernt.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>{0} Offline-Kartenkacheln entfernt.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>{0} Diagnoseereignisse entfernt.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Noch nicht gelöscht.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Supportbericht</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Eine Vorschau des redigierten Diagnoseberichts erzeugen, den du bei Problemen an den Support weitergeben kannst.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>Der Bericht enthält niemals Nachrichtentexte oder genaue Koordinaten.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Vorschau erzeugen</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Erzeuge eine Vorschau, um den Bericht hier zu prüfen.</value></data>
 </root>

@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Historia zgłoszeń</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Szukaj pakietów</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Pomoc</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Usuwaj dane lokalne i przeglądaj raport diagnostyczny, który możesz przekazać pomocy technicznej.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Pomoc i dane lokalne</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Dane lokalne</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Każda kategoria jest usuwana osobno i nie można jej później przywrócić.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Usuń</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Historia pakietów</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Historia wiadomości</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Oczekujące wiadomości wychodzące</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Kafle map offline</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnostyka</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>Usunąć dane lokalne?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>Usunąć zapisaną historię pakietów? Wiadomości zostaną zachowane.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>Usunąć zapisaną historię wiadomości? Oczekujące wiadomości wychodzące zostaną zachowane.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>Usunąć oczekujące wiadomości wychodzące? Nie zostaną wysłane.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>Usunąć buforowane kafle map offline?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>Usunąć dziennik diagnostyczny z pamięci?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>Usunięto {0} wierszy historii pakietów.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>Usunięto {0} wierszy historii wiadomości.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>Usunięto {0} wierszy oczekujących wiadomości wychodzących.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>Usunięto {0} kafli map offline.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>Usunięto {0} zdarzeń diagnostycznych.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Jeszcze nie usunięto.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Raport pomocy technicznej</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Wygeneruj podgląd zanonimizowanego raportu diagnostycznego, który możesz przekazać pomocy technicznej, jeśli potrzebujesz wsparcia.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>Raport nigdy nie zawiera treści wiadomości ani dokładnych współrzędnych.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Generuj podgląd</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Wygeneruj podgląd, aby przejrzeć raport tutaj.</value></data>
 </root>

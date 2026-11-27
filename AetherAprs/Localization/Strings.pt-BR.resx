@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Histórico de Relatórios</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Símbolo</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Pesquisar pacotes</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Suporte</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Apague dados locais e revise o relatório de diagnóstico que você pode compartilhar com o suporte.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Suporte e dados locais</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Dados locais</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Cada categoria é apagada separadamente e não pode ser restaurada depois.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Apagar</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Histórico de pacotes</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Histórico de mensagens</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Mensagens de saída pendentes</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Blocos de mapa offline</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnóstico</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>Apagar os dados locais?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>Apagar o histórico de pacotes armazenado? As mensagens são mantidas.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>Apagar o histórico de mensagens armazenado? As mensagens de saída pendentes são mantidas.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>Apagar as mensagens de saída pendentes? Elas não serão enviadas.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>Apagar os blocos de mapa offline em cache?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>Apagar o registro de diagnóstico na memória?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>Removidas {0} linhas do histórico de pacotes.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>Removidas {0} linhas do histórico de mensagens.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>Removidas {0} linhas de mensagens de saída pendentes.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>Removidos {0} blocos de mapa offline.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>Removidos {0} eventos de diagnóstico.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Ainda não apagado.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Relatório de suporte</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Gere uma prévia do relatório de diagnóstico editado para compartilhar com o suporte se precisar de ajuda.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>O relatório nunca inclui o texto das mensagens nem coordenadas precisas.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Gerar prévia</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Gere uma prévia para revisar o relatório aqui.</value></data>
 </root>

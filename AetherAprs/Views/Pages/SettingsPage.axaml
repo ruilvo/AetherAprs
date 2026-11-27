@@ -356,6 +356,23 @@ SPDX-License-Identifier: GPL-3.0-or-later
           </StackPanel>
         </StackPanel>
 
+        <!-- Support Section -->
+        <StackPanel Spacing="16">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc SupportPageTitle}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc SupportPageDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+          <Button Content="{loc:Loc SupportSectionEntry}"
+                  Command="{Binding OpenSupportCommand}"
+                  MinWidth="120"
+                  MinHeight="48"
+                  Classes="Outline" />
+        </StackPanel>
+
       </StackPanel>
   </components:ScrollablePageContent>
 </UserControl>
