@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs.Packets;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -79,4 +80,15 @@ public interface IDigipeatRouter : IAsyncDisposable
 
     /// <summary>Current counters for the forwarding path.</summary>
     DigipeatMetrics GetMetrics();
+
+    /// <summary>
+    /// Gets the bounded route/reason history shared with the forwarding policy,
+    /// oldest first. Records carry ports, time and reason only — never payload.
+    /// </summary>
+    /// <param name="maximum">Maximum number of records to return.</param>
+    IReadOnlyList<DigipeatDecisionRecord> GetRecentDecisions(int maximum = DigipeatDecisionLog.DefaultCapacity);
+
+    /// <summary>Gets how many forwarding decisions were recorded with the given reason.</summary>
+    /// <param name="reason">The accept or reject reason.</param>
+    long GetDecisionCount(DigipeatReason reason);
 }

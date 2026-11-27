@@ -204,6 +204,10 @@ public static class ServiceProviderFactory
         // Register the inbound queue and the forwarding queue. Each owns its own
         // bounded channel and consumer; feature code never queues packets itself.
         services.AddSingleton<IPacketIngestPipeline, PacketIngestPipeline>();
+
+        // One bounded forwarding history is shared by the policy and the relay so a
+        // route question has a single answer and neither type grows without bound.
+        services.AddSingleton<DigipeatDecisionLog>();
         services.AddSingleton<IDigipeatRouter, DigipeatRouter>();
 
         // Register port service
