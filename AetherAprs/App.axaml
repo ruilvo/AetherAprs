@@ -24,5 +24,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
         </Style>
         <StyleInclude Source="/Styles/PageStyles.axaml" />
         <StyleInclude Source="/Styles/CardStyles.axaml" />
+        <StyleInclude Source="/Styles/SnackbarStyles.axaml" />
     </Application.Styles>
 </Application>

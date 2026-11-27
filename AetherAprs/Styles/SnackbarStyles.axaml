@@ -1,0 +1,40 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles">
+
+  <!--
+    Snackbar placement and text alignment.
+
+    Material.Avalonia 3.22 lays snackbars out in a stack that honours
+    SnackbarHorizontalAlignment, but its supporting-text theme hard-codes
+    TextAlignment="Left" and TextTrimming="CharacterEllipsis", so a single-line
+    message sits left-aligned inside a wide card. The theme also caps the text at
+    two lines. AetherAprs feedback sentences are short but wrap on narrow phones,
+    so they are centred and allowed to grow instead of being trimmed.
+
+    The card keeps Material's 344px minimum width, which makes it wider than many
+    phone screens after the 8px margins; the max-width cap keeps it inside the
+    viewport and the text wraps within it.
+  -->
+  <Style Selector="controls|SnackbarHost">
+    <Setter Property="SnackbarHorizontalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="controls|SnackbarHost TextBlock#PART_SnackbarSupportingText">
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="MaxLines" Value="0" />
+  </Style>
+
+  <Style Selector="controls|SnackbarHost controls|Card">
+    <Setter Property="MaxWidth" Value="560" />
+  </Style>
+
+</Styles>
