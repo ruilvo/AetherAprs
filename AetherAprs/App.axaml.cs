@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 using AetherAprs.Configuration;
+using AetherAprs.Data;
+using AetherAprs.Data.MapTiles;
 using AetherAprs.Factories;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Platform;
@@ -12,16 +14,13 @@ using AetherAprs.Views;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using BruTile.Cache;
 using Mapsui.Tiling;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
-using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Data;
 
 namespace AetherAprs;
 
@@ -140,8 +139,10 @@ public partial class App : Application, IDisposable
         // call is a no-op.
         ServiceProvider.GetRequiredService<AppSavedDataInitializer>().Initialize();
 
-        // Initialize OSM tile cache during app startup
-        InitializeOsmTileCache();
+        // Route the map tile cache through the application database before any
+        // tile layer is created. There is no cache directory and no .nomedia
+        // marker: cached tiles are rows, not image files.
+        OpenStreetMap.DefaultCache = ServiceProvider.GetRequiredService<DatabaseTileCache>();
 
         if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
@@ -178,26 +179,6 @@ public partial class App : Application, IDisposable
         catch (Exception exception)
         {
             _logger?.LogError(exception, "Application startup failed");
-        }
-    }
-
-    private void InitializeOsmTileCache()
-    {
-        try
-        {
-            IAppDataDirProviderService appDataDirService = ServiceProvider.GetRequiredService<IAppDataDirProviderService>();
-            // Tile images are implementation details and must stay out of
-            // user-visible media storage, where gallery apps can index them.
-            string privateAppDataDir = appDataDirService.GetPrivateAppDataDirectory();
-            string cacheDir = Path.Combine(privateAppDataDir, "osm-tile-cache");
-            Directory.CreateDirectory(cacheDir);
-            File.WriteAllText(Path.Combine(cacheDir, ".nomedia"), string.Empty);
-            OpenStreetMap.DefaultCache = new FileCache(cacheDir, "png");
-            _logger?.LogInformation("OSM tile cache initialized at {CacheDir}", cacheDir);
-        }
-        catch (Exception exception)
-        {
-            _logger?.LogError(exception, "Failed to initialize OSM tile cache");
         }
     }
 

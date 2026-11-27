@@ -38,6 +38,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<BeaconingStateRecord> BeaconingState => Set<BeaconingStateRecord>();
 
+    public DbSet<BeaconOutboxRecord> BeaconOutbox => Set<BeaconOutboxRecord>();
+
+    public DbSet<SessionStateRecord> SessionState => Set<SessionStateRecord>();
+
+    public DbSet<PortSessionStateRecord> PortSessionStates => Set<PortSessionStateRecord>();
+
+    public DbSet<MapTileRecord> MapTiles => Set<MapTileRecord>();
+
     public static DbContextOptions<AppDbContext> CreateOptions(string databasePath, bool pooling = true)
     {
         // Pooling keeps the SQLite file handle open after all contexts are
@@ -235,6 +243,43 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             entity.ToTable("BeaconingState");
             entity.HasKey(state => state.Id);
+        });
+
+        modelBuilder.Entity<BeaconOutboxRecord>(entity =>
+        {
+            entity.ToTable("BeaconOutbox");
+            entity.HasKey(beacon => beacon.Id);
+            entity.Property(beacon => beacon.Error).HasMaxLength(256);
+            entity.Property(beacon => beacon.CreatedAt).HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(beacon => beacon.ExpiresAt).HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(beacon => beacon.UpdatedAt).HasConversion(new UtcDateTimeValueConverter());
+            entity.HasIndex(beacon => beacon.Status);
+            entity.HasIndex(beacon => beacon.ExpiresAt);
+            entity.HasIndex(beacon => new { beacon.Status, beacon.CreatedAt });
+        });
+
+        modelBuilder.Entity<SessionStateRecord>(entity =>
+        {
+            entity.ToTable("SessionState");
+            entity.HasKey(state => state.Id);
+        });
+
+        modelBuilder.Entity<PortSessionStateRecord>(entity =>
+        {
+            entity.ToTable("PortSessionStates");
+            entity.HasKey(port => port.PortId);
+            entity.Property(port => port.Error).HasMaxLength(256);
+            entity.Property(port => port.LastReceiveUtc).HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(port => port.LastTransmitUtc).HasConversion(new UtcDateTimeValueConverter());
+            entity.Property(port => port.NextRetryUtc).HasConversion(new UtcDateTimeValueConverter());
+        });
+
+        modelBuilder.Entity<MapTileRecord>(entity =>
+        {
+            entity.ToTable("MapTiles");
+            entity.HasKey(tile => new { tile.ZoomLevel, tile.TileColumn, tile.TileRow });
+            entity.Property(tile => tile.UpdatedAt).HasConversion(new UtcDateTimeValueConverter());
+            entity.HasIndex(tile => tile.UpdatedAt);
         });
     }
 }

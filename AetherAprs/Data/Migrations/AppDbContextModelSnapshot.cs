@@ -18,7 +18,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261126182804_AddOutboxMessages";
+    public override string LastMigrationId => "20261127073011_AddRuntimeStateAndTileCache";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -65,6 +65,54 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                 b.ToTable("BeaconConfigs");
             });
 
+        modelBuilder.Entity("AetherAprs.Data.Entities.BeaconOutboxRecord", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("TEXT");
+
+                b.Property<double?>("Altitude")
+                    .HasColumnType("REAL");
+
+                b.Property<int>("AttemptCount")
+                    .HasColumnType("INTEGER");
+
+                b.Property<DateTime>("CreatedAt")
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("Error")
+                    .HasMaxLength(256)
+                    .HasColumnType("TEXT");
+
+                b.Property<DateTime>("ExpiresAt")
+                    .HasColumnType("TEXT");
+
+                b.Property<double>("Latitude")
+                    .HasColumnType("REAL");
+
+                b.Property<double>("Longitude")
+                    .HasColumnType("REAL");
+
+                b.Property<Guid?>("PortId")
+                    .HasColumnType("TEXT");
+
+                b.Property<int>("Status")
+                    .HasColumnType("INTEGER");
+
+                b.Property<DateTime>("UpdatedAt")
+                    .HasColumnType("TEXT");
+
+                b.HasKey("Id");
+
+                b.HasIndex("ExpiresAt");
+
+                b.HasIndex("Status");
+
+                b.HasIndex("Status", "CreatedAt");
+
+                b.ToTable("BeaconOutbox");
+            });
+
         modelBuilder.Entity("AetherAprs.Data.Entities.BeaconingStateRecord", b =>
             {
                 b.Property<int>("Id")
@@ -77,6 +125,31 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                 b.HasKey("Id");
 
                 b.ToTable("BeaconingState");
+            });
+
+        modelBuilder.Entity("AetherAprs.Data.Entities.MapTileRecord", b =>
+            {
+                b.Property<int>("ZoomLevel")
+                    .HasColumnType("INTEGER");
+
+                b.Property<int>("TileColumn")
+                    .HasColumnType("INTEGER");
+
+                b.Property<int>("TileRow")
+                    .HasColumnType("INTEGER");
+
+                b.Property<byte[]>("Data")
+                    .IsRequired()
+                    .HasColumnType("BLOB");
+
+                b.Property<DateTime>("UpdatedAt")
+                    .HasColumnType("TEXT");
+
+                b.HasKey("ZoomLevel", "TileColumn", "TileRow");
+
+                b.HasIndex("UpdatedAt");
+
+                b.ToTable("MapTiles");
             });
 
         modelBuilder.Entity("AetherAprs.Data.Entities.OutboxMessageRecord", b =>
@@ -240,6 +313,50 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                 b.HasKey("Id");
 
                 b.ToTable("Ports");
+            });
+
+        modelBuilder.Entity("AetherAprs.Data.Entities.PortSessionStateRecord", b =>
+            {
+                b.Property<Guid>("PortId")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("TEXT");
+
+                b.Property<string>("Error")
+                    .HasMaxLength(256)
+                    .HasColumnType("TEXT");
+
+                b.Property<DateTime?>("LastReceiveUtc")
+                    .HasColumnType("TEXT");
+
+                b.Property<DateTime?>("LastTransmitUtc")
+                    .HasColumnType("TEXT");
+
+                b.Property<DateTime?>("NextRetryUtc")
+                    .HasColumnType("TEXT");
+
+                b.Property<int>("RetryCount")
+                    .HasColumnType("INTEGER");
+
+                b.Property<int>("State")
+                    .HasColumnType("INTEGER");
+
+                b.HasKey("PortId");
+
+                b.ToTable("PortSessionStates");
+            });
+
+        modelBuilder.Entity("AetherAprs.Data.Entities.SessionStateRecord", b =>
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("INTEGER");
+
+                b.Property<int>("State")
+                    .HasColumnType("INTEGER");
+
+                b.HasKey("Id");
+
+                b.ToTable("SessionState");
             });
 
         modelBuilder.Entity("AetherAprs.Data.Entities.PacketRecord", b =>

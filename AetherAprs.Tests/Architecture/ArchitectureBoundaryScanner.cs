@@ -35,8 +35,11 @@ internal static class ArchitectureBoundaryScanner
         "AetherAprs/Data/Packets/PacketQueryService.cs",
         "AetherAprs/Data/Packets/PacketStorageService.cs",
         "AetherAprs/Data/Ports/PortRegistry.cs",
+        "AetherAprs/Data/Ports/SessionStateStore.cs",
         "AetherAprs/Data/Messaging/OutboxMessageStore.cs",
         "AetherAprs/Data/Beaconing/BeaconStateStore.cs",
+        "AetherAprs/Data/Transmission/BeaconOutboxStore.cs",
+        "AetherAprs/Data/MapTiles/DatabaseTileCache.cs",
         "AetherAprs/Factories/ServiceProviderFactory.cs",
         "AetherAprs/DesignData.cs"
     ];
@@ -88,7 +91,6 @@ with(StringComparer.Ordinal),         "AetherAprs/Services/Ports/ModemFactory.cs
         "AetherAprs/Services/Ports/DigipeatRouter.cs",
         "AetherAprs/Services/Ports/SessionStateWriter.cs",
         "AetherAprs/Services/Ports/SessionTelemetryIntake.cs",
-        "AetherAprs/Services/Transmission/BeaconTransmitQueue.cs",
         "AetherAprs.Android/Services/Transports/BluetoothLeGattDuplexStream.cs"
     ];
 

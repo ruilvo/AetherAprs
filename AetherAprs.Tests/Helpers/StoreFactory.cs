@@ -4,10 +4,14 @@
 
 using AetherAprs.Data;
 using AetherAprs.Data.Beaconing;
+using AetherAprs.Data.MapTiles;
 using AetherAprs.Data.Ports;
+using AetherAprs.Data.Transmission;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 
 namespace AetherAprs.Tests.Helpers;
@@ -33,6 +37,28 @@ internal static class StoreFactory
         new BeaconStateStore(
             new SqliteRuntimeWriter(database.Factory),
             new SqliteRuntimeReader(database.Factory));
+
+    /// <summary>Creates a session state store backed by <paramref name="database"/>.</summary>
+    public static ISessionStateStore CreateSessionStateStore(TempAppDatabase database) =>
+        new SessionStateStore(
+            new SqliteRuntimeWriter(database.Factory),
+            new SqliteRuntimeReader(database.Factory));
+
+    /// <summary>Creates a beacon outbox backed by <paramref name="database"/>.</summary>
+    public static IBeaconTransmitQueue CreateBeaconOutbox(
+        TempAppDatabase database, int maximumItems = BeaconOutboxStore.DefaultMaximumItems) =>
+        new BeaconOutboxStore(
+            new SqliteRuntimeWriter(database.Factory),
+            new SqliteRuntimeReader(database.Factory),
+            NullLogger<BeaconOutboxStore>.Instance,
+            maximumItems);
+
+    /// <summary>Creates the database-backed map tile cache.</summary>
+    public static DatabaseTileCache CreateTileCache(TempAppDatabase database) =>
+        new(
+            new SqliteRuntimeWriter(database.Factory),
+            new SqliteRuntimeReader(database.Factory),
+            NullLogger<DatabaseTileCache>.Instance);
 
     /// <summary>
     /// Creates the single owner of configured ports, backed by

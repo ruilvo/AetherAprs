@@ -4,8 +4,10 @@
 
 using AetherAprs.Data;
 using AetherAprs.Data.Beaconing;
+using AetherAprs.Data.MapTiles;
 using AetherAprs.Data.Packets;
 using AetherAprs.Data.Ports;
+using AetherAprs.Data.Transmission;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
@@ -66,6 +68,9 @@ public static class DesignData
         services.AddSingleton<ISecretProtector, PlaintextSecretProtector>();
         services.AddSingleton<IPortRegistry, PortRegistry>();
         services.AddSingleton<IBeaconStateStore, BeaconStateStore>();
+        services.AddSingleton<ISessionStateStore, SessionStateStore>();
+        services.AddSingleton<IBeaconTransmitQueue, BeaconOutboxStore>();
+        services.AddSingleton<DatabaseTileCache>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IActiveConversationTracker, ActiveConversationTracker>();
         services.AddSingleton<IKeyboardInsetsService, KeyboardInsetsService>();

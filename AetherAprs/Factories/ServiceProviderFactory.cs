@@ -4,9 +4,11 @@
 
 using AetherAprs.Data;
 using AetherAprs.Data.Beaconing;
+using AetherAprs.Data.MapTiles;
 using AetherAprs.Data.Messaging;
 using AetherAprs.Data.Packets;
 using AetherAprs.Data.Ports;
+using AetherAprs.Data.Transmission;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
@@ -139,8 +141,8 @@ public static class ServiceProviderFactory
 
         // Register configuration service
         services.AddSingleton<IConfigurationService, ConfigurationService>();
-        services.AddSingleton<ISessionStateStore>(_ =>
-            new FileSessionStateStore(Path.Combine(privateAppDataDirectory, "session-state.json")));
+        services.AddSingleton<ISessionStateStore, SessionStateStore>();
+        services.AddSingleton<DatabaseTileCache>();
         services.AddSingleton<IDiagnosticEventSink, BoundedDiagnosticEventStore>();
         services.AddSingleton<AndroidLifecycleState>();
         services.AddSingleton<RedactedSupportReportService>();
@@ -236,10 +238,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<ILocationTrackingService, LocationTrackingService>();
         services.AddSingleton<ILocationCoordinator, LocationCoordinator>();
         services.AddSingleton<IBeaconTransmissionService, BeaconTransmissionService>();
-        services.AddSingleton<IBeaconTransmitQueue>(provider =>
-            new FileBeaconTransmitQueue(
-                Path.Combine(privateAppDataDirectory, "beacon-outbox.json"),
-                provider.GetRequiredService<ILogger<FileBeaconTransmitQueue>>()));
+        services.AddSingleton<IBeaconTransmitQueue, BeaconOutboxStore>();
 
         // Register factories
         services.AddSingleton<IPacketFactory, PacketFactory>();

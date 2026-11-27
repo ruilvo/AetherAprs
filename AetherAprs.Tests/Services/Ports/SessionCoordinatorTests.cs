@@ -5,10 +5,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AetherAprs.Data;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
 using Xunit;
@@ -230,35 +230,43 @@ public sealed class SessionCoordinatorTests
     }
 
     [Fact]
-    public async Task FileSessionStateStore_RoundTripsSnapshotAtomically()
+    public async Task SessionStateStore_RoundTripsSnapshotThroughTheDatabase()
     {
-        string path = Path.Combine(
-            Path.GetTempPath(),
-            $"aetheraprs-session-{Guid.NewGuid():N}",
-            "session.json");
+        using TempAppDatabase database = TempAppDatabase.CreateEmpty();
+        using AppDbContext context = database.CreateContext();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
+        ISessionStateStore store = StoreFactory.CreateSessionStateStore(database);
+
+        Assert.Null(await store.LoadAsync(TestContext.Current.CancellationToken));
+
+        Guid portId = Guid.NewGuid();
         SessionSnapshot snapshot = new(
             SessionLifecycleState.Degraded,
-            [new PortSessionStatus(Guid.NewGuid(), PortSessionState.Degraded, RetryCount: 3)]);
-        FileSessionStateStore store = new(path);
+            [
+                new PortSessionStatus(
+                    portId,
+                    PortSessionState.Degraded,
+                    LastReceiveUtc: new DateTimeOffset(2026, 11, 27, 8, 30, 0, TimeSpan.Zero),
+                    RetryCount: 3,
+                    NextRetryUtc: new DateTimeOffset(2026, 11, 27, 8, 31, 0, TimeSpan.Zero),
+                    Error: "modem busy")
+            ]);
 
-        try
-        {
-            await store.SaveAsync(snapshot, TestContext.Current.CancellationToken);
-            SessionSnapshot? loaded = await store.LoadAsync(TestContext.Current.CancellationToken);
+        await store.SaveAsync(snapshot, TestContext.Current.CancellationToken);
+        SessionSnapshot? loaded = await store.LoadAsync(TestContext.Current.CancellationToken);
 
-            Assert.NotNull(loaded);
-            Assert.Equal(snapshot.State, loaded.State);
-            Assert.Equal(snapshot.Ports.Count, loaded.Ports.Count);
-            Assert.Equal(snapshot.Ports[0], loaded.Ports[0]);
-        }
-        finally
-        {
-            string? directory = Path.GetDirectoryName(path);
-            if (directory is not null && Directory.Exists(directory))
-            {
-                Directory.Delete(directory, recursive: true);
-            }
-        }
+        Assert.NotNull(loaded);
+        Assert.Equal(snapshot.State, loaded.State);
+        PortSessionStatus status = Assert.Single(loaded.Ports);
+        Assert.Equal(snapshot.Ports[0], status);
+
+        // The snapshot is replaced as a whole: a port that disappears from the
+        // snapshot must not linger in the persisted rows.
+        await store.SaveAsync(snapshot with { Ports = [] }, TestContext.Current.CancellationToken);
+        SessionSnapshot? replaced = await store.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.NotNull(replaced);
+        Assert.Empty(replaced.Ports);
     }
 
     private static SessionCoordinator CreateCoordinator(
