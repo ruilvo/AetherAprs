@@ -120,6 +120,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial string? BeaconComment { get; set; } = "Using AetherAPRS!";
 
     [ObservableProperty]
+    [AprsPath(ErrorMessageResourceName = nameof(Strings.ValidationDigipeaterPathFormat), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
     public partial string? DigipeaterPath { get; set; } = "WIDE1-1,WIDE2-1";
 
     [ObservableProperty]
@@ -371,7 +373,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnDigipeaterPathChanged(string? value)
     {
-        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterPath = value } });
+        SaveSettings(settings => settings with { Aprs = settings.Aprs with { DigipeaterPath = value } }, nameof(DigipeaterPath));
     }
 
     partial void OnDigipeaterRespondToWide1Changed(bool value)

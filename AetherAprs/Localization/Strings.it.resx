@@ -330,6 +330,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>I tentativi massimi devono essere compresi tra 0 e 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Il timeout dei nuovi tentativi deve essere compreso tra 5 e 300 secondi</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Il commento non può superare 43 caratteri</value></data>
+  <data name="ValidationDigipeaterPathFormat" xml:space="preserve"><value>Separa gli indicativi con virgole, ad esempio WIDE1-1,WIDE2-1</value></data>
   <data name="ValidationPortNameRequired" xml:space="preserve"><value>Inserisci un nome per questa porta</value></data>
   <data name="ValidationPortNameTooLong" xml:space="preserve"><value>Il nome della porta non può superare {0} caratteri</value></data>
   <data name="ValidationServerRequired" xml:space="preserve"><value>Inserisci l'indirizzo del server APRS-IS</value></data>

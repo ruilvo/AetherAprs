@@ -1,4 +1,4 @@
-// This file is part of AetherAprs
+﻿// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -200,6 +200,67 @@ public sealed class SettingsViewModelTests
 
         Assert.Equal(ThemeMode.Dark, Assert.Single(themeService.Applied));
         Assert.Equal(ThemeMode.Dark, configuration.Current.Theme);
+    }
+
+    [Fact]
+    public async Task ValidDigipeaterPathIsSaved()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        viewModel.DigipeaterPath = "WIDE1-1,WIDE2-1,WIDE2-2";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Empty(viewModel.GetErrors(nameof(SettingsViewModel.DigipeaterPath)));
+        Assert.Equal("WIDE1-1,WIDE2-1,WIDE2-2", configuration.Current.Aprs.DigipeaterPath);
+    }
+
+    [Fact]
+    public async Task InvalidDigipeaterPathIsRejectedAndLeavesTheSavedPath()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        string? saved = configuration.Current.Aprs.DigipeaterPath;
+        int updatesBefore = configuration.UpdateCount;
+
+        // The AX.25 field cannot carry this hop, so the beacon would throw when it
+        // turned the path into a digipeater list. The invalid edit must not reach the
+        // saved settings while it is on screen.
+        viewModel.DigipeaterPath = "WIDE1-1,NOT A HOP";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.DigipeaterPath)));
+        Assert.Equal(updatesBefore, configuration.UpdateCount);
+        Assert.Equal(saved, configuration.Current.Aprs.DigipeaterPath);
+    }
+
+    [Fact]
+    public async Task DigipeaterPathAcceptsRepeatedBitButRejectsTooManyHops()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        AprsSymbolPickerViewModel symbolPicker = new(new TestSymbolBitmapProvider());
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, symbolPicker, CreateMessageTemplatesViewModel(navigation));
+
+        viewModel.DigipeaterPath = "WIDE1-1*,WIDE2-1";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Empty(viewModel.GetErrors(nameof(SettingsViewModel.DigipeaterPath)));
+        Assert.Equal("WIDE1-1*,WIDE2-1", configuration.Current.Aprs.DigipeaterPath);
+
+        viewModel.DigipeaterPath = "WIDE1-1,WIDE2-1,WIDE2-1,WIDE2-1,WIDE2-1,WIDE2-1,WIDE2-1,WIDE2-1,WIDE2-1";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.DigipeaterPath)));
+        Assert.Equal("WIDE1-1*,WIDE2-1", configuration.Current.Aprs.DigipeaterPath);
     }
 
     private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation) => new(
