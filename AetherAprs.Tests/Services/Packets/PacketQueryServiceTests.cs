@@ -11,6 +11,7 @@ using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Data.Packets;
 using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Packets;
 using AetherAprs.Tests.Helpers;
 using Geo;
 using Microsoft.Extensions.Logging;
@@ -622,17 +623,137 @@ public sealed class PacketQueryServiceTests : IDisposable
         IReadOnlyList<PacketRecord> first = await service.GetPacketsByCallsignPageAsync(
             "K0OTH-1", pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
         IReadOnlyList<PacketRecord> second = await service.GetPacketsByCallsignPageAsync(
-            "K0OTH-1", beforeId: first[^1].Id, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+            "K0OTH-1", cursor: PacketPageCursor.FromPacket(first[^1]), pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
         IReadOnlyList<PacketRecord> third = await service.GetPacketsByCallsignPageAsync(
-            "K0OTH-1", beforeId: second[^1].Id, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+            "K0OTH-1", cursor: PacketPageCursor.FromPacket(second[^1]), pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, first.Count);
         PacketRecord remaining = Assert.Single(second);
         Assert.Empty(third);
-        Assert.True(first[0].Id > first[1].Id);
-        Assert.True(first[^1].Id > remaining.Id);
+        Assert.True(first[0].Timestamp > first[1].Timestamp);
+        Assert.True(first[^1].Timestamp > remaining.Timestamp);
         Assert.Empty(first.Select(packet => packet.Id).Intersect(second.Select(packet => packet.Id)));
+    }
+
+    [Fact]
+    public async Task GetPacketsByCallsignPageAsync_IdenticalTimestamps_NeitherSkipsNorRepeatsRows()
+    {
+        // Arrange - every row shares one receipt time, so only the id half of the
+        // cursor can separate page boundaries.
+        Guid portId = Guid.NewGuid();
+        DateTime sharedTimestamp = new(2026, 11, 27, 10, 30, 0, DateTimeKind.Utc);
+        using (AppDbContext context = _db.CreateContext())
+        {
+            for (int index = 0; index < 7; index++)
+            {
+                context.Packets.Add(new PacketRecord
+                {
+                    SourceBase = "K0OTH",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    DestinationBase = "APRS",
+                    DestinationSsid = AprsSsid.PrimaryStation,
+                    Timestamp = sharedTimestamp,
+                    PortId = portId,
+                    PacketType = PacketTypes.Position,
+                    RawInfo = $"!3745.5{index}N/12159.5{index}W-",
+                    IsOutbound = false,
+                    Position = new PositionDataRecord
+                    {
+                        Location = new Coordinate(37.758333, -121.991667),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.HyphenMinus
+                    }
+                });
+            }
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using PacketQueryService service = new(_reader, _logger);
+
+        // Act - walk the history three rows at a time.
+        List<PacketRecord> visited = [];
+        PacketPageCursor? cursor = null;
+        while (true)
+        {
+            IReadOnlyList<PacketRecord> page = await service.GetPacketsByCallsignPageAsync(
+                "K0OTH-1", cursor, pageSize: 3, cancellationToken: TestContext.Current.CancellationToken);
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            visited.AddRange(page);
+            cursor = PacketPageCursor.FromPacket(page[^1]);
+        }
+
+        // Assert - each row appears once, in id-descending order, with the page
+        // boundaries landing inside the shared timestamp.
+        Assert.Equal(7, visited.Count);
+        Assert.Equal(7, visited.Select(packet => packet.Id).Distinct().Count());
+        List<long> expectedOrder = [.. visited.Select(packet => packet.Id).OrderByDescending(id => id)];
+        Assert.Equal(expectedOrder, [.. visited.Select(packet => packet.Id)]);
+        Assert.All(visited, packet => Assert.Equal(sharedTimestamp, packet.Timestamp));
+    }
+
+    [Fact]
+    public async Task GetPacketsByCallsignPageAsync_OutOfOrderReceiptTimes_UsesTimestampBeforeId()
+    {
+        // Arrange - a row inserted later can carry an older receipt time (imports,
+        // backfill, clock correction). Ordering by id alone would order and page this
+        // history wrongly, so the cursor must lead with the timestamp.
+        Guid portId = Guid.NewGuid();
+        DateTime tenAm = new(2026, 11, 27, 10, 0, 0, DateTimeKind.Utc);
+        DateTime nineAm = tenAm.AddHours(-1);
+        DateTime elevenAm = tenAm.AddHours(1);
+
+        using (AppDbContext context = _db.CreateContext())
+        {
+            foreach ((string info, DateTime timestamp) in new[]
+            {
+                ("!3745.50N/12159.50W-", tenAm),
+                ("!3745.51N/12159.51W-", nineAm),
+                ("!3745.52N/12159.52W-", elevenAm)
+            })
+            {
+                context.Packets.Add(new PacketRecord
+                {
+                    SourceBase = "K0OTH",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    DestinationBase = "APRS",
+                    DestinationSsid = AprsSsid.PrimaryStation,
+                    Timestamp = timestamp,
+                    PortId = portId,
+                    PacketType = PacketTypes.Position,
+                    RawInfo = info,
+                    IsOutbound = false,
+                    Position = new PositionDataRecord
+                    {
+                        Location = new Coordinate(37.758333, -121.991667),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.HyphenMinus
+                    }
+                });
+            }
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using PacketQueryService service = new(_reader, _logger);
+
+        // Act
+        IReadOnlyList<PacketRecord> first = await service.GetPacketsByCallsignPageAsync(
+            "K0OTH-1", pageSize: 1, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> second = await service.GetPacketsByCallsignPageAsync(
+            "K0OTH-1", PacketPageCursor.FromPacket(first[^1]), pageSize: 1, cancellationToken: TestContext.Current.CancellationToken);
+        IReadOnlyList<PacketRecord> third = await service.GetPacketsByCallsignPageAsync(
+            "K0OTH-1", PacketPageCursor.FromPacket(second[^1]), pageSize: 1, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert - strictly by receipt time, then id.
+        Assert.Equal(elevenAm, Assert.Single(first).Timestamp);
+        Assert.Equal(tenAm, Assert.Single(second).Timestamp);
+        Assert.Equal(nineAm, Assert.Single(third).Timestamp);
     }
 
     [Fact]
@@ -836,13 +957,71 @@ public sealed class PacketQueryServiceTests : IDisposable
         IReadOnlyList<PacketRecord> first = await service.GetPacketsByObjectNamePageAsync(
             "OBJ1", pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
         IReadOnlyList<PacketRecord> second = await service.GetPacketsByObjectNamePageAsync(
-            "OBJ1", beforeId: first[^1].Id, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+            "OBJ1", cursor: PacketPageCursor.FromPacket(first[^1]), pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, first.Count);
         PacketRecord remaining = Assert.Single(second);
-        Assert.True(first[0].Id > first[1].Id);
-        Assert.True(first[^1].Id > remaining.Id);
+        Assert.True(first[0].Timestamp > first[1].Timestamp);
+        Assert.True(first[^1].Timestamp > remaining.Timestamp);
+    }
+
+    [Fact]
+    public async Task GetPacketsByObjectNamePageAsync_IdenticalTimestamps_NeitherSkipsNorRepeatsReports()
+    {
+        // Arrange
+        Guid portId = Guid.NewGuid();
+        DateTime sharedTimestamp = new(2026, 11, 27, 8, 0, 0, DateTimeKind.Utc);
+        using (AppDbContext context = _db.CreateContext())
+        {
+            for (int index = 0; index < 5; index++)
+            {
+                context.Packets.Add(new PacketRecord
+                {
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.PrimaryStation,
+                    DestinationBase = "APRS",
+                    DestinationSsid = AprsSsid.PrimaryStation,
+                    Timestamp = sharedTimestamp,
+                    PortId = portId,
+                    PacketType = PacketTypes.Object,
+                    RawInfo = $";OBJ1     *11111{index}z",
+                    IsOutbound = false,
+                    Object = new ObjectDataRecord
+                    {
+                        Name = "OBJ1",
+                        IsLive = true,
+                        Location = new Coordinate(38.5, -9.0),
+                        SymbolTable = SymbolTable.Primary,
+                        SymbolCode = SymbolCode.HyphenMinus
+                    }
+                });
+            }
+
+            await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        using PacketQueryService service = new(_reader, _logger);
+
+        // Act
+        List<PacketRecord> visited = [];
+        PacketPageCursor? cursor = null;
+        while (true)
+        {
+            IReadOnlyList<PacketRecord> page = await service.GetPacketsByObjectNamePageAsync(
+                "OBJ1", cursor, pageSize: 2, cancellationToken: TestContext.Current.CancellationToken);
+            if (page.Count == 0)
+            {
+                break;
+            }
+
+            visited.AddRange(page);
+            cursor = PacketPageCursor.FromPacket(page[^1]);
+        }
+
+        // Assert
+        Assert.Equal(5, visited.Count);
+        Assert.Equal(5, visited.Select(packet => packet.Id).Distinct().Count());
     }
 
     [Fact]

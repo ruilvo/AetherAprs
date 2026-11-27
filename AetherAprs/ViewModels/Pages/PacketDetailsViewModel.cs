@@ -45,9 +45,10 @@ public partial class PacketDetailsViewModel(
     private double? _bearingDegrees;
 
     // A station can have thousands of rows. The page loads one page at a time using
-    // the id of the oldest loaded row as a cursor, so the view can virtualize the
-    // lists instead of materializing the entire history up front.
-    private long? _oldestLoadedId;
+    // the (timestamp, id) pair of the oldest loaded row as a cursor, so the view can
+    // virtualize the lists instead of materializing the entire history up front and
+    // rows that share a timestamp are still visited exactly once.
+    private PacketPageCursor? _pageCursor;
     private bool _isLoadingPage;
     private bool _retired;
 
@@ -159,10 +160,10 @@ public partial class PacketDetailsViewModel(
         IsLoading = true;
         try
         {
-            logger.LogInformation("Loading packets for callsign: {Callsign} before id {BeforeId}", Callsign, _oldestLoadedId);
+            logger.LogInformation("Loading packets for callsign: {Callsign} before cursor {Cursor}", Callsign, _pageCursor);
 
             IReadOnlyList<PacketRecord> page = await packetQueryService
-                .GetPacketsByCallsignPageAsync(Callsign, _oldestLoadedId, PageSize);
+                .GetPacketsByCallsignPageAsync(Callsign, _pageCursor, PageSize);
 
             // The overlay may have been dismissed while the query was running; the
             // collection must not grow after the page stops observing it.
@@ -196,7 +197,7 @@ public partial class PacketDetailsViewModel(
 
     private void AppendPage(IReadOnlyList<PacketRecord> page)
     {
-        long? oldest = null;
+        PacketPageCursor? oldest = null;
         foreach (PacketRecord packet in page)
         {
             Packets.Add(packet);
@@ -212,16 +213,28 @@ public partial class PacketDetailsViewModel(
                 WeatherStatusTelemetry.Add(packet);
             }
 
-            oldest = oldest.HasValue ? Math.Min(oldest.Value, packet.Id) : packet.Id;
+            PacketPageCursor candidate = PacketPageCursor.FromPacket(packet);
+            if (oldest is not { } current || IsOlder(candidate, current))
+            {
+                oldest = candidate;
+            }
         }
 
         if (oldest is { } cursor)
         {
-            _oldestLoadedId = cursor;
+            _pageCursor = cursor;
         }
 
         UpdateDistanceAndBearing();
     }
+
+    /// <summary>
+    /// Ordering helper mirroring the query: a row is older when its receipt time is
+    /// earlier, or when the timestamps match and its id is smaller.
+    /// </summary>
+    private static bool IsOlder(PacketPageCursor candidate, PacketPageCursor current) =>
+        candidate.Timestamp < current.Timestamp ||
+        (candidate.Timestamp == current.Timestamp && candidate.Id < current.Id);
 
     private void UpdateDistanceAndBearing()
     {

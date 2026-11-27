@@ -71,18 +71,13 @@ internal sealed class PacketQueryService(
 
     public Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignPageAsync(
         string callsign,
-        long? beforeId = null,
+        PacketPageCursor? cursor = null,
         int pageSize = 50,
         CancellationToken cancellationToken = default) =>
         ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByCallsignPageAsync), async (context, ct) =>
         {
             IQueryable<PacketRecord> query = FilterByCallsign(context.Packets, callsign);
-            if (beforeId is { } cursor)
-            {
-                query = query.Where(packet => packet.Id < cursor);
-            }
-
-            return await GetLatestAsync(query, pageSize, ct).ConfigureAwait(false);
+            return await GetLatestPageAsync(ApplyCursor(query, cursor), pageSize, ct).ConfigureAwait(false);
         }, cancellationToken);
 
     public Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(
@@ -148,7 +143,7 @@ internal sealed class PacketQueryService(
 
     public async Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNamePageAsync(
         string name,
-        long? beforeId = null,
+        PacketPageCursor? cursor = null,
         int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
@@ -162,12 +157,7 @@ internal sealed class PacketQueryService(
         return await ReadAsync<IReadOnlyList<PacketRecord>>(nameof(GetPacketsByObjectNamePageAsync), async (context, ct) =>
         {
             IQueryable<PacketRecord> query = FilterByObjectName(context.Packets, trimmed);
-            if (beforeId is { } cursor)
-            {
-                query = query.Where(packet => packet.Id < cursor);
-            }
-
-            return await GetLatestAsync(query, pageSize, ct).ConfigureAwait(false);
+            return await GetLatestPageAsync(ApplyCursor(query, cursor), pageSize, ct).ConfigureAwait(false);
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -311,6 +301,36 @@ internal sealed class PacketQueryService(
     private static Task<List<PacketRecord>> GetLatestAsync(
         IQueryable<PacketRecord> query, int limit, CancellationToken cancellationToken) =>
         query.OrderByDescending(packet => packet.Id).Take(limit).ToListAsync(cancellationToken);
+
+    /// <summary>
+    /// Applies a stable <c>(timestamp, id)</c> cursor: rows older than the cursor
+    /// timestamp, or rows that share it with a smaller id, belong to later pages.
+    /// </summary>
+    private static IQueryable<PacketRecord> ApplyCursor(IQueryable<PacketRecord> query, PacketPageCursor? cursor)
+    {
+        if (cursor is not { } pageCursor)
+        {
+            return query;
+        }
+
+        DateTime timestamp = pageCursor.Timestamp.UtcDateTime;
+        long id = pageCursor.Id;
+        return query.Where(packet =>
+            packet.Timestamp < timestamp ||
+            (packet.Timestamp == timestamp && packet.Id < id));
+    }
+
+    /// <summary>
+    /// Reads one page ordered by receipt time and then row id. Both keys descend so
+    /// the newest row is first and ties on a shared timestamp keep a total order.
+    /// </summary>
+    private static Task<List<PacketRecord>> GetLatestPageAsync(
+        IQueryable<PacketRecord> query, int limit, CancellationToken cancellationToken) =>
+        query
+            .OrderByDescending(packet => packet.Timestamp)
+            .ThenByDescending(packet => packet.Id)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
 
     private static Dictionary<string, PacketRecord> ByCallsign(IEnumerable<PacketRecord> packets) =>
         packets.ToDictionary(packet => packet.SourceSsid == AprsSsid.PrimaryStation
