@@ -44,11 +44,38 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </StackPanel>
         </Border>
 
+        <!-- The beacon outcome and the manual send live together: without a visible
+             status, a suppressed or failed beacon looked like nothing happened. -->
+        <Border Grid.Row="0"
+                Margin="12"
+                Padding="12"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Left"
+                IsVisible="{Binding BeaconStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                Background="{DynamicResource MaterialBackgroundBrush}"
+                CornerRadius="8">
+            <StackPanel Spacing="8" MaxWidth="320">
+                <TextBlock Text="{loc:Loc BeaconStatusLabel}"
+                           Classes="Caption" />
+                <TextBlock Text="{Binding BeaconStatus}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
         <StackPanel Grid.Row="0"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
                     Margin="0,0,16,16"
                     Spacing="8">
+            <controls:FloatingButton MinHeight="56"
+                                     MinWidth="56"
+                                     automation:AutomationProperties.Name="{loc:Loc SendBeaconAction}"
+                                     ToolTip.Tip="{loc:Loc SendBeaconAction}"
+                                     Command="{Binding SendManualBeaconCommand}">
+                <Viewbox Width="24" Height="24">
+                    <avalonia:MaterialIcon Kind="Send" Width="24" Height="24" />
+                </Viewbox>
+            </controls:FloatingButton>
             <controls:FloatingButton MinHeight="56"
                                       MinWidth="56"
                                       Opacity="{Binding Map.HasUserMovedMap, Converter={x:Static converters:BoolToOpacityConverter.Instance}}"

@@ -578,4 +578,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PacketDetailDegreesFormat" xml:space="preserve"><value>{0:F0}°</value></data>
   <data name="PacketDetailKnotsFormat" xml:space="preserve"><value>{0:F1} kn</value></data>
   <data name="PacketDetailScalarFormat" xml:space="preserve"><value>{0:F2}</value></data>
+  <data name="SendBeaconAction" xml:space="preserve"><value>Enviar beacon agora</value></data>
+  <data name="BeaconStatusLabel" xml:space="preserve"><value>Status do beacon</value></data>
 </root>

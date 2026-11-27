@@ -4,6 +4,7 @@
 
 using AetherAprs.Configuration;
 using AetherAprs.Factories.Packets;
+using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -177,7 +178,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling beacon request");
-            BeaconStatus = Strings.Format("BeaconError", ex.Message);
+            BeaconStatus = Strings.Format("BeaconError", UserFacingFailure.Describe(ex));
             _beaconService.ReportBeaconTransmissionResult(success: false);
         }
     }
@@ -355,7 +356,7 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending manual beacon");
-            BeaconStatus = Strings.Format("ErrorPrefix", ex.Message);
+            BeaconStatus = Strings.Format("ErrorPrefix", UserFacingFailure.Describe(ex));
         }
     }
 
