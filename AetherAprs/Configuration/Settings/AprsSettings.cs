@@ -185,9 +185,10 @@ public sealed record AprsSettings
     /// <summary>
     /// Gets whether RF to APRS-IS gating is enabled. When enabled, packets
     /// received from RF ports can be transmitted to APRS-IS.
-    /// Default is true.
+    /// Default is false: both forwarding directions start off, so nothing leaves
+    /// the station until the operator turns the gate on deliberately.
     /// </summary>
-    public bool EnableRfToAprsIsGate { get; init; } = true;
+    public bool EnableRfToAprsIsGate { get; init; }
 
     /// <summary>
     /// Gets the comment for position beacons.

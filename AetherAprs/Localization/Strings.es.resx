@@ -248,6 +248,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="EnableDigipeater" xml:space="preserve"><value>Activar digipeater</value></data>
   <data name="InsertStationCallsignInPath" xml:space="preserve"><value>Insertar el indicativo de la estación en la ruta</value></data>
   <data name="EnableAprsIsToRfGating" xml:space="preserve"><value>Activar pasarela de APRS-IS a RF</value></data>
+  <data name="AprsIsToRfAllowlistLabel" xml:space="preserve"><value>Lista de permitidos de APRS-IS a RF</value></data>
+  <data name="AprsIsToRfAllowlistPlaceholder" xml:space="preserve"><value>N0CALL,N1ABC-9</value></data>
+  <data name="AprsIsToRfAllowlistDescription" xml:space="preserve"><value>Indicativos autorizados a pasar de APRS-IS a RF, separados por comas. Déjelo vacío para permitir cualquier origen. Una entrada sin SSID coincide con todos los SSID de ese indicativo.</value></data>
   <data name="EnableRfToAprsIsGating" xml:space="preserve"><value>Activar pasarela de RF a APRS-IS</value></data>
   <data name="Messaging" xml:space="preserve"><value>Mensajería</value></data>
   <data name="MessagingDescription" xml:space="preserve"><value>Configura el comportamiento de confirmación y reintento de mensajes.</value></data>
@@ -330,6 +333,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Los reintentos máximos deben estar entre 0 y 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>El tiempo de espera de reintento debe estar entre 5 y 300 segundos</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>El comentario no puede superar los 43 caracteres</value></data>
+  <data name="ValidationAprsIsToRfAllowlistFormat" xml:space="preserve"><value>Use indicativos separados por comas, por ejemplo N0CALL,N1ABC-9</value></data>
   <data name="ValidationDigipeaterPathFormat" xml:space="preserve"><value>Use indicativos separados por comas, por ejemplo WIDE1-1,WIDE2-1</value></data>
   <data name="ValidationPortNameRequired" xml:space="preserve"><value>Introduzca un nombre para este puerto</value></data>
   <data name="ValidationPortNameTooLong" xml:space="preserve"><value>El nombre del puerto no puede superar los {0} caracteres</value></data>

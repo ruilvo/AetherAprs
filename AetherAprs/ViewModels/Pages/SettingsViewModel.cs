@@ -82,7 +82,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool EnableAprsIsToRfGate { get; set; }
 
     [ObservableProperty]
-    public partial bool EnableRfToAprsIsGate { get; set; } = true;
+    public partial string? AprsIsToRfAllowlist { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool EnableRfToAprsIsGate { get; set; }
 
     [ObservableProperty]
     public partial int MessageMaxRetries { get; set; } = 5;
@@ -119,6 +122,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } =
         Enum.GetValues<Configuration.PacketDisplayTimeRange>();
+
+    /// <summary>
+    /// The localized validation message for the Internet-to-RF allowlist, or
+    /// <see langword="null"/> while the field is valid. The view binds it next to the
+    /// text box so an entry the policy would ignore is shown before it is saved.
+    /// </summary>
+    public string? AprsIsToRfAllowlistErrorMessage =>
+        GetErrors(nameof(AprsIsToRfAllowlist))
+            .Cast<string>()
+            .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
 
     public PositionFormat[] AvailablePositionFormats { get; } =
         Enum.GetValues<PositionFormat>();
@@ -160,6 +173,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         EnableDigipeater = aprs.EnableDigipeater;
         DigipeaterInsertCallsign = aprs.DigipeaterInsertCallsign;
         EnableAprsIsToRfGate = aprs.EnableAprsIsToRfGate;
+        AprsIsToRfAllowlist = aprs.AprsIsToRfAllowlist ?? string.Empty;
         EnableRfToAprsIsGate = aprs.EnableRfToAprsIsGate;
         MessageMaxRetries = aprs.MessageMaxRetries;
         MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
@@ -324,6 +338,25 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { EnableRfToAprsIsGate = value } });
     }
 
+    partial void OnAprsIsToRfAllowlistChanged(string? value)
+    {
+        // An entry the policy cannot read would be dropped at runtime, silently
+        // narrowing the gate. Reject it here so the saved allowlist always parses to
+        // exactly what the operator sees.
+        SetErrors(nameof(AprsIsToRfAllowlist), ValidateAprsIsToRfAllowlist(value));
+        OnPropertyChanged(nameof(AprsIsToRfAllowlistErrorMessage));
+
+        SaveSettings(
+            settings => settings with
+            {
+                Aprs = settings.Aprs with
+                {
+                    AprsIsToRfAllowlist = string.IsNullOrWhiteSpace(value) ? null : value,
+                },
+            },
+            nameof(AprsIsToRfAllowlist));
+    }
+
     partial void OnMessageMaxRetriesChanged(int value)
     {
         SetErrors(nameof(MessageMaxRetries), ValidateRange(value, 0, 20, Strings.ValidationMaxRetriesRange));
@@ -369,6 +402,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     private static readonly AprsPathAttribute DigipeaterPathRule = new();
 
+    private static readonly AprsAllowlistAttribute AprsIsToRfAllowlistRule = new();
+
     [GeneratedRegex("^[A-Z0-9]{1,6}$")]
     private static partial Regex CallsignFormatPattern();
 
@@ -405,6 +440,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         return DigipeaterPathRule.IsValid(value)
             ? []
             : [Strings.ValidationDigipeaterPathFormat];
+    }
+
+    private static IReadOnlyList<string> ValidateAprsIsToRfAllowlist(string? value)
+    {
+        return AprsIsToRfAllowlistRule.IsValid(value)
+            ? []
+            : [Strings.ValidationAprsIsToRfAllowlistFormat];
     }
 
     partial void OnDigipeaterRespondToWide1Changed(bool value)

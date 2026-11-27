@@ -203,6 +203,10 @@ public static class ServiceProviderFactory
         services.AddSingleton<IPortConfigurationSource>(services =>
             services.GetRequiredService<IPortConfigurationService>());
 
+        // One transmit policy for every outbound producer: the façade and the
+        // forwarding relay share it, so a packet reaches a modem one way only.
+        services.AddSingleton<IPortTransmitPolicy, PortTransmitPolicy>();
+
         // Register the inbound queue and the forwarding queue. Each owns its own
         // bounded channel and consumer; feature code never queues packets itself.
         services.AddSingleton<IPacketIngestPipeline, PacketIngestPipeline>();

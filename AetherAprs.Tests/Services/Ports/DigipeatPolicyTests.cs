@@ -305,6 +305,18 @@ public sealed class DigipeatPolicyTests
     }
 
     [Fact]
+    public void SplitAllowlist_KeepsEveryEntrySoTheFieldCanRejectTheMalformedOnes()
+    {
+        // The settings field validates the split entries before they are parsed:
+        // dropping a malformed entry here would silently widen the saved allowlist.
+        IReadOnlyList<string> entries = DigipeatPolicy.SplitAllowlist(
+            "N0CALL-1, K1ABC;W1AW\tTOOLONGCALL,K2DEF-16");
+
+        Assert.Equal(["N0CALL-1", "K1ABC", "W1AW", "TOOLONGCALL", "K2DEF-16"], entries);
+        Assert.Equal(3, DigipeatPolicy.ParseAllowlist("N0CALL-1, K1ABC;W1AW\tTOOLONGCALL").Count);
+    }
+
+    [Fact]
     public void IsInternetToRfSourceAllowed_EmptyAllowlist_AllowsEverySource()
     {
         Assert.True(DigipeatPolicy.IsInternetToRfSourceAllowed(new Callsign("N9SRC", 4), []));

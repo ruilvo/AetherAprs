@@ -89,4 +89,32 @@ public sealed class AprsSettingsTests
         Assert.Equal("N0CALL", settings.Callsign);
         Assert.Equal("CT7ALW", updated.Callsign);
     }
+
+    [Fact]
+    public void ForwardingGates_DefaultToOff()
+    {
+        AprsSettings settings = new();
+
+        Assert.False(settings.EnableDigipeater);
+        Assert.False(settings.EnableAprsIsToRfGate);
+        Assert.False(settings.EnableRfToAprsIsGate);
+        Assert.Null(settings.AprsIsToRfAllowlist);
+    }
+
+    [Fact]
+    public void ForwardingGates_KeepExplicitlySavedValues()
+    {
+        AprsSettings settings = new()
+        {
+            EnableDigipeater = true,
+            EnableAprsIsToRfGate = true,
+            EnableRfToAprsIsGate = true,
+            AprsIsToRfAllowlist = "N0CALL",
+        };
+
+        Assert.True(settings.EnableDigipeater);
+        Assert.True(settings.EnableAprsIsToRfGate);
+        Assert.True(settings.EnableRfToAprsIsGate);
+        Assert.Equal("N0CALL", settings.AprsIsToRfAllowlist);
+    }
 }

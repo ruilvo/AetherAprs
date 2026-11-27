@@ -24,6 +24,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
 {
     private readonly IPortConfigurationSource _configurationSource;
     private readonly IPortSessionManager _sessionManager;
+    private readonly IPortTransmitPolicy _transmitPolicy;
     private readonly IDigipeaterService _digipeaterService;
     private readonly ILogger<DigipeatRouter> _logger;
     private readonly IDiagnosticEventSink? _diagnosticSink;
@@ -49,6 +50,7 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     public DigipeatRouter(
         IPortConfigurationSource configurationSource,
         IPortSessionManager sessionManager,
+        IPortTransmitPolicy transmitPolicy,
         IDigipeaterService digipeaterService,
         ILogger<DigipeatRouter> logger,
         IDiagnosticEventSink? diagnosticSink = null,
@@ -58,12 +60,14 @@ internal sealed class DigipeatRouter : IDigipeatRouter
     {
         ArgumentNullException.ThrowIfNull(configurationSource);
         ArgumentNullException.ThrowIfNull(sessionManager);
+        ArgumentNullException.ThrowIfNull(transmitPolicy);
         ArgumentNullException.ThrowIfNull(digipeaterService);
         ArgumentNullException.ThrowIfNull(logger);
 
         Options = Validate(options ?? DigipeatRouterOptions.Default);
         _configurationSource = configurationSource;
         _sessionManager = sessionManager;
+        _transmitPolicy = transmitPolicy;
         _digipeaterService = digipeaterService;
         _logger = logger;
         _diagnosticSink = diagnosticSink;
@@ -110,7 +114,16 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         }
 
         // Runs on the ingest consumer, so it never waits for transmit capacity.
-        if (_channel.Writer.TryWrite(new DigipeatCandidate(sourcePortId, packet, _timeProvider.GetUtcNow())))
+        // The receiving session is captured now: if it is replaced before the
+        // consumer dequeues this candidate, the frame is stale and is dropped
+        // instead of being replayed on the new connection.
+        DigipeatCandidate candidate = new(
+            sourcePortId,
+            packet,
+            _timeProvider.GetUtcNow(),
+            _sessionManager.GetSessionGeneration(sourcePortId));
+
+        if (_channel.Writer.TryWrite(candidate))
         {
             Interlocked.Increment(ref _enqueuedCandidates);
             return;
@@ -195,6 +208,18 @@ internal sealed class DigipeatRouter : IDigipeatRouter
             return;
         }
 
+        // A reconnect replaces the session that heard this frame. Forwarding it now
+        // would replay stale traffic on a connection it never arrived on.
+        if (_sessionManager.GetSessionGeneration(candidate.SourcePortId) != candidate.SourceSessionGeneration)
+        {
+            Discard(
+                candidate.SourcePortId,
+                candidate.Packet,
+                DigipeatReason.SourceSessionChanged,
+                "Source session changed after the candidate was queued; forward discarded.");
+            return;
+        }
+
         // Only running sessions can carry a forward. Session ownership lives in the
         // manager, so ask it rather than inspecting state.
         List<PortInfo> availablePorts = [.. configuredPorts
@@ -238,11 +263,15 @@ internal sealed class DigipeatRouter : IDigipeatRouter
 
         try
         {
-            PortSessionSendStatus status = await _sessionManager
-                .SendAsync(target.PortId, target.Packet, transmitCts.Token)
+            // Digipeat transmissions go through the same shared TX policy as every
+            // other producer, so transport readiness and the operator's enablement
+            // are enforced once. Only the implicit-start allowance differs: a
+            // forward may never bring a stopped port up.
+            PortTransmitOutcome outcome = await _transmitPolicy
+                .SendAsync(target.PortId, target.Packet, allowImplicitStart: false, transmitCts.Token)
                 .ConfigureAwait(false);
 
-            if (status != PortSessionSendStatus.Sent)
+            if (outcome.Status != PortSessionSendStatus.Sent)
             {
                 Discard(
                     candidate.SourcePortId,
@@ -373,5 +402,9 @@ internal sealed class DigipeatRouter : IDigipeatRouter
         }
     }
 
-    private sealed record DigipeatCandidate(Guid SourcePortId, AprsPacket Packet, DateTimeOffset ReceivedAt);
+    private sealed record DigipeatCandidate(
+        Guid SourcePortId,
+        AprsPacket Packet,
+        DateTimeOffset ReceivedAt,
+        long SourceSessionGeneration);
 }

@@ -86,7 +86,7 @@ internal sealed class AprsSettingsDocument
 
     public string? AprsIsToRfAllowlist { get; set; }
 
-    public bool EnableRfToAprsIsGate { get; set; } = true;
+    public bool EnableRfToAprsIsGate { get; set; }
 
     public string? BeaconComment { get; set; } = "Using AetherAPRS!";
 
