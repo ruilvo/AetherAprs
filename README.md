@@ -71,8 +71,15 @@ Release APKs are built for the device ABI with trimming and composite ReadyToRun
 enabled, because .NET 11 Android runs on CoreCLR:
 
 ```bash
-dotnet publish AetherAprs.Android/AetherAprs.Android.csproj -c Release -f net11.0-android -r android-arm64
+.github/scripts/build-release-apk.sh            # version from the checked-out git tag
+TAG=v1.2.3 .github/scripts/build-release-apk.sh # or an explicit tag
 ```
+
+The script derives the version and version code from the tag with
+`.github/scripts/extract-version.sh`, so a release package never carries the
+placeholder version in the project file; `--dry-run` prints the publish command
+without running it. Signing uses the development key unless the `AndroidSigning*`
+environment variables of the release workflow are present.
 
 ReadyToRun precompiles the assemblies into the APK so startup does less JIT work. It
 costs package size (roughly 24 MB → 43 MB for the current arm64 APK). Release builds

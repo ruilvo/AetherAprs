@@ -53,7 +53,7 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          chmod +x .github/scripts/extract-version.sh
+          chmod +x .github/scripts/extract-version.sh .github/scripts/build-release-apk.sh
           OUTPUT=$(.github/scripts/extract-version.sh "${GITHUB_REF#refs/tags/}")
           echo "$OUTPUT" >> $GITHUB_OUTPUT
 
@@ -108,16 +108,9 @@ jobs:
 
           BUILD_LOG="$RUNNER_TEMP/release-build.log"
 
-          dotnet publish AetherAprs.Android/AetherAprs.Android.csproj \
-            -c Release \
-            -f net11.0-android \
-            -r android-arm64 \
-            -p:ApplicationVersion=${{ steps.version.outputs.version_code }} \
-            -p:ApplicationDisplayVersion=${{ steps.version.outputs.version_name }} \
-            -p:AndroidKeyStore=true \
-            -p:AndroidPackageFormat=apk \
-            -p:AndroidSdkBuildToolsVersion="$ANDROID_BUILD_TOOLS_VERSION" \
-            2>&1 | tee "$BUILD_LOG"
+          # The script derives the version from the tag and passes it to MSBuild, so the
+          # workflow and a local release build produce the same version from the same source.
+          ./.github/scripts/build-release-apk.sh 2>&1 | tee "$BUILD_LOG"
 
           # Masking is only worth claiming when it is proven per run: a secret that
           # reached the log is already public in the run it leaked into.

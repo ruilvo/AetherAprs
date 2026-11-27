@@ -11,8 +11,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <ApplicationId>com.AetherRadio.AetherAprs</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- The version comes from the git tag: .github/scripts/build-release-apk.sh derives it
+         with .github/scripts/extract-version.sh and passes both values as properties, so a
+         release package never ships the placeholder below. The fallbacks only keep
+         unsigned local builds installable. Android refuses to install a version code lower
+         than the installed one, so signing a package without a derived version fails below
+         instead of quietly publishing "1". -->
+    <AetherAprsVersionSupplied Condition="'$(ApplicationVersion)' != '' and '$(ApplicationDisplayVersion)' != ''">true</AetherAprsVersionSupplied>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+    <ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <!-- Device validation uses a self-contained APK; do not depend on Fast Deployment files. -->
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
@@ -44,6 +51,16 @@ SPDX-License-Identifier: GPL-3.0-or-later
       <Link>Resources\drawable\icon_400px.png</Link>
     </AndroidResource>
   </ItemGroup>
+
+  <!-- A signed package must carry the version derived from its tag. The release workflow
+       and build-release-apk.sh always supply it; this catches a hand-run publish that
+       would otherwise ship version 1 and never upgrade an installed build. -->
+  <Target Name="_RequireTagVersionForSignedPackage"
+          BeforeTargets="_GetAndroidPackageName"
+          Condition="'$(AndroidKeyStore)' == 'true' and '$(AetherAprsVersionSupplied)' != 'true'">
+    <Error Code="APRS0001"
+           Text="A signed package needs the version derived from its git tag. Pass -p:ApplicationVersion=(version code) and -p:ApplicationDisplayVersion=(version name), or run .github/scripts/build-release-apk.sh." />
+  </Target>
 
   <!-- Always include base configuration file -->
   <ItemGroup>

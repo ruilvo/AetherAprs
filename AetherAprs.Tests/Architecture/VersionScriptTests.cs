@@ -21,6 +21,7 @@ namespace AetherAprs.Tests.Architecture;
 public sealed class VersionScriptTests
 {
     private const string ScriptRelativePath = ".github/scripts/extract-version.sh";
+    private const string BuildScriptRelativePath = ".github/scripts/build-release-apk.sh";
 
     [Fact]
     public void FinalReleaseTagProducesItsPackedVersionCode()
@@ -86,17 +87,66 @@ public sealed class VersionScriptTests
         }
     }
 
+    [Fact]
+    public void ReleaseBuildScriptPassesTheTagVersionToPublish()
+    {
+        VersionResult result = RunScriptFile(
+            BuildScriptRelativePath,
+            ["--dry-run"],
+            new Dictionary<string, string?>(StringComparer.Ordinal) { ["TAG"] = "v1.2.3" });
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("-p:ApplicationVersion=1020399", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-p:ApplicationDisplayVersion=1.2.3", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-c Release", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-p:AndroidPackageFormat=apk", result.Output, StringComparison.Ordinal);
+
+        // No signing material in the environment means the package uses the development key.
+        Assert.DoesNotContain("-p:AndroidKeyStore=true", result.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReleaseBuildScriptSignsAndPinsBuildToolsOnlyWhenTheEnvironmentProvidesThem()
+    {
+        VersionResult result = RunScriptFile(
+            BuildScriptRelativePath,
+            ["--dry-run"],
+            new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["TAG"] = "v1.2.3-beta.5",
+                ["ANDROID_BUILD_TOOLS_VERSION"] = "34.0.0",
+                ["AndroidSigningKeyStore"] = "/tmp/release.keystore",
+            });
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("-p:ApplicationVersion=1020338", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-p:ApplicationDisplayVersion=1.2.3-beta.5", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-p:AndroidSdkBuildToolsVersion=34.0.0", result.Output, StringComparison.Ordinal);
+        Assert.Contains("-p:AndroidKeyStore=true", result.Output, StringComparison.Ordinal);
+
+        // The keystore path itself never reaches the command line.
+        Assert.DoesNotContain("release.keystore", result.Output, StringComparison.Ordinal);
+    }
+
     private static VersionResult RunScript(string tag)
+    {
+        return RunScriptFile(ScriptRelativePath, [tag], new Dictionary<string, string?>(StringComparer.Ordinal));
+    }
+
+    private static VersionResult RunScriptFile(
+        string scriptRelativePath,
+        string[] arguments,
+        Dictionary<string, string?> environment)
     {
         if (!BashIsAvailable())
         {
-            Assert.Skip("bash is not available on this machine, so the release version script cannot be run.");
+            Assert.Skip("bash is not available on this machine, so the release scripts cannot be run.");
         }
 
         string repositoryRoot = SourceScanner.FindRepositoryRoot();
         Assert.True(
-            File.Exists(Path.Combine(repositoryRoot, ScriptRelativePath.Replace('/', Path.DirectorySeparatorChar))),
-            $"The release version script is missing at {ScriptRelativePath}.");
+            File.Exists(Path.Combine(repositoryRoot, scriptRelativePath.Replace('/', Path.DirectorySeparatorChar))),
+            $"The release script is missing at {scriptRelativePath}.");
 
         ProcessStartInfo startInfo = new("bash")
         {
@@ -106,8 +156,16 @@ public sealed class VersionScriptTests
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        startInfo.ArgumentList.Add(ScriptRelativePath);
-        startInfo.ArgumentList.Add(tag);
+        startInfo.ArgumentList.Add(scriptRelativePath);
+        foreach (string argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        foreach (KeyValuePair<string, string?> variable in environment)
+        {
+            startInfo.Environment[variable.Key] = variable.Value;
+        }
 
         using Process process = Process.Start(startInfo)!;
         string output = process.StandardOutput.ReadToEnd();

@@ -39,11 +39,25 @@ public sealed class ReleaseWorkflowTests
             + $"but found {definitions.Count} definition(s).");
 
         Assert.True(
-            Regex.IsMatch(workflow, @"AndroidSdkBuildToolsVersion=""\$" + BuildToolsVariable + @"""", RegexOptions.CultureInvariant),
+            Regex.IsMatch(workflow, @"AndroidSdkBuildToolsVersion=""\$" + BuildToolsVariable + @"""", RegexOptions.CultureInvariant)
+            || Regex.IsMatch(ReadReleaseBuildScript(), @"AndroidSdkBuildToolsVersion=""\$" + BuildToolsVariable + @"""", RegexOptions.CultureInvariant),
             $"The APK build must take its build-tools version from ${BuildToolsVariable}.");
         Assert.False(
-            Regex.IsMatch(workflow, @"AndroidSdkBuildToolsVersion=\d", RegexOptions.CultureInvariant),
+            Regex.IsMatch(workflow, @"AndroidSdkBuildToolsVersion=\d", RegexOptions.CultureInvariant)
+            || Regex.IsMatch(ReadReleaseBuildScript(), @"AndroidSdkBuildToolsVersion=\d", RegexOptions.CultureInvariant),
             "The APK build must not hardcode a build-tools version; it is pinned once as a workflow variable.");
+    }
+
+    [Fact]
+    public void TheBuildStepGoesThroughTheVersionedReleaseScript()
+    {
+        string workflow = ReadWorkflow();
+        string build = GetStepBlock(workflow, "Build APK");
+
+        // One publish site for CI and local builds, so the version always comes from the tag.
+        Assert.Contains("./.github/scripts/build-release-apk.sh", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("-p:ApplicationVersion", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet publish", build, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -166,6 +180,17 @@ public sealed class ReleaseWorkflowTests
     {
         Assert.True(File.Exists(WorkflowPath), $"The release workflow is missing at {WorkflowPath}.");
         return File.ReadAllText(WorkflowPath);
+    }
+
+    private static string ReadReleaseBuildScript()
+    {
+        string path = Path.Combine(
+            SourceScanner.FindRepositoryRoot(),
+            ".github",
+            "scripts",
+            "build-release-apk.sh");
+        Assert.True(File.Exists(path), $"The release build script is missing at {path}.");
+        return File.ReadAllText(path);
     }
 
     /// <summary>Extracts one step of the workflow, from its name up to the next step.</summary>
