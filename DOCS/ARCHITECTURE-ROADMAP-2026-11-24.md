@@ -226,9 +226,7 @@ existing functionality unless a documented safety decision changes it.
 
 ### R7 Build and distribution maintenance
 
-1. Preserve GitHub Releases as the distribution channel and keep artifact checksum,
-   signature and upgrade behaviour verifiable. Use release notes for version history.
-2. Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
+- Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
    framework only; trimming the application and its dependencies adds IL2026 for the
    `GroupBy` key projections in `PacketQueryService` and for the `SettingsViewModel`
    setters reached from two-way bindings, and IL2104 for EF Core, which has no compiled
