@@ -31,8 +31,9 @@ public partial class ObjectDetailsViewModel(
     private readonly ILogger<ObjectDetailsViewModel>? _logger = logger;
 
     // An object that reports for months has thousands of rows. Load one page at a
-    // time, newest first, using the oldest loaded id as a cursor.
-    private long? _oldestLoadedId;
+    // time, newest first, using the (timestamp, id) pair of the oldest loaded row as
+    // a cursor so a shared timestamp never repeats or skips a report.
+    private PacketPageCursor? _pageCursor;
     private bool _isLoadingPage;
 
     [ObservableProperty]
@@ -107,22 +108,26 @@ public partial class ObjectDetailsViewModel(
         try
         {
             IReadOnlyList<PacketRecord> reports = await _packetQueryService
-                .GetPacketsByObjectNamePageAsync(Name, _oldestLoadedId, PageSize);
+                .GetPacketsByObjectNamePageAsync(Name, _pageCursor, PageSize);
 
             // The current state belongs to the newest report, which is only in the
             // first page; later pages append history and never rewrite the header.
             bool isFirstPage = Reports.Count == 0;
 
-            long? oldest = null;
+            PacketPageCursor? oldest = null;
             foreach (PacketRecord report in reports)
             {
                 Reports.Add(report);
-                oldest = oldest.HasValue ? Math.Min(oldest.Value, report.Id) : report.Id;
+                PacketPageCursor candidate = PacketPageCursor.FromPacket(report);
+                if (oldest is not { } current || IsOlder(candidate, current))
+                {
+                    oldest = candidate;
+                }
             }
 
             if (oldest is { } cursor)
             {
-                _oldestLoadedId = cursor;
+                _pageCursor = cursor;
             }
 
             if (isFirstPage)
@@ -194,4 +199,12 @@ public partial class ObjectDetailsViewModel(
             }
         }
     }
+
+    /// <summary>
+    /// Ordering helper mirroring the query: a row is older when its receipt time is
+    /// earlier, or when the timestamps match and its id is smaller.
+    /// </summary>
+    private static bool IsOlder(PacketPageCursor candidate, PacketPageCursor current) =>
+        candidate.Timestamp < current.Timestamp ||
+        (candidate.Timestamp == current.Timestamp && candidate.Id < current.Id);
 }

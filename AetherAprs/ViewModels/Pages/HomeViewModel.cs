@@ -371,6 +371,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        // Remember the choice on the layer service: the marker set is rebuilt from the
+        // database on every packet, so a selection held only by the clicked feature
+        // would be lost on the next update.
+        _receivedBeaconsLayerService.SelectStation(callsign);
+
         PacketDetailsViewModel vm = _packetDetailsFactory.Create(callsign);
         _navigationService.NavigateTo(vm);
     }

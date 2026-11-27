@@ -5,15 +5,18 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Data.Entities;
+using AetherAprs.Configuration;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels.Pages;
@@ -34,7 +37,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             Timestamp = DateTimeOffset.UtcNow
         };
 
-    private static PacketRecord PositionPacket(double latitude, double longitude, long id = 1) =>
+    private static PacketRecord PositionPacket(double latitude, double longitude, long id = 1, DateTime? timestamp = null) =>
         new()
         {
             Id = id,
@@ -42,7 +45,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
             SourceSsid = AprsSsid.AdditionalStation1,
             PacketType = "Position",
             RawInfo = "!",
-            Timestamp = DateTime.UtcNow,
+            Timestamp = timestamp ?? DateTime.UtcNow,
             Position = new PositionDataRecord
             {
                 Location = new Coordinate(latitude, longitude)
@@ -52,14 +55,24 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     private static PacketDetailsViewModel CreateViewModel(
         IPacketQueryService query,
         FakeLocationCoordinator locationTracking,
-        ICompassService compass) =>
+        ICompassService compass,
+        IPortService? portService = null) =>
         new(
             query,
             Substitute.For<INavigationService>(),
             Substitute.For<IConversationViewModelFactory>(),
             locationTracking,
             compass,
+            portService ?? CreatePortService(),
             NullLogger<PacketDetailsViewModel>.Instance);
+
+    /// <summary>An idle port service: the details page reads names, nothing else.</summary>
+    private static IPortService CreatePortService(params PortConfig[] ports)
+    {
+        IPortService portService = Substitute.For<IPortService>();
+        portService.Ports.Returns(ports);
+        return portService;
+    }
 
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
     {
@@ -179,7 +192,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         vm.Initialize("N0CALL-1");
         await WaitUntilAsync(() => !vm.IsLoading);
 
-        // Station is due west (270Ãƒâ€šÃ‚Â°), phone heading is 45Ãƒâ€šÃ‚Â° ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ needle at 225Ãƒâ€šÃ‚Â°.
+        // Station is due west (270ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°), phone heading is 45ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ needle at 225ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°.
         Assert.Equal(225.0, vm.RelativeBearingDegrees, 1.0);
     }
 
@@ -255,10 +268,14 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
 
     private static IReadOnlyList<PacketRecord> CreatePage(long newestId, int count)
     {
+        // Ids descend with receipt time so the page is ordered the way the query
+        // orders it: newest first by timestamp, then by id.
+        DateTime newerThan = DateTime.UtcNow.AddSeconds(newestId);
         List<PacketRecord> page = [];
         for (int index = 0; index < count; index++)
         {
-            page.Add(PositionPacket(38.5, -9.0, newestId - index));
+            long id = newestId - index;
+            page.Add(PositionPacket(38.5, -9.0, id, newerThan.AddSeconds(-index)));
         }
 
         return page;
@@ -287,14 +304,76 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
     }
 
     [Fact]
-    public async Task LoadMore_AppendsTheNextPageFromTheOldestLoadedId()
+    public async Task Initialize_ResolvesThePortNameAndBuildsThePresentedRows()
     {
+        Guid portId = Guid.NewGuid();
         IPacketQueryService query = Substitute.For<IPacketQueryService>();
         query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CreatePage(newestId: 100, count: 50)));
-        query.GetPacketsByCallsignPageAsync("N0CALL-1", 51, 50, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(CreatePage(newestId: 50, count: 50)));
-        query.GetPacketsByCallsignPageAsync("N0CALL-1", 1, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>(
+            [
+                new PacketRecord
+                {
+                    Id = 1,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Position",
+                    RawInfo = "!",
+                    Timestamp = DateTime.UtcNow,
+                    PortId = portId,
+                    Position = new PositionDataRecord { Location = new Coordinate(38.5, -9.0) }
+                },
+                new PacketRecord
+                {
+                    Id = 2,
+                    SourceBase = "N0CALL",
+                    SourceSsid = AprsSsid.AdditionalStation1,
+                    PacketType = "Status",
+                    Timestamp = DateTime.UtcNow,
+                    Status = new StatusDataRecord { Text = "On air" }
+                }
+            ]));
+
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
+        IPortService portService = CreatePortService(new PortConfig { Id = portId, Name = "APRS-IS" });
+
+        PacketDetailsViewModel vm = CreateViewModel(
+            query,
+            locationTracking,
+            Substitute.For<ICompassService>(),
+            portService);
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+
+        // Each presented row is paired with the raw record the paging cursor uses.
+        Assert.Equal(2, vm.PacketDetails.Count);
+        Assert.Equal(vm.Packets.Select(packet => packet.Id), vm.PacketDetails.Select(detail => detail.PacketId));
+        Assert.Single(vm.PositionDetails);
+        Assert.Single(vm.WeatherStatusTelemetryDetails);
+
+        // The port name is resolved once and cached for the page.
+        Assert.Contains(
+            vm.PacketDetails[0].Provenance,
+            field => field.Label == AetherAprs.Localization.Strings.Get("Port") && field.Value == "APRS-IS");
+        Assert.Contains(
+            vm.PacketDetails[1].Provenance,
+            field => field.Value == AetherAprs.Localization.Strings.Get("PacketDetailPortUnknown"));
+    }
+
+    [Fact]
+    public async Task LoadMore_AppendsTheNextPageFromTheOldestLoadedId()
+    {
+        IReadOnlyList<PacketRecord> firstPage = CreatePage(newestId: 100, count: 50);
+        IReadOnlyList<PacketRecord> secondPage = CreatePage(newestId: 50, count: 50);
+        PacketPageCursor firstCursor = PacketPageCursor.FromPacket(firstPage[^1]);
+        PacketPageCursor secondCursor = PacketPageCursor.FromPacket(secondPage[^1]);
+
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(firstPage));
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", firstCursor, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(secondPage));
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", secondCursor, 50, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
 
         FakeLocationCoordinator locationTracking = new();
@@ -307,10 +386,11 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
 
         await vm.LoadMoreCommand.ExecuteAsync(null);
 
-        // The cursor is the oldest id already shown, so pages neither repeat nor skip
-        // a row even when several packets share a timestamp.
+        // The cursor is the (timestamp, id) pair of the oldest row already shown, so
+        // pages neither repeat nor skip a row even when several packets share a
+        // timestamp.
         await query.Received(1).GetPacketsByCallsignPageAsync(
-            "N0CALL-1", 51, 50, Arg.Any<CancellationToken>());
+            "N0CALL-1", firstCursor, 50, Arg.Any<CancellationToken>());
         Assert.Equal(100, vm.Packets.Count);
         Assert.Equal(100, vm.PositionHistory.Count);
         Assert.Equal(1, vm.Packets[^1].Id);
@@ -343,7 +423,7 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
         await vm.LoadMoreCommand.ExecuteAsync(null);
 
         await query.Received(1).GetPacketsByCallsignPageAsync(
-            "N0CALL-1", Arg.Any<long?>(), 50, Arg.Any<CancellationToken>());
+            "N0CALL-1", Arg.Any<PacketPageCursor?>(), 50, Arg.Any<CancellationToken>());
         Assert.Equal(3, vm.Packets.Count);
     }
 
@@ -368,5 +448,48 @@ public sealed class PacketDetailsViewModelTests : TestFixtureBase
 
         Assert.Empty(vm.Packets);
         Assert.False(vm.HasPackets);
+    }
+
+    [Fact]
+    public async Task LoadMore_WithASharedTimestamp_ContinuesFromTheOldestRow()
+    {
+        // Every row shares one timestamp, so the cursor must carry both halves of the
+        // ordering key to keep paging. A full first page keeps HasMore true.
+        DateTime sharedTimestamp = new(2026, 11, 27, 6, 0, 0, DateTimeKind.Utc);
+        List<PacketRecord> all = [];
+        for (int index = 0; index < 51; index++)
+        {
+            all.Add(PositionPacket(38.5, -9.0, 100 - index, sharedTimestamp));
+        }
+
+        IPacketQueryService query = Substitute.For<IPacketQueryService>();
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", null, 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([.. all.Take(50)]));
+        query.GetPacketsByCallsignPageAsync("N0CALL-1", new PacketPageCursor(51, sharedTimestamp), 50, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([.. all.Skip(50)]));
+
+        FakeLocationCoordinator locationTracking = new();
+        locationTracking.Location = null;
+
+        PacketDetailsViewModel vm = new(
+            query,
+            Substitute.For<INavigationService>(),
+            Substitute.For<IConversationViewModelFactory>(),
+            locationTracking,
+            Substitute.For<ICompassService>(),
+            CreatePortService(),
+            NullLogger<PacketDetailsViewModel>.Instance);
+        vm.Initialize("N0CALL-1");
+        await WaitUntilAsync(() => !vm.IsLoading);
+        Assert.True(vm.HasMore);
+
+        // Act
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        // Assert
+        await query.Received(1).GetPacketsByCallsignPageAsync(
+            "N0CALL-1", new PacketPageCursor(51, sharedTimestamp), 50, Arg.Any<CancellationToken>());
+        Assert.Equal(51, vm.Packets.Count);
+        Assert.Equal(51, vm.Packets.Select(packet => packet.Id).Distinct().Count());
     }
 }

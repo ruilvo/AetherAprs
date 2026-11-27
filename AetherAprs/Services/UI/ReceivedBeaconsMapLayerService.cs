@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data.Entities;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
@@ -45,6 +46,20 @@ public interface IReceivedBeaconsMapLayerService : IDisposable
     /// the beacon markers accordingly.
     /// </summary>
     void SetResolution(double resolution);
+
+    /// <summary>
+    /// Gets the callsign the operator last selected on the map, or <see langword="null"/>
+    /// when nothing is selected.
+    /// </summary>
+    string? SelectedCallsign { get; }
+
+    /// <summary>
+    /// Records the station the operator selected. The selection is not tied to a
+    /// rendered feature, so it survives the rebuilds that follow new packets and
+    /// filter changes.
+    /// </summary>
+    /// <param name="callsign">The selected callsign, or <see langword="null"/> to clear.</param>
+    void SelectStation(string? callsign);
 }
 
 /// <summary>
@@ -72,12 +87,16 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private readonly Lock _rebuildLock = new();
     private bool _rebuildPending;
     private bool _rebuildRunning;
+    private CancellationTokenSource? _rebuildCancellation;
     private bool _disposed;
     private List<BeaconMarker> _markers = [];
     private double _currentResolution = double.NaN;
+    private string? _selectedCallsign;
+    private string? _ownCallsign;
 
     public ILayer BeaconsLayer => _beaconsLayer;
     public ILayer TrailsLayer => _trailsLayer;
+    public string? SelectedCallsign => _selectedCallsign;
 
     public ReceivedBeaconsMapLayerService(
         IPortService portService,
@@ -137,13 +156,16 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     /// <summary>
     /// Coalesces rebuild requests: at most one rebuild runs at a time, and events
-    /// arriving during a rebuild schedule exactly one more (H2). This prevents
-    /// per-packet full rebuilds under an active APRS-IS feed and overlapping
-    /// rebuilds racing on the shared layers.
+    /// arriving during a rebuild cancel the in-flight run and schedule exactly one
+    /// replacement (H2, R6.4). This prevents per-packet full rebuilds under an active
+    /// APRS-IS feed, overlapping rebuilds racing on the shared layers, and a
+    /// superseded run continuing against a dataset and filter set that no longer
+    /// apply.
     /// </summary>
     private void ScheduleRebuild()
     {
         bool startRequested = false;
+        CancellationTokenSource? superseded = null;
 
         lock (_rebuildLock)
         {
@@ -155,11 +177,22 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             if (_rebuildRunning)
             {
                 _rebuildPending = true;
-                return;
+                superseded = _rebuildCancellation;
             }
+            else
+            {
+                _rebuildRunning = true;
+                _rebuildPending = true;
+                startRequested = true;
+            }
+        }
 
-            _rebuildRunning = true;
-            startRequested = true;
+        if (superseded is not null)
+        {
+            // Cancel outside the lock: registered callbacks can run inline and must
+            // not observe (or block on) the rebuild latch.
+            Cancel(superseded);
+            return;
         }
 
         if (startRequested)
@@ -168,38 +201,82 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
     }
 
-    private async Task RebuildLoopAsync()
+    /// <summary>
+    /// Cancels a superseded rebuild. The source stays owned by the run that is
+    /// unwinding, which disposes it, so the token a query is still holding stays
+    /// usable until that query returns.
+    /// </summary>
+    private void Cancel(CancellationTokenSource cancellation)
     {
         try
         {
-            await RebuildVisibleLayersAsync();
+            cancellation.Cancel();
         }
-        finally
+        catch (ObjectDisposedException)
         {
-            bool rerun = false;
+            // The superseded run finished and disposed its source first; there is
+            // nothing left to cancel.
+        }
+        catch (AggregateException ex)
+        {
+            // A cancellation callback threw. The rebuild is abandoned either way.
+            _logger.LogWarning(ex, "A rebuild cancellation callback failed");
+        }
+    }
+
+    private async Task RebuildLoopAsync()
+    {
+        while (true)
+        {
+            CancellationTokenSource cancellation = new();
             lock (_rebuildLock)
             {
-                if (_rebuildPending && !_disposed)
-                {
-                    _rebuildPending = false;
-                    rerun = true;
-                }
-                else
+                if (_disposed)
                 {
                     _rebuildRunning = false;
+                    cancellation.Dispose();
+                    return;
+                }
+
+                _rebuildPending = false;
+                _rebuildCancellation = cancellation;
+            }
+
+            try
+            {
+                await RebuildVisibleLayersAsync(cancellation.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer rebuild superseded this one; it is started below.
+            }
+            finally
+            {
+                lock (_rebuildLock)
+                {
+                    if (ReferenceEquals(_rebuildCancellation, cancellation))
+                    {
+                        _rebuildCancellation = null;
+                    }
+
+                    cancellation.Dispose();
                 }
             }
 
-            if (rerun)
+            lock (_rebuildLock)
             {
-                ScheduleRebuild();
+                if (!_rebuildPending || _disposed)
+                {
+                    _rebuildRunning = false;
+                    return;
+                }
             }
         }
     }
 
     private void RunOnUi(Action action) => _uiDispatcher.Post(action);
 
-    private async Task RebuildVisibleLayersAsync()
+    private async Task RebuildVisibleLayersAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -207,7 +284,16 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             HashSet<Guid> visiblePortIds = _filterService.GetVisiblePortIds();
             DateTimeOffset? cutoffTime = _filterService.GetCutoffTime();
 
-            IReadOnlyDictionary<string, PacketRecord> allPositionPackets = await _packetQueryService.GetMostRecentPositionPacketsAsync();
+            // The operator's own station is part of the published settings snapshot,
+            // so it is re-read on every rebuild and stays correct after a callsign
+            // change without restarting the map.
+            AprsSettings aprs = _configurationService.Current.Aprs;
+            string ownCallsign = AprsSsidExtensions.FormatCallsign(aprs.Callsign, aprs.Ssid);
+            _ownCallsign = ownCallsign;
+
+            IReadOnlyDictionary<string, PacketRecord> allPositionPackets = await _packetQueryService
+                .GetMostRecentPositionPacketsAsync(cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             IEnumerable<PacketRecord> filteredPackets = allPositionPackets.Values
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
@@ -227,13 +313,15 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             }
 
             // Render live objects and items as named markers (killed reports are hidden).
-            IEnumerable<PacketRecord> liveObjects = (await _packetQueryService.GetMostRecentObjectsAsync())
+            IEnumerable<PacketRecord> liveObjects = (await _packetQueryService
+                    .GetMostRecentObjectsAsync(cancellationToken: cancellationToken))
                 .Where(r => r.Object is { IsLive: true })
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
                 .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
             foreach (PacketRecord? record in liveObjects)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ObjectDataRecord obj = record.Object!;
                 markers.Add(CreateMarker(
                     obj.Location.Latitude,
@@ -244,13 +332,15 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     obj.Name));
             }
 
-            IEnumerable<PacketRecord> liveItems = (await _packetQueryService.GetMostRecentItemsAsync())
+            IEnumerable<PacketRecord> liveItems = (await _packetQueryService
+                    .GetMostRecentItemsAsync(cancellationToken: cancellationToken))
                 .Where(r => r.Item is { IsLive: true })
                 .Where(r => !cutoffTime.HasValue || new DateTimeOffset(r.Timestamp, TimeSpan.Zero) >= cutoffTime.Value)
                 .Where(r => r.PortId.HasValue && visiblePortIds.Contains(r.PortId.Value));
 
             foreach (PacketRecord? record in liveItems)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ItemDataRecord item = record.Item!;
                 markers.Add(CreateMarker(
                     item.Location.Latitude,
@@ -261,12 +351,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     item.Name));
             }
 
-            _markers = markers;
-
             // Bulk fetch all position trail packets once, then group by source client-side.
             // Note: trails intentionally NOT filtered by port (preserves existing behavior
             // where a station's trail includes packets heard on any port).
-            IReadOnlyList<PacketRecord> allTrailPackets = await _packetQueryService.GetPositionTrailPacketsAsync(cutoffTime);
+            IReadOnlyList<PacketRecord> allTrailPackets = await _packetQueryService
+                .GetPositionTrailPacketsAsync(cutoffTime, cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             List<List<PacketRecord>> trailsBySource = [.. allTrailPackets
                 .GroupBy(r => (r.SourceBase, r.SourceSsid))
@@ -276,7 +366,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                     .ToList())
                 .Where(trail => trail.Count > 1)];
 
-            _trailFeatures.Clear();
+            Dictionary<string, GeometryFeature> trailFeatures = [];
 
             foreach (List<PacketRecord> trailPositions in trailsBySource)
             {
@@ -284,11 +374,29 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
                 if (trailFeature != null)
                 {
                     PacketRecord latest = trailPositions[^1];
-                    _trailFeatures[AprsSsidExtensions.FormatCallsign(latest.SourceBase, latest.SourceSsid)] = trailFeature;
+                    trailFeatures[AprsSsidExtensions.FormatCallsign(latest.SourceBase, latest.SourceSsid)] = trailFeature;
                 }
             }
 
+            // Do not publish a dataset that was superseded while it was assembling;
+            // the previous marker and trail set stays on the map until the replacement
+            // run commits its own.
+            cancellationToken.ThrowIfCancellationRequested();
+
+            _markers = markers;
+            _trailFeatures.Clear();
+            foreach ((string callsign, GeometryFeature feature) in trailFeatures)
+            {
+                _trailFeatures[callsign] = feature;
+            }
+
             RenderBeaconsLayer();
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a newer rebuild: drop this run's partial dataset instead
+            // of rendering it, and let the loop start the replacement.
+            throw;
         }
         catch (Exception ex)
         {
@@ -398,6 +506,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     /// <summary>
     /// Re-renders the beacons layer from the current marker set, clustering markers that
     /// fall into the same grid cell (sized ~40 screen pixels) into a single cluster feature.
+    /// The selected station and the operator's own station are always drawn as
+    /// individual, flagged features so that neither disappears into a cluster when the
+    /// map is zoomed out or a new packet arrives.
     /// </summary>
     private void RenderBeaconsLayer()
     {
@@ -416,13 +527,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         {
             foreach (BeaconMarker marker in _markers)
             {
-                _beaconsLayer.Add(CreateLabeledFeature(
-                    marker.Point,
-                    marker.SymbolTable,
-                    marker.SymbolCode,
-                    marker.Label,
-                    marker.Callsign,
-                    marker.ObjectName));
+                _beaconsLayer.Add(CreateMarkerFeature(marker));
             }
 
             _beaconsLayer.DataHasChanged();
@@ -431,38 +536,90 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
 
         double cellSize = 40.0 * _currentResolution;
-        IReadOnlyList<IReadOnlyList<int>> groups = MapClusterer.Cluster([.. _markers.Select(m => m.Point)], cellSize);
+
+        // Pinned markers keep their own feature: they are the ones the operator is
+        // looking at, so a cluster bubble must not replace them. They are also kept out
+        // of the clustering input entirely, so a pinned marker never drags the bubble
+        // away from the stations it groups.
+        List<BeaconMarker> pinned = [];
+        List<BeaconMarker> clusterable = [];
+
+        foreach (BeaconMarker marker in _markers)
+        {
+            if (IsPinned(marker))
+            {
+                pinned.Add(marker);
+            }
+            else
+            {
+                clusterable.Add(marker);
+            }
+        }
+
+        foreach (BeaconMarker marker in pinned)
+        {
+            _beaconsLayer.Add(CreateMarkerFeature(marker));
+        }
+
+        IReadOnlyList<IReadOnlyList<int>> groups = MapClusterer.Cluster(
+            [.. clusterable.Select(marker => marker.Point)],
+            cellSize);
 
         foreach (IReadOnlyList<int> group in groups)
         {
             if (group.Count == 1)
             {
-                BeaconMarker marker = _markers[group[0]];
-                _beaconsLayer.Add(CreateLabeledFeature(
-                    marker.Point,
-                    marker.SymbolTable,
-                    marker.SymbolCode,
-                    marker.Label,
-                    marker.Callsign,
-                    marker.ObjectName));
+                _beaconsLayer.Add(CreateMarkerFeature(clusterable[group[0]]));
             }
             else
             {
-                foreach (BeaconMarker? marker in group.Select(i => _markers[i]))
+                List<BeaconMarker> grouped = [.. group.Select(index => clusterable[index])];
+                foreach (BeaconMarker marker in grouped)
                 {
-                    if (marker.Callsign is not null)
+                    if (marker.Callsign is { } callsign)
                     {
-                        _clusteredCallsigns.Add(marker.Callsign);
+                        _clusteredCallsigns.Add(callsign);
                     }
                 }
 
-                _beaconsLayer.Add(CreateClusterFeature([.. group.Select(i => _markers[i])]));
+                _beaconsLayer.Add(CreateClusterFeature(grouped));
             }
         }
 
         _beaconsLayer.DataHasChanged();
         RenderTrailsLayer();
     }
+
+    private PointFeature CreateMarkerFeature(BeaconMarker marker)
+    {
+        PointFeature feature = CreateLabeledFeature(
+            marker.Point,
+            marker.SymbolTable,
+            marker.SymbolCode,
+            marker.Label,
+            marker.Callsign,
+            marker.ObjectName);
+
+        if (IsPinned(marker))
+        {
+            // The view can highlight these without scanning the marker set again.
+            feature["Pinned"] = true;
+        }
+
+        return feature;
+    }
+
+    /// <summary>
+    /// A marker is pinned when it is the operator's selection or its own station.
+    /// </summary>
+    private bool IsPinned(BeaconMarker marker) =>
+        IsStationPinned(marker.Callsign, _selectedCallsign) ||
+        IsStationPinned(marker.Callsign, _ownCallsign);
+
+    private static bool IsStationPinned(string? callsign, string? pinned) =>
+        callsign is not null &&
+        pinned is { Length: > 0 } &&
+        string.Equals(callsign, pinned, StringComparison.OrdinalIgnoreCase);
 
     private void RenderTrailsLayer()
     {
@@ -595,6 +752,28 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     }
 
     /// <summary>
+    /// Records the selected station and re-renders so it stops being hidden inside a
+    /// cluster. The selection itself lives outside the marker set, which is rebuilt
+    /// from the database on every packet, so it survives those rebuilds.
+    /// </summary>
+    public void SelectStation(string? callsign)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        string? normalized = string.IsNullOrWhiteSpace(callsign) ? null : callsign.Trim();
+        if (string.Equals(_selectedCallsign, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _selectedCallsign = normalized;
+        RunOnUi(RenderBeaconsLayer);
+    }
+
+    /// <summary>
     /// A beacon marker awaiting map rendering: its projected position, APRS symbol, label,
     /// and optional click-to-navigate callsign.
     /// </summary>
@@ -608,6 +787,8 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
 
     public void Dispose()
     {
+        CancellationTokenSource? running = null;
+
         lock (_rebuildLock)
         {
             if (_disposed)
@@ -620,6 +801,15 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             _packetStorageService.PacketStored -= OnPacketStored;
             _filterService.FiltersChanged -= OnFiltersChanged;
             _disposed = true;
+            running = _rebuildCancellation;
+            _rebuildPending = false;
+        }
+
+        if (running is not null)
+        {
+            // Stop an in-flight rebuild from finishing against the layers this method
+            // is about to clear. The run owns and disposes the source.
+            Cancel(running);
         }
 
         _beaconsLayer.Clear();

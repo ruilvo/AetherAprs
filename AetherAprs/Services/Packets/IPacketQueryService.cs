@@ -49,17 +49,18 @@ public interface IPacketQueryService
 
     /// <summary>
     /// Retrieves one page of historical packets for a specific callsign, ordered by
-    /// most recent first. The row id is unique and monotonic with receipt time, so it
+    /// most recent first (receipt time, then row id). The <c>(timestamp, id)</c> pair
     /// is a stable cursor: a page never repeats or skips a row, even when several
     /// packets share a timestamp.
     /// </summary>
     /// <param name="callsign">The source callsign to query.</param>
-    /// <param name="beforeId">
-    /// The id of the oldest row already shown, or <see langword="null"/> for the first page.
+    /// <param name="cursor">
+    /// The timestamp and id of the oldest row already shown, or <see langword="null"/>
+    /// for the first page.
     /// </param>
     /// <param name="pageSize">Maximum number of packets in the page.</param>
     /// <returns>A page of packet records ordered by most recent first.</returns>
-    Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignPageAsync(string callsign, long? beforeId = null, int pageSize = 50, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignPageAsync(string callsign, PacketPageCursor? cursor = null, int pageSize = 50, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves position packets for trail display in a single bulk query,
@@ -95,16 +96,18 @@ public interface IPacketQueryService
 
     /// <summary>
     /// Retrieves one page of historical packets for a specific object or item name,
-    /// ordered by most recent first. The row id is a stable cursor, so a page never
-    /// repeats or skips a row.
+    /// ordered by most recent first (receipt time, then row id). The
+    /// <c>(timestamp, id)</c> pair is a stable cursor, so a page never repeats or
+    /// skips a row.
     /// </summary>
     /// <param name="name">The object or item name to query.</param>
-    /// <param name="beforeId">
-    /// The id of the oldest row already shown, or <see langword="null"/> for the first page.
+    /// <param name="cursor">
+    /// The timestamp and id of the oldest row already shown, or <see langword="null"/>
+    /// for the first page.
     /// </param>
     /// <param name="pageSize">Maximum number of packets in the page.</param>
     /// <returns>A page of packet records ordered by most recent first.</returns>
-    Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNamePageAsync(string name, long? beforeId = null, int pageSize = 50, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNamePageAsync(string name, PacketPageCursor? cursor = null, int pageSize = 50, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the most recent bulletin packets, ordered newest first.

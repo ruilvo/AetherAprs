@@ -218,6 +218,23 @@ public sealed class HomeViewModelTests : TestFixtureBase
     }
 
     [Fact]
+    public void OnBeaconClicked_RecordsTheSelectionOnTheLayerService()
+    {
+        // The marker set is rebuilt from the database on every packet, so the
+        // selection has to live on the layer service rather than on a rendered feature
+        // that the next rebuild would replace.
+        IReceivedBeaconsMapLayerService receivedBeaconsLayer = Substitute.For<IReceivedBeaconsMapLayerService>();
+        HomeViewModel viewModel = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: true, isTx: false)),
+            new TestBeaconService(),
+            receivedBeaconsLayer: receivedBeaconsLayer);
+
+        viewModel.OnBeaconClicked("K0OTH-1");
+
+        receivedBeaconsLayer.Received(1).SelectStation("K0OTH-1");
+    }
+
+    [Fact]
     public void PermissionWarning_WhenAPermissionIsDenied_ExplainsWhatIsBlocked()
     {
         PermissionAttentionService attention = new();

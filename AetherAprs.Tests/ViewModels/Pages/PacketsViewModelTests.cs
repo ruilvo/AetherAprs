@@ -13,6 +13,7 @@ using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.Configuration;
@@ -640,6 +641,7 @@ public class PacketsViewModelTests : TestFixtureBase
             Substitute.For<IConversationViewModelFactory>(),
             Substitute.For<ILocationCoordinator>(),
             Substitute.For<ICompassService>(),
+            Substitute.For<IPortService>(),
             Substitute.For<ILogger<PacketDetailsViewModel>>());
 
         _packetDetailsFactory.Create("N0CALL-1").Returns(detailsVm);

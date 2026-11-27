@@ -552,4 +552,30 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="FailureUnavailable" xml:space="preserve"><value>Cette action n'est pas disponible pour le moment. Vérifiez la configuration du port et réessayez.</value></data>
   <data name="FailureCancelled" xml:space="preserve"><value>L'opération a été annulée.</value></data>
   <data name="FailureUnexpected" xml:space="preserve"><value>Une erreur est survenue. Les détails ont été écrits dans le rapport de diagnostic.</value></data>
+  <data name="PacketDetailDirection" xml:space="preserve"><value>Sens</value></data>
+  <data name="PacketDetailSent" xml:space="preserve"><value>Envoyé</value></data>
+  <data name="PacketDetailReceived" xml:space="preserve"><value>Reçu</value></data>
+  <data name="PacketDetailPortUnknown" xml:space="preserve"><value>Port inconnu</value></data>
+  <data name="PacketDetailPath" xml:space="preserve"><value>Chemin</value></data>
+  <data name="PacketDetailReceivedAt" xml:space="preserve"><value>Reçu à</value></data>
+  <data name="PacketDetailProtocolTime" xml:space="preserve"><value>Heure du protocole</value></data>
+  <data name="PacketDetailLive" xml:space="preserve"><value>Actif</value></data>
+  <data name="PacketDetailUnknownFrame" xml:space="preserve"><value>Trame inconnue</value></data>
+  <data name="PacketDetailUndecoded" xml:space="preserve"><value>Rien au-delà de l’enveloppe du paquet n’a pu être décodé.</value></data>
+  <data name="PacketDetailAddressee" xml:space="preserve"><value>Destinataire</value></data>
+  <data name="PacketDetailNumber" xml:space="preserve"><value>Numéro</value></data>
+  <data name="PacketDetailLabelStatus" xml:space="preserve"><value>Statut</value></data>
+  <data name="PacketDetailLabelAltitude" xml:space="preserve"><value>Altitude</value></data>
+  <data name="PacketDetailLabelCourse" xml:space="preserve"><value>Cap</value></data>
+  <data name="PacketDetailLabelSpeed" xml:space="preserve"><value>Vitesse</value></data>
+  <data name="PacketDetailTemperatureFormat" xml:space="preserve"><value>{0:F1} °F</value></data>
+  <data name="PacketDetailWindSpeedFormat" xml:space="preserve"><value>{0:F1} kn</value></data>
+  <data name="PacketDetailWindDirectionFormat" xml:space="preserve"><value>{0:F0}°</value></data>
+  <data name="PacketDetailHumidityFormat" xml:space="preserve"><value>{0:F0} %</value></data>
+  <data name="PacketDetailPressureFormat" xml:space="preserve"><value>{0:F1} mbar</value></data>
+  <data name="PacketDetailInchesFormat" xml:space="preserve"><value>{0:F2} in</value></data>
+  <data name="PacketDetailMetersFormat" xml:space="preserve"><value>{0:F0} m</value></data>
+  <data name="PacketDetailDegreesFormat" xml:space="preserve"><value>{0:F0}°</value></data>
+  <data name="PacketDetailKnotsFormat" xml:space="preserve"><value>{0:F1} kn</value></data>
+  <data name="PacketDetailScalarFormat" xml:space="preserve"><value>{0:F2}</value></data>
 </root>
