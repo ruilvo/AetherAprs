@@ -140,3 +140,23 @@ internal sealed class AudioRouteValidator
         return AudioTransmitBlockReason.None;
     }
 }
+
+/// <summary>
+/// Thrown when playback is refused, or stopped part-way, because the audio route no
+/// longer permits transmission.
+/// </summary>
+internal sealed class AudioRouteBlockedException : InvalidOperationException
+{
+    /// <summary>Creates the exception for a block reason.</summary>
+    /// <param name="message">Diagnostic message.</param>
+    /// <param name="blockReason">Why the route does not permit transmission.</param>
+    public AudioRouteBlockedException(string message, AudioTransmitBlockReason blockReason)
+        : base(message)
+    {
+        BlockReason = blockReason;
+    }
+
+    /// <summary>Why the route does not permit transmission.</summary>
+    public AudioTransmitBlockReason BlockReason { get; }
+}
+
