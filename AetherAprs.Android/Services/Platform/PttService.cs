@@ -19,6 +19,7 @@ public sealed class PttService(ILogger<PttService>? logger = null) : IPttService
     private readonly AudioManager _audioManager = (AudioManager)global::Android.App.Application.Context
             .GetSystemService(global::Android.Content.Context.AudioService)!;
     private readonly ILogger<PttService>? _logger = logger;
+    private readonly AudioRouteValidator _routeValidator = new();
 
     /// <inheritdoc/>
     public void Engage()
@@ -34,6 +35,36 @@ public sealed class PttService(ILogger<PttService>? logger = null) : IPttService
         {
             _logger?.LogWarning(ex, "Failed to key PTT (speaker-mic).");
         }
+    }
+
+    /// <summary>
+    /// Keys the transmitter only when the route/focus snapshot still permits it.
+    /// Pass null to keep the unconditional behaviour of <see cref="Engage"/>.
+    /// </summary>
+    /// <param name="routeSnapshot">
+    /// Snapshot captured when the operator requested transmission, or null when
+    /// the caller has no route concept.
+    /// </param>
+    /// <returns>True when the transmitter was keyed.</returns>
+    internal bool TryEngage(AudioRouteSnapshot? routeSnapshot)
+    {
+        if (routeSnapshot is { } snapshot)
+        {
+            AudioTransmitBlockReason blockReason = _routeValidator.IsAuthorized
+                ? _routeValidator.Revalidate(snapshot)
+                : _routeValidator.Authorize(snapshot);
+
+            if (blockReason != AudioTransmitBlockReason.None)
+            {
+                _logger?.LogWarning(
+                    "PTT refused because the audio route does not permit transmission ({BlockReason}).",
+                    blockReason);
+                return false;
+            }
+        }
+
+        Engage();
+        return true;
     }
 
     /// <inheritdoc/>

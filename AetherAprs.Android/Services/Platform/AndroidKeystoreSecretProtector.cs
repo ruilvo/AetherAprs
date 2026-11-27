@@ -86,11 +86,18 @@ public sealed class AndroidKeystoreSecretProtector : ISecretProtector
     // Keystore loss (device restore, cleared lock) and a corrupt payload both mean the
     // same thing to the caller: this secret is gone, other secrets are not.
     private static bool IsSecretStoreFailure(Exception exception) =>
-        exception is GeneralSecurityException
-            or FormatException
-            or ArgumentException
-            or Java.IO.IOException
-            or Java.Lang.IllegalStateException;
+        SecretStoreFailureClassifier.Classify(Categorize(exception))
+            != SecretStoreFailureOutcome.NotFailure;
+
+    private static SecretStoreExceptionCategory Categorize(Exception exception) => exception switch
+    {
+        GeneralSecurityException => SecretStoreExceptionCategory.KeyStoreSecurity,
+        FormatException => SecretStoreExceptionCategory.CorruptPayload,
+        ArgumentException => SecretStoreExceptionCategory.InvalidArgument,
+        Java.IO.IOException => SecretStoreExceptionCategory.TransientIo,
+        Java.Lang.IllegalStateException => SecretStoreExceptionCategory.InvalidState,
+        _ => SecretStoreExceptionCategory.Unrelated
+    };
 
     private static IKey GetOrCreateKey()
     {

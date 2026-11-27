@@ -25,7 +25,7 @@ public sealed class AndroidNotificationService : INotificationService
     /// <summary>Intent extra carrying the conversation peer callsign.</summary>
     public const string ConversationCallsignExtra = "aetheraprs.conversation_callsign";
 
-    private const string ChannelId = "aetheraprs_messages";
+    private const string ChannelId = NotificationSpecs.MessageChannelId;
     private const string ChannelNameKey = "MessageNotificationChannelName";
     private const string ChannelDescriptionKey = "MessageNotificationChannelDescription";
 
@@ -61,13 +61,14 @@ public sealed class AndroidNotificationService : INotificationService
             contentIntent,
             PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
-        NotificationCompat.Builder builder = new(_context, ChannelId);
-        builder.SetSmallIcon(Resource.Drawable.ic_notification);
-        builder.SetContentTitle(callsign);
-        builder.SetContentText(text);
-        builder.SetStyle(new NotificationCompat.BigTextStyle().BigText(text));
+        NotificationContentSpec spec = NotificationSpecs.Message(callsign, text);
+        NotificationCompat.Builder builder = new(_context, spec.ChannelId);
+        builder.SetSmallIcon(AndroidNotificationIcons.Resolve(spec.IconResourceName));
+        builder.SetContentTitle(spec.Title);
+        builder.SetContentText(spec.Text);
+        builder.SetStyle(new NotificationCompat.BigTextStyle().BigText(spec.Text));
         builder.SetContentIntent(pendingIntent);
-        builder.SetAutoCancel(true);
+        builder.SetAutoCancel(spec.AutoCancel);
         builder.SetPriority(NotificationCompat.PriorityHigh);
 
         Notification? notification = builder.Build();

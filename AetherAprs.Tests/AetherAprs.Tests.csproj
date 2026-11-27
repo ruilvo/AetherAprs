@@ -26,9 +26,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
   </ItemGroup>
 
   <!--
-    Android transport helpers that contain no Android types are compiled into
-    this desktop test assembly so their validation, status-classification and
-    timeout behaviour can be unit-tested without a device.
+    Android transport and platform helpers that contain no Android types are
+    compiled into this desktop test assembly so their validation,
+    status-classification, timeout, audio-transfer, route-invalidation,
+    notification-descriptor, secret-store-classification and subscription-guard
+    behaviour can be unit-tested without a device.
   -->
   <ItemGroup>
     <Compile Include="..\AetherAprs.Android\Services\Transports\BluetoothDeviceAddress.cs"
@@ -37,5 +39,15 @@ SPDX-License-Identifier: GPL-3.0-or-later
              Link="Android\Services\Transports\BlockingConnectTimeout.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Transports\GattConnectionPolicy.cs"
              Link="Android\Services\Transports\GattConnectionPolicy.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Platform\AudioWriteLoop.cs"
+             Link="Android\Services\Platform\AudioWriteLoop.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Platform\AudioRouteValidator.cs"
+             Link="Android\Services\Platform\AudioRouteValidator.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Platform\NotificationContentSpec.cs"
+             Link="Android\Services\Platform\NotificationContentSpec.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Platform\SecretStoreFailureClassifier.cs"
+             Link="Android\Services\Platform\SecretStoreFailureClassifier.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Platform\CompassSubscriptionGuard.cs"
+             Link="Android\Services\Platform\CompassSubscriptionGuard.cs" />
   </ItemGroup>
 </Project>

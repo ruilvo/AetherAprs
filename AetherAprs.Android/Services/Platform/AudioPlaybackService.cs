@@ -18,6 +18,14 @@ namespace AetherAprs.Android.Services.Platform;
 public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger = null) : IAudioPlaybackService
 {
     private readonly ILogger<AudioPlaybackService>? _logger = logger;
+    private readonly AudioRouteValidator _routeValidator = new();
+
+    /// <summary>
+    /// Gets or sets the route/focus snapshot captured before transmission. When
+    /// set, playback is refused for a blocked route; when null, playback behaves
+    /// exactly as before the snapshot existed.
+    /// </summary>
+    internal AudioRouteSnapshot? RouteSnapshot { get; set; }
 
     /// <inheritdoc/>
     public int SampleRate => 44100;
@@ -28,6 +36,20 @@ public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger =
         if (samples.IsEmpty)
         {
             return;
+        }
+
+        // Refuse to open the sink for a route that is being torn down or has no
+        // audio focus; the caller re-captures the snapshot before each TX.
+        if (RouteSnapshot is { } routeSnapshot)
+        {
+            AudioTransmitBlockReason blockReason = _routeValidator.IsAuthorized
+                ? _routeValidator.Revalidate(routeSnapshot)
+                : _routeValidator.Authorize(routeSnapshot);
+            if (blockReason != AudioTransmitBlockReason.None)
+            {
+                throw new InvalidOperationException(
+                    $"Audio route does not permit playback ({blockReason}).");
+            }
         }
 
         short[] shorts = ToPcm16(samples.Span);
@@ -52,7 +74,22 @@ public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger =
             throw new InvalidOperationException($"AudioTrack failed to initialize (state {track.State}).");
         }
 
-        track.Write(shorts, 0, shorts.Length);
+        AudioTransferResult writeResult = AudioWriteLoop.WriteAll(
+            shorts.Length,
+            (offset, count) => track.Write(shorts, offset, count),
+            cancellationToken);
+
+        if (writeResult.Status == AudioTransferStatus.Aborted)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        if (!writeResult.IsComplete)
+        {
+            throw new InvalidOperationException(
+                $"AudioTrack accepted {writeResult.Transferred} of {shorts.Length} samples ({writeResult.Status}).");
+        }
+
         track.Play();
 
         try

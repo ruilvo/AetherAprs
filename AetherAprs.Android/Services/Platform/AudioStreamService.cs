@@ -144,11 +144,16 @@ public sealed class AudioStreamService(ILogger<AudioStreamService>? logger = nul
             while (!cancellationToken.IsCancellationRequested)
             {
                 // AudioRecord.Read returns 0 when the recording is stopped, and a
-                // negative value on a read error; both terminate the loop.
-                int shortsRead = await Task.Run(
-                    () => audioRecord.Read(shortBuffer, 0, shortBuffer.Length),
+                // negative value on a read error; both terminate the loop. Short
+                // reads are accumulated so a chunk is not silently truncated.
+                AudioTransferResult readResult = await Task.Run(
+                    () => AudioWriteLoop.ReadUpTo(
+                        shortBuffer.Length,
+                        (offset, count) => audioRecord.Read(shortBuffer, offset, count),
+                        cancellationToken),
                     cancellationToken).ConfigureAwait(false);
 
+                int shortsRead = readResult.Transferred;
                 if (shortsRead <= 0)
                 {
                     break;
