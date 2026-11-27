@@ -39,6 +39,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     private int _portNumber;
     private Guid? _editingPortId;
     private Type? _fallbackTransportType;
+    private readonly ObservableCollection<Type> _availableKissTransportTypes = [];
+    private IKissTransportSettings? _storedTransport;
+    private Type? _storedTransportType;
 
     [ObservableProperty]
     public partial bool IsSaving { get; set; }
@@ -156,7 +159,20 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
     public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings)];
 
-    public IReadOnlyList<Type> AvailableKissTransportTypes { get; }
+    /// <summary>
+    /// Transports the editor offers. The supported transports come first; a stored
+    /// port that names a transport this platform cannot open keeps that entry so the
+    /// configuration is shown as it was saved instead of being rewritten.
+    /// </summary>
+    public IReadOnlyList<Type> AvailableKissTransportTypes => _availableKissTransportTypes;
+
+    /// <summary>
+    /// Whether the platform's connector set is known. A host that registers no
+    /// connector at all (the design-time host) cannot distinguish "this platform does
+    /// not support Bluetooth" from "nothing is wired up here", so it must not label
+    /// every transport unavailable.
+    /// </summary>
+    private bool CanDetectUnavailableTransports => _fallbackTransportType is null;
 
     public AddEditPortViewModel(
         INavigationService navigationService,
@@ -184,23 +200,24 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         _portTelemetry.ConnectionProgress += OnConnectionProgress;
 
         IReadOnlyCollection<Type> supported = _kissStreamFactory.SupportedTransports;
-        if (supported.Count > 0)
+        foreach (Type transportType in supported)
         {
-            AvailableKissTransportTypes = supported.ToArray();
+            _availableKissTransportTypes.Add(transportType);
         }
-        else
+
+        if (_availableKissTransportTypes.Count == 0)
         {
             // No connector is registered (the desktop test host), so the editor still
             // has to offer one valid route rather than an empty list. The fallback is
             // the only transport in the list, and it is presented as usable because
             // nothing else can be chosen.
             _fallbackTransportType = typeof(TcpKissTransportSettings);
-            AvailableKissTransportTypes = [typeof(TcpKissTransportSettings)];
+            _availableKissTransportTypes.Add(typeof(TcpKissTransportSettings));
         }
 
-        SelectedKissTransportType = AvailableKissTransportTypes.Contains(typeof(TcpKissTransportSettings))
+        SelectedKissTransportType = _availableKissTransportTypes.Contains(typeof(TcpKissTransportSettings))
             ? typeof(TcpKissTransportSettings)
-            : AvailableKissTransportTypes[0];
+            : _availableKissTransportTypes[0];
 
         Name = string.Empty;
         Passcode = AprsIsSettings.DefaultPasscode;
@@ -500,6 +517,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     private void UpdateUnavailableTransportText()
     {
         UnavailableTransportText = SelectedKissTransportType is not { } transportType
+            || !CanDetectUnavailableTransports
             || transportType == _fallbackTransportType
             || _kissStreamFactory.IsTransportSupported(transportType)
                 ? string.Empty
@@ -554,6 +572,17 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             Type? transportType = kiss.Transport?.GetType();
             if (transportType is not null && AvailableKissTransportTypes.Contains(transportType))
             {
+                SelectedKissTransportType = transportType;
+            }
+            else if (transportType is not null && CanDetectUnavailableTransports)
+            {
+                // The stored transport has no connector on this platform. Keep it in
+                // the list so the saved configuration is shown as it is and stays
+                // visibly unavailable, instead of being silently replaced by whichever
+                // transport happened to be selected.
+                _storedTransportType = transportType;
+                _storedTransport = kiss.Transport;
+                _availableKissTransportTypes.Add(transportType);
                 SelectedKissTransportType = transportType;
             }
 
@@ -751,6 +780,15 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
     private IKissTransportSettings BuildKissTransportSettings()
     {
+        if (_storedTransport is not null && SelectedKissTransportType == _storedTransportType)
+        {
+            // The transport has no connector on this platform, so the editor cannot
+            // build it from the form fields. Saving the rest of the port keeps the
+            // stored transport verbatim rather than replacing it with a route the
+            // operator never chose.
+            return _storedTransport;
+        }
+
         if (SelectedKissTransportType == typeof(TcpKissTransportSettings))
         {
             return new TcpKissTransportSettings

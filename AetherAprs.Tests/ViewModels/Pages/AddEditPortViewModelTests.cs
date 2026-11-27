@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
@@ -384,6 +385,122 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         harness.Navigation.Received(1).GoBack();
     }
 
+    [Fact]
+    public void PopulateFrom_WhenTheStoredTransportHasNoConnector_KeepsItAndReportsItUnavailable()
+    {
+        // A port stored on a phone with Bluetooth support, opened where the connector
+        // set only has TCP: the transport must be shown as saved and labelled
+        // unavailable, not silently rewritten to TCP.
+        PortEditingHarness harness = CreateHarness(CreateFactory(typeof(TcpKissTransportSettings)));
+
+        harness.ViewModel.PopulateFrom(StoredBluetoothLePort());
+
+        Assert.Equal(typeof(BluetoothLeKissTransportSettings), harness.ViewModel.SelectedKissTransportType);
+        Assert.Contains(typeof(BluetoothLeKissTransportSettings), harness.ViewModel.AvailableKissTransportTypes);
+        Assert.Equal(
+            Strings.Format("KissTransportUnavailable", Strings.Get("TransportBluetoothLe")),
+            harness.ViewModel.UnavailableTransportText);
+    }
+
+    [Fact]
+    public void PopulateFrom_WhenTheStoredTransportIsSupported_ShowsNoWarning()
+    {
+        PortEditingHarness harness = CreateHarness(CreateFactory(typeof(TcpKissTransportSettings)));
+
+        harness.ViewModel.PopulateFrom(StoredBluetoothLePort());
+        harness.ViewModel.SelectedKissTransportType = typeof(TcpKissTransportSettings);
+
+        Assert.Equal(string.Empty, harness.ViewModel.UnavailableTransportText);
+    }
+
+    [Fact]
+    public void FallbackTransportOnAHostWithNoConnectors_IsNotReportedUnavailable()
+    {
+        // The desktop host registers Bluetooth connectors that report themselves as
+        // unsupported, which leaves no transport the editor can offer. That says
+        // nothing about the only route it can show, so it must not be labelled
+        // unavailable.
+        PortEditingHarness harness = CreateHarness(
+            new KissStreamFactory(
+            [
+                new UnsupportedBluetoothClassicKissStreamConnector(),
+                new UnsupportedBluetoothLeKissStreamConnector()
+            ]));
+
+        Assert.Equal(typeof(TcpKissTransportSettings), harness.ViewModel.SelectedKissTransportType);
+        Assert.Equal([typeof(TcpKissTransportSettings)], harness.ViewModel.AvailableKissTransportTypes);
+        Assert.Equal(string.Empty, harness.ViewModel.UnavailableTransportText);
+    }
+
+    [Fact]
+    public async Task Save_WithAnUnavailableStoredTransport_KeepsTheStoredTransportVerbatim()
+    {
+        PortEditingHarness harness = CreateHarness(
+            CreateFactory(typeof(TcpKissTransportSettings)),
+            StoredBluetoothLePort());
+        harness.ViewModel.Name = "Renamed Port";
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, harness.ViewModel.SaveErrorText);
+        await harness.PortService.Received(1).UpdatePortAsync(Arg.Is<PortConfig>(config =>
+            config.Name == "Renamed Port" &&
+            config.TypeSettings != null &&
+            ((KissSettings)config.TypeSettings).Transport != null &&
+            ((KissSettings)config.TypeSettings).Transport!.GetType() == typeof(BluetoothLeKissTransportSettings) &&
+            ((BluetoothLeKissTransportSettings)((KissSettings)config.TypeSettings).Transport!).DeviceAddress == "AA:BB:CC:DD:EE:01"));
+    }
+
+    [Fact]
+    public async Task Save_WithAnUnavailableStoredTransport_DoesNotWarnAboutAMissingDevice()
+    {
+        // The device was stored with the port; the missing connector says nothing
+        // about the device, so blaming the device would send the operator looking for
+        // the wrong problem.
+        PortEditingHarness harness = CreateHarness(
+            CreateFactory(typeof(TcpKissTransportSettings)),
+            StoredBluetoothLePort());
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.NotEqual(Strings.Get("ValidationBluetoothDeviceRequired"), harness.ViewModel.SaveErrorText);
+    }
+
+    private static KissStreamFactory CreateFactory(params Type[] supportedSettingsTypes) =>
+        new(supportedSettingsTypes.Select(settingsType => (IKissStreamConnector)new SupportedStubConnector(settingsType)));
+
+    private static PortConfig StoredBluetoothLePort()
+    {
+        PortConfig config = StoredBluetoothLeConfig();
+        config.Id = Guid.NewGuid();
+        return config;
+    }
+
+    private static PortConfig StoredBluetoothLeConfig() => new()
+    {
+        Name = "Tracker",
+        TypeSettings = new KissSettings
+        {
+            Transport = new BluetoothLeKissTransportSettings
+            {
+                DeviceAddress = "AA:BB:CC:DD:EE:01",
+                DeviceName = "T-Echo"
+            }
+        }
+    };
+
+    private sealed class SupportedStubConnector(Type settingsType) : IKissStreamConnector
+    {
+        public Type SettingsType { get; } = settingsType;
+
+        public bool IsSupported => true;
+
+        public Task<System.IO.Stream> ConnectAsync(
+            IKissTransportSettings settings,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<System.IO.Stream>(new System.IO.MemoryStream());
+    }
+
     private static PortConfig ExistingAprsIsPort() => new()
     {
         Name = "Test Port",
@@ -397,13 +514,18 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     };
 
     private static PortEditingHarness CreateHarness(PortConfig? existingConfig = null)
+        => CreateHarness(new KissStreamFactory([]), existingConfig);
+
+    private static PortEditingHarness CreateHarness(
+        IKissStreamFactory kissStreamFactory,
+        PortConfig? existingConfig = null)
     {
         INavigationService navigation = Substitute.For<INavigationService>();
         IPortService portService = Substitute.For<IPortService>();
         AddEditPortViewModel viewModel = new(
             navigation,
             portService,
-            new KissStreamFactory([]),
+            kissStreamFactory,
             Substitute.For<IBluetoothLeScanner>(),
             Substitute.For<IBluetoothClassicDeviceProvider>(),
             new AprsIsFilterBuilderViewModel());
