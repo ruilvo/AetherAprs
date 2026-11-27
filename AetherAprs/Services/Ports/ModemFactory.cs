@@ -77,6 +77,7 @@ public sealed class ModemFactory(
             callsign,
             settings.Passcode,
             filter,
+            settings.Security,
             loggerFactory.CreateLogger<AprsIsModem>());
 
         return new OwnedPortModem(modem, "APRS-IS");

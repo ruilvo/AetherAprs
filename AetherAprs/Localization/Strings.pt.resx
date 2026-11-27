@@ -57,6 +57,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="Passcode" xml:space="preserve"><value>Código de acesso</value></data>
   <data name="PasscodePlaceholder" xml:space="preserve"><value>Preenchido automaticamente a partir do indicativo</value></data>
   <data name="PortCredentialsUnavailableNotice" xml:space="preserve"><value>Não foi possível ler o passcode guardado para esta porta. Introduza-o novamente para restaurar a transmissão; até lá a porta permanece apenas em receção.</value></data>
+  <data name="UseTls" xml:space="preserve"><value>Usar TLS (ligação encriptada com validação do certificado)</value></data>
   <data name="FilterOptional" xml:space="preserve"><value>Filtro (opcional)</value></data>
   <data name="FilterRangeSection" xml:space="preserve"><value>Filtro de alcance (em torno de um ponto)</value></data>
   <data name="FilterLatitude" xml:space="preserve"><value>Latitude</value></data>

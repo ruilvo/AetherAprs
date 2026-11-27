@@ -54,6 +54,12 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     public partial string Passcode { get; set; } = AprsIsSettings.DefaultPasscode;
 
     /// <summary>
+    /// Whether the APRS-IS connection should use TLS with certificate validation.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool UseTls { get; set; }
+
+    /// <summary>
     /// Visual APRS-IS filter builder. Replaces the free-text filter field.
     /// </summary>
     public AprsIsFilterBuilderViewModel FilterBuilder { get; }
@@ -413,6 +419,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             // re-entry is an explicit action rather than an invisible overwrite.
             HasUnavailableCredentials = config.CredentialsUnavailable;
             Passcode = config.CredentialsUnavailable ? string.Empty : aprsIs.Passcode;
+            UseTls = aprsIs.Security == AprsIsSecurityMode.Tls;
             FilterBuilder.Load(aprsIs.Filter);
         }
 
@@ -481,7 +488,8 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                 Server = Server,
                 ServerPort = ServerPort,
                 Passcode = credentialsMissing ? AprsIsSettings.DefaultPasscode : Passcode,
-                Filter = FilterBuilder.Filter
+                Filter = FilterBuilder.Filter,
+                Security = UseTls ? AprsIsSecurityMode.Tls : AprsIsSecurityMode.Plaintext
             };
         }
         else if (SelectedPortSettingsType == typeof(KissSettings))

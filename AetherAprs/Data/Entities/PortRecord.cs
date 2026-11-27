@@ -49,6 +49,9 @@ public sealed class AprsIsSettingsRecord
     public string Passcode { get; set; } = string.Empty;
 
     public string Filter { get; set; } = string.Empty;
+
+    /// <summary>APRS-IS security mode (<see cref="Configuration.AprsIsSecurityMode"/>).</summary>
+    public int Security { get; set; }
 }
 
 public sealed class KissSettingsRecord

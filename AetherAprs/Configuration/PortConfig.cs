@@ -102,6 +102,22 @@ public interface IPortTypeSettings
 }
 
 /// <summary>
+/// How an APRS-IS connection is secured.
+/// </summary>
+public enum AprsIsSecurityMode
+{
+    /// <summary>
+    /// Legacy plain-text TCP connection. Credentials and position data travel unencrypted.
+    /// </summary>
+    Plaintext = 0,
+
+    /// <summary>
+    /// TLS connection with normal certificate and hostname validation.
+    /// </summary>
+    Tls = 1
+}
+
+/// <summary>
 /// APRS-IS specific port configuration.
 /// </summary>
 public class AprsIsSettings : IPortTypeSettings
@@ -110,11 +126,13 @@ public class AprsIsSettings : IPortTypeSettings
     public const int DefaultServerPort = 14580;
     public const string DefaultPasscode = "-1";
     public const string DefaultFilter = "m/50";
+    public const AprsIsSecurityMode DefaultSecurity = AprsIsSecurityMode.Plaintext;
 
     private string _server = DefaultServer;
     private int _serverPort = DefaultServerPort;
     private string _passcode = DefaultPasscode;
     private string _filter = DefaultFilter;
+    private AprsIsSecurityMode _security = DefaultSecurity;
 
     /// <summary>
     /// Gets or sets the APRS-IS server hostname.
@@ -173,10 +191,31 @@ public class AprsIsSettings : IPortTypeSettings
     /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
     /// An empty or whitespace string represents "no filter" (receive everything).
     /// </summary>
+    /// <summary>
+    /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
+    /// An empty or whitespace string represents "no filter" (receive everything).
+    /// </summary>
     public string Filter
     {
         get => _filter;
         set => _filter = string.IsNullOrWhiteSpace(value) ? string.Empty : value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether the connection uses TLS. Default is
+    /// <see cref="AprsIsSecurityMode.Plaintext"/> for backwards compatibility.
+    /// </summary>
+    public AprsIsSecurityMode Security
+    {
+        get => _security;
+        set
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown APRS-IS security mode.");
+            }
+            _security = value;
+        }
     }
 
     /// <inheritdoc />
@@ -185,7 +224,8 @@ public class AprsIsSettings : IPortTypeSettings
         Server = Server,
         ServerPort = ServerPort,
         Passcode = Passcode,
-        Filter = Filter
+        Filter = Filter,
+        Security = Security
     };
 }
 

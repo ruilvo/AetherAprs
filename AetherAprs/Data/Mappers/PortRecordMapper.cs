@@ -66,7 +66,8 @@ internal static class PortRecordMapper
                     Server = aprsIs.Server,
                     ServerPort = aprsIs.ServerPort,
                     Passcode = protectedPasscode ?? aprsIs.Passcode,
-                    Filter = aprsIs.Filter
+                    Filter = aprsIs.Filter,
+                    Security = (int)aprsIs.Security
                 };
                 record.Kiss = null;
                 record.Afsk = null;
@@ -139,7 +140,8 @@ internal static class PortRecordMapper
                 Server = aprsIs.Server,
                 ServerPort = aprsIs.ServerPort,
                 Passcode = aprsIs.Passcode,
-                Filter = aprsIs.Filter
+                Filter = aprsIs.Filter,
+                Security = (AprsIsSecurityMode)aprsIs.Security
             };
         }
 

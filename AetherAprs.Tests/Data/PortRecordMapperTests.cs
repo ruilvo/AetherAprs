@@ -51,6 +51,36 @@ public sealed class PortRecordMapperTests
         Assert.Equal(14580, aprsIs.ServerPort);
         Assert.Equal("12345", aprsIs.Passcode);
         Assert.Equal("m/50", aprsIs.Filter);
+        Assert.Equal(AprsIsSecurityMode.Plaintext, aprsIs.Security);
+    }
+
+    [Fact]
+    public void RoundTripPersistsAprsIsTlsSecurity()
+    {
+        PortConfig port = new()
+        {
+            Id = Guid.NewGuid(),
+            Name = "APRS-IS TLS",
+            IsEnabled = true,
+            IsRx = true,
+            IsTx = true,
+            ShowOnMap = false,
+            TypeSettings = new AprsIsSettings
+            {
+                Server = "rotate.aprs2.net",
+                ServerPort = 14580,
+                Passcode = "12345",
+                Filter = "m/50",
+                Security = AprsIsSecurityMode.Tls
+            }
+        };
+
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        using AppDbContext context = db.CreateContext();
+        PortConfig loaded = PortRecordMapper.ToConfig(Assert.Single(context.Ports.AsNoTracking()));
+
+        AprsIsSettings aprsIs = Assert.IsType<AprsIsSettings>(loaded.TypeSettings);
+        Assert.Equal(AprsIsSecurityMode.Tls, aprsIs.Security);
     }
 
     [Fact]

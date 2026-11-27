@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -30,6 +32,8 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private readonly Callsign _callsign;
     private readonly string _passcode;
     private readonly string _filter;
+    private readonly AprsIsSecurityMode _security;
+    private readonly RemoteCertificateValidationCallback? _certificateValidationCallback;
     private readonly ILogger<AprsIsModem> _logger;
     private readonly Lock _connectionLock = new();
 
@@ -70,7 +74,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private const string ApplicationVersion = "AetherAprs 1.0";
 
     public AprsIsModem(string host, int port, Callsign callsign, string passcode, string filter = "")
-        : this(host, port, callsign, passcode, filter, NullLogger<AprsIsModem>.Instance)
+        : this(host, port, callsign, passcode, filter, AprsIsSecurityMode.Plaintext, NullLogger<AprsIsModem>.Instance, null)
     {
     }
 
@@ -82,10 +86,36 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// <param name="callsign">The callsign to authenticate with.</param>
     /// <param name="passcode">The APRS-IS passcode for the callsign.</param>
     /// <param name="filter">Optional APRS-IS filter string (e.g. <c>m/50</c> for messages only). Leave empty for all.</param>
+    /// <param name="security">Whether the connection uses TLS or legacy plaintext.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="host"/> or <paramref name="callsign"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="host"/> is empty or whitespace, or <paramref name="passcode"/> is null.</exception>
-    public AprsIsModem(string host, int port, Callsign callsign, string passcode, string filter, ILogger<AprsIsModem> logger)
+    public AprsIsModem(
+        string host,
+        int port,
+        Callsign callsign,
+        string passcode,
+        string filter,
+        AprsIsSecurityMode security,
+        ILogger<AprsIsModem> logger)
+        : this(host, port, callsign, passcode, filter, security, logger, null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of <see cref="AprsIsModem"/>, optionally overriding
+    /// certificate validation. Passing a callback exists for tests; production callers
+    /// leave it null so normal chain and hostname validation applies.
+    /// </summary>
+    internal AprsIsModem(
+        string host,
+        int port,
+        Callsign callsign,
+        string passcode,
+        string filter,
+        AprsIsSecurityMode security,
+        ILogger<AprsIsModem> logger,
+        RemoteCertificateValidationCallback? certificateValidationCallback)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(host);
         ArgumentException.ThrowIfNullOrEmpty(passcode);
@@ -95,7 +125,9 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         _callsign = callsign;
         _passcode = passcode;
         _filter = filter ?? string.Empty;
+        _security = security;
         _logger = logger;
+        _certificateValidationCallback = certificateValidationCallback;
     }
 
     /// <inheritdoc />
@@ -396,13 +428,33 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
         }
 
         TcpClient tcpClient = new();
+        Stream? stream = null;
         StreamReader? reader = null;
         StreamWriter? writer = null;
         try
         {
             await tcpClient.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
 
-            NetworkStream stream = tcpClient.GetStream();
+            Stream sessionStream = tcpClient.GetStream();
+            if (_security == AprsIsSecurityMode.Tls)
+            {
+                SslStream sslStream = new(
+                    sessionStream,
+                    leaveInnerStreamOpen: false,
+                    _certificateValidationCallback);
+                SslClientAuthenticationOptions authenticationOptions = new()
+                {
+                    TargetHost = _host
+                };
+
+                _logger.LogInformation("Negotiating TLS with APRS-IS {Host}:{Port}", _host, _port);
+                await sslStream
+                    .AuthenticateAsClientAsync(authenticationOptions, cancellationToken)
+                    .ConfigureAwait(false);
+                sessionStream = sslStream;
+            }
+
+            stream = sessionStream;
             reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
             writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true)
             {
@@ -442,14 +494,19 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                 _writer = writer;
             }
         }
-        catch
+        catch (Exception exception)
         {
             // Dispose the locals we own — the field-level cleanup only sees fields
             // that were assigned after a successful login, so without this every
             // failed attempt leaks a socket.
             reader?.Dispose();
             writer?.Dispose();
+            stream?.Dispose();
             tcpClient.Dispose();
+
+            // Surface the failure to anyone awaiting readiness instead of leaving
+            // them waiting for a login reply that will never arrive.
+            FaultConnectionReady(connectionReady, exception);
             throw;
         }
 

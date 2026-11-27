@@ -6,14 +6,20 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
 using Geo;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Aprs;
@@ -457,9 +463,153 @@ public class AprsIsModemTests
     }
 
     // ---------------------------------------------------------------
-    // APRS-IS line parsing
+    // TLS transport
     // ---------------------------------------------------------------
 
+    [Fact]
+    public void AprsIsSettings_SecurityDefaultsToPlaintext_AndCloneCopiesTls()
+    {
+        AprsIsSettings defaults = new();
+        Assert.Equal(AprsIsSecurityMode.Plaintext, defaults.Security);
+
+        defaults.Security = AprsIsSecurityMode.Tls;
+        AprsIsSettings clone = Assert.IsType<AprsIsSettings>(defaults.Clone());
+        Assert.Equal(AprsIsSecurityMode.Tls, clone.Security);
+    }
+
+    [Fact]
+    public async Task Tls_TrustedCertificate_AuthenticatesAndTransmits()
+    {
+        using X509Certificate2 certificate = CreateSelfSignedCertificate("127.0.0.1");
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+
+        await using AprsIsModem modem = new(
+            "127.0.0.1",
+            endpoint.Port,
+            Source,
+            "12345",
+            "m/50",
+            AprsIsSecurityMode.Tls,
+            NullLogger<AprsIsModem>.Instance,
+            // Pin the expected certificate so the test proves the modem really
+            // validates against the server's identity instead of trusting anything.
+            (_, remoteCertificate, _, _) =>
+                remoteCertificate is not null
+                && remoteCertificate.GetCertHashString() == certificate.GetCertHashString());
+
+        modem.Start();
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream rawStream = server.GetStream();
+        await using SslStream sslStream = new(rawStream, leaveInnerStreamOpen: false);
+        await sslStream.AuthenticateAsServerAsync(
+            new SslServerAuthenticationOptions { ServerCertificate = certificate },
+            TestContext.Current.CancellationToken);
+
+        using StreamReader reader = new(sslStream, Encoding.ASCII, leaveOpen: true);
+        await using StreamWriter writer = new(sslStream, Encoding.ASCII, leaveOpen: true)
+        {
+            NewLine = "\r\n"
+        };
+
+        string? login = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.StartsWith("user N0CALL pass 12345", login);
+
+        await writer.WriteLineAsync("# logresp N0CALL verified, server TEST");
+        await writer.FlushAsync(TestContext.Current.CancellationToken);
+
+        await modem.ConnectionReady.WaitAsync(
+            TimeSpan.FromSeconds(5),
+            TestContext.Current.CancellationToken);
+
+        PositionPacket packet = new()
+        {
+            Source = Source,
+            Destination = Dest,
+            Location = new Coordinate(38.5, -9.10),
+            Symbol = new Symbol(SymbolTable.Primary, SymbolCode.NumberSign),
+            Precision = 2
+        };
+
+        await modem.SendAsync(packet, TestContext.Current.CancellationToken);
+
+        string? transmitted = await reader.ReadLineAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("N0CALL>APZ001,qAo:!3830.00N/00906.00W#", transmitted);
+    }
+
+    [Fact]
+    public async Task Tls_UntrustedCertificate_FaultsReadinessWithoutDowngrading()
+    {
+        // No validation callback: the modem must apply normal certificate checks and
+        // fail the handshake rather than falling back to plaintext.
+        using X509Certificate2 certificate = CreateSelfSignedCertificate("127.0.0.1");
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        IPEndPoint endpoint = (IPEndPoint)listener.LocalEndpoint;
+
+        await using AprsIsModem modem = new(
+            "127.0.0.1",
+            endpoint.Port,
+            Source,
+            "12345",
+            "m/50",
+            AprsIsSecurityMode.Tls,
+            NullLogger<AprsIsModem>.Instance);
+
+        modem.Start();
+        using TcpClient server = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        await using NetworkStream rawStream = server.GetStream();
+        await using SslStream sslStream = new(rawStream, leaveInnerStreamOpen: false);
+
+        try
+        {
+            await sslStream.AuthenticateAsServerAsync(
+                new SslServerAuthenticationOptions { ServerCertificate = certificate },
+                TestContext.Current.CancellationToken);
+        }
+        catch (Exception)
+        {
+            // The client aborts on validation failure; the server surfaces that as
+            // an aborted handshake. The assertion below covers the client outcome.
+        }
+
+        Exception failure = await Assert.ThrowsAnyAsync<Exception>(() =>
+            modem.ConnectionReady.WaitAsync(
+                TimeSpan.FromSeconds(5),
+                TestContext.Current.CancellationToken));
+
+        Assert.IsNotType<TimeoutException>(failure);
+        Assert.True(
+            failure is AuthenticationException or IOException,
+            $"Expected a TLS validation failure, got {failure.GetType().Name}: {failure.Message}");
+    }
+
+    private static X509Certificate2 CreateSelfSignedCertificate(string host)
+    {
+        using RSA rsa = RSA.Create(2048);
+        CertificateRequest request = new(
+            $"CN={host}",
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+
+        SubjectAlternativeNameBuilder alternativeNames = new();
+        alternativeNames.AddIpAddress(IPAddress.Parse(host));
+        request.CertificateExtensions.Add(alternativeNames.Build());
+
+        using X509Certificate2 ephemeral = request.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddMinutes(-5),
+            DateTimeOffset.UtcNow.AddHours(1));
+
+        // Round-trip through PKCS#12 so the private key is backed by a usable store
+        // key on every platform (SslStream server auth rejects ephemeral CNG keys).
+        return X509CertificateLoader.LoadPkcs12(ephemeral.Export(X509ContentType.Pfx), password: null);
+    }
+
+    // ---------------------------------------------------------------
+    // APRS-IS line parsing
+    // ---------------------------------------------------------------
     [Fact]
     public void ParseIsLine_PositionPacket_ReturnsPositionPacket()
     {

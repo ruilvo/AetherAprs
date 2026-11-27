@@ -127,6 +127,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      wpf:TextFieldAssist.Label="{loc:Loc Passcode}"
                      UseFloatingPlaceholder="True" />
 
+            <CheckBox Content="{loc:Loc UseTls}"
+                      IsChecked="{Binding UseTls}"
+                      MinHeight="48"
+                      VerticalContentAlignment="Center" />
+
             <ContentControl Content="{Binding FilterBuilder}" />
           </StackPanel>
         </StackPanel>
