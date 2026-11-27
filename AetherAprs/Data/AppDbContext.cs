@@ -4,7 +4,9 @@
 
 using AetherAprs.Data.Converters;
 using AetherAprs.Data.Entities;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace AetherAprs.Data;
@@ -46,18 +48,54 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<MapTileRecord> MapTiles => Set<MapTileRecord>();
 
-    public static DbContextOptions<AppDbContext> CreateOptions(string databasePath, bool pooling = true)
+    /// <summary>
+    /// How long SQLite waits for a lock before it reports <c>SQLITE_BUSY</c>. The
+    /// runtime writer serializes its own work, so the only competing writers are the
+    /// migrations bootstrap and out-of-process tooling; a short timeout would turn a
+    /// healthy hand-off into a spurious failure.
+    /// </summary>
+    public const int DefaultBusyTimeoutSeconds = 30;
+
+    public static DbContextOptions<AppDbContext> CreateOptions(
+        string databasePath,
+        bool pooling = true,
+        int busyTimeoutSeconds = DefaultBusyTimeoutSeconds)
     {
         // Pooling keeps the SQLite file handle open after all contexts are
         // disposed, which prevents deleting database files. Production wants the
         // pool; the test suite disables it so its temporary databases can be
         // removed.
-        string connectionString = pooling
-            ? $"Data Source={databasePath}"
-            : $"Data Source={databasePath};Pooling=False";
+        //
+        // The busy timeout belongs to the connection, so it is configured here
+        // rather than mutated by each writer after the fact.
+        SqliteConnectionStringBuilder connectionString = new()
+        {
+            DataSource = databasePath,
+            Pooling = pooling,
+            DefaultTimeout = busyTimeoutSeconds
+        };
         return new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite(connectionString)
+            .UseSqlite(connectionString.ToString())
             .Options;
+    }
+
+    /// <summary>
+    /// Applies the SQLite settings the application relies on. Keys are
+    /// production-only when the file differs from what the tests use, so every
+    /// harness must call this instead of spelling the pragmas out itself.
+    /// </summary>
+    /// <remarks>
+    /// <c>journal_mode</c> is stored in the database file, so it only has to be set
+    /// once per file. <c>busy_timeout</c> is per connection and is configured
+    /// through <see cref="CreateOptions"/>.
+    /// </remarks>
+    public static void ApplyProductionPragmas(AppDbContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        // WAL lets a reader run while a writer holds the database, which packet
+        // storage needs while queries run.
+        context.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

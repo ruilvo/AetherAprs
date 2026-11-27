@@ -86,6 +86,7 @@ with(StringComparer.Ordinal),         "AetherAprs/Services/Ports/ModemFactory.cs
     [
         with(StringComparer.Ordinal),
         "AetherAprs/Services/Bluetooth/BluetoothAdvertisementBuffer.cs",
+        "AetherAprs/Services/Concurrency/SerializedWorkQueue.cs",
         "AetherAprs/Data/SqliteRuntimeWriter.cs",
         "AetherAprs/Services/Packets/PacketIngestPipeline.cs",
         "AetherAprs/Services/Ports/DigipeatRouter.cs",

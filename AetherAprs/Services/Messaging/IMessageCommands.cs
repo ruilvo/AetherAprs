@@ -35,9 +35,18 @@ public interface IMessageCommands
         CancellationToken cancellationToken = default);
 
     /// <summary>Reserves a wire number for a queued message once one is free.</summary>
+    /// <param name="id">The logical message identity.</param>
+    /// <param name="nextAttemptAt">When the next transmission attempt is due.</param>
+    /// <param name="asOf">
+    /// The instant the decision is made for. The caller captures it when it decides
+    /// to act; reading the clock inside the command would let a queued write observe
+    /// a later instant than the pass that scheduled it.
+    /// </param>
+    /// <param name="cancellationToken">Abandons the write.</param>
     Task<OutboxTransitionResult> TryReserveNumberAsync(
         Guid id,
         DateTimeOffset nextAttemptAt,
+        DateTimeOffset asOf,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -51,7 +60,13 @@ public interface IMessageCommands
         CancellationToken cancellationToken = default);
 
     /// <summary>Marks open messages past their expiry as expired and frees their numbers.</summary>
-    Task<IReadOnlyList<OutboxMessageSnapshot>> ExpireAsync(CancellationToken cancellationToken = default);
+    /// <param name="asOf">
+    /// The instant the decision is made for. See <see cref="TryReserveNumberAsync"/>.
+    /// </param>
+    /// <param name="cancellationToken">Abandons the write.</param>
+    Task<IReadOnlyList<OutboxMessageSnapshot>> ExpireAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken = default);
 
     /// <summary>Deletes terminal messages whose number reuse guard has elapsed.</summary>
     Task<int> CleanupAsync(CancellationToken cancellationToken = default);

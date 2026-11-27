@@ -90,7 +90,9 @@ internal sealed class OutboxMessageStore(
         CancellationToken cancellationToken = default)
         => TransitionAsync("outbox.record-attempt", id, (record, now) =>
         {
-            if (!IsOpen(record.Status))
+            // The durable record stays Pending for the whole attempt: Sending is an
+            // in-memory hint that the wire is in use, never a persisted state.
+            if (!MessageDelivery.IsOpen(record.Status))
             {
                 return false;
             }
@@ -104,6 +106,7 @@ internal sealed class OutboxMessageStore(
     public Task<OutboxTransitionResult> TryReserveNumberAsync(
         Guid id,
         DateTimeOffset nextAttemptAt,
+        DateTimeOffset asOf,
         CancellationToken cancellationToken = default)
         => writer.EnqueueAsync("outbox.reserve-number", async (context, token) =>
         {
@@ -114,20 +117,19 @@ internal sealed class OutboxMessageStore(
                 return new OutboxTransitionResult(OutboxTransitionOutcome.UnknownMessage, null);
             }
 
-            if (!IsOpen(record.Status))
+            if (!MessageDelivery.IsOpen(record.Status))
             {
                 return new OutboxTransitionResult(OutboxTransitionOutcome.AlreadyTerminal, ToSnapshot(record));
             }
 
             if (!record.MessageNumber.HasValue)
             {
-                DateTimeOffset now = timeProvider.GetUtcNow();
-                record.MessageNumber = await ReserveNumberAsync(context, now, token).ConfigureAwait(false);
+                record.MessageNumber = await ReserveNumberAsync(context, asOf, token).ConfigureAwait(false);
                 if (record.MessageNumber.HasValue)
                 {
-                    record.Status = MessageDeliveryStatus.Pending;
+                    record.Status = MessageDelivery.Fire(record.Status, DeliveryTrigger.ReserveWireNumber);
                     record.NextAttemptAt = nextAttemptAt.UtcDateTime;
-                    record.UpdatedAt = now.UtcDateTime;
+                    record.UpdatedAt = asOf.UtcDateTime;
                     await context.SaveChangesAsync(token).ConfigureAwait(false);
                     NotifyCommitted(ToSnapshot(record));
                 }
@@ -142,10 +144,12 @@ internal sealed class OutboxMessageStore(
         MessageDeliveryStatus outcome,
         CancellationToken cancellationToken = default)
     {
-        if (IsOpen(outcome))
+        if (!MessageDelivery.IsTerminal(outcome))
         {
             throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "A delivery outcome must be terminal.");
         }
+
+        DeliveryTrigger trigger = MessageDelivery.TriggerForOutcome(outcome);
 
         string addresseeBase = addressee.Base;
         AprsSsid addresseeSsid = ToStoredSsid(addressee);
@@ -162,7 +166,7 @@ internal sealed class OutboxMessageStore(
                 return new OutboxTransitionResult(OutboxTransitionOutcome.UnknownMessage, null);
             }
 
-            OutboxMessageRecord? open = matches.FirstOrDefault(message => IsOpen(message.Status));
+            OutboxMessageRecord? open = matches.FirstOrDefault(message => MessageDelivery.IsOpen(message.Status));
             if (open is null)
             {
                 return new OutboxTransitionResult(
@@ -170,17 +174,18 @@ internal sealed class OutboxMessageStore(
                     ToSnapshot(matches[0]));
             }
 
-            Complete(open, outcome, timeProvider.GetUtcNow());
+            Complete(open, trigger, timeProvider.GetUtcNow());
             await context.SaveChangesAsync(token).ConfigureAwait(false);
             NotifyCommitted(ToSnapshot(open));
             return new OutboxTransitionResult(OutboxTransitionOutcome.Applied, ToSnapshot(open));
         }, cancellationToken);
     }
 
-    public async Task<IReadOnlyList<OutboxMessageSnapshot>> ExpireAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<OutboxMessageSnapshot>> ExpireAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken = default)
     {
-        DateTimeOffset now = timeProvider.GetUtcNow();
-        DateTime nowUtc = now.UtcDateTime;
+        DateTime nowUtc = asOf.UtcDateTime;
         List<OutboxMessageRecord> expired = await writer.EnqueueAsync(
             "outbox.expire", async (context, token) =>
         {
@@ -192,7 +197,7 @@ internal sealed class OutboxMessageStore(
 
             foreach (OutboxMessageRecord record in records)
             {
-                Complete(record, MessageDeliveryStatus.Expired, now);
+                Complete(record, DeliveryTrigger.Expire, asOf);
             }
 
             if (records.Count > 0)
@@ -333,16 +338,21 @@ internal sealed class OutboxMessageStore(
         return null;
     }
 
-    private static void Complete(OutboxMessageRecord record, MessageDeliveryStatus status, DateTimeOffset now)
+    /// <summary>Records a terminal outcome on the durable record.</summary>
+    /// <param name="record">The record being resolved.</param>
+    /// <param name="trigger">The outcome that was observed.</param>
+    /// <param name="now">The instant the outcome was applied.</param>
+    private static void Complete(OutboxMessageRecord record, DeliveryTrigger trigger, DateTimeOffset now)
     {
-        record.Status = status;
+        record.Status = MessageDelivery.Fire(record.Status, trigger);
         record.NextAttemptAt = null;
         record.NumberReleaseAt = now.Add(NumberReuseGuard).UtcDateTime;
         record.UpdatedAt = now.UtcDateTime;
     }
 
-    private static bool IsOpen(MessageDeliveryStatus status) =>
-        status is MessageDeliveryStatus.Pending or MessageDeliveryStatus.Queued;
+    /// <summary>Maps a recorded outcome onto the trigger that produces it.</summary>
+    private static DeliveryTrigger TriggerFor(MessageDeliveryStatus outcome) =>
+        MessageDelivery.TriggerForOutcome(outcome);
 
     private static AprsSsid ToStoredSsid(AprsAddress address) => (AprsSsid)(address.Ssid ?? 0);
 

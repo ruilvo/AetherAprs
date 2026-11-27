@@ -36,7 +36,7 @@ public sealed class AppSavedDataInitializer(
 
             // Enable WAL journaling so concurrent contexts (packet storage while
             // queries run) do not collide on the default rollback journal (M7).
-            db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;");
+            AppDbContext.ApplyProductionPragmas(db);
 
             db.Database.Migrate();
             SeedBeaconingDefaults(db);

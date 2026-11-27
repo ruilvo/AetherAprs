@@ -96,6 +96,7 @@ internal sealed class FakeMessageOutbox : IMessageCommands, IMessageQueries
     public Task<OutboxTransitionResult> TryReserveNumberAsync(
         Guid id,
         DateTimeOffset nextAttemptAt,
+        DateTimeOffset asOf,
         CancellationToken cancellationToken = default)
     {
         lock (_sync)
@@ -112,7 +113,7 @@ internal sealed class FakeMessageOutbox : IMessageCommands, IMessageQueries
 
             if (!entry.MessageNumber.HasValue)
             {
-                entry.MessageNumber = ReserveNumber(_timeProvider.GetUtcNow());
+                entry.MessageNumber = ReserveNumber(asOf);
                 if (entry.MessageNumber.HasValue)
                 {
                     entry.Status = MessageDeliveryStatus.Pending;
@@ -154,15 +155,16 @@ internal sealed class FakeMessageOutbox : IMessageCommands, IMessageQueries
         }
     }
 
-    public Task<IReadOnlyList<OutboxMessageSnapshot>> ExpireAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<OutboxMessageSnapshot>> ExpireAsync(
+        DateTimeOffset asOf,
+        CancellationToken cancellationToken = default)
     {
         List<OutboxMessageSnapshot> expired = [];
         lock (_sync)
         {
-            DateTimeOffset now = _timeProvider.GetUtcNow();
             foreach (Entry entry in _messages.Values)
             {
-                if (IsOpen(entry.Status) && entry.ExpiresAt <= now)
+                if (IsOpen(entry.Status) && entry.ExpiresAt <= asOf)
                 {
                     Complete(entry, MessageDeliveryStatus.Expired);
                     expired.Add(ToSnapshot(entry));

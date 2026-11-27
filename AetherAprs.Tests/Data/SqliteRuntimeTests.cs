@@ -201,8 +201,17 @@ public sealed class SqliteRuntimeTests
         {
             OnStarting = () => attempts++
         };
-        InterceptedContextFactory factory = CreateFactory(database, interceptor);
-        await using SqliteRuntimeWriter writer = new(factory);
+
+        // A one-second lock wait and no retry spacing: the retry limit is reached in
+        // milliseconds instead of waiting out the production lock budget, so the test
+        // asserts the policy rather than the configured timeout.
+        SqliteRuntimeWriter.Options options = new()
+        {
+            BeginRetryDelay = TimeSpan.Zero,
+            MaxBeginAttempts = 3
+        };
+        InterceptedContextFactory factory = CreateFactory(database, interceptor, busyTimeoutSeconds: 1);
+        await using SqliteRuntimeWriter writer = new(factory, options: options);
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
         await using (AppDbContext contendingContext = database.CreateContext())
@@ -212,13 +221,15 @@ public sealed class SqliteRuntimeTests
                     (_, _) => throw new InvalidOperationException("Command ran without a transaction."), cancellationToken)
                 .WaitAsync(TestTimeouts.TestTimeout, cancellationToken));
             Assert.Equal(5, error.SqliteErrorCode); // SQLITE_BUSY
-            Assert.Equal(3, attempts);
-            Assert.Equal(3, factory.ContextsCreated);
+
+            // Every attempt used a fresh context and the limit stopped the loop.
+            Assert.Equal(options.MaxBeginAttempts, attempts);
+            Assert.Equal(options.MaxBeginAttempts, factory.ContextsCreated);
         }
 
         Assert.True(await writer.EnqueueAsync("test.insert",
             (context, ct) => InsertAsync(context, "N0OK", ct), cancellationToken) > 0);
-        Assert.Equal(4, factory.ContextsCreated);
+        Assert.Equal(options.MaxBeginAttempts + 1, factory.ContextsCreated);
     }
 
     [Fact]
@@ -255,9 +266,15 @@ public sealed class SqliteRuntimeTests
         reader.QueryAsync((context, ct) => context.Packets.OrderBy(packet => packet.Id)
             .Select(packet => packet.SourceBase).ToArrayAsync(ct), cancellationToken);
 
-    private static InterceptedContextFactory CreateFactory(TempAppDatabase database, TestTransactionInterceptor interceptor) =>
+    private static InterceptedContextFactory CreateFactory(
+        TempAppDatabase database,
+        TestTransactionInterceptor interceptor,
+        int busyTimeoutSeconds = AppDbContext.DefaultBusyTimeoutSeconds) =>
         new(new DbContextOptionsBuilder<AppDbContext>(
-            AppDbContext.CreateOptions(Path.Combine(database.Directory, AppDbContext.DatabaseFileName), pooling: false))
+            AppDbContext.CreateOptions(
+                Path.Combine(database.Directory, AppDbContext.DatabaseFileName),
+                pooling: false,
+                busyTimeoutSeconds))
             .AddInterceptors(interceptor).Options);
 
     private sealed class InterceptedContextFactory(DbContextOptions<AppDbContext> options) : IDbContextFactory<AppDbContext>

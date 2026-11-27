@@ -172,7 +172,7 @@ public sealed class OutboxMessageStoreTests : IAsyncDisposable
         await limited.CleanupAsync(TestContext.Current.CancellationToken);
 
         OutboxTransitionResult promoted = await limited.TryReserveNumberAsync(
-            blocked.Id, _clock.GetUtcNow(), TestContext.Current.CancellationToken);
+            blocked.Id, _clock.GetUtcNow(), _clock.GetUtcNow(), TestContext.Current.CancellationToken);
 
         Assert.Equal(OutboxTransitionOutcome.Applied, promoted.Outcome);
         Assert.Equal(1, promoted.Message!.MessageNumber);
@@ -185,7 +185,8 @@ public sealed class OutboxMessageStoreTests : IAsyncDisposable
         OutboxMessageDraft expiring = CreateDraft(Guid.CreateVersion7(), expiresAt: _clock.GetUtcNow().AddSeconds(-1));
         await _store.EnqueueAsync(expiring, TestContext.Current.CancellationToken);
 
-        IReadOnlyList<OutboxMessageSnapshot> expired = await _store.ExpireAsync(TestContext.Current.CancellationToken);
+        IReadOnlyList<OutboxMessageSnapshot> expired = await _store.ExpireAsync(
+            _clock.GetUtcNow(), TestContext.Current.CancellationToken);
         IReadOnlyList<OutboxMessageSnapshot> open = await _store.GetOpenAsync(TestContext.Current.CancellationToken);
         IReadOnlyList<OutboxMessageSnapshot> due = await _store.GetDueAsync(TestContext.Current.CancellationToken);
 

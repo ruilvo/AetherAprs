@@ -19,8 +19,35 @@ namespace AetherAprs.Data;
 /// <summary>Serializes transactions for typed persistence adapters in the Data layer.</summary>
 internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
 {
-    private const int MaxBeginAttempts = 3;
-    private const int CommandTimeoutSeconds = 1;
+    /// <summary>
+    /// The retry budget for one write. Production uses <see cref="Default"/>;
+    /// a test that exercises contention overrides it so it can observe the
+    /// retry limit without waiting out the production lock budget.
+    /// </summary>
+    /// <remarks>
+    /// The lock wait itself belongs to the connection and is configured by
+    /// <see cref="AppDbContext.CreateOptions"/>; only the retry policy lives here.
+    /// </remarks>
+    internal sealed record Options
+    {
+        /// <summary>The production budget: a few retries, spaced out.</summary>
+        public static readonly Options Default = new();
+
+        /// <summary>
+        /// Delay before re-attempting a transaction that never started, multiplied by
+        /// the attempt number so retries back off. Each attempt first waits out the
+        /// connection's busy timeout.
+        /// </summary>
+        public TimeSpan BeginRetryDelay { get; init; } = TimeSpan.FromMilliseconds(25);
+
+        /// <summary>
+        /// How many times a transaction that never started may be re-attempted on
+        /// SQLITE_BUSY/LOCKED. Work is never replayed after a commit was attempted,
+        /// so this only bounds pathological contention.
+        /// </summary>
+        public int MaxBeginAttempts { get; init; } = 5;
+    }
+
     private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
     private readonly Channel<IWriteCommand> _commands;
     private readonly Lock _gate = new();
@@ -29,12 +56,17 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
     private readonly Counter<long> _retryCount;
     private readonly Counter<long> _failures;
     private readonly Counter<long> _rejections;
+    private readonly Options _options;
     private Task? _worker;
     private Task? _stop;
 
-    public SqliteRuntimeWriter(IDbContextFactory<AppDbContext> dbContextFactory, int capacity = 128)
+    public SqliteRuntimeWriter(
+        IDbContextFactory<AppDbContext> dbContextFactory,
+        int capacity = 128,
+        Options? options = null)
     {
         _dbContextFactory = dbContextFactory;
+        _options = options ?? Options.Default;
         _commands = Channel.CreateBounded<IWriteCommand>(new BoundedChannelOptions(capacity)
         {
             SingleReader = true,
@@ -138,9 +170,9 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
             try
             {
                 await using AppDbContext context = await _dbContextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
-                context.Database.SetCommandTimeout(CommandTimeoutSeconds);
-                // SQLite uses its connection timeout for BEGIN IMMEDIATE, separately from EF command timeouts.
-                ((SqliteConnection)context.Database.GetDbConnection()).DefaultTimeout = CommandTimeoutSeconds;
+
+                // SQLite honours the connection's busy timeout for BEGIN IMMEDIATE, so
+                // lock contention surfaces as SQLITE_BUSY instead of a command timeout.
                 await using IDbContextTransaction transaction = await context.Database
                     .BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken).ConfigureAwait(false);
                 acquiredTransaction = true;
@@ -172,13 +204,13 @@ internal sealed class SqliteRuntimeWriter : IDisposable, IAsyncDisposable
             {
                 throw new SqliteCommitOutcomeUnknownException(operation, commitError);
             }
-            catch (SqliteException ex) when (!acquiredTransaction && attempt < MaxBeginAttempts &&
+            catch (SqliteException ex) when (!acquiredTransaction && attempt < _options.MaxBeginAttempts &&
                 ex.SqliteErrorCode is 5 or 6)
             {
                 // No command body ran. Re-enter with a fresh context/transaction; never
                 // replay work after a commit was attempted, even on BUSY/LOCKED.
                 Count(_retryCount);
-                await Task.Delay(TimeSpan.FromMilliseconds(25 * attempt), cancellationToken).ConfigureAwait(false);
+                await Task.Delay(_options.BeginRetryDelay * attempt, cancellationToken).ConfigureAwait(false);
             }
         }
     }

@@ -49,6 +49,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <PackageVersion Include="xunit.v3" Version="4.0.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
+    <PackageVersion Include="Stateless" Version="5.21.0" />
     <PackageVersion Include="Xamarin.Legacy.NUnitLite" Version="0.0.1-alpha" />
   </ItemGroup>
 </Project>

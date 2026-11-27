@@ -151,6 +151,33 @@ No startup task is silently discarded. Framework `async void` entry points catch
 record failures. Background workers have cancellation, bounded queues and a shutdown
 deadline.
 
+### Delivery and session lifecycles
+
+Any lifecycle with more than one legal predecessor is declared as a transition table
+using `Stateless`, so the legal transitions and the absorbing states are readable in
+one place instead of being re-checked by hand at each call site:
+
+- `Models/Messaging/MessageDelivery.cs` — `MessageDeliveryStatus` for an outbound
+  message (`Queued → Pending → Sending →` a terminal outcome). Terminal states accept
+  no trigger, so a duplicate ACK or a late retry deadline cannot resurrect a message.
+- `Services/Ports/PortSession.cs` — `PortSessionState` for one port session
+  (`Stopped → Connecting → Connected | Degraded`). A late transport fault from a
+  released modem cannot reopen a stopped session.
+- `Services/Transmission/BeaconQueue.cs` — `BeaconQueueStatus` for a queued beacon
+  (`Queued → Sending → Sent | Failed | Expired | Dropped`). A failed attempt retries
+  in place or reaches terminal failure depending on the attempt budget, and the four
+  terminal states are absorbing.
+
+The tables are stateless: `Fire` takes the current state and returns the next one,
+because the caller already stores that state next to the snapshot it publishes.
+
+Two adjacent types are deliberately *not* machines. `KeepAliveState` is a derived
+snapshot built through named factories, and `SessionLifecycleState` is an aggregate
+computed from the port set; neither has trigger-driven semantics to declare, and
+pushing them through a machine would only add indirection. `AndroidLifecycleState`
+records what the platform reports, so the OS owns its transitions and the shared
+layer only mirrors them.
+
 ## Open work
 
 Each item is sized so one agent can implement it without deciding architecture again.

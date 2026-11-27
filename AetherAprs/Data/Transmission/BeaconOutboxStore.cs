@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -43,6 +44,22 @@ internal sealed class BeaconOutboxStore(
     /// <summary>How long a terminal row is kept for diagnostics before pruning.</summary>
     internal static readonly TimeSpan TerminalRetention = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// The rows that still hold a queue slot. EF cannot translate
+    /// <see cref="BeaconQueue.IsOpen"/>, so the set is named once here and reused by
+    /// every query that has to agree with it.
+    /// </summary>
+    private static readonly Expression<Func<BeaconOutboxRecord, bool>> HoldsSlot =
+        beacon => beacon.Status == BeaconQueueStatus.Queued
+            || beacon.Status == BeaconQueueStatus.Sending;
+
+    /// <summary>The rows that are done and only kept for diagnostics.</summary>
+    private static readonly Expression<Func<BeaconOutboxRecord, bool>> IsTerminal =
+        beacon => beacon.Status == BeaconQueueStatus.Sent
+            || beacon.Status == BeaconQueueStatus.Failed
+            || beacon.Status == BeaconQueueStatus.Expired
+            || beacon.Status == BeaconQueueStatus.Dropped;
+
     public async Task<BeaconEnqueueResult> EnqueueAsync(
         Guid portId,
         LocationData location,
@@ -57,8 +74,7 @@ internal sealed class BeaconOutboxStore(
             await ExpireStaleAsync(context, now, token).ConfigureAwait(false);
 
             int activeCount = await context.BeaconOutbox
-                .CountAsync(beacon => beacon.Status == BeaconQueueStatus.Queued
-                    || beacon.Status == BeaconQueueStatus.Sending, token).ConfigureAwait(false);
+                .CountAsync(HoldsSlot, token).ConfigureAwait(false);
 
             BeaconQueueItem? dropped = null;
             if (activeCount >= maximumItems)
@@ -149,12 +165,15 @@ internal sealed class BeaconOutboxStore(
     public Task MarkSendingAsync(Guid id, CancellationToken cancellationToken = default) =>
         TransitionAsync("beacon.mark-sending", id, (beacon, now) =>
         {
-            if (beacon.Status != BeaconQueueStatus.Queued)
+            if (!BeaconQueue.TryFire(
+                beacon.Status,
+                BeaconQueueTrigger.BeginSending,
+                out BeaconQueueStatus next))
             {
                 return false;
             }
 
-            beacon.Status = BeaconQueueStatus.Sending;
+            beacon.Status = next;
             beacon.UpdatedAt = now.UtcDateTime;
             return true;
         }, cancellationToken);
@@ -162,12 +181,12 @@ internal sealed class BeaconOutboxStore(
     public Task MarkSentAsync(Guid id, CancellationToken cancellationToken = default) =>
         TransitionAsync("beacon.mark-sent", id, (beacon, now) =>
         {
-            if (beacon.Status is BeaconQueueStatus.Sent or BeaconQueueStatus.Failed or BeaconQueueStatus.Expired)
+            if (!BeaconQueue.TryFire(beacon.Status, BeaconQueueTrigger.Sent, out BeaconQueueStatus next))
             {
                 return false;
             }
 
-            beacon.Status = BeaconQueueStatus.Sent;
+            beacon.Status = next;
             beacon.UpdatedAt = now.UtcDateTime;
             return true;
         }, cancellationToken);
@@ -179,18 +198,16 @@ internal sealed class BeaconOutboxStore(
         CancellationToken cancellationToken = default) =>
         TransitionAsync("beacon.mark-failed", id, (beacon, transitionedAt) =>
         {
-            if (beacon.Status is BeaconQueueStatus.Sent or BeaconQueueStatus.Failed or BeaconQueueStatus.Expired
-                or BeaconQueueStatus.Dropped)
+            bool retryBudgetSpent = beacon.AttemptCount + 1 >= MaximumAttempts
+                || transitionedAt >= ToUtcOffset(beacon.ExpiresAt);
+            if (!BeaconQueue.TryFailAttempt(beacon.Status, retryBudgetSpent, out BeaconQueueStatus next))
             {
                 return false;
             }
 
-            int attempts = beacon.AttemptCount + 1;
-            beacon.AttemptCount = attempts;
+            beacon.AttemptCount++;
             beacon.Error = failureReason;
-            beacon.Status = attempts >= MaximumAttempts || transitionedAt >= ToUtcOffset(beacon.ExpiresAt)
-                ? BeaconQueueStatus.Failed
-                : BeaconQueueStatus.Queued;
+            beacon.Status = next;
             beacon.UpdatedAt = transitionedAt.UtcDateTime;
             return true;
         }, cancellationToken, now);
@@ -229,9 +246,8 @@ internal sealed class BeaconOutboxStore(
         DateTimeOffset now,
         CancellationToken cancellationToken) =>
         context.BeaconOutbox
-            .Where(beacon => (beacon.Status == BeaconQueueStatus.Queued
-                    || beacon.Status == BeaconQueueStatus.Sending)
-                && beacon.ExpiresAt <= now.UtcDateTime)
+            .Where(HoldsSlot)
+            .Where(beacon => beacon.ExpiresAt <= now.UtcDateTime)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(beacon => beacon.Status, BeaconQueueStatus.Expired)
@@ -246,11 +262,8 @@ internal sealed class BeaconOutboxStore(
     {
         DateTime cutoff = now.Subtract(TerminalRetention).UtcDateTime;
         await context.BeaconOutbox
-            .Where(beacon => (beacon.Status == BeaconQueueStatus.Sent
-                    || beacon.Status == BeaconQueueStatus.Failed
-                    || beacon.Status == BeaconQueueStatus.Expired
-                    || beacon.Status == BeaconQueueStatus.Dropped)
-                && beacon.UpdatedAt <= cutoff)
+            .Where(IsTerminal)
+            .Where(beacon => beacon.UpdatedAt <= cutoff)
             .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 

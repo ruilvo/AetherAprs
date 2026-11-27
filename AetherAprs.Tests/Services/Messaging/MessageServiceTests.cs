@@ -388,7 +388,7 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
-    public void ClearedActiveConversation_NotifiesTheIncomingMessageAgain()
+    public async Task ClearedActiveConversation_NotifiesTheIncomingMessageAgain()
     {
         FakePortService portService = new();
         RecordingNotificationService notificationService = new();
@@ -421,6 +421,7 @@ public sealed class MessageServiceTests
         });
 
         // After clearing, the incoming message should post a notification again.
+        await service.FlushAsync(TestContext.Current.CancellationToken);
         Assert.Equal(
             ("K0PEER-1", Localization.Strings.Get("MessageNotificationHiddenBody"), "K0PEER-1"),
             Assert.Single(notificationService.Notifications));
@@ -428,7 +429,7 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
-    public void ClearingADifferentPeer_KeepsTheVisibleConversationSuppressed()
+    public async Task ClearingADifferentPeer_KeepsTheVisibleConversationSuppressed()
     {
         FakePortService portService = new();
         RecordingNotificationService notificationService = new();
@@ -466,11 +467,10 @@ public sealed class MessageServiceTests
             }
         });
 
+        await service.FlushAsync(TestContext.Current.CancellationToken);
         Assert.Empty(notificationService.Notifications);
         Assert.Equal("Ping", Assert.Single(Assert.Single(service.Conversations).Messages).Text);
     }
-
-
 
     [Fact]
     public async Task SendAsync_EnabledPortWithIsTxFalse_KeepsTheMessagePendingWithoutARoute()
@@ -785,6 +785,7 @@ public sealed class MessageServiceTests
                 MessageNumber = stored.MessageNumber.Value
             }
         });
+        await service.FlushAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(MessageDeliveryStatus.Acknowledged, stored.DeliveryStatus);
         Assert.True(threadUpdates > 0, "the owning thread must refresh so the view shows the ACK");
@@ -818,6 +819,7 @@ public sealed class MessageServiceTests
                 MessageNumber = stored.MessageNumber.Value
             }
         });
+        await service.FlushAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(MessageDeliveryStatus.Pending, stored.DeliveryStatus);
     }
@@ -875,6 +877,7 @@ public sealed class MessageServiceTests
                 MessageNumber = stored.MessageNumber.Value
             }
         });
+        await service.FlushAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(MessageDeliveryStatus.Rejected, stored.DeliveryStatus);
     }
@@ -1490,7 +1493,9 @@ public sealed class MessageServiceTests
 
         /// <summary>
         /// Completes once at least <paramref name="count"/> packets have been sent,
-        /// so retry tests can await the effect instead of sleeping.
+        /// so retry tests can await the effect instead of sleeping. The wait is
+        /// bounded so a service that stops sending fails the test instead of
+        /// wedging the whole run.
         /// </summary>
         public Task WaitForSendCountAsync(int count, CancellationToken cancellationToken = default)
         {
@@ -1507,7 +1512,7 @@ public sealed class MessageServiceTests
                     _sendGates[count] = gate;
                 }
 
-                return gate.Task.WaitAsync(cancellationToken);
+                return gate.Task.WaitAsync(TestTimeouts.TestTimeout, cancellationToken);
             }
         }
 

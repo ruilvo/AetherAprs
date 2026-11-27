@@ -41,6 +41,10 @@ internal sealed class TempAppDatabase : IDisposable
         try
         {
             using AppDbContext db = factory.CreateDbContext();
+
+            // The test file must run with the same SQLite configuration as production,
+            // or the contention behaviour under test is not the behaviour that ships.
+            AppDbContext.ApplyProductionPragmas(db);
             db.Database.EnsureCreated();
             foreach (PortConfig port in ports)
             {
@@ -63,7 +67,21 @@ internal sealed class TempAppDatabase : IDisposable
         string directory = Path.Combine(Path.GetTempPath(), $"AetherAprsTests-{Guid.NewGuid():N}");
         System.IO.Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, AppDbContext.DatabaseFileName);
-        return new TempAppDatabase(directory, new TestAppDbContextFactory(path));
+        TestAppDbContextFactory factory = new(path);
+        try
+        {
+            // Creating the file here lets the harness apply the journal mode before
+            // any test opens it; the pragma is stored in the database itself.
+            using AppDbContext db = factory.CreateDbContext();
+            AppDbContext.ApplyProductionPragmas(db);
+        }
+        catch
+        {
+            DeleteDirectory(directory);
+            throw;
+        }
+
+        return new TempAppDatabase(directory, factory);
     }
 
     public AppDbContext CreateContext() => Factory.CreateDbContext();

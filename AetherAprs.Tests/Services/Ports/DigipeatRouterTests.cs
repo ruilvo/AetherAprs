@@ -71,7 +71,7 @@ public sealed class DigipeatRouterTests
     {
         PortConfig source = CreatePort("RF");
         PortConfig target = CreatePort("Target");
-        ManualTimeProvider time = new(DateTimeOffset.UnixEpoch);
+        TestClock time = new(DateTimeOffset.UnixEpoch);
         TaskCompletionSource firstDecisionEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource releaseFirstDecision = new(TaskCreationOptions.RunContinuationsAsynchronously);
         int decisionCount = 0;
@@ -342,14 +342,5 @@ public sealed class DigipeatRouterTests
         public IReadOnlyList<PortConfig> GetPorts() => [.. ports];
 
         public PortConfig? Find(Guid id) => ports.FirstOrDefault(port => port.Id == id);
-    }
-
-    private sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
-    {
-        private DateTimeOffset _now = start;
-
-        public override DateTimeOffset GetUtcNow() => _now;
-
-        public void Advance(TimeSpan delta) => _now += delta;
     }
 }

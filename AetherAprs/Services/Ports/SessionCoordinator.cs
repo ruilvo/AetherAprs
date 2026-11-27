@@ -19,8 +19,7 @@ public enum SessionLifecycleState
     Starting,
     Running,
     Degraded,
-    Stopping,
-    Faulted
+    Stopping
 }
 
 public enum PortSessionState
@@ -28,8 +27,7 @@ public enum PortSessionState
     Stopped,
     Connecting,
     Connected,
-    Degraded,
-    Faulted
+    Degraded
 }
 
 public sealed record PortSessionStatus(
@@ -243,7 +241,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
                 throw new InvalidOperationException("Session coordinator is not initialized.");
             }
 
-            if (_state is not SessionLifecycleState.Stopped and not SessionLifecycleState.Faulted)
+            if (_state is not SessionLifecycleState.Stopped)
             {
                 return;
             }
@@ -254,7 +252,9 @@ public sealed class SessionCoordinator : IAsyncDisposable
             _state = SessionLifecycleState.Starting;
             foreach (Guid portId in armedPortIds)
             {
-                _ports[portId] = new PortSessionStatus(portId, PortSessionState.Connecting);
+                _ports[portId] = new PortSessionStatus(
+                    portId,
+                    PortSession.Fire(PortSessionState.Stopped, PortSessionTrigger.Connect));
             }
         }
 
@@ -320,30 +320,25 @@ public sealed class SessionCoordinator : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(exception);
         cancellationToken.ThrowIfCancellationRequested();
 
-        lock (_gate)
-        {
-            if (_state == SessionLifecycleState.Stopped && !_intent.IsArmed)
-            {
-                // A late transport callback from a modem that was already torn down
-                // must not resurrect a degraded lifecycle state or a reconnect loop
-                // after the operator stopped the session.
-                _diagnostics?.Record(
-                    "session",
-                    DiagnosticSeverity.Information,
-                    "Ignored",
-                    "A transport fault arrived after the session stopped.");
-                return Task.CompletedTask;
-            }
-        }
-
-        ApplyPortUpdate(
+        if (!TryApplyPortTransition(
             portId,
+            PortSessionTrigger.Faulted,
             status => status with
             {
-                State = PortSessionState.Degraded,
                 Error = exception.Message,
                 NextRetryUtc = _timeProvider.GetUtcNow()
-            });
+            }))
+        {
+            // A late transport callback from a modem that was already torn down must
+            // not resurrect a degraded lifecycle state or a reconnect loop after the
+            // operator stopped the session.
+            _diagnostics?.Record(
+                "session",
+                DiagnosticSeverity.Information,
+                "Ignored",
+                "A transport fault arrived after the session stopped.");
+            return Task.CompletedTask;
+        }
 
         lock (_gate)
         {
@@ -428,9 +423,14 @@ public sealed class SessionCoordinator : IAsyncDisposable
         {
             foreach (Guid portId in ports)
             {
+                _ = PortSession.TryFire(
+                    _ports[portId].State,
+                    PortSessionTrigger.Disconnect,
+                    out PortSessionState stopped);
+
                 _ports[portId] = _ports[portId] with
                 {
-                    State = PortSessionState.Stopped,
+                    State = stopped,
                     NextRetryUtc = null,
                     Error = null
                 };
@@ -465,11 +465,11 @@ public sealed class SessionCoordinator : IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             DateTimeOffset now = _timeProvider.GetUtcNow();
-            ApplyPortUpdate(
+            _ = TryApplyPortTransition(
                 portId,
+                PortSessionTrigger.Connect,
                 status => status with
                 {
-                    State = PortSessionState.Connecting,
                     RetryCount = retryCount,
                     NextRetryUtc = null,
                     Error = null
@@ -478,11 +478,11 @@ public sealed class SessionCoordinator : IAsyncDisposable
             try
             {
                 await _portController.ConnectAsync(portId, cancellationToken).ConfigureAwait(false);
-                ApplyPortUpdate(
+                _ = TryApplyPortTransition(
                     portId,
+                    PortSessionTrigger.Connected,
                     status => status with
                     {
-                        State = PortSessionState.Connected,
                         RetryCount = 0,
                         NextRetryUtc = null,
                         Error = null
@@ -497,11 +497,11 @@ public sealed class SessionCoordinator : IAsyncDisposable
             {
                 retryCount++;
                 TimeSpan delay = CalculateBackoff(retryCount);
-                ApplyPortUpdate(
+                _ = TryApplyPortTransition(
                     portId,
+                    PortSessionTrigger.Faulted,
                     status => status with
                     {
-                        State = PortSessionState.Degraded,
                         RetryCount = retryCount,
                         NextRetryUtc = now.Add(delay),
                         Error = ex.Message
@@ -555,13 +555,63 @@ public sealed class SessionCoordinator : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Applies a session event to one port, keeping the other fields as they are.
+    /// </summary>
+    /// <param name="portId">The port whose session changed.</param>
+    /// <param name="trigger">The event being recorded.</param>
+    /// <param name="update">Additional fields to set alongside the new state.</param>
+    /// <returns>
+    /// <see langword="false"/> when the event is not legal from the port's current
+    /// state, which means the transition already happened elsewhere: a transport
+    /// fault arriving after teardown stopped the session must not resurrect it.
+    /// </returns>
+    private bool TryApplyPortTransition(
+        Guid portId,
+        PortSessionTrigger trigger,
+        Func<PortSessionStatus, PortSessionStatus>? update = null)
+    {
+        bool changed;
+        lock (_gate)
+        {
+            if (!_ports.TryGetValue(portId, out PortSessionStatus? current))
+            {
+                current = new PortSessionStatus(portId, PortSessionState.Stopped);
+            }
+
+            if (!PortSession.TryFire(current.State, trigger, out PortSessionState next))
+            {
+                return false;
+            }
+
+            PortSessionStatus updated = current with { State = next };
+            if (update is not null)
+            {
+                updated = update(updated);
+            }
+
+            _ports[portId] = updated;
+
+            SessionLifecycleState previousAggregateState = _state;
+            UpdateAggregateStateLocked();
+            changed = _state != previousAggregateState;
+        }
+
+        if (changed)
+        {
+            PublishTransition();
+        }
+
+        return true;
+    }
+
     private void UpdateAggregateStateLocked()
     {
         if (_ports.Count == 0)
         {
             _state = SessionLifecycleState.Stopped;
         }
-        else if (_state is SessionLifecycleState.Stopping or SessionLifecycleState.Faulted)
+        else if (_state is SessionLifecycleState.Stopping)
         {
             return;
         }
@@ -569,7 +619,7 @@ public sealed class SessionCoordinator : IAsyncDisposable
         {
             _state = SessionLifecycleState.Running;
         }
-        else if (_ports.Values.Any(port => port.State is PortSessionState.Degraded or PortSessionState.Faulted))
+        else if (_ports.Values.Any(port => port.State is PortSessionState.Degraded))
         {
             _state = SessionLifecycleState.Degraded;
         }
@@ -646,7 +696,6 @@ public sealed class SessionCoordinator : IAsyncDisposable
     private static DiagnosticSeverity SeverityFor(SessionLifecycleState state) =>
         state switch
         {
-            SessionLifecycleState.Faulted => DiagnosticSeverity.Error,
             SessionLifecycleState.Degraded => DiagnosticSeverity.Warning,
             _ => DiagnosticSeverity.Information
         };
