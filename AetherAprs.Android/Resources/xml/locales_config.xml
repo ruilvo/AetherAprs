@@ -7,4 +7,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="en-US" />
     <locale android:name="pt" />
+    <locale android:name="de" />
+    <locale android:name="es" />
+    <locale android:name="fr" />
+    <locale android:name="it" />
+    <locale android:name="pl" />
+    <locale android:name="pt-BR" />
 </locale-config>
