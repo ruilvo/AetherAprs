@@ -578,4 +578,25 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PacketDetailDegreesFormat" xml:space="preserve"><value>{0:F0}°</value></data>
   <data name="PacketDetailKnotsFormat" xml:space="preserve"><value>{0:F1} kn</value></data>
   <data name="PacketDetailScalarFormat" xml:space="preserve"><value>{0:F2}</value></data>
+  <data name="ConnectionStageIdle" xml:space="preserve"><value>Sem ligação</value></data>
+  <data name="ConnectionStagePreparingTransport" xml:space="preserve"><value>A verificar o transporte</value></data>
+  <data name="ConnectionStageRequestingPermission" xml:space="preserve"><value>A pedir permissão</value></data>
+  <data name="ConnectionStageResolvingDevice" xml:space="preserve"><value>A resolver o dispositivo</value></data>
+  <data name="ConnectionStageConnectingTransport" xml:space="preserve"><value>A ligar</value></data>
+  <data name="ConnectionStageDiscoveringServices" xml:space="preserve"><value>A descobrir serviços</value></data>
+  <data name="ConnectionStageWritingConfiguration" xml:space="preserve"><value>A ativar notificações</value></data>
+  <data name="ConnectionStageNegotiatingPayload" xml:space="preserve"><value>A negociar o tamanho da carga útil</value></data>
+  <data name="ConnectionStageReady" xml:space="preserve"><value>Ligado</value></data>
+  <data name="ConnectionStageCancelled" xml:space="preserve"><value>Cancelado</value></data>
+  <data name="ConnectionStageFailed" xml:space="preserve"><value>Falhou</value></data>
+  <data name="ConnectionFailedAtStage" xml:space="preserve"><value>A ligação falhou em: {0}</value></data>
+  <data name="ConnectionCancelledAtStage" xml:space="preserve"><value>Ligação cancelada em: {0}</value></data>
+  <data name="ConnectionDetailPayload" xml:space="preserve"><value>carga útil {0} de {1} bytes</value></data>
+  <data name="ConnectionDetailPayloadNoMtu" xml:space="preserve"><value>carga útil {0} bytes (MTU não comunicado)</value></data>
+  <data name="ConnectionDetailWriteWithoutResponse" xml:space="preserve"><value>escrita sem resposta</value></data>
+  <data name="ConnectionDetailWriteWithResponse" xml:space="preserve"><value>escrita com resposta</value></data>
+  <data name="ConnectionDetailNotifications" xml:space="preserve"><value>notificações ativadas</value></data>
+  <data name="ConnectionDetailSppConnected" xml:space="preserve"><value>SPP ligado</value></data>
+  <data name="ConnectionDetailAttempt" xml:space="preserve"><value>tentativa {0}</value></data>
+  <data name="KissTransportUnavailable" xml:space="preserve"><value>{0} não está disponível nesta plataforma</value></data>
 </root>

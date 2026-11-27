@@ -45,10 +45,21 @@ public sealed class ModemFactory(
     {
         ArgumentNullException.ThrowIfNull(port);
 
+        return await CreateAsync(port, KissConnectionContext.None, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IPortModem> CreateAsync(
+        PortConfig port,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(port);
+
         return port.TypeSettings switch
         {
             AprsIsSettings aprsIs => CreateAprsIsModem(aprsIs),
-            KissSettings kiss => await CreateKissModemAsync(kiss, cancellationToken).ConfigureAwait(false),
+            KissSettings kiss => await CreateKissModemAsync(kiss, context, cancellationToken).ConfigureAwait(false),
             AfskSettings afsk => CreateAfskModem(afsk),
             null => throw new InvalidOperationException(
                 $"Port '{port.Name}' has no type settings, so no modem can be created."),
@@ -85,10 +96,11 @@ public sealed class ModemFactory(
 
     private async Task<IPortModem> CreateKissModemAsync(
         KissSettings settings,
+        KissConnectionContext context,
         CancellationToken cancellationToken)
     {
         Stream stream = await kissStreamFactory
-            .OpenAsync(settings, cancellationToken)
+            .OpenAsync(settings, context, cancellationToken)
             .ConfigureAwait(false);
 
         KissModem kissModem;

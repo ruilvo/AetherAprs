@@ -26,14 +26,19 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 {
     private readonly INavigationService _navigationService;
     private readonly IPortService _portService;
+    private readonly IPortServiceTelemetry _portTelemetry;
+    private readonly IKissStreamFactory _kissStreamFactory;
     private readonly IBluetoothLeScanner _bleScanner;
     private readonly IBluetoothClassicDeviceProvider _classicDeviceProvider;
     private readonly ILogger<AddEditPortViewModel>? _logger;
     private readonly ITransientFeedbackService? _transientFeedbackService;
+    private readonly IUiDispatcher? _uiDispatcher;
     private CancellationTokenSource? _bleScanCts;
     private PortConfig? _existingConfig;
     private bool _isNameManuallyEdited;
     private int _portNumber;
+    private Guid? _editingPortId;
+    private Type? _fallbackTransportType;
 
     [ObservableProperty]
     public partial bool IsSaving { get; set; }
@@ -104,6 +109,29 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     public partial string SppStatusText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The stage the port's last connection attempt reached, so a failed connect
+    /// names what stopped (device lookup, GATT discovery, payload negotiation)
+    /// instead of showing nothing at all.
+    /// </summary>
+    [ObservableProperty]
+    public partial string ConnectionStatusText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What the attempt negotiated: usable payload, write mode, notification state
+    /// and the attempt number.
+    /// </summary>
+    [ObservableProperty]
+    public partial string ConnectionDetailText { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Stated warning when the configured transport has no connector on this
+    /// platform, so an unavailable route is visible instead of silently swapped for
+    /// another one.
+    /// </summary>
+    [ObservableProperty]
+    public partial string UnavailableTransportText { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial bool IsRx { get; set; } = true;
 
@@ -138,21 +166,38 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         IBluetoothClassicDeviceProvider classicDeviceProvider,
         AprsIsFilterBuilderViewModel filterBuilder,
         ILogger<AddEditPortViewModel>? logger = null,
-        ITransientFeedbackService? transientFeedbackService = null)
+        ITransientFeedbackService? transientFeedbackService = null,
+        IUiDispatcher? uiDispatcher = null)
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
-        ArgumentNullException.ThrowIfNull(kissStreamFactory);
+        _kissStreamFactory = kissStreamFactory ?? throw new ArgumentNullException(nameof(kissStreamFactory));
         _bleScanner = bleScanner ?? throw new ArgumentNullException(nameof(bleScanner));
         _classicDeviceProvider = classicDeviceProvider ?? throw new ArgumentNullException(nameof(classicDeviceProvider));
         FilterBuilder = filterBuilder ?? throw new ArgumentNullException(nameof(filterBuilder));
         _logger = logger;
         _transientFeedbackService = transientFeedbackService;
+        _uiDispatcher = uiDispatcher;
+        // Connection stages are telemetry, an optional capability of the port service:
+        // a page that only reads configuration keeps working without it.
+        _portTelemetry = portService as IPortServiceTelemetry ?? NullPortServiceTelemetry.Instance;
+        _portTelemetry.ConnectionProgress += OnConnectionProgress;
 
-        IReadOnlyCollection<Type> supported = kissStreamFactory.SupportedTransports;
-        AvailableKissTransportTypes = supported.Count > 0
-            ? supported.ToArray()
-            : [typeof(TcpKissTransportSettings)];
+        IReadOnlyCollection<Type> supported = _kissStreamFactory.SupportedTransports;
+        if (supported.Count > 0)
+        {
+            AvailableKissTransportTypes = supported.ToArray();
+        }
+        else
+        {
+            // No connector is registered (the desktop test host), so the editor still
+            // has to offer one valid route rather than an empty list. The fallback is
+            // the only transport in the list, and it is presented as usable because
+            // nothing else can be chosen.
+            _fallbackTransportType = typeof(TcpKissTransportSettings);
+            AvailableKissTransportTypes = [typeof(TcpKissTransportSettings)];
+        }
+
         SelectedKissTransportType = AvailableKissTransportTypes.Contains(typeof(TcpKissTransportSettings))
             ? typeof(TcpKissTransportSettings)
             : AvailableKissTransportTypes[0];
@@ -165,12 +210,15 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     {
         _existingConfig = existingConfig;
         _portNumber = nextPortNumber;
+        _editingPortId = existingConfig?.Id;
         OnPropertyChanged(nameof(IsEditing));
+        UpdateUnavailableTransportText();
 
         if (existingConfig != null)
         {
             PopulateFrom(existingConfig);
             _isNameManuallyEdited = true; // Existing ports have user-defined names
+            ShowStoredConnectionProgress(existingConfig.Id);
         }
         else
         {
@@ -188,6 +236,56 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             ? "DefaultAprsIsPortName"
             : "DefaultKissPortName";
         return Strings.Format(key, _portNumber);
+    }
+
+    /// <summary>
+    /// Shows the stage and the negotiated detail of the port's last connection, so
+    /// the editor explains a port that is enabled but not connected.
+    /// </summary>
+    /// <param name="portId">Port being edited.</param>
+    internal void ShowStoredConnectionProgress(Guid portId)
+    {
+        ApplyConnectionProgress(_portTelemetry.GetConnectionProgress(portId));
+    }
+
+    /// <summary>
+    /// Reports the terminal stage of a connection attempt made from this page.
+    /// </summary>
+    /// <param name="portId">Port the attempt belonged to.</param>
+    /// <param name="progress">Report to show.</param>
+    internal void ApplyConnectionProgress(Guid portId, KissConnectionProgress? progress)
+    {
+        if (_editingPortId != portId)
+        {
+            return;
+        }
+
+        ApplyConnectionProgress(progress);
+    }
+
+    private void ApplyConnectionProgress(KissConnectionProgress? progress)
+    {
+        if (progress is null)
+        {
+            ConnectionStatusText = string.Empty;
+            ConnectionDetailText = string.Empty;
+            return;
+        }
+
+        ConnectionStatusText = KissConnectionStatusText.DescribeStage(progress);
+        ConnectionDetailText = KissConnectionStatusText.DescribeDetail(progress);
+    }
+
+    private void OnConnectionProgress(object? sender, PortConnectionProgressEventArgs args)
+    {
+        if (_uiDispatcher is null)
+        {
+            ApplyConnectionProgress(args.PortId, args.Progress);
+        }
+        else
+        {
+            _uiDispatcher.Post(() => ApplyConnectionProgress(args.PortId, args.Progress));
+        }
     }
 
     [RelayCommand]
@@ -390,6 +488,22 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         {
             StopBleScan();
         }
+
+        UpdateUnavailableTransportText();
+    }
+
+    /// <summary>
+    /// States when the selected transport has no connector on this platform, so an
+    /// unsupported route is visibly unavailable rather than looking like a working
+    /// one that merely fails to connect.
+    /// </summary>
+    private void UpdateUnavailableTransportText()
+    {
+        UnavailableTransportText = SelectedKissTransportType is not { } transportType
+            || transportType == _fallbackTransportType
+            || _kissStreamFactory.IsTransportSupported(transportType)
+                ? string.Empty
+                : KissConnectionStatusText.DescribeUnavailableTransport(transportType);
     }
 
     partial void OnSelectedPortSettingsTypeChanged(Type value)
@@ -686,6 +800,8 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         GC.SuppressFinalize(this);
+
+        _portTelemetry.ConnectionProgress -= OnConnectionProgress;
 
         // Cancel any in-flight BLE scan; its finally block disposes the CTS.
         CancellationTokenSource? cts = _bleScanCts;

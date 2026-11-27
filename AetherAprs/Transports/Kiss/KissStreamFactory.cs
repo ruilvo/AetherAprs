@@ -19,6 +19,7 @@ namespace AetherAprs.Transports.Kiss;
 public sealed class KissStreamFactory : IKissStreamFactory
 {
     private readonly IReadOnlyDictionary<Type, IKissStreamConnector> _connectorsBySettingsType;
+    private readonly HashSet<Type> _supportedSettingsTypes;
 
     public KissStreamFactory(IEnumerable<IKissStreamConnector> connectors)
     {
@@ -29,16 +30,34 @@ public sealed class KissStreamFactory : IKissStreamFactory
             .ToDictionary(
                 group => group.Key,
                 group => group.OrderByDescending(connector => connector.IsSupported).First());
+
+        // SupportedTransports is a projection of this set, so the editor and the
+        // factory can never disagree about which transports exist.
+        _supportedSettingsTypes = [.. _connectorsBySettingsType.Values
+            .Where(connector => connector.IsSupported)
+            .Select(connector => connector.SettingsType)];
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<Type> SupportedTransports =>
-        [.. _connectorsBySettingsType.Values
-            .Where(connector => connector.IsSupported)
-            .Select(connector => connector.SettingsType)];
+    public IReadOnlyCollection<Type> SupportedTransports => [.. _supportedSettingsTypes];
 
     /// <inheritdoc />
-    public Task<Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default)
+    public bool IsTransportSupported(Type settingsType)
+    {
+        ArgumentNullException.ThrowIfNull(settingsType);
+
+        return _supportedSettingsTypes.Contains(settingsType);
+    }
+
+    /// <inheritdoc />
+    public Task<Stream> OpenAsync(KissSettings settings, CancellationToken cancellationToken = default) =>
+        OpenAsync(settings, KissConnectionContext.None, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<Stream> OpenAsync(
+        KissSettings settings,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -53,6 +72,6 @@ public sealed class KissStreamFactory : IKissStreamFactory
             throw new NotSupportedException($"No KISS stream connector is registered for transport type '{transportType.Name}'.");
         }
 
-        return connector.ConnectAsync(settings.Transport, cancellationToken);
+        return connector.ConnectAsync(settings.Transport, context, cancellationToken);
     }
 }

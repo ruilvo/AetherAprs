@@ -49,5 +49,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
              Link="Android\Services\Platform\SecretStoreFailureClassifier.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\CompassSubscriptionGuard.cs"
              Link="Android\Services\Platform\CompassSubscriptionGuard.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattNegotiationProgress.cs"
+             Link="Android\Services\Transports\GattNegotiationProgress.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattWriteCallbackTracker.cs"
+             Link="Android\Services\Transports\GattWriteCallbackTracker.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattPayloadSize.cs"
+             Link="Android\Services\Transports\GattPayloadSize.cs" />
   </ItemGroup>
 </Project>

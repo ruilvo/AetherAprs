@@ -4,6 +4,7 @@
 
 using Android.Bluetooth;
 using AetherAprs.Services.Bluetooth;
+using AetherAprs.Transports.Kiss;
 using Java.Util;
 using System;
 using System.IO;
@@ -24,21 +25,6 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 {
     private static readonly UUID CccdUuid = UUID.FromString("00002902-0000-1000-8000-00805f9b34fb")!;
 
-    /// <summary>Requested ATT MTU. 517 is the largest ATT PDU size a peer can accept.</summary>
-    private const int RequestedAttMtu = 517;
-
-    /// <summary>ATT MTU used when negotiation is unavailable or fails.</summary>
-    private const int DefaultAttMtu = 23;
-
-    /// <summary>ATT write header (opcode + handle) that does not fit in the payload.</summary>
-    private const int AttHeaderSize = 3;
-
-    /// <summary>Usable write payload with the requested MTU.</summary>
-    private const int MaxPayloadSize = RequestedAttMtu - AttHeaderSize;
-
-    /// <summary>Usable write payload with the default MTU.</summary>
-    private const int DefaultPayloadSize = DefaultAttMtu - AttHeaderSize;
-
     /// <summary>ERROR_GATT_WRITE_REQUEST_BUSY: another ATT request is in flight.</summary>
     private const int GattWriteRequestBusyStatus = 129;
 
@@ -54,13 +40,13 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly Lock _sync = new();
     private readonly BluetoothLeFrameWriter _frameWriter;
+    private readonly GattWriteCallbackTracker _writeTracker = new();
 
     private TaskCompletionSource<GattStatus>? _writeCompletion;
-    private bool _writeAbandoned;
     private bool _disposed;
 
     /// <summary>Usable bytes per WriteCharacteristic call, derived from the negotiated MTU.</summary>
-    private int _payloadSize = DefaultPayloadSize;
+    private int _payloadSize = GattPayloadSize.DefaultPayloadSize;
 
     /// <summary>Whether the MTU was reported (or assumed) for this connection.</summary>
     private bool _mtuReported;
@@ -68,12 +54,14 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     private BluetoothLeGattDuplexStream(
         BluetoothGatt gatt,
         BluetoothGattCharacteristic rxCharacteristic,
-        Channel<byte> rxChannel)
+        Channel<byte> rxChannel,
+        int payloadSize)
     {
         _gatt = gatt;
         _rxCharacteristic = rxCharacteristic;
         _rxChannel = rxChannel;
         _frameWriter = new BluetoothLeFrameWriter(new GattChunkWriter(this));
+        _payloadSize = payloadSize;
     }
 
     public override bool CanRead => !_disposed;
@@ -120,6 +108,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         Guid serviceUuid,
         Guid rxCharacteristicUuid,
         Guid txCharacteristicUuid,
+        KissConnectionContext kissContext,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(device);
@@ -132,6 +121,12 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             AllowSynchronousContinuations = false
         });
 
+        GattNegotiationProgress progress = new(
+            kissContext,
+            serviceUuid,
+            rxCharacteristicUuid,
+            txCharacteristicUuid);
+
         TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs = new(
             TaskCreationOptions.RunContinuationsAsynchronously);
         GattCallback callback = new(
@@ -139,12 +134,17 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             rxCharacteristicUuid,
             txCharacteristicUuid,
             rxChannel,
-            readyTcs);
+            readyTcs,
+            progress);
+
+        progress.Connecting();
+
         BluetoothGatt gatt = StartGattConnection(device, context, callback)
             ?? throw new InvalidOperationException("Failed to start BLE GATT connection.");
         await using (cancellationToken.Register(() =>
         {
             readyTcs.TrySetCanceled(cancellationToken);
+            progress.Cancelled(KissConnectionStage.ConnectingTransport);
             try
             {
                 gatt.Disconnect();
@@ -158,10 +158,32 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         {
             try
             {
-                return await readyTcs.Task.ConfigureAwait(false);
+                BluetoothLeGattDuplexStream stream = await readyTcs.Task.ConfigureAwait(false);
+                progress.Ready();
+                return stream;
             }
-            catch
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                try
+                {
+                    gatt.Disconnect();
+                    gatt.Close();
+                }
+                catch
+                {
+                    // Ignore cleanup failures while propagating cancellation.
+                }
+
+                gatt.Dispose();
+                throw;
+            }
+            catch (Exception ex)
+            {
+                if (!progress.HasReportedFailure)
+                {
+                    progress.Failed(KissConnectionStage.ConnectingTransport, ex);
+                }
+
                 try
                 {
                     gatt.Disconnect();
@@ -252,26 +274,17 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         }
 
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        bool abandoned = false;
         try
         {
             await _frameWriter.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
-        {
-            // A write-with-response whose callback has not arrived keeps the write
-            // gate held, so the next write cannot start before the stale callback is
-            // consumed (CompleteWrite releases the gate in that case).
-            lock (_sync)
-            {
-                abandoned = _writeAbandoned;
-            }
-
-            throw;
-        }
         finally
         {
-            if (!abandoned)
+            // A write-with-response whose callback has not arrived yet keeps the gate
+            // held; the tracker tells the late callback to release it. Any other exit
+            // (success, a rejection that never awaited a callback, or a write without
+            // response) releases the gate here.
+            if (!_writeTracker.HasPendingWrite)
             {
                 _writeGate.Release();
             }
@@ -293,6 +306,11 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         if (writeType == GattWriteType.Default)
         {
             TaskCompletionSource<GattStatus> writeTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            // Registering here (rather than in the callback) is what lets a late
+            // acknowledgement be recognized as stale instead of being applied to the
+            // next write.
+            object token = _writeTracker.Register();
             lock (_sync)
             {
                 _writeCompletion = writeTcs;
@@ -301,9 +319,10 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             int startStatus = _gatt.WriteCharacteristic(_rxCharacteristic, chunk.ToArray(), (int)writeType);
             if (startStatus != (int)GattStatus.Success)
             {
+                _writeTracker.TryCancel(token);
                 lock (_sync)
                 {
-                    if (_writeCompletion == writeTcs)
+                    if (ReferenceEquals(_writeCompletion, writeTcs))
                     {
                         _writeCompletion = null;
                     }
@@ -319,13 +338,10 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             }
             catch (OperationCanceledException)
             {
-                lock (_sync)
-                {
-                    if (_writeCompletion == writeTcs)
-                    {
-                        _writeAbandoned = true;
-                    }
-                }
+                // Keep the gate held until the acknowledgement for this write arrives:
+                // the stack does not identify the callback, so a second write started
+                // now would consume the wrong acknowledgement.
+                _writeTracker.Abandon(token);
 
                 throw;
             }
@@ -366,17 +382,22 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
     /// Applies the ATT MTU reported by the stack. Values too small to carry a
     /// payload fall back to the 20-byte default.
     /// </summary>
-    internal void ApplyNegotiatedMtu(int mtu)
+    /// <returns>The payload size that was applied.</returns>
+    internal int ApplyNegotiatedMtu(int mtu)
     {
+        int reported = mtu > GattPayloadSize.AttHeaderSize ? mtu : 0;
+        int payloadSize = GattPayloadSize.FromMtu(mtu);
+
         lock (_sync)
         {
             _mtuReported = true;
         }
 
-        int payloadSize = mtu > AttHeaderSize
-            ? Math.Min(mtu - AttHeaderSize, MaxPayloadSize)
-            : DefaultPayloadSize;
+        // Only a value the stack actually reported is passed on, so the negotiated
+        // detail distinguishes "peer said 23" from "nobody answered".
+        NegotiatedMtu = reported;
         Volatile.Write(ref _payloadSize, payloadSize);
+        return payloadSize;
     }
 
     /// <summary>
@@ -395,9 +416,13 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             _mtuReported = true;
         }
 
-        Volatile.Write(ref _payloadSize, DefaultPayloadSize);
+        NegotiatedMtu = null;
+        Volatile.Write(ref _payloadSize, GattPayloadSize.DefaultPayloadSize);
         return true;
     }
+
+    /// <summary>ATT MTU the stack reported, or null when none arrived.</summary>
+    internal int? NegotiatedMtu { get; private set; }
 
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
@@ -405,27 +430,30 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
     internal void CompleteWrite(GattStatus status)
     {
+        // The callback carries no identifier, so it can only be matched against the
+        // single pending write. A callback that arrives with nothing pending is stale
+        // and must not release the gate or complete a later write.
+        GattWriteCallback callback = _writeTracker.Complete();
         TaskCompletionSource<GattStatus>? writeTcs;
-        bool releaseGate = false;
         lock (_sync)
         {
             writeTcs = _writeCompletion;
             _writeCompletion = null;
-            if (writeTcs is not null && _writeAbandoned)
-            {
-                _writeAbandoned = false;
-                releaseGate = true;
-            }
         }
 
         if (writeTcs is null)
         {
+            if (callback.ReleasesGate)
+            {
+                _writeGate.Release();
+            }
+
             return;
         }
 
         writeTcs.TrySetResult(status);
 
-        if (releaseGate)
+        if (callback.ReleasesGate)
         {
             _writeGate.Release();
         }
@@ -491,13 +519,15 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         Guid rxCharacteristicUuid,
         Guid txCharacteristicUuid,
         Channel<byte> rxChannel,
-        TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs) : BluetoothGattCallback
+        TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs,
+        GattNegotiationProgress progress) : BluetoothGattCallback
     {
         private readonly Guid _serviceUuid = serviceUuid;
         private readonly Guid _rxCharacteristicUuid = rxCharacteristicUuid;
         private readonly Guid _txCharacteristicUuid = txCharacteristicUuid;
         private readonly Channel<byte> _rxChannel = rxChannel;
         private readonly TaskCompletionSource<BluetoothLeGattDuplexStream> _readyTcs = readyTcs;
+        private readonly GattNegotiationProgress _progress = progress;
 
         private BluetoothLeGattDuplexStream? _stream;
         private BluetoothGattCharacteristic? _txCharacteristic;
@@ -518,9 +548,13 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             switch (action)
             {
                 case GattConnectionAction.DiscoverServices:
+                    _progress.Discovering();
+
                     if (!gatt.DiscoverServices())
                     {
-                        FailReady(new IOException("BLE service discovery failed to start."));
+                        FailReady(
+                            KissConnectionStage.DiscoveringServices,
+                            new IOException("BLE service discovery failed to start."));
                     }
 
                     return;
@@ -532,6 +566,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                     //.
                     FailConnection(
                         gatt,
+                        KissConnectionStage.ConnectingTransport,
                         new IOException(
                             $"BLE GATT connection failed with status {status} while {newState}."));
                     return;
@@ -550,7 +585,9 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
             if (status != (int)GattStatus.Success)
             {
-                FailReady(new IOException($"BLE service discovery failed with status {status}."));
+                FailReady(
+                    KissConnectionStage.DiscoveringServices,
+                    new IOException($"BLE service discovery failed with status {status}."));
                 return;
             }
 
@@ -565,8 +602,17 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 BluetoothGattCharacteristic tx = service.GetCharacteristic(ToJavaUuid(_txCharacteristicUuid))
                     ?? throw new InvalidOperationException($"BLE TX characteristic {_txCharacteristicUuid} was not found.");
 
+                // The write mode decides how the frame writer paces chunks, so it is
+                // read from the RX properties before the first frame can be written.
+                _progress.DiscoverCharacteristics(
+                    (rx.Properties & GattProperty.WriteNoResponse) != 0);
+
                 _txCharacteristic = tx;
-                BluetoothLeGattDuplexStream stream = new(gatt, rx, _rxChannel);
+                BluetoothLeGattDuplexStream stream = new(
+                    gatt,
+                    rx,
+                    _rxChannel,
+                    GattPayloadSize.DefaultPayloadSize);
                 _stream = stream;
 
                 if (!gatt.SetCharacteristicNotification(tx, enable: true))
@@ -592,7 +638,7 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
             }
             catch (Exception ex)
             {
-                FailReady(ex);
+                FailReady(KissConnectionStage.DiscoveringServices, ex);
             }
         }
 
@@ -608,21 +654,26 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
             if (status != (int)GattStatus.Success)
             {
-                FailReady(new IOException($"BLE CCCD write failed with status {status}."));
+                FailReady(
+                    KissConnectionStage.WritingConfiguration,
+                    new IOException($"BLE CCCD write failed with status {status}."));
                 return;
             }
+
+            _progress.ConfigurationWritten();
 
             // Negotiate the largest ATT MTU so whole KISS frames are not truncated.
             // The exchange is best-effort: when the stack cannot start it, or the
             // peer never answers, the stream falls back to the 20-byte default payload.
-            if (gatt is null || !gatt.RequestMtu(RequestedAttMtu))
+            if (gatt is null || !gatt.RequestMtu(GattPayloadSize.RequestedAttMtu))
             {
-                _stream.ApplyNegotiatedMtu(0);
+                int payloadSize = _stream.ApplyNegotiatedMtu(0);
+                _progress.PayloadNegotiated(null, payloadSize);
                 _readyTcs.TrySetResult(_stream);
                 return;
             }
 
-            _ = CompleteReadyAfterMtuTimeoutAsync(_stream, _readyTcs);
+            _ = CompleteReadyAfterMtuTimeoutAsync(_stream, _readyTcs, _progress);
         }
 
         public override void OnMtuChanged(BluetoothGatt? gatt, int mtu, GattStatus status)
@@ -632,7 +683,9 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
                 return;
             }
 
-            _stream.ApplyNegotiatedMtu(status == GattStatus.Success ? mtu : 0);
+            bool succeeded = status == GattStatus.Success;
+            int payloadSize = _stream.ApplyNegotiatedMtu(succeeded ? mtu : 0);
+            _progress.PayloadNegotiated(succeeded ? mtu : null, payloadSize);
             _readyTcs.TrySetResult(_stream);
         }
 
@@ -642,12 +695,14 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
         /// </summary>
         private static async Task CompleteReadyAfterMtuTimeoutAsync(
             BluetoothLeGattDuplexStream stream,
-            TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs)
+            TaskCompletionSource<BluetoothLeGattDuplexStream> readyTcs,
+            GattNegotiationProgress progress)
         {
             await Task.Delay(MtuNegotiationTimeout).ConfigureAwait(false);
 
             if (stream.TryApplyFallbackMtu())
             {
+                progress.PayloadNegotiated(null, stream.PayloadSize);
                 readyTcs.TrySetResult(stream);
             }
         }
@@ -719,15 +774,21 @@ internal sealed class BluetoothLeGattDuplexStream : Stream
 
         private bool IsAborted => Volatile.Read(ref _aborted) != 0;
 
-        private void FailConnection(BluetoothGatt gatt, Exception exception)
+        private void FailConnection(
+            BluetoothGatt gatt,
+            KissConnectionStage stage,
+            Exception exception)
         {
             _stream?.OnRemoteClosed();
-            FailReady(exception);
+            FailReady(stage, exception);
             CloseGatt(gatt);
         }
 
-        private void FailReady(Exception exception)
+        private void FailReady(KissConnectionStage stage, Exception exception)
         {
+            // Report before completing the ready task, so a caller that awaits the
+            // connect and then reads the recorder already sees the failing stage.
+            _progress.Failed(stage, exception);
             Interlocked.Exchange(ref _aborted, 1);
             _rxChannel.Writer.TryComplete(exception);
             _readyTcs.TrySetException(exception);

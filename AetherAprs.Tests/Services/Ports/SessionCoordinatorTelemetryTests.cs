@@ -12,6 +12,7 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -178,6 +179,12 @@ public sealed class SessionCoordinatorTelemetryTests
 
         public event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
 
+        public event EventHandler<PortConnectionProgressEventArgs>? ConnectionProgress
+        {
+            add { }
+            remove { }
+        }
+
         public Task InitializeAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task AddPortAsync(PortConfig port) => Task.CompletedTask;
@@ -197,6 +204,8 @@ public sealed class SessionCoordinatorTelemetryTests
         public long GetDroppedPacketCount(Guid portId) => 0;
 
         public long GetDroppedForwardCount(Guid portId) => 0;
+
+        public KissConnectionProgress? GetConnectionProgress(Guid portId) => null;
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 

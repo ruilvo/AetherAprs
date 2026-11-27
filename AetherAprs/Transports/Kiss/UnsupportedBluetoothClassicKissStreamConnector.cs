@@ -16,11 +16,29 @@ namespace AetherAprs.Transports.Kiss;
 public sealed class UnsupportedBluetoothClassicKissStreamConnector : IKissStreamConnector
 {
     /// <inheritdoc />
+    public KissTransportKind Transport => KissTransportKind.BluetoothClassicSpp;
+
+    /// <inheritdoc />
     public Type SettingsType => typeof(BluetoothClassicKissTransportSettings);
 
     /// <inheritdoc />
     public bool IsSupported => false;
 
     /// <inheritdoc />
-    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth Classic KISS transport is not supported on this platform.");
+    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) =>
+        ConnectAsync(settings, KissConnectionContext.None, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<Stream> ConnectAsync(
+        IKissTransportSettings settings,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        context.Report(KissConnectionProgress.Failed(
+            Transport,
+            KissConnectionStage.PreparingTransport,
+            "Bluetooth Classic KISS transport is not supported on this platform."));
+
+        throw new PlatformNotSupportedException("Bluetooth Classic KISS transport is not supported on this platform.");
+    }
 }

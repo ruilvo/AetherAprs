@@ -18,11 +18,21 @@ namespace AetherAprs.Android.Services.Transports;
 /// </summary>
 public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
 {
+    /// <inheritdoc />
+    public KissTransportKind Transport => KissTransportKind.BluetoothLe;
+
     public Type SettingsType => typeof(BluetoothLeKissTransportSettings);
 
     public bool IsSupported => true;
 
-    public async Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default)
+    /// <inheritdoc />
+    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) =>
+        ConnectAsync(settings, KissConnectionContext.None, cancellationToken);
+
+    public async Task<Stream> ConnectAsync(
+        IKissTransportSettings settings,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -33,8 +43,15 @@ public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
                 nameof(settings));
         }
 
+        context.Report(Transport, KissConnectionStage.PreparingTransport);
+
         if (string.IsNullOrWhiteSpace(leSettings.DeviceAddress))
         {
+            context.Report(KissConnectionProgress.Failed(
+                Transport,
+                KissConnectionStage.PreparingTransport,
+                "Bluetooth LE device address is required."));
+
             throw new ArgumentException("Bluetooth LE device address is required.", nameof(settings));
         }
 
@@ -44,23 +61,80 @@ public sealed class BluetoothLeKissStreamConnector : IKissStreamConnector
             leSettings.DeviceAddress,
             nameof(settings));
 
-        await BluetoothPermissionHelper.EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
+        context.Report(Transport, KissConnectionStage.RequestingPermission);
 
-        BluetoothAdapter adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
-
-        if (!adapter.IsEnabled)
+        try
         {
-            throw new InvalidOperationException("Bluetooth is disabled.");
+            await BluetoothPermissionHelper.EnsurePermissionAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            context.Report(KissConnectionProgress.Cancelled(Transport, KissConnectionStage.RequestingPermission));
+            throw;
+        }
+        catch (Exception ex)
+        {
+            context.Report(KissConnectionProgress.Failed(
+                Transport,
+                KissConnectionStage.RequestingPermission,
+                ex.Message));
+            throw;
         }
 
-        BluetoothDevice device = adapter.GetRemoteDevice(deviceAddress)
-            ?? throw new InvalidOperationException($"Bluetooth LE device '{deviceAddress}' was not found.");
+        context.Report(Transport, KissConnectionStage.ResolvingDevice);
 
-        return await BluetoothLeGattDuplexStream.ConnectAsync(
-            device,
-            leSettings.ServiceUuid,
-            leSettings.RxCharacteristicUuid,
-            leSettings.TxCharacteristicUuid,
-            cancellationToken).ConfigureAwait(false);
+        BluetoothDevice device;
+        try
+        {
+            BluetoothAdapter adapter = BluetoothPermissionHelper.GetAdapterOrThrow();
+
+            if (!adapter.IsEnabled)
+            {
+                throw new InvalidOperationException("Bluetooth is disabled.");
+            }
+
+            device = adapter.GetRemoteDevice(deviceAddress)
+                ?? throw new InvalidOperationException($"Bluetooth LE device '{deviceAddress}' was not found.");
+        }
+        catch (Exception ex)
+        {
+            context.Report(KissConnectionProgress.Failed(
+                Transport,
+                KissConnectionStage.ResolvingDevice,
+                ex.Message));
+            throw;
+        }
+
+        context.Report(Transport, KissConnectionStage.ConnectingTransport);
+
+        try
+        {
+            return await BluetoothLeGattDuplexStream.ConnectAsync(
+                device,
+                leSettings.ServiceUuid,
+                leSettings.RxCharacteristicUuid,
+                leSettings.TxCharacteristicUuid,
+                context,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (KissConnectionException)
+        {
+            // The stream already reported the precise GATT stage it stopped at.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // A stack exception before the first GATT callback never reached the
+            // stream, so the connector reports it at the stage it knows about.
+            context.Report(KissConnectionProgress.Failed(
+                Transport,
+                KissConnectionStage.ConnectingTransport,
+                ex.Message));
+            throw;
+        }
     }
 }

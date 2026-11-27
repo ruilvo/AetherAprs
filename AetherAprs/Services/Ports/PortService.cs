@@ -7,6 +7,7 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -68,6 +69,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         _configuration.PortsChanged += OnPortsChanged;
         _sessionManager.PacketReceived += OnSessionPacketReceived;
         _sessionManager.TransportFaulted += OnSessionTransportFaulted;
+        _sessionManager.ConnectionProgress += OnSessionConnectionProgress;
         _ingestPipeline.PacketStored += OnPacketStored;
         _digipeatRouter.PacketForwarded += OnPacketForwarded;
     }
@@ -86,7 +88,14 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     public event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
 
     /// <inheritdoc />
+    public event EventHandler<PortConnectionProgressEventArgs>? ConnectionProgress;
+
+    /// <inheritdoc />
     public long GetDroppedPacketCount(Guid portId) => _ingestPipeline.GetDroppedPacketCount(portId);
+
+    /// <inheritdoc />
+    public KissConnectionProgress? GetConnectionProgress(Guid portId) =>
+        _sessionManager.GetConnectionProgress(portId);
 
     /// <inheritdoc />
     public long GetDroppedForwardCount(Guid portId) =>
@@ -331,6 +340,9 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     private void OnSessionTransportFaulted(object? sender, PortTransportFaultEventArgs args) =>
         TransportFaulted?.Invoke(this, args);
 
+    private void OnSessionConnectionProgress(object? sender, PortConnectionProgressEventArgs args) =>
+        ConnectionProgress?.Invoke(this, args);
+
     private void OnPacketStored(object? sender, PortPacketReceivedEventArgs args)
     {
         try
@@ -394,6 +406,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
         // anything still pending rather than replay it later.
         _sessionManager.PacketReceived -= OnSessionPacketReceived;
         _sessionManager.TransportFaulted -= OnSessionTransportFaulted;
+        _sessionManager.ConnectionProgress -= OnSessionConnectionProgress;
         _configuration.PortsChanged -= OnPortsChanged;
         _digipeatRouter.PacketForwarded -= OnPacketForwarded;
 
