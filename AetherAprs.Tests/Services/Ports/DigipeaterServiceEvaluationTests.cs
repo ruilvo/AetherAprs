@@ -11,6 +11,7 @@ using AetherAprs.Configuration.Settings;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Modems.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
@@ -346,6 +347,88 @@ public sealed class DigipeaterServiceEvaluationTests
         Assert.Equal(
             DigipeatReason.Accepted,
             Assert.Single(decisions, decision => decision.TargetPortId == RfPortId).Reason);
+    }
+
+    [Fact]
+    public void GetDigipeatTargets_ThirdPartyRfFrame_KeepsEncapsulationAndMutatesThePath()
+    {
+        DigipeaterService service = CreateService(callsignBase: "MYCALL", ssid: 9);
+
+        ThirdPartyPacket packet = new()
+        {
+            Source = new Callsign("N5SRC", 7),
+            Destination = new Callsign("APRS"),
+            Path = [new Callsign("WIDE2", 1)],
+            Raw = "}N0INNER>APRS,TCPIP*:!4903.50N/07202.75W-Third party",
+            Encapsulated = "N0INNER>APRS,TCPIP*:!4903.50N/07202.75W-Third party"
+        };
+
+        DigipeatTarget target = Assert.Single(
+            service.GetDigipeatTargets(packet, SourcePortId, sourcePortIsAprsIs: false, CreatePorts()),
+            candidate => candidate.PortId == RfPortId);
+
+        ThirdPartyPacket emitted = Assert.IsType<ThirdPartyPacket>(target.Packet);
+
+        // The encapsulation is the payload of a third-party frame: forwarding must
+        // preserve it byte for byte and carry it inside the mutated AX.25 path.
+        Assert.Equal(packet.Encapsulated, emitted.Encapsulated);
+        Assert.Equal(
+            "}N0INNER>APRS,TCPIP*:!4903.50N/07202.75W-Third party",
+            AprsInfoFieldSerializer.FormatInfoField(emitted));
+        Assert.Equal(
+            [
+                new Callsign("MYCALL", 9, hasBeenRepeated: true),
+                new Callsign("WIDE2", 0, hasBeenRepeated: true),
+            ],
+            emitted.Path);
+    }
+
+    [Fact]
+    public void Evaluate_DefaultSettings_ForwardNothingUntilTheDigipeaterAndDirectionAreEnabled()
+    {
+        // Both gates keep their persisted false default, so turning the digipeater
+        // on is not enough to move a packet across the network boundary.
+        DigipeaterService service = CreateService(
+            enableDigipeater: true,
+            enableAprsIsToRfGate: false,
+            enableRfToAprsIsGate: false);
+
+        IReadOnlyList<DigipeatDecision> aprsIsToRf = service.Evaluate(
+            CreatePositionPacket(source: "N5SRC", ssid: 7, raw: "!4903.50N/07202.75W-From the Internet"),
+            SourcePortId,
+            sourcePortIsAprsIs: true,
+            CreatePorts());
+
+        Assert.Equal(
+            DigipeatReason.InternetToRfDisabled,
+            Assert.Single(aprsIsToRf, decision => decision.TargetPortId == RfPortId).Reason);
+
+        IReadOnlyList<DigipeatDecision> rfToAprsIs = service.Evaluate(
+            CreatePositionPacket(source: "N5SRC", ssid: 7, raw: "!4903.50N/07202.75W-From RF"),
+            SourcePortId,
+            sourcePortIsAprsIs: false,
+            CreatePorts());
+
+        Assert.Equal(
+            DigipeatReason.RfToInternetDisabled,
+            Assert.Single(rfToAprsIs, decision => decision.TargetPortId == AprsIsPortId).Reason);
+    }
+
+    [Fact]
+    public void Evaluate_DigipeaterDisabled_RejectsBothGatingDirectionsBeforeThePortGate()
+    {
+        DigipeaterService service = CreateService(
+            enableDigipeater: false,
+            enableAprsIsToRfGate: true,
+            enableRfToAprsIsGate: true);
+
+        IReadOnlyList<DigipeatDecision> decisions = service.Evaluate(
+            CreatePositionPacket(source: "N5SRC", ssid: 7),
+            SourcePortId,
+            sourcePortIsAprsIs: false,
+            CreatePorts());
+
+        Assert.Equal(DigipeatReason.DigipeaterDisabled, Assert.Single(decisions).Reason);
     }
 
     [Fact]

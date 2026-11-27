@@ -248,6 +248,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="EnableDigipeater" xml:space="preserve"><value>Activer le répéteur</value></data>
   <data name="InsertStationCallsignInPath" xml:space="preserve"><value>Insérer l'indicatif de la station dans le chemin</value></data>
   <data name="EnableAprsIsToRfGating" xml:space="preserve"><value>Activer la passerelle APRS-IS vers RF</value></data>
+  <data name="AprsIsToRfAllowlistLabel" xml:space="preserve"><value>Liste d'autorisation APRS-IS vers RF</value></data>
+  <data name="AprsIsToRfAllowlistPlaceholder" xml:space="preserve"><value>N0CALL,N1ABC-9</value></data>
+  <data name="AprsIsToRfAllowlistDescription" xml:space="preserve"><value>Indicatifs autorisés à passer d'APRS-IS vers RF, séparés par des virgules. Laissez vide pour autoriser toutes les sources. Une entrée sans SSID correspond à tous les SSID de cet indicatif.</value></data>
   <data name="EnableRfToAprsIsGating" xml:space="preserve"><value>Activer la passerelle RF vers APRS-IS</value></data>
   <data name="Messaging" xml:space="preserve"><value>Messagerie</value></data>
   <data name="MessagingDescription" xml:space="preserve"><value>Configurez l'accusé de réception et le comportement de nouvelle tentative des messages.</value></data>
@@ -330,6 +333,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Le nombre maximal de tentatives doit être compris entre 0 et 20</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Le délai de nouvelle tentative doit être compris entre 5 et 300 secondes</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Le commentaire ne peut pas dépasser 43 caractères</value></data>
+  <data name="ValidationAprsIsToRfAllowlistFormat" xml:space="preserve"><value>Séparez les indicatifs par des virgules, par exemple N0CALL,N1ABC-9</value></data>
   <data name="ValidationDigipeaterPathFormat" xml:space="preserve"><value>Séparez les indicatifs par des virgules, par exemple WIDE1-1,WIDE2-1</value></data>
   <data name="ValidationPortNameRequired" xml:space="preserve"><value>Saisissez un nom pour ce port</value></data>
   <data name="ValidationPortNameTooLong" xml:space="preserve"><value>Le nom du port ne peut pas dépasser {0} caractères</value></data>

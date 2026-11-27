@@ -248,6 +248,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="EnableDigipeater" xml:space="preserve"><value>Digipeater aktivieren</value></data>
   <data name="InsertStationCallsignInPath" xml:space="preserve"><value>Stationsrufzeichen in den Pfad einfügen</value></data>
   <data name="EnableAprsIsToRfGating" xml:space="preserve"><value>Gating von APRS-IS nach Funk aktivieren</value></data>
+  <data name="AprsIsToRfAllowlistLabel" xml:space="preserve"><value>APRS-IS-zu-RF-Zulassungsliste</value></data>
+  <data name="AprsIsToRfAllowlistPlaceholder" xml:space="preserve"><value>N0CALL,N1ABC-9</value></data>
+  <data name="AprsIsToRfAllowlistDescription" xml:space="preserve"><value>Rufzeichen, die von APRS-IS nach RF übertragen werden dürfen, durch Kommas getrennt. Leer lassen, um jede Quelle zuzulassen. Ein Eintrag ohne SSID passt auf jede SSID dieses Rufzeichens.</value></data>
   <data name="EnableRfToAprsIsGating" xml:space="preserve"><value>Gating von Funk nach APRS-IS aktivieren</value></data>
   <data name="Messaging" xml:space="preserve"><value>Nachrichtenübermittlung</value></data>
   <data name="MessagingDescription" xml:space="preserve"><value>Bestätigung und Wiederholungsverhalten für Nachrichten konfigurieren.</value></data>
@@ -330,6 +333,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationMaxRetriesRange" xml:space="preserve"><value>Die maximale Anzahl Wiederholungen muss zwischen 0 und 20 liegen</value></data>
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Das Wiederholungs-Timeout muss zwischen 5 und 300 Sekunden liegen</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Der Kommentar darf höchstens 43 Zeichen lang sein</value></data>
+  <data name="ValidationAprsIsToRfAllowlistFormat" xml:space="preserve"><value>Rufzeichen durch Kommas trennen, zum Beispiel N0CALL,N1ABC-9</value></data>
   <data name="ValidationDigipeaterPathFormat" xml:space="preserve"><value>Rufzeichen durch Kommas trennen, zum Beispiel WIDE1-1,WIDE2-1</value></data>
   <data name="ValidationPortNameRequired" xml:space="preserve"><value>Namen für diesen Port eingeben</value></data>
   <data name="ValidationPortNameTooLong" xml:space="preserve"><value>Der Portname darf höchstens {0} Zeichen lang sein</value></data>

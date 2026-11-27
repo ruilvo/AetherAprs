@@ -249,6 +249,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="InsertStationCallsignInPath" xml:space="preserve"><value>Insert Station Callsign in Path</value></data>
   <data name="EnableAprsIsToRfGating" xml:space="preserve"><value>Enable APRS-IS to RF Gating</value></data>
   <data name="EnableRfToAprsIsGating" xml:space="preserve"><value>Enable RF to APRS-IS Gating</value></data>
+  <data name="AprsIsToRfAllowlistLabel" xml:space="preserve"><value>APRS-IS to RF Allowlist</value></data>
+  <data name="AprsIsToRfAllowlistPlaceholder" xml:space="preserve"><value>N0CALL,N1ABC-9</value></data>
+  <data name="AprsIsToRfAllowlistDescription" xml:space="preserve"><value>Callsigns allowed to cross from APRS-IS to RF, separated by commas. Leave empty to allow every source. An entry without an SSID matches every SSID of that callsign.</value></data>
   <data name="Messaging" xml:space="preserve"><value>Messaging</value></data>
   <data name="MessagingDescription" xml:space="preserve"><value>Configure message acknowledgment and retry behavior.</value></data>
   <data name="AutoAcknowledgeIncomingMessages" xml:space="preserve"><value>Automatically Acknowledge Incoming Messages</value></data>
@@ -331,6 +334,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ValidationRetryTimeoutRange" xml:space="preserve"><value>Retry timeout must be between 5 and 300 seconds</value></data>
   <data name="ValidationCommentMaxLength" xml:space="preserve"><value>Comment cannot exceed 43 characters</value></data>
   <data name="ValidationDigipeaterPathFormat" xml:space="preserve"><value>Use callsigns separated by commas, for example WIDE1-1,WIDE2-1</value></data>
+  <data name="ValidationAprsIsToRfAllowlistFormat" xml:space="preserve"><value>Use callsigns separated by commas, for example N0CALL,N1ABC-9</value></data>
   <data name="ValidationPortNameRequired" xml:space="preserve"><value>Enter a name for this port</value></data>
   <data name="ValidationPortNameTooLong" xml:space="preserve"><value>Port name cannot exceed {0} characters</value></data>
   <data name="ValidationServerRequired" xml:space="preserve"><value>Enter the APRS-IS server address</value></data>

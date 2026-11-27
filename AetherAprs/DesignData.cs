@@ -97,6 +97,7 @@ public static class DesignData
         services.AddSingleton<IPortConfigurationService, PortConfigurationService>();
         services.AddSingleton<IPortConfigurationSource>(services =>
             services.GetRequiredService<IPortConfigurationService>());
+        services.AddSingleton<IPortTransmitPolicy, PortTransmitPolicy>();
         services.AddSingleton<IPacketIngestPipeline, PacketIngestPipeline>();
         services.AddSingleton<IDigipeatRouter, DigipeatRouter>();
 

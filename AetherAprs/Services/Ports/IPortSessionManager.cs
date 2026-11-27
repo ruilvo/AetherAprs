@@ -173,6 +173,14 @@ public interface IPortSessionManager : IAsyncDisposable
     bool IsRunning(Guid portId);
 
     /// <summary>
+    /// Number of sessions ever installed for the port. It changes whenever a session
+    /// is (re)started, so a consumer can capture it when work is queued and compare it
+    /// before transmitting: a mismatch means the work belongs to a connection that is
+    /// gone and must not be replayed on the new one. Zero when the port never ran.
+    /// </summary>
+    long GetSessionGeneration(Guid portId);
+
+    /// <summary>
     /// Starts a session for the port, or reports why it could not be started.
     /// </summary>
     /// <remarks>

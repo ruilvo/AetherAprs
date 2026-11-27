@@ -10,6 +10,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
+using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
@@ -261,6 +262,116 @@ public sealed class SettingsViewModelTests
 
         Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.DigipeaterPath)));
         Assert.Equal("WIDE1-1*,WIDE2-1", configuration.Current.Aprs.DigipeaterPath);
+    }
+
+    [Fact]
+    public void ForwardingGatesDefaultToOff()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation));
+
+        // Nothing may cross the RF/APRS-IS boundary until the operator turns the
+        // relevant direction on: both gates, and the digipeater itself, start off.
+        Assert.False(viewModel.EnableDigipeater);
+        Assert.False(viewModel.EnableAprsIsToRfGate);
+        Assert.False(viewModel.EnableRfToAprsIsGate);
+        Assert.False(configuration.Current.Aprs.EnableAprsIsToRfGate);
+        Assert.False(configuration.Current.Aprs.EnableRfToAprsIsGate);
+    }
+
+    [Fact]
+    public void ExplicitlySavedForwardingGatesLoadUnchanged()
+    {
+        TestConfigurationService configuration = new()
+        {
+            Current = new AppSettings
+            {
+                Aprs = new AprsSettings
+                {
+                    EnableDigipeater = true,
+                    EnableAprsIsToRfGate = true,
+                    EnableRfToAprsIsGate = true,
+                    AprsIsToRfAllowlist = "N0CALL;N1ABC-9",
+                },
+            },
+        };
+        TestNavigationService navigation = new();
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation));
+
+        Assert.True(viewModel.EnableDigipeater);
+        Assert.True(viewModel.EnableAprsIsToRfGate);
+        Assert.True(viewModel.EnableRfToAprsIsGate);
+        Assert.Equal("N0CALL;N1ABC-9", viewModel.AprsIsToRfAllowlist);
+    }
+
+    [Fact]
+    public async Task ForwardingGateTogglesArePersisted()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation));
+
+        viewModel.EnableDigipeater = true;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        viewModel.EnableAprsIsToRfGate = true;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        viewModel.EnableRfToAprsIsGate = true;
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.True(configuration.Current.Aprs.EnableDigipeater);
+        Assert.True(configuration.Current.Aprs.EnableAprsIsToRfGate);
+        Assert.True(configuration.Current.Aprs.EnableRfToAprsIsGate);
+    }
+
+    [Fact]
+    public async Task ValidAprsIsToRfAllowlistIsSaved()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation));
+
+        viewModel.AprsIsToRfAllowlist = "N0CALL, N1ABC-9;W1AW";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.Empty(viewModel.GetErrors(nameof(SettingsViewModel.AprsIsToRfAllowlist)));
+        Assert.Null(viewModel.AprsIsToRfAllowlistErrorMessage);
+        Assert.Equal("N0CALL, N1ABC-9;W1AW", configuration.Current.Aprs.AprsIsToRfAllowlist);
+    }
+
+    [Fact]
+    public async Task InvalidAprsIsToRfAllowlistIsRejectedWithLocalizedMessageAndNotSaved()
+    {
+        TestConfigurationService configuration = new();
+        TestNavigationService navigation = new();
+        using SettingsViewModel viewModel = new(
+            configuration, navigation, new AprsSymbolPickerViewModel(new TestSymbolBitmapProvider()),
+            CreateMessageTemplatesViewModel(navigation));
+
+        string? saved = configuration.Current.Aprs.AprsIsToRfAllowlist;
+        int updatesBefore = configuration.UpdateCount;
+
+        // The policy ignores entries it cannot parse so a bad edit can never widen
+        // the gate. The field must show that instead of silently dropping the entry.
+        viewModel.AprsIsToRfAllowlist = "N0CALL, NOT A HOP";
+        await viewModel.CurrentSaveTask.WaitAsync(TestTimeouts.TestTimeout, TestContext.Current.CancellationToken);
+
+        Assert.NotEmpty(viewModel.GetErrors(nameof(SettingsViewModel.AprsIsToRfAllowlist)));
+        Assert.Equal(
+            Strings.Get("ValidationAprsIsToRfAllowlistFormat"),
+            viewModel.AprsIsToRfAllowlistErrorMessage);
+        Assert.Equal(updatesBefore, configuration.UpdateCount);
+        Assert.Equal(saved, configuration.Current.Aprs.AprsIsToRfAllowlist);
     }
 
     private static MessageTemplatesViewModel CreateMessageTemplatesViewModel(INavigationService navigation) => new(

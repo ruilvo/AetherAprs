@@ -26,4 +26,5 @@ public static class Strings
     public static string ValidationExpiryMinutesRange => Get(nameof(ValidationExpiryMinutesRange));
     public static string ValidationCommentMaxLength => Get(nameof(ValidationCommentMaxLength));
     public static string ValidationDigipeaterPathFormat => Get(nameof(ValidationDigipeaterPathFormat));
+    public static string ValidationAprsIsToRfAllowlistFormat => Get(nameof(ValidationAprsIsToRfAllowlistFormat));
 }

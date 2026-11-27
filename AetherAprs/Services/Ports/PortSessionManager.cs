@@ -74,6 +74,15 @@ internal sealed class PortSessionManager : IPortSessionManager
         }
     }
 
+    /// <inheritdoc />
+    public long GetSessionGeneration(Guid portId)
+    {
+        lock (_stateLock)
+        {
+            return _slots.TryGetValue(portId, out SessionSlot? slot) ? slot.Generation : 0;
+        }
+    }
+
     /// <summary>
     /// Ports that still hold runtime state. Exposed to tests so the pruning rule
     /// is asserted directly instead of inferred from timing.
@@ -282,6 +291,10 @@ internal sealed class PortSessionManager : IPortSessionManager
                     PacketHandler = packetHandler,
                     ReceiveErrorHandler = errorHandler
                 };
+
+                // A new session invalidates anything captured against the previous
+                // one: frames heard on the old connection must not be replayed here.
+                slot.Generation++;
             }
 
             _logger.LogInformation(
@@ -566,6 +579,12 @@ internal sealed class PortSessionManager : IPortSessionManager
         public bool Retired { get; set; }
 
         public ActiveSession? Session { get; set; }
+
+        /// <summary>
+        /// Number of sessions installed for this port. It only grows, so a caller can
+        /// tell whether the session it observed is still the running one.
+        /// </summary>
+        public long Generation { get; set; }
 
         /// <summary>Sends currently inside the modem; guarded by the manager's lock.</summary>
         public int ActiveSends { get; set; }

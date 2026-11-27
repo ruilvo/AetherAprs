@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -91,7 +92,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public partial bool EnableAprsIsToRfGate { get; set; }
 
     [ObservableProperty]
-    public partial bool EnableRfToAprsIsGate { get; set; } = true;
+    [AprsAllowlist(ErrorMessageResourceName = nameof(Strings.ValidationAprsIsToRfAllowlistFormat), ErrorMessageResourceType = typeof(Strings))]
+    [NotifyDataErrorInfo]
+    public partial string? AprsIsToRfAllowlist { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool EnableRfToAprsIsGate { get; set; }
 
     [ObservableProperty]
     [Range(0, 20, ErrorMessageResourceName = nameof(Strings.ValidationMaxRetriesRange), ErrorMessageResourceType = typeof(Strings))]
@@ -139,6 +145,17 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public Configuration.PacketDisplayTimeRange[] AvailableTimeRanges { get; } =
         Enum.GetValues<Configuration.PacketDisplayTimeRange>();
 
+    /// <summary>
+    /// The localized validation message for the Internet-to-RF allowlist, or
+    /// <see langword="null"/> while the field is valid. The view binds it next to the
+    /// text box so an entry the policy would ignore is shown before it is saved.
+    /// </summary>
+    public string? AprsIsToRfAllowlistErrorMessage =>
+        GetErrors(nameof(AprsIsToRfAllowlist))
+            .OfType<ValidationResult>()
+            .Select(result => result.ErrorMessage)
+            .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message));
+
     public PositionFormat[] AvailablePositionFormats { get; } =
         Enum.GetValues<PositionFormat>();
 
@@ -179,6 +196,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         EnableDigipeater = aprs.EnableDigipeater;
         DigipeaterInsertCallsign = aprs.DigipeaterInsertCallsign;
         EnableAprsIsToRfGate = aprs.EnableAprsIsToRfGate;
+        AprsIsToRfAllowlist = aprs.AprsIsToRfAllowlist ?? string.Empty;
         EnableRfToAprsIsGate = aprs.EnableRfToAprsIsGate;
         MessageMaxRetries = aprs.MessageMaxRetries;
         MessageRetryTimeoutSeconds = aprs.MessageRetryTimeoutSeconds;
@@ -216,6 +234,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
         // Sync symbol picker changes back to settings (subscribe AFTER initialization)
         SymbolPicker.PropertyChanged += OnSymbolPickerPropertyChanged;
+
+        // The allowlist field shows its validation message next to the box, so the
+        // view needs a notification whenever the validator changes its verdict.
+        ErrorsChanged += OnValidationErrorsChanged;
 
         // Initialization complete - enable auto-save AFTER everything is set up
         _isInitializing = false;
@@ -341,6 +363,30 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { EnableRfToAprsIsGate = value } });
     }
 
+    partial void OnAprsIsToRfAllowlistChanged(string? value)
+    {
+        // An entry the policy cannot read would be dropped at runtime, silently
+        // narrowing the gate. Reject it here so the saved allowlist always parses to
+        // exactly what the operator sees.
+        SaveSettings(
+            settings => settings with
+            {
+                Aprs = settings.Aprs with
+                {
+                    AprsIsToRfAllowlist = string.IsNullOrWhiteSpace(value) ? null : value,
+                },
+            },
+            nameof(AprsIsToRfAllowlist));
+    }
+
+    private void OnValidationErrorsChanged(object? sender, DataErrorsChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(AprsIsToRfAllowlist))
+        {
+            OnPropertyChanged(nameof(AprsIsToRfAllowlistErrorMessage));
+        }
+    }
+
     partial void OnMessageMaxRetriesChanged(int value)
     {
         SaveSettings(settings => settings with { Aprs = settings.Aprs with { MessageMaxRetries = value } }, nameof(MessageMaxRetries));
@@ -438,6 +484,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
         _disposed = true;
 
+        ErrorsChanged -= OnValidationErrorsChanged;
         SymbolPicker?.PropertyChanged -= OnSymbolPickerPropertyChanged;
     }
 }

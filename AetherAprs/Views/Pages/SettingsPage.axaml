@@ -287,6 +287,26 @@ SPDX-License-Identifier: GPL-3.0-or-later
                       VerticalContentAlignment="Center"
                       Margin="24,0,0,0" />
 
+            <TextBox Text="{Binding AprsIsToRfAllowlist}"
+                     PlaceholderText="{loc:Loc AprsIsToRfAllowlistPlaceholder}"
+                     wpf:TextFieldAssist.Label="{loc:Loc AprsIsToRfAllowlistLabel}"
+                     UseFloatingPlaceholder="True"
+                     IsEnabled="{Binding EnableAprsIsToRfGate}"
+                     Margin="24,0,0,0" />
+
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc AprsIsToRfAllowlistDescription}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}"
+                       Margin="24,-8,0,0" />
+
+            <TextBlock Classes="Caption"
+                       Text="{Binding AprsIsToRfAllowlistErrorMessage}"
+                       IsVisible="{Binding AprsIsToRfAllowlistErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialValidationErrorBrush}"
+                       Margin="24,0,0,0" />
+
             <CheckBox Content="{loc:Loc EnableRfToAprsIsGating}"
                       IsChecked="{Binding EnableRfToAprsIsGate}"
                       IsEnabled="{Binding EnableDigipeater}"

@@ -29,6 +29,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 {
     private readonly IPortConfigurationService _configuration;
     private readonly IPortSessionManager _sessionManager;
+    private readonly IPortTransmitPolicy _transmitPolicy;
     private readonly IPacketIngestPipeline _ingestPipeline;
     private readonly IDigipeatRouter _digipeatRouter;
     private readonly ILogger<PortService> _logger;
@@ -40,6 +41,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     public PortService(
         IPortConfigurationService configuration,
         IPortSessionManager sessionManager,
+        IPortTransmitPolicy transmitPolicy,
         IPacketIngestPipeline ingestPipeline,
         IDigipeatRouter digipeatRouter,
         ILogger<PortService> logger,
@@ -48,6 +50,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(sessionManager);
+        ArgumentNullException.ThrowIfNull(transmitPolicy);
         ArgumentNullException.ThrowIfNull(ingestPipeline);
         ArgumentNullException.ThrowIfNull(digipeatRouter);
         ArgumentNullException.ThrowIfNull(logger);
@@ -55,6 +58,7 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
 
         _configuration = configuration;
         _sessionManager = sessionManager;
+        _transmitPolicy = transmitPolicy;
         _ingestPipeline = ingestPipeline;
         _digipeatRouter = digipeatRouter;
         _logger = logger;
@@ -280,40 +284,24 @@ public class PortService : IPortService, IPortServiceTelemetry, IPortSessionRunt
     {
         ArgumentNullException.ThrowIfNull(packet);
 
-        if (await _sessionManager
-                .SendAsync(id, packet, CancellationToken.None)
-                .ConfigureAwait(false) == PortSessionSendStatus.Sent)
-        {
-            RaisePacketTransmitted(id, packet);
-            return;
-        }
-
-        // Nothing is running. Only an enabled port may be brought up implicitly,
-        // and the manager decides atomically whether that start actually yields a
-        // session this send can use.
-        PortConfig? portToStart = _configuration.Find(id);
-        if (portToStart is null || !portToStart.IsEnabled)
-        {
-            throw new InvalidOperationException($"Port {id} is not running.");
-        }
-
-        PortSessionStartResult start = await _sessionManager
-            .StartAsync(portToStart, CancellationToken.None)
+        // The shared policy owns the sequence: try the running session, then only
+        // an enabled port may be brought up implicitly. It re-reads enablement at
+        // the moment of transmission, so a concurrent operator change wins.
+        PortTransmitOutcome outcome = await _transmitPolicy
+            .SendAsync(id, packet, allowImplicitStart: true, CancellationToken.None)
             .ConfigureAwait(false);
-        if (!start.IsRunning)
+
+        if (outcome.Status != PortSessionSendStatus.Sent)
         {
-            throw new InvalidOperationException($"Port {id} is not running.", start.Error);
+            throw new InvalidOperationException($"Port {id} is not running.", outcome.Error);
         }
 
-        if (await _sessionManager
-                .SendAsync(id, packet, CancellationToken.None)
-                .ConfigureAwait(false) != PortSessionSendStatus.Sent)
+        if (outcome.StartedSession)
         {
-            throw new InvalidOperationException($"Port {id} is not running.");
+            // Auto-starting changed the running set, so the foreground service follows.
+            await SyncKeepAliveAsync().ConfigureAwait(false);
         }
 
-        // Auto-starting changed the running set, so the foreground service follows.
-        await SyncKeepAliveAsync().ConfigureAwait(false);
         RaisePacketTransmitted(id, packet);
     }
 

@@ -31,9 +31,11 @@ internal static class TestPortService
             NullLogger<PacketIngestPipeline>.Instance,
             collaborators.DiagnosticSink,
             collaborators.IngestOptions);
+        PortTransmitPolicy transmitPolicy = new(configuration, sessionManager);
         DigipeatRouter digipeat = new(
             configuration,
             sessionManager,
+            transmitPolicy,
             collaborators.DigipeaterService,
             NullLogger<DigipeatRouter>.Instance,
             collaborators.DiagnosticSink,
@@ -48,6 +50,7 @@ internal static class TestPortService
         return new PortService(
             configuration,
             sessionManager,
+            transmitPolicy,
             ingest,
             digipeat,
             NullLogger<PortService>.Instance,

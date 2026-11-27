@@ -79,6 +79,12 @@ public enum DigipeatReason
     /// <summary>The candidate aged out before it could be transmitted.</summary>
     CandidateExpired,
 
+    /// <summary>
+    /// The session that received the candidate was replaced before it could be
+    /// forwarded, so the frame belongs to a connection that is gone.
+    /// </summary>
+    SourceSessionChanged,
+
     /// <summary>The transmission to the target port failed.</summary>
     TransmitFailed,
 
@@ -277,20 +283,25 @@ public static class DigipeatPolicy
     }
 
     /// <summary>
-    /// Parses the persisted Internet-to-RF allowlist. Entries are comma, semicolon or
-    /// whitespace separated callsigns; malformed entries are ignored so a bad edit can
-    /// never widen the gate. An empty result means "no restriction" and is treated as
-    /// allow-all by <see cref="IsInternetToRfSourceAllowed"/>.
+    /// Splits allowlist text into its trimmed entries. Entries are comma, semicolon or
+    /// whitespace separated; the split is exposed so the settings field can validate
+    /// exactly the entries the policy would later parse instead of guessing the
+    /// separators a second time.
+    /// </summary>
+    public static IReadOnlyList<string> SplitAllowlist(string? allowlist) =>
+        string.IsNullOrWhiteSpace(allowlist)
+            ? []
+            : [.. allowlist.Split(AllowlistSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
+    /// <summary>
+    /// Parses the persisted Internet-to-RF allowlist. Malformed entries are ignored so
+    /// a bad edit can never widen the gate. An empty result means "no restriction" and
+    /// is treated as allow-all by <see cref="IsInternetToRfSourceAllowed"/>.
     /// </summary>
     public static IReadOnlyList<Callsign> ParseAllowlist(string? allowlist)
     {
-        if (string.IsNullOrWhiteSpace(allowlist))
-        {
-            return [];
-        }
-
         List<Callsign> entries = [];
-        foreach (string entry in allowlist.Split(AllowlistSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (string entry in SplitAllowlist(allowlist))
         {
             if (Callsign.TryParse(entry, out Callsign callsign))
             {
