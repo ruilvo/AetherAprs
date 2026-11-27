@@ -176,6 +176,33 @@ public sealed class ReleaseWorkflowTests
         Assert.Contains("does not match", verification, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SbomIsGeneratedFromTheResolvedBuildAndShippedWithTheApk()
+    {
+        string workflow = ReadWorkflow();
+        string sbom = GetStepBlock(workflow, "Generate and verify SBOM");
+
+        // The document must describe the dependency graph this build resolved.
+        Assert.Contains(
+            "--project AetherAprs.Android/AetherAprs.Android.csproj",
+            sbom,
+            StringComparison.Ordinal);
+        Assert.Contains("generate_sbom.py generate", sbom, StringComparison.Ordinal);
+        Assert.Contains("generate_sbom.py verify", sbom, StringComparison.Ordinal);
+        Assert.Contains("--apk \"$APK_NAME\"", sbom, StringComparison.Ordinal);
+
+        // An SBOM nobody can download proves nothing about the published APK.
+        string release = GetStepBlock(workflow, "Create Release");
+        Assert.Contains("steps.sbom.outputs.sbom_name", release, StringComparison.Ordinal);
+        Assert.Contains("steps.sbom.outputs.sbom_checksum_name", release, StringComparison.Ordinal);
+
+        // The SBOM records the APK checksum, so the APK must exist first.
+        Assert.True(
+            workflow.IndexOf("Generate and verify SBOM", StringComparison.Ordinal)
+            > workflow.IndexOf("Find and Verify APK", StringComparison.Ordinal),
+            "The SBOM must be generated after the signed APK it describes.");
+    }
+
     private static string ReadWorkflow()
     {
         Assert.True(File.Exists(WorkflowPath), $"The release workflow is missing at {WorkflowPath}.");

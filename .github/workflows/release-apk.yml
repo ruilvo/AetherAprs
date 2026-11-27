@@ -26,8 +26,10 @@ jobs:
   build-release:
     runs-on: ubuntu-latest
     steps:
+      # Actions are pinned to the commit behind the release tag, so a moved tag
+      # cannot change what runs next to the signing secrets.
       - name: Check out repository
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
@@ -58,7 +60,7 @@ jobs:
           echo "$OUTPUT" >> $GITHUB_OUTPUT
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4.1.0
+        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
         with:
           dotnet-version: '11.0.x'
 
@@ -192,12 +194,45 @@ jobs:
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
           echo "checksum_name=${APK_NAME}.sha256" >> "$GITHUB_OUTPUT"
 
+      - name: Generate and verify SBOM
+        id: sbom
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          APK_NAME: ${{ steps.find_apk.outputs.apk_name }}
+        run: |
+          set -euo pipefail
+
+          SBOM_NAME="AetherAprs-v$VERSION_NAME.cdx.json"
+
+          # The document is built from the package versions this build resolved, and
+          # it records the published APK so the two artifacts are provably one release.
+          python3 .github/scripts/generate_sbom.py generate \
+            --project AetherAprs.Android/AetherAprs.Android.csproj \
+            --output "$SBOM_NAME" \
+            --version-name "$VERSION_NAME" \
+            --version-code "$VERSION_CODE" \
+            --apk "$APK_NAME"
+
+          python3 .github/scripts/generate_sbom.py verify \
+            --sbom "$SBOM_NAME" \
+            --version-name "$VERSION_NAME" \
+            --version-code "$VERSION_CODE" \
+            --apk "$APK_NAME"
+
+          sha256sum "$SBOM_NAME" > "${SBOM_NAME}.sha256"
+
+          echo "sbom_name=$SBOM_NAME" >> "$GITHUB_OUTPUT"
+          echo "sbom_checksum_name=${SBOM_NAME}.sha256" >> "$GITHUB_OUTPUT"
+
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: |
             ${{ steps.find_apk.outputs.apk_name }}
             ${{ steps.find_apk.outputs.checksum_name }}
+            ${{ steps.sbom.outputs.sbom_name }}
+            ${{ steps.sbom.outputs.sbom_checksum_name }}
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version_name, '-') }}
           generate_release_notes: true
@@ -206,7 +241,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attest release APK
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: ${{ steps.find_apk.outputs.apk_name }}
 
