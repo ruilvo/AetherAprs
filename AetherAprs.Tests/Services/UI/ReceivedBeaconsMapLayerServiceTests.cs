@@ -5,10 +5,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Imaging;using AetherAprs.Models.Aprs;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data.Entities;
+using Mapsui;
+using Geo;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
@@ -28,11 +32,14 @@ public sealed class ReceivedBeaconsMapLayerServiceTests : IDisposable
     private readonly IPacketQueryService _queryService = Substitute.For<IPacketQueryService>();
     private readonly IPacketStorageService _storageService = Substitute.For<IPacketStorageService>();
     private readonly IPacketViewFilterService _filterService = Substitute.For<IPacketViewFilterService>();
+    private readonly IConfigurationService _configurationService = Substitute.For<IConfigurationService>();
 
     public ReceivedBeaconsMapLayerServiceTests()
     {
         _bitmapProvider.GetSymbolBitmap(Arg.Any<Symbol>()).Returns(new SKBitmap(32, 32));
         _converter = new AprsSymbolMapConverter(_bitmapProvider);
+        _configurationService.Current.Returns(new AppSettings());
+        _filterService.GetVisiblePortIds().Returns([]);
     }
 
     [Fact]
@@ -181,6 +188,110 @@ public sealed class ReceivedBeaconsMapLayerServiceTests : IDisposable
         service.Dispose();
     }
 
+    [Fact]
+    public void SelectedStation_StaysOutOfTheClusterAcrossRebuilds()
+    {
+        // Arrange - three stations sit on the same spot, so they cluster into one
+        // bubble while the map is zoomed out.
+        Guid portId = Guid.NewGuid();
+        ConfigureVisiblePort(portId, ownCallsign: "N0CALL");
+        Dictionary<string, PacketRecord> positions = new()
+        {
+            ["K0AAA"] = PositionRecord("K0AAA", portId),
+            ["K0BBB"] = PositionRecord("K0BBB", portId),
+            ["K0CCC"] = PositionRecord("K0CCC", portId),
+        };
+        _queryService.GetMostRecentPositionPacketsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(positions));
+
+        ReceivedBeaconsMapLayerService service = CreateService();
+        service.SetResolution(1);
+        _storageService.PacketStored += Raise.Event();
+
+        // A single cluster bubble replaces all three markers at this zoom.
+        Assert.Single(Features(service));
+        Assert.Contains("Cluster", Features(service)[0].Fields);
+
+        // Act - the operator selects one of the clustered stations, then a new packet
+        // arrives and the layer rebuilds from the database.
+        service.SelectStation("K0aAa");
+        _storageService.PacketStored += Raise.Event();
+
+        // Assert - the selection is matched case-insensitively, kept as its own marker
+        // instead of disappearing into the bubble, and survives the rebuild.
+        Assert.Equal("K0aAa", service.SelectedCallsign);
+
+        List<string> markers = [.. Features(service)
+            .Where(feature => feature["Callsign"] as string is not null)
+            .Select(feature => (string)feature["Callsign"]!)];
+        Assert.Contains("K0AAA", markers);
+
+        // The other two still cluster together.
+        Assert.Contains(Features(service), feature =>
+            feature["Cluster"] is true && feature["Count"] is 2);
+
+        service.Dispose();
+    }
+
+    [Fact]
+    public void OwnStation_StaysOutOfTheCluster()
+    {
+        // Arrange - the operator's own station reports on top of another station.
+        Guid portId = Guid.NewGuid();
+        ConfigureVisiblePort(portId, ownCallsign: "N0CALL");
+        Dictionary<string, PacketRecord> positions = new()
+        {
+            ["N0CALL"] = PositionRecord("N0CALL", portId),
+            ["K0AAA"] = PositionRecord("K0AAA", portId),
+        };
+        _queryService.GetMostRecentPositionPacketsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyDictionary<string, PacketRecord>>(positions));
+
+        ReceivedBeaconsMapLayerService service = CreateService();
+        service.SetResolution(1);
+
+        // Act
+        _storageService.PacketStored += Raise.Event();
+
+        // Assert - the own station is drawn as its own marker and never folded into
+        // the cluster bubble, even though both positions coincide.
+        Assert.Contains(Features(service), feature => feature["Callsign"] as string == "N0CALL");
+        Assert.DoesNotContain(Features(service), feature => feature["Cluster"] is true);
+
+        service.Dispose();
+    }
+
+    private void ConfigureVisiblePort(Guid portId, string ownCallsign)
+    {
+        _filterService.GetVisiblePortIds().Returns([portId]);
+        _configurationService.Current.Returns(new AppSettings
+        {
+            Aprs = new AprsSettings { Callsign = ownCallsign }
+        });
+    }
+
+    private static PacketRecord PositionRecord(string callsign, Guid portId) => new()
+    {
+        SourceBase = callsign,
+        SourceSsid = AprsSsid.PrimaryStation,
+        DestinationBase = "APRS",
+        DestinationSsid = AprsSsid.PrimaryStation,
+        Timestamp = new DateTime(2026, 11, 27, 12, 0, 0, DateTimeKind.Utc),
+        PortId = portId,
+        PacketType = "Position",
+        RawInfo = "!3745.50N/12159.50W-",
+        IsOutbound = false,
+        Position = new PositionDataRecord
+        {
+            Location = new Coordinate(37.758333, -121.991667),
+            SymbolTable = SymbolTable.Primary,
+            SymbolCode = SymbolCode.HyphenMinus
+        }
+    };
+
+    private static List<IFeature> Features(IReceivedBeaconsMapLayerService service) =>
+        [.. service.BeaconsLayer.GetFeatures(new MRect(-1e9, -1e9, 1e9, 1e9), 1)];
+
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
     {
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -197,12 +308,20 @@ public sealed class ReceivedBeaconsMapLayerServiceTests : IDisposable
 
     private ReceivedBeaconsMapLayerService CreateService()
     {
-        _filterService.GetVisiblePortIds().Returns([]);
+        _queryService.GetMostRecentObjectsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
+        _queryService.GetMostRecentItemsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
+        _queryService.GetPositionTrailPacketsAsync(
+                Arg.Any<DateTimeOffset?>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<PacketRecord>>([]));
         return new ReceivedBeaconsMapLayerService(
             Substitute.For<IPortService>(),
             _queryService,
             _storageService,
-            Substitute.For<IConfigurationService>(),
+            _configurationService,
             _filterService,
             _converter,
             SynchronousUiDispatcher.Instance,

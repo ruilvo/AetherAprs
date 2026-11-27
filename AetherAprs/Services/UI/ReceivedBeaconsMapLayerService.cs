@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+using AetherAprs.Configuration.Settings;
 using AetherAprs.Data.Entities;
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
@@ -45,6 +46,20 @@ public interface IReceivedBeaconsMapLayerService : IDisposable
     /// the beacon markers accordingly.
     /// </summary>
     void SetResolution(double resolution);
+
+    /// <summary>
+    /// Gets the callsign the operator last selected on the map, or <see langword="null"/>
+    /// when nothing is selected.
+    /// </summary>
+    string? SelectedCallsign { get; }
+
+    /// <summary>
+    /// Records the station the operator selected. The selection is not tied to a
+    /// rendered feature, so it survives the rebuilds that follow new packets and
+    /// filter changes.
+    /// </summary>
+    /// <param name="callsign">The selected callsign, or <see langword="null"/> to clear.</param>
+    void SelectStation(string? callsign);
 }
 
 /// <summary>
@@ -76,9 +91,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private bool _disposed;
     private List<BeaconMarker> _markers = [];
     private double _currentResolution = double.NaN;
+    private string? _selectedCallsign;
+    private string? _ownCallsign;
 
     public ILayer BeaconsLayer => _beaconsLayer;
     public ILayer TrailsLayer => _trailsLayer;
+    public string? SelectedCallsign => _selectedCallsign;
 
     public ReceivedBeaconsMapLayerService(
         IPortService portService,
@@ -265,6 +283,13 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
             // Use shared filter service for port visibility and time filtering
             HashSet<Guid> visiblePortIds = _filterService.GetVisiblePortIds();
             DateTimeOffset? cutoffTime = _filterService.GetCutoffTime();
+
+            // The operator's own station is part of the published settings snapshot,
+            // so it is re-read on every rebuild and stays correct after a callsign
+            // change without restarting the map.
+            AprsSettings aprs = _configurationService.Current.Aprs;
+            string ownCallsign = AprsSsidExtensions.FormatCallsign(aprs.Callsign, aprs.Ssid);
+            _ownCallsign = ownCallsign;
 
             IReadOnlyDictionary<string, PacketRecord> allPositionPackets = await _packetQueryService
                 .GetMostRecentPositionPacketsAsync(cancellationToken: cancellationToken);
@@ -481,6 +506,9 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     /// <summary>
     /// Re-renders the beacons layer from the current marker set, clustering markers that
     /// fall into the same grid cell (sized ~40 screen pixels) into a single cluster feature.
+    /// The selected station and the operator's own station are always drawn as
+    /// individual, flagged features so that neither disappears into a cluster when the
+    /// map is zoomed out or a new packet arrives.
     /// </summary>
     private void RenderBeaconsLayer()
     {
@@ -499,13 +527,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         {
             foreach (BeaconMarker marker in _markers)
             {
-                _beaconsLayer.Add(CreateLabeledFeature(
-                    marker.Point,
-                    marker.SymbolTable,
-                    marker.SymbolCode,
-                    marker.Label,
-                    marker.Callsign,
-                    marker.ObjectName));
+                _beaconsLayer.Add(CreateMarkerFeature(marker));
             }
 
             _beaconsLayer.DataHasChanged();
@@ -514,38 +536,90 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
 
         double cellSize = 40.0 * _currentResolution;
-        IReadOnlyList<IReadOnlyList<int>> groups = MapClusterer.Cluster([.. _markers.Select(m => m.Point)], cellSize);
+
+        // Pinned markers keep their own feature: they are the ones the operator is
+        // looking at, so a cluster bubble must not replace them. They are also kept out
+        // of the clustering input entirely, so a pinned marker never drags the bubble
+        // away from the stations it groups.
+        List<BeaconMarker> pinned = [];
+        List<BeaconMarker> clusterable = [];
+
+        foreach (BeaconMarker marker in _markers)
+        {
+            if (IsPinned(marker))
+            {
+                pinned.Add(marker);
+            }
+            else
+            {
+                clusterable.Add(marker);
+            }
+        }
+
+        foreach (BeaconMarker marker in pinned)
+        {
+            _beaconsLayer.Add(CreateMarkerFeature(marker));
+        }
+
+        IReadOnlyList<IReadOnlyList<int>> groups = MapClusterer.Cluster(
+            [.. clusterable.Select(marker => marker.Point)],
+            cellSize);
 
         foreach (IReadOnlyList<int> group in groups)
         {
             if (group.Count == 1)
             {
-                BeaconMarker marker = _markers[group[0]];
-                _beaconsLayer.Add(CreateLabeledFeature(
-                    marker.Point,
-                    marker.SymbolTable,
-                    marker.SymbolCode,
-                    marker.Label,
-                    marker.Callsign,
-                    marker.ObjectName));
+                _beaconsLayer.Add(CreateMarkerFeature(clusterable[group[0]]));
             }
             else
             {
-                foreach (BeaconMarker? marker in group.Select(i => _markers[i]))
+                List<BeaconMarker> grouped = [.. group.Select(index => clusterable[index])];
+                foreach (BeaconMarker marker in grouped)
                 {
-                    if (marker.Callsign is not null)
+                    if (marker.Callsign is { } callsign)
                     {
-                        _clusteredCallsigns.Add(marker.Callsign);
+                        _clusteredCallsigns.Add(callsign);
                     }
                 }
 
-                _beaconsLayer.Add(CreateClusterFeature([.. group.Select(i => _markers[i])]));
+                _beaconsLayer.Add(CreateClusterFeature(grouped));
             }
         }
 
         _beaconsLayer.DataHasChanged();
         RenderTrailsLayer();
     }
+
+    private PointFeature CreateMarkerFeature(BeaconMarker marker)
+    {
+        PointFeature feature = CreateLabeledFeature(
+            marker.Point,
+            marker.SymbolTable,
+            marker.SymbolCode,
+            marker.Label,
+            marker.Callsign,
+            marker.ObjectName);
+
+        if (IsPinned(marker))
+        {
+            // The view can highlight these without scanning the marker set again.
+            feature["Pinned"] = true;
+        }
+
+        return feature;
+    }
+
+    /// <summary>
+    /// A marker is pinned when it is the operator's selection or its own station.
+    /// </summary>
+    private bool IsPinned(BeaconMarker marker) =>
+        IsStationPinned(marker.Callsign, _selectedCallsign) ||
+        IsStationPinned(marker.Callsign, _ownCallsign);
+
+    private static bool IsStationPinned(string? callsign, string? pinned) =>
+        callsign is not null &&
+        pinned is { Length: > 0 } &&
+        string.Equals(callsign, pinned, StringComparison.OrdinalIgnoreCase);
 
     private void RenderTrailsLayer()
     {
@@ -674,6 +748,28 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
 
         _currentResolution = resolution;
+        RunOnUi(RenderBeaconsLayer);
+    }
+
+    /// <summary>
+    /// Records the selected station and re-renders so it stops being hidden inside a
+    /// cluster. The selection itself lives outside the marker set, which is rebuilt
+    /// from the database on every packet, so it survives those rebuilds.
+    /// </summary>
+    public void SelectStation(string? callsign)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        string? normalized = string.IsNullOrWhiteSpace(callsign) ? null : callsign.Trim();
+        if (string.Equals(_selectedCallsign, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _selectedCallsign = normalized;
         RunOnUi(RenderBeaconsLayer);
     }
 
