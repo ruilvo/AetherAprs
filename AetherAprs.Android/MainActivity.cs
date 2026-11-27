@@ -282,16 +282,19 @@ public class MainActivity : AvaloniaMainActivity
 
         try
         {
-            foreach (PermissionGrantTransition transition in rechecker.Recheck())
+            // The reporter is what the home banner reads, so a grant that changed
+            // while the application was in the background has to reach it, not only
+            // the log: a grant revoked in the system settings has to raise the
+            // warning, and a restored grant has to clear it.
+            foreach (PermissionGrantTransition transition in PermissionResumeReport.Apply(
+                rechecker.Recheck(),
+                app.ServiceProvider.GetService<IPermissionAttentionReporter>()))
             {
-                if (transition.HasChanged)
-                {
-                    _logger.LogInformation(
-                        "Permission {Permission} is now {Current} (was {Previous})",
-                        transition.Kind,
-                        transition.Result.Outcome,
-                        transition.Previous);
-                }
+                _logger.LogInformation(
+                    "Permission {Permission} is now {Current} (was {Previous})",
+                    transition.Kind,
+                    transition.Result.Outcome,
+                    transition.Previous);
             }
         }
         catch (Exception exception)
