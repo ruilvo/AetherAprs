@@ -108,7 +108,7 @@ public sealed record BeaconConfig
             FastSpeedThresholdKmh = 15.0,
             SlowSpeedThresholdKmh = 2.0,
             CourseChangeThresholdDegrees = 15,
-            MinimumDistanceMeters = 30,
+            MinimumDistanceMeters = 100,
             BeaconComment = "Walking"
         };
 
@@ -126,7 +126,7 @@ public sealed record BeaconConfig
             FastSpeedThresholdKmh = 60.0,
             SlowSpeedThresholdKmh = 10.0,
             CourseChangeThresholdDegrees = 10,
-            MinimumDistanceMeters = 50,
+            MinimumDistanceMeters = 500,
             BeaconComment = "Driving"
         };
 

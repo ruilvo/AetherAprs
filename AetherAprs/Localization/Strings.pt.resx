@@ -491,4 +491,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Histórico de Relatórios</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Símbolo</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Pesquisar pacotes</value></data>
+  <data name="BeaconPacketPreview" xml:space="preserve"><value>Pré-visualização do pacote</value></data>
+  <data name="BeaconPreviewSampleNotice" xml:space="preserve"><value>A pré-visualização usa uma posição de exemplo e as definições atuais da estação.</value></data>
+  <data name="BeaconPreviewPosition" xml:space="preserve"><value>Posição (campo de informação)</value></data>
+  <data name="BeaconPreviewPath" xml:space="preserve"><value>Caminho</value></data>
+  <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Símbolo</value></data>
+  <data name="BeaconStaleCount" xml:space="preserve"><value>{0} beacon(s) em fila expiraram ou foram descartados antes da transmissão.</value></data>
 </root>

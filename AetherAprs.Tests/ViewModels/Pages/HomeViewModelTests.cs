@@ -340,6 +340,36 @@ public sealed class HomeViewModelTests : TestFixtureBase
         Assert.Equal(1, tracking.StopCount);
     }
 
+    [Fact]
+    public async Task ReturningToHome_ReusesTheSingleLocationWorker()
+    {
+        TestLocationTrackingService tracking = new();
+        LocationCoordinator coordinator = new(
+            tracking,
+            TimeProvider.System,
+            NullLogger<LocationCoordinator>.Instance);
+
+        using HomeViewModel home = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: true, isTx: true)),
+            new TestBeaconService(),
+            tracking,
+            locationCoordinator: coordinator);
+        await home.StartLocationTrackingAsync();
+
+        // Navigating to another page and back resolves Home again; the coordinator,
+        // not the page, owns the worker, so no second one may start.
+        using HomeViewModel returning = CreateViewModel(
+            new TestPortService(CreatePort(isEnabled: true, isTx: true)),
+            new TestBeaconService(),
+            tracking,
+            locationCoordinator: coordinator);
+        await returning.StartLocationTrackingAsync();
+
+        Assert.Equal(1, tracking.StartCount);
+        Assert.Equal(1, tracking.PermissionRequestCount);
+        Assert.Equal(0, tracking.StopCount);
+    }
+
     private static HomeViewModel CreateViewModel(
         TestPortService portService,
         TestBeaconService beaconService,
@@ -347,7 +377,8 @@ public sealed class HomeViewModelTests : TestFixtureBase
         TestConfigurationService? configuration = null,
         IReceivedBeaconsMapLayerService? receivedBeaconsLayer = null,
         IPermissionAttentionReporter? permissionAttention = null,
-        IPermissionService? permissionService = null)
+        IPermissionService? permissionService = null,
+        ILocationCoordinator? locationCoordinator = null)
     {
         bool isConfigurationProvided = configuration != null;
         configuration ??= new TestConfigurationService();
@@ -384,7 +415,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
         IObjectDetailsViewModelFactory objectDetailsFactory = Substitute.For<IObjectDetailsViewModelFactory>();
         INavigationService navigationService = Substitute.For<INavigationService>();
 
-        LocationCoordinator locationCoordinator = new(
+        locationCoordinator ??= new LocationCoordinator(
             locationTracking,
             TimeProvider.System,
             NullLogger<LocationCoordinator>.Instance);

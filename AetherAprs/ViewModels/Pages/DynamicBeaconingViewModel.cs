@@ -2,13 +2,22 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Modems.Aprs;
 using AetherAprs.Services.Beaconing;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Ports;
+using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,6 +30,22 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
 {
     private readonly IBeaconService _beaconService;
     private readonly INavigationService _navigationService;
+    private readonly IConfigurationService _configurationService;
+    private readonly IAprsPortSettingsResolver _portSettingsResolver;
+    private readonly IPacketFactory _packetFactory;
+    private readonly IBeaconTransmitQueue _beaconQueue;
+
+    /// <summary>
+    /// A fixed sample position used when the page has no live fix to preview. The
+    /// page is a configuration form, not the map, so it does not subscribe to the
+    /// location worker; the encoder output is otherwise identical to a real beacon.
+    /// </summary>
+    private static readonly LocationData SamplePreviewLocation = new()
+    {
+        Location = new Geo.Coordinate(38.7223, -9.1393),
+        Altitude = 100,
+        Timestamp = DateTimeOffset.UnixEpoch
+    };
 
     [ObservableProperty]
     public partial DynamicBeaconMode ActiveMode { get; set; } = DynamicBeaconMode.Walk;
@@ -33,6 +58,25 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
 
     [ObservableProperty]
     public partial BeaconConfigurationItemViewModel? CustomConfiguration { get; set; }
+
+    /// <summary>Gets the APRS info field that the next beacon would carry.</summary>
+    [ObservableProperty]
+    public partial string PreviewInfoField { get; set; } = string.Empty;
+
+    /// <summary>Gets the digipeater path the next beacon would use.</summary>
+    [ObservableProperty]
+    public partial string PreviewPath { get; set; } = string.Empty;
+
+    /// <summary>Gets the symbol (table + code) the next beacon would carry.</summary>
+    [ObservableProperty]
+    public partial string PreviewSymbol { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the localized status of beacon work that was lost (expired or dropped),
+    /// or an empty string when nothing was lost.
+    /// </summary>
+    [ObservableProperty]
+    public partial string StaleBeaconStatus { get; set; } = string.Empty;
 
     /// <summary>Selectable beacon modes, labelled once so the picker binds to typed items.</summary>
     public IReadOnlyList<BeaconModeChoice> ModeChoices { get; } =
@@ -58,10 +102,20 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
         }
     }
 
-    public DynamicBeaconingViewModel(IBeaconService beaconService, INavigationService navigationService)
+    public DynamicBeaconingViewModel(
+        IBeaconService beaconService,
+        INavigationService navigationService,
+        IConfigurationService configurationService,
+        IAprsPortSettingsResolver portSettingsResolver,
+        IPacketFactory packetFactory,
+        IBeaconTransmitQueue beaconQueue)
     {
         _beaconService = beaconService ?? throw new ArgumentNullException(nameof(beaconService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+        _portSettingsResolver = portSettingsResolver ?? throw new ArgumentNullException(nameof(portSettingsResolver));
+        _packetFactory = packetFactory ?? throw new ArgumentNullException(nameof(packetFactory));
+        _beaconQueue = beaconQueue ?? throw new ArgumentNullException(nameof(beaconQueue));
 
         // Initialize configuration view models.
         // Documented exception to the child-ViewModel-injection rule: BeaconConfigurationItemViewModel
@@ -86,7 +140,99 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
         }
 
         ActiveMode = beaconService.CurrentConfiguration.Mode;
+
+        // The preview follows the live edits: each item ViewModel is owned by this
+        // page, so subscribing to it cannot keep the page alive after navigation.
+        AttachConfiguration(WalkConfiguration);
+        AttachConfiguration(DriveConfiguration);
+        AttachConfiguration(CustomConfiguration);
+
+        RefreshPreview();
+        _ = RefreshStaleStatusAsync();
     }
+
+    /// <summary>
+    /// Builds the packet preview the next beacon would transmit, so the operator can
+    /// verify the encoded position, path and symbol before going on the air.
+    /// </summary>
+    /// <param name="location">
+    /// The position to preview. When omitted, a fixed sample position is used because
+    /// this page intentionally does not own the location worker.
+    /// </param>
+    public void RefreshPreview(LocationData? location = null)
+    {
+        LocationData sample = location ?? SamplePreviewLocation;
+
+        string callsign = _configurationService.Current.Aprs.Callsign;
+        if (string.IsNullOrWhiteSpace(callsign))
+        {
+            // An unconfigured station still deserves an honest preview of the encoding.
+            callsign = "N0CALL";
+        }
+
+        BeaconConfig configuration = ActiveConfiguration();
+        PositionPacket? packet = _packetFactory.CreatePositionPacket(
+            sample,
+            callsign,
+            _portSettingsResolver.GetSymbolTable(),
+            _portSettingsResolver.GetSymbolCode(),
+            course: null,
+            comment: configuration.BeaconComment);
+        if (packet is null)
+        {
+            // A factory that cannot build a packet leaves the preview blank instead of
+            // failing the settings page.
+            PreviewInfoField = string.Empty;
+            PreviewPath = string.Empty;
+            PreviewSymbol = string.Empty;
+            return;
+        }
+
+        PreviewInfoField = AprsInfoFieldSerializer.FormatInfoField(packet);
+        PreviewPath = packet.Path.Count == 0
+            ? string.Empty
+            : string.Join(",", packet.Path.Select(callsignPart => callsignPart.ToString()));
+        PreviewSymbol = $"{packet.Symbol.TableChar}{packet.Symbol.CodeChar}";
+    }
+
+    /// <summary>
+    /// Loads how many beacons expired or were dropped without being transmitted and
+    /// exposes it as a localized status. Failures leave the status empty: this is a
+    /// presentation aid and must not break the settings page.
+    /// </summary>
+    public async Task RefreshStaleStatusAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            int staleCount = await _beaconQueue.GetStaleCountAsync(cancellationToken).ConfigureAwait(true);
+            StaleBeaconStatus = staleCount > 0
+                ? Localization.Strings.Format("BeaconStaleCount", staleCount)
+                : string.Empty;
+        }
+        catch (Exception)
+        {
+            StaleBeaconStatus = string.Empty;
+        }
+    }
+
+    private BeaconConfig ActiveConfiguration() => ActiveMode switch
+    {
+        DynamicBeaconMode.Walk => WalkConfiguration?.Configuration ?? BeaconConfig.CreateWalkPreset(),
+        DynamicBeaconMode.Drive => DriveConfiguration?.Configuration ?? BeaconConfig.CreateDrivePreset(),
+        _ => CustomConfiguration?.Configuration ?? BeaconConfig.CreateCustomPreset()
+    };
+
+    private void AttachConfiguration(BeaconConfigurationItemViewModel? configuration)
+    {
+        if (configuration is null)
+        {
+            return;
+        }
+
+        configuration.PropertyChanged += OnConfigurationEdited;
+    }
+
+    private void OnConfigurationEdited(object? sender, PropertyChangedEventArgs e) => RefreshPreview();
 
 
     [RelayCommand]
@@ -125,6 +271,40 @@ public partial class DynamicBeaconingViewModel : ViewModelBase
         // The explicit command owns persistence; a property-changed handler cannot
         // await a write or report its failure, so it must not mutate durable state.
         OnPropertyChanged(nameof(SelectedModeChoice));
+        RefreshPreview();
+    }
+
+    partial void OnWalkConfigurationChanged(BeaconConfigurationItemViewModel? oldValue, BeaconConfigurationItemViewModel? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.PropertyChanged -= OnConfigurationEdited;
+        }
+
+        AttachConfiguration(newValue);
+        RefreshPreview();
+    }
+
+    partial void OnDriveConfigurationChanged(BeaconConfigurationItemViewModel? oldValue, BeaconConfigurationItemViewModel? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.PropertyChanged -= OnConfigurationEdited;
+        }
+
+        AttachConfiguration(newValue);
+        RefreshPreview();
+    }
+
+    partial void OnCustomConfigurationChanged(BeaconConfigurationItemViewModel? oldValue, BeaconConfigurationItemViewModel? newValue)
+    {
+        if (oldValue is not null)
+        {
+            oldValue.PropertyChanged -= OnConfigurationEdited;
+        }
+
+        AttachConfiguration(newValue);
+        RefreshPreview();
     }
 
     private BeaconModeChoice? FindChoice(DynamicBeaconMode mode)

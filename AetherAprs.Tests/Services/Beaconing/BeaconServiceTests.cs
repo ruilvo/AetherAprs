@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
@@ -202,6 +203,16 @@ public class BeaconServiceTests : TestFixtureBase
         // Minimum distance should be reasonable
         Assert.True(walkConfig.MinimumDistanceMeters > 0);
         Assert.True(driveConfig.MinimumDistanceMeters > 0);
+    }
+
+    [Fact]
+    public void PresetMinimumDistancesMatchTheRoadmapTargets()
+    {
+        // Walk beacons every 5 minutes but must have travelled 100 m; drive every
+        // 2 minutes and 500 m, so slow jitter cannot fill the channel.
+        Assert.Equal(100, BeaconConfig.CreateWalkPreset().MinimumDistanceMeters);
+        Assert.Equal(500, BeaconConfig.CreateDrivePreset().MinimumDistanceMeters);
+        Assert.Equal(50, BeaconConfig.CreateCustomPreset().MinimumDistanceMeters);
     }
 
     [Fact]
@@ -416,6 +427,27 @@ public class BeaconServiceTests : TestFixtureBase
     }
 
     [Fact]
+    public async Task InitializeAsync_AppliesStoredConfigurationWithoutReplacingThePreset()
+    {
+        // An operator-edited value is durable state: loading it must not restore the
+        // built-in preset over the saved choice.
+        BeaconConfig storedWalk = BeaconConfig.CreateWalkPreset() with { MinimumDistanceMeters = 123 };
+        BeaconConfig storedDrive = BeaconConfig.CreateDrivePreset() with { MinimumDistanceMeters = 456 };
+        StubBeaconStateStore store = new(new BeaconStateSnapshot(
+            storedWalk,
+            storedDrive,
+            BeaconConfig.CreateCustomPreset(),
+            DynamicBeaconMode.Drive));
+
+        await using BeaconService service = new(store, logger: null);
+        await service.InitializeAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(DynamicBeaconMode.Drive, service.CurrentConfiguration.Mode);
+        Assert.Equal(456, service.CurrentConfiguration.MinimumDistanceMeters);
+        Assert.Equal(123, service.AllConfigurations[0].MinimumDistanceMeters);
+    }
+
+    [Fact]
     public async Task SetActiveMode_SameMode_DoesNotResetTimer()
     {
         BeaconService service = new();
@@ -448,4 +480,17 @@ public class BeaconServiceTests : TestFixtureBase
         Assert.False(decision2.ShouldTransmit);
     }
 
+    private sealed class StubBeaconStateStore(BeaconStateSnapshot snapshot) : IBeaconStateStore
+    {
+        public Task<BeaconStateSnapshot> LoadAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(snapshot);
+
+        public Task<BeaconStateSnapshot> SaveConfigurationAsync(
+            BeaconConfig configuration,
+            CancellationToken cancellationToken = default) => Task.FromResult(snapshot);
+
+        public Task<BeaconStateSnapshot> SaveActiveModeAsync(
+            DynamicBeaconMode mode,
+            CancellationToken cancellationToken = default) => Task.FromResult(snapshot);
+    }
 }

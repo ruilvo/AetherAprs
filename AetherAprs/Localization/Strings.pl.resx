@@ -491,4 +491,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Historia zgłoszeń</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Szukaj pakietów</value></data>
+  <data name="BeaconPacketPreview" xml:space="preserve"><value>Podgląd pakietu</value></data>
+  <data name="BeaconPreviewSampleNotice" xml:space="preserve"><value>Podgląd używa przykładowej pozycji i bieżących ustawień stacji.</value></data>
+  <data name="BeaconPreviewPosition" xml:space="preserve"><value>Pozycja (pole informacyjne)</value></data>
+  <data name="BeaconPreviewPath" xml:space="preserve"><value>Ścieżka</value></data>
+  <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Symbol</value></data>
+  <data name="BeaconStaleCount" xml:space="preserve"><value>{0} oczekujących beaconów wygasło lub zostało odrzuconych przed transmisją.</value></data>
 </root>

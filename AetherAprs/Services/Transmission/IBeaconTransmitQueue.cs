@@ -79,6 +79,13 @@ public interface IBeaconTransmitQueue
     /// <summary>Reads every retained outbox entry, newest last.</summary>
     Task<IReadOnlyList<BeaconQueueItem>> GetSnapshotAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Counts the retained beacons that were never transmitted because they expired
+    /// before their turn or were dropped to admit a newer beacon. Lets the UI surface
+    /// that beacon work was lost instead of failing silently.
+    /// </summary>
+    Task<int> GetStaleCountAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Marks a queued beacon as being transmitted.</summary>
     Task MarkSendingAsync(Guid id, CancellationToken cancellationToken = default);
 
