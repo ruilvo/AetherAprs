@@ -17,6 +17,11 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # One pinned Android build-tools version for both the APK build and its
+  # verification, so the tools that sign and the tools that check cannot drift.
+  ANDROID_BUILD_TOOLS_VERSION: '34.0.0'
+
 jobs:
   build-release:
     runs-on: ubuntu-latest
@@ -84,7 +89,7 @@ jobs:
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
-            -p:AndroidSdkBuildToolsVersion=34.0.0
+            -p:AndroidSdkBuildToolsVersion="$ANDROID_BUILD_TOOLS_VERSION"
       
       - name: Verify ReadyToRun images
         shell: bash
@@ -107,30 +112,43 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK_PATH=$(find AetherAprs.Android/bin/Release/net11.0-android -name "*.apk" | grep -E "(Signed|publish)" | sort -V | tail -n 1)
-          
-          if [ -z "$APK_PATH" ]; then
-            echo "ERROR: No signed APK found!"
-            echo "Looking for any APK files..."
-            find AetherAprs.Android/bin/Release -name "*.apk"
+
+          BUILD_TOOLS_DIR="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS_VERSION"
+          if [ ! -x "$BUILD_TOOLS_DIR/apksigner" ]; then
+            echo "::error::Android build-tools $ANDROID_BUILD_TOOLS_VERSION is not installed at $BUILD_TOOLS_DIR."
+            ls -1 "$ANDROID_HOME/build-tools" || true
             exit 1
           fi
-          
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "Found APK at: $APK_PATH"
-          
-          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d | sort -V | tail -n 1)
-          "$BUILD_TOOLS/zipalign" -c -P 4 4 "$APK_PATH"
-          "$BUILD_TOOLS/apksigner" verify --verbose "$APK_PATH"
-          "$BUILD_TOOLS/aapt" dump badging "$APK_PATH" | grep -E "package:|sdkVersion:"
+
+          # The publish step names its signed package, so require exactly that one
+          # artifact instead of guessing the newest APK in the tree.
+          mapfile -t CANDIDATES < <(find AetherAprs.Android/bin/Release/net11.0-android -type f -name "*-Signed.apk" | sort)
+          if [ "${#CANDIDATES[@]}" -eq 0 ]; then
+            echo "::error::No signed APK was produced; the release has nothing to publish."
+            find AetherAprs.Android/bin/Release -type f -name "*.apk" -print || true
+            exit 1
+          fi
+          if [ "${#CANDIDATES[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one signed APK but found ${#CANDIDATES[@]}; refusing to pick one."
+            printf '  %s\n' "${CANDIDATES[@]}"
+            exit 1
+          fi
+
+          APK_PATH="${CANDIDATES[0]}"
+          echo "Using signed APK: $APK_PATH"
+
+          "$BUILD_TOOLS_DIR/zipalign" -c -P 4 4 "$APK_PATH"
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose "$APK_PATH"
+          "$BUILD_TOOLS_DIR/aapt" dump badging "$APK_PATH" | grep -E "package:|sdkVersion:"
+
           # Keep the release asset name deterministic.
           APK_NAME="AetherAprs-v${{ steps.version.outputs.version_name }}.apk"
           cp "$APK_PATH" "$APK_NAME"
           sha256sum "$APK_NAME" > "${APK_NAME}.sha256"
+
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
           echo "checksum_name=${APK_NAME}.sha256" >> "$GITHUB_OUTPUT"
-
-          echo "Found and verified: $APK_PATH"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
