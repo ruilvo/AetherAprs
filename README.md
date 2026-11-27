@@ -23,12 +23,13 @@ platform-independent development.
 - Packet history, packet details, station trails, and map display
 - Digipeating and configurable RF/APRS-IS gating
 - Offline map packages and cached map tiles
-- English and Portuguese localization
+- English, Portuguese and Spanish localization
 
 ## Install
 
 Install the signed APK from [GitHub Releases](https://github.com/ruilvo/AetherAprs/releases)
-on Android 13 or later.
+on Android 13 or later. Each release publishes the APK, a CycloneDX SBOM generated from
+the resolved build, and SHA-256 checksums for both.
 
 1. In **Settings**, set your station callsign and SSID, symbol, and beacon profile.
 2. In **Ports**, add an APRS-IS or KISS port. APRS-IS uses a server, optional receive
