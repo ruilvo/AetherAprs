@@ -82,6 +82,86 @@ public sealed class ReleaseWorkflowTests
         Assert.Contains("apk_path=$APK_PATH", verification, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SigningSecretsArePassedThroughTheEnvironment()
+    {
+        string workflow = ReadWorkflow();
+        string build = GetStepBlock(workflow, "Build APK");
+
+        // A secret on a command line is readable by any process on the runner and can
+        // be echoed by MSBuild, so the Android signing properties come from the
+        // environment instead, which MSBuild promotes to properties.
+        Assert.DoesNotContain("-p:AndroidSigning", workflow, StringComparison.Ordinal);
+        Assert.Contains(
+            "export AndroidSigningKeyStore=\"$ANDROID_KEYSTORE_PATH\"",
+            build,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "export AndroidSigningKeyAlias=\"$ANDROID_KEY_ALIAS\"",
+            build,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "export AndroidSigningKeyPass=\"$ANDROID_KEY_PASSWORD\"",
+            build,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "export AndroidSigningStorePass=\"$ANDROID_KEYSTORE_PASSWORD\"",
+            build,
+            StringComparison.Ordinal);
+
+        // keytool can read the store password from the environment too.
+        string verify = GetStepBlock(workflow, "Verify keystore");
+        Assert.Contains("-storepass:env KEYSTORE_PASSWORD", verify, StringComparison.Ordinal);
+        Assert.DoesNotContain("-storepass \"$KEYSTORE_PASSWORD\"", verify, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildLogIsCheckedForLeakedSigningSecrets()
+    {
+        string build = GetStepBlock(ReadWorkflow(), "Build APK");
+
+        Assert.Contains("tee \"$BUILD_LOG\"", build, StringComparison.Ordinal);
+        Assert.Contains("grep -qF -- \"$secret\" \"$BUILD_LOG\"", build, StringComparison.Ordinal);
+        Assert.Contains("::error::A signing password appeared in the build log", build, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SigningMaterialIsRemovedAndTheWorkspaceChecked()
+    {
+        string cleanup = GetStepBlock(ReadWorkflow(), "Clean up signing material");
+
+        Assert.Contains("if: always()", cleanup, StringComparison.Ordinal);
+        Assert.Contains("-name \"*.keystore\"", cleanup, StringComparison.Ordinal);
+        Assert.Contains("::error::Signing material was left in the workspace", cleanup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AReleaseIsRejectedWhenTheTagAlreadyHasOne()
+    {
+        string workflow = ReadWorkflow();
+        string guard = GetStepBlock(workflow, "Reject a release that already exists for this tag");
+
+        Assert.Contains("gh release view \"$TAG\"", guard, StringComparison.Ordinal);
+        Assert.Contains("::error::Release $TAG already exists", guard, StringComparison.Ordinal);
+        Assert.Contains("exit 1", guard, StringComparison.Ordinal);
+
+        // The collision check must run before the keystore is decoded and used.
+        Assert.True(
+            workflow.IndexOf("Reject a release that already exists for this tag", StringComparison.Ordinal)
+            < workflow.IndexOf("Decode keystore", StringComparison.Ordinal),
+            "The release collision check must run before any signing material is decoded.");
+    }
+
+    [Fact]
+    public void ApkVersionCodeIsVerifiedAgainstTheTag()
+    {
+        string verification = GetStepBlock(ReadWorkflow(), "Find and Verify APK");
+
+        Assert.Contains("EXPECTED_VERSION_CODE", verification, StringComparison.Ordinal);
+        Assert.Contains("versionCode='", verification, StringComparison.Ordinal);
+        Assert.Contains("does not match", verification, StringComparison.Ordinal);
+    }
+
     private static string ReadWorkflow()
     {
         Assert.True(File.Exists(WorkflowPath), $"The release workflow is missing at {WorkflowPath}.");

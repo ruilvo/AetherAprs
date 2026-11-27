@@ -39,6 +39,17 @@ jobs:
             exit 1
           fi
 
+      - name: Reject a release that already exists for this tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Bump the tag instead of republishing a version code."
+            exit 1
+          fi
+
       - name: Extract version from tag
         id: version
         run: |
@@ -61,6 +72,8 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          set -euo pipefail
+          umask 077
           echo "$KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/release.keystore
 
       - name: Verify keystore
@@ -73,10 +86,28 @@ jobs:
           echo "Verifying keystore..."
           test -s "${{ github.workspace }}/release.keystore"
           keytool -list -keystore "${{ github.workspace }}/release.keystore" \
-            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+            -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" >/dev/null
 
       - name: Build APK
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+        shell: bash
         run: |
+          set -euo pipefail
+
+          # MSBuild turns an environment variable into a property, so the signing
+          # values reach the Android targets without ever appearing on a command
+          # line, where every process on the runner could read them.
+          export AndroidSigningKeyStore="$ANDROID_KEYSTORE_PATH"
+          export AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS"
+          export AndroidSigningKeyPass="$ANDROID_KEY_PASSWORD"
+          export AndroidSigningStorePass="$ANDROID_KEYSTORE_PASSWORD"
+
+          BUILD_LOG="$RUNNER_TEMP/release-build.log"
+
           dotnet publish AetherAprs.Android/AetherAprs.Android.csproj \
             -c Release \
             -f net11.0-android \
@@ -84,12 +115,18 @@ jobs:
             -p:ApplicationVersion=${{ steps.version.outputs.version_code }} \
             -p:ApplicationDisplayVersion=${{ steps.version.outputs.version_name }} \
             -p:AndroidKeyStore=true \
-            -p:AndroidSigningKeyStore=${{ github.workspace }}/release.keystore \
-            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
-            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
-            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
-            -p:AndroidSdkBuildToolsVersion="$ANDROID_BUILD_TOOLS_VERSION"
+            -p:AndroidSdkBuildToolsVersion="$ANDROID_BUILD_TOOLS_VERSION" \
+            2>&1 | tee "$BUILD_LOG"
+
+          # Masking is only worth claiming when it is proven per run: a secret that
+          # reached the log is already public in the run it leaked into.
+          for secret in "$ANDROID_KEY_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD"; do
+            if [ -n "$secret" ] && grep -qF -- "$secret" "$BUILD_LOG"; then
+              echo "::error::A signing password appeared in the build log; masking is not working."
+              exit 1
+            fi
+          done
       
       - name: Verify ReadyToRun images
         shell: bash
@@ -110,6 +147,8 @@ jobs:
       - name: Find and Verify APK
         id: find_apk
         shell: bash
+        env:
+          EXPECTED_VERSION_CODE: ${{ steps.version.outputs.version_code }}
         run: |
           set -euo pipefail
 
@@ -139,7 +178,17 @@ jobs:
 
           "$BUILD_TOOLS_DIR/zipalign" -c -P 4 4 "$APK_PATH"
           "$BUILD_TOOLS_DIR/apksigner" verify --verbose "$APK_PATH"
-          "$BUILD_TOOLS_DIR/aapt" dump badging "$APK_PATH" | grep -E "package:|sdkVersion:"
+
+          BADGING=$("$BUILD_TOOLS_DIR/aapt" dump badging "$APK_PATH")
+          echo "$BADGING" | grep -E "package:|sdkVersion:"
+
+          # The artifact must carry the version code the tag implies; otherwise a
+          # stale or misbuilt package would ship under a new release name.
+          ACTUAL_VERSION_CODE=$(echo "$BADGING" | sed -n "s/^package:.* versionCode='\([0-9]*\)'.*/\1/p")
+          if [ "$ACTUAL_VERSION_CODE" != "$EXPECTED_VERSION_CODE" ]; then
+            echo "::error::The signed APK reports versionCode '$ACTUAL_VERSION_CODE', which does not match '$EXPECTED_VERSION_CODE' from the tag."
+            exit 1
+          fi
 
           # Keep the release asset name deterministic.
           APK_NAME="AetherAprs-v${{ steps.version.outputs.version_name }}.apk"
@@ -168,6 +217,19 @@ jobs:
         with:
           subject-path: ${{ steps.find_apk.outputs.apk_name }}
 
-      - name: Clean up keystore
+      - name: Clean up signing material
         if: always()
-        run: rm -f ${{ github.workspace }}/release.keystore
+        shell: bash
+        run: |
+          set -uo pipefail
+          rm -f "${{ github.workspace }}/release.keystore"
+          rm -f "${{ github.workspace }}/*.keystore"
+          rm -f "$RUNNER_TEMP/release-build.log"
+
+          # Prove the workspace is clean instead of assuming the removal worked;
+          # a later step could otherwise archive the keystore by accident.
+          LEFTOVER=$(find "${{ github.workspace }}" -maxdepth 4 -name "*.keystore" -print -quit)
+          if [ -n "$LEFTOVER" ]; then
+            echo "::error::Signing material was left in the workspace at $LEFTOVER."
+            exit 1
+          fi

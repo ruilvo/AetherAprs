@@ -21,7 +21,14 @@ TAG="${TAG#v}"
 # Validate the tag format up front (M5): major.minor.patch with an optional
 # pre-release suffix (-<type>.<number>).
 if ! [[ $TAG =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z]+\.[0-9]+)?$ ]]; then
-  echo "Error: Invalid tag format '$TAG'. Expected vMAJOR.MINOR.PATCH[-<type>.<number>]."
+  echo "Error: Invalid tag format '$TAG'. Expected vMAJOR.MINOR.PATCH[-<type>.<number>]." >&2
+  exit 1
+fi
+
+# Reject leading zeros: v01.2.3 and v1.2.3 are different tags but would resolve to
+# the same version code, so the second release for the pair would never install.
+if [[ $TAG =~ (^|\.)0[0-9] ]]; then
+  echo "Error: Invalid tag '$TAG'. Version components must not have leading zeros." >&2
   exit 1
 fi
 
@@ -29,6 +36,25 @@ fi
 VERSION_MAJOR=$(echo "$TAG" | cut -d. -f1)
 VERSION_MINOR=$(echo "$TAG" | cut -d. -f2)
 VERSION_PATCH=$(echo "$TAG" | cut -d. -f3 | cut -d- -f1)
+
+# The version code packs four decimal fields into one integer, so a component that
+# overflows its field would borrow from the next one and collide with another tag:
+# 1.100.0 and 2.0.0 would both be 2000099. Bound every field before packing.
+MAX_MAJOR=2099
+MAX_COMPONENT=99
+
+if [ "$VERSION_MAJOR" -gt "$MAX_MAJOR" ]; then
+  echo "Error: Major version must be 0-$MAX_MAJOR, got $VERSION_MAJOR." >&2
+  exit 1
+fi
+if [ "$VERSION_MINOR" -gt "$MAX_COMPONENT" ]; then
+  echo "Error: Minor version must be 0-$MAX_COMPONENT, got $VERSION_MINOR." >&2
+  exit 1
+fi
+if [ "$VERSION_PATCH" -gt "$MAX_COMPONENT" ]; then
+  echo "Error: Patch version must be 0-$MAX_COMPONENT, got $VERSION_PATCH." >&2
+  exit 1
+fi
 
 # Extract pre-release type and number if present
 PRERELEASE_NUM=99  # Default to 99 for final releases
@@ -78,6 +104,12 @@ fi
 
 # Version code: MAJOR * 1000000 + MINOR * 10000 + PATCH * 100 + PRERELEASE
 VERSION_CODE=$((VERSION_MAJOR * 1000000 + VERSION_MINOR * 10000 + VERSION_PATCH * 100 + PRERELEASE_NUM))
+
+# Android refuses version codes above 2100000000; fail here rather than at install time.
+if [ "$VERSION_CODE" -gt 2100000000 ]; then
+  echo "Error: Version code $VERSION_CODE exceeds the Android maximum of 2100000000." >&2
+  exit 1
+fi
 
 # Output for GitHub Actions
 echo "tag=$TAG"
