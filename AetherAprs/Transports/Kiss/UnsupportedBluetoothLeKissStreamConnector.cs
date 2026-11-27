@@ -16,11 +16,29 @@ namespace AetherAprs.Transports.Kiss;
 public sealed class UnsupportedBluetoothLeKissStreamConnector : IKissStreamConnector
 {
     /// <inheritdoc />
+    public KissTransportKind Transport => KissTransportKind.BluetoothLe;
+
+    /// <inheritdoc />
     public Type SettingsType => typeof(BluetoothLeKissTransportSettings);
 
     /// <inheritdoc />
     public bool IsSupported => false;
 
     /// <inheritdoc />
-    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) => throw new PlatformNotSupportedException("Bluetooth LE KISS transport is not supported on this platform.");
+    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) =>
+        ConnectAsync(settings, KissConnectionContext.None, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<Stream> ConnectAsync(
+        IKissTransportSettings settings,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default)
+    {
+        context.Report(KissConnectionProgress.Failed(
+            Transport,
+            KissConnectionStage.PreparingTransport,
+            "Bluetooth LE KISS transport is not supported on this platform."));
+
+        throw new PlatformNotSupportedException("Bluetooth LE KISS transport is not supported on this platform.");
+    }
 }

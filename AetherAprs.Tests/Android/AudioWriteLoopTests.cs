@@ -94,6 +94,88 @@ public sealed class AudioWriteLoopTests
     }
 
     [Fact]
+    public void WriteAll_GuardBlocksBeforeFirstChunk_TransfersNothing()
+    {
+        int calls = 0;
+
+        AudioTransferResult result = AudioWriteLoop.WriteAll(
+            8,
+            (offset, count) =>
+            {
+                calls++;
+                return count;
+            },
+            () => AudioTransmitBlockReason.FocusLost,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AudioTransferStatus.Blocked, result.Status);
+        Assert.Equal(AudioTransmitBlockReason.FocusLost, result.BlockReason);
+        Assert.Equal(0, result.Transferred);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public void WriteAll_GuardBlocksAfterPartialWrite_StopsMidFrame()
+    {
+        int calls = 0;
+        int guardCalls = 0;
+
+        AudioTransferResult result = AudioWriteLoop.WriteAll(
+            12,
+            (offset, count) =>
+            {
+                calls++;
+                return Math.Min(count, 4);
+            },
+            () => ++guardCalls == 1
+                ? AudioTransmitBlockReason.None
+                : AudioTransmitBlockReason.RouteBecomingNoisy,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AudioTransferStatus.Blocked, result.Status);
+        Assert.Equal(AudioTransmitBlockReason.RouteBecomingNoisy, result.BlockReason);
+        Assert.Equal(4, result.Transferred);
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public void WriteAll_Guard_RevalidatesBeforeEveryChunk()
+    {
+        int guardCalls = 0;
+
+        AudioTransferResult result = AudioWriteLoop.WriteAll(
+            9,
+            (offset, count) => Math.Min(count, 3),
+            () =>
+            {
+                guardCalls++;
+                return AudioTransmitBlockReason.None;
+            },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(AudioTransferStatus.Completed, result.Status);
+        Assert.Equal(9, result.Transferred);
+        Assert.Equal(3, guardCalls);
+    }
+
+    [Fact]
+    public void WriteAll_CancelledBeforeBlockedGuard_ReportsAbortion()
+    {
+        using CancellationTokenSource cancellation = new();
+        cancellation.Cancel();
+
+        AudioTransferResult result = AudioWriteLoop.WriteAll(
+            8,
+            (offset, count) => count,
+            () => AudioTransmitBlockReason.FocusLost,
+            cancellation.Token);
+
+        // Cancellation is the caller's own intent and wins over the route check, so a
+        // cancelled transmission is not reported as a route failure.
+        Assert.Equal(AudioTransferStatus.Aborted, result.Status);
+    }
+
+    [Fact]
     public void WriteAll_AbortedBetweenChunks_ReturnsAbortedWithProgress()
     {
         using CancellationTokenSource cancellation = new();

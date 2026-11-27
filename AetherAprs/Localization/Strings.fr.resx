@@ -580,4 +580,25 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PacketDetailScalarFormat" xml:space="preserve"><value>{0:F2}</value></data>
   <data name="SendBeaconAction" xml:space="preserve"><value>Envoyer la balise maintenant</value></data>
   <data name="BeaconStatusLabel" xml:space="preserve"><value>État de la balise</value></data>
+  <data name="ConnectionStageIdle" xml:space="preserve"><value>Non connecté</value></data>
+  <data name="ConnectionStagePreparingTransport" xml:space="preserve"><value>Vérification du transport</value></data>
+  <data name="ConnectionStageRequestingPermission" xml:space="preserve"><value>Demande d'autorisation</value></data>
+  <data name="ConnectionStageResolvingDevice" xml:space="preserve"><value>Résolution de l'appareil</value></data>
+  <data name="ConnectionStageConnectingTransport" xml:space="preserve"><value>Connexion</value></data>
+  <data name="ConnectionStageDiscoveringServices" xml:space="preserve"><value>Découverte des services</value></data>
+  <data name="ConnectionStageWritingConfiguration" xml:space="preserve"><value>Activation des notifications</value></data>
+  <data name="ConnectionStageNegotiatingPayload" xml:space="preserve"><value>Négociation de la taille de charge utile</value></data>
+  <data name="ConnectionStageReady" xml:space="preserve"><value>Connecté</value></data>
+  <data name="ConnectionStageCancelled" xml:space="preserve"><value>Annulé</value></data>
+  <data name="ConnectionStageFailed" xml:space="preserve"><value>Échec</value></data>
+  <data name="ConnectionFailedAtStage" xml:space="preserve"><value>Échec de la connexion pendant : {0}</value></data>
+  <data name="ConnectionCancelledAtStage" xml:space="preserve"><value>Connexion annulée pendant : {0}</value></data>
+  <data name="ConnectionDetailPayload" xml:space="preserve"><value>charge utile {0} sur {1} octets</value></data>
+  <data name="ConnectionDetailPayloadNoMtu" xml:space="preserve"><value>charge utile {0} octets (MTU non signalé)</value></data>
+  <data name="ConnectionDetailWriteWithoutResponse" xml:space="preserve"><value>écriture sans réponse</value></data>
+  <data name="ConnectionDetailWriteWithResponse" xml:space="preserve"><value>écriture avec réponse</value></data>
+  <data name="ConnectionDetailNotifications" xml:space="preserve"><value>notifications activées</value></data>
+  <data name="ConnectionDetailSppConnected" xml:space="preserve"><value>SPP connecté</value></data>
+  <data name="ConnectionDetailAttempt" xml:space="preserve"><value>tentative {0}</value></data>
+  <data name="KissTransportUnavailable" xml:space="preserve"><value>{0} n'est pas disponible sur cette plateforme</value></data>
 </root>

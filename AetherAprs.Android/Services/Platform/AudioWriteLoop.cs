@@ -20,16 +20,29 @@ internal enum AudioTransferStatus
     Failed,
 
     /// <summary>The caller aborted the transfer through the cancellation token.</summary>
-    Aborted
+    Aborted,
+
+    /// <summary>The audio route or focus stopped permitting transmission.</summary>
+    Blocked
 }
 
 /// <summary>Outcome of one chunked audio transfer.</summary>
 /// <param name="Transferred">Number of items transferred before the loop stopped.</param>
 /// <param name="Status">Why the loop stopped.</param>
-internal readonly record struct AudioTransferResult(int Transferred, AudioTransferStatus Status)
+/// <param name="BlockReason">
+/// Why transmission was refused, when <paramref name="Status"/> is
+/// <see cref="AudioTransferStatus.Blocked"/>.
+/// </param>
+internal readonly record struct AudioTransferResult(
+    int Transferred,
+    AudioTransferStatus Status,
+    AudioTransmitBlockReason BlockReason = AudioTransmitBlockReason.None)
 {
     /// <summary>Gets whether every requested item was transferred.</summary>
     public bool IsComplete => Status == AudioTransferStatus.Completed;
+
+    /// <summary>Gets whether the route stopped permitting transmission mid-frame.</summary>
+    public bool IsBlocked => Status == AudioTransferStatus.Blocked;
 }
 
 /// <summary>
@@ -57,6 +70,14 @@ internal static class AudioWriteLoop
     public delegate int ChunkTransfer(int offset, int count);
 
     /// <summary>
+    /// Checks, immediately before a chunk is transferred, whether transmission is
+    /// still permitted. Returning anything but
+    /// <see cref="AudioTransmitBlockReason.None"/> stops the transfer.
+    /// </summary>
+    /// <returns>The reason transmission is refused, or None when it may continue.</returns>
+    public delegate AudioTransmitBlockReason TransmitGuard();
+
+    /// <summary>
     /// Writes <paramref name="length"/> items through <paramref name="write"/>,
     /// retrying partial writes until the buffer is exhausted.
     /// </summary>
@@ -66,6 +87,25 @@ internal static class AudioWriteLoop
     public static AudioTransferResult WriteAll(
         int length,
         ChunkTransfer write,
+        CancellationToken cancellationToken = default) =>
+        WriteAll(length, write, guard: null, cancellationToken);
+
+    /// <summary>
+    /// Writes <paramref name="length"/> items through <paramref name="write"/>,
+    /// revalidating transmission before each chunk.
+    /// </summary>
+    /// <param name="length">Number of items in the caller's buffer.</param>
+    /// <param name="write">Writes a chunk at an offset.</param>
+    /// <param name="guard">
+    /// Revalidates the audio route before each chunk. A frame can take long enough
+    /// that focus is lost or the headset is unplugged while it is going out, so the
+    /// decision cannot be made once at the start.
+    /// </param>
+    /// <param name="cancellationToken">Aborts the loop between chunks.</param>
+    public static AudioTransferResult WriteAll(
+        int length,
+        ChunkTransfer write,
+        TransmitGuard? guard,
         CancellationToken cancellationToken = default)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(length);
@@ -77,6 +117,15 @@ internal static class AudioWriteLoop
             if (cancellationToken.IsCancellationRequested)
             {
                 return new AudioTransferResult(offset, AudioTransferStatus.Aborted);
+            }
+
+            if (guard is not null)
+            {
+                AudioTransmitBlockReason blockReason = guard();
+                if (blockReason != AudioTransmitBlockReason.None)
+                {
+                    return new AudioTransferResult(offset, AudioTransferStatus.Blocked, blockReason);
+                }
             }
 
             int written = write(offset, length - offset);

@@ -153,6 +153,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </ComboBox.ItemTemplate>
           </ComboBox>
 
+          <!-- Transport availability and the last connection stage -->
+          <TextBlock Text="{Binding UnavailableTransportText}"
+                     TextWrapping="Wrap"
+                     IsVisible="{Binding UnavailableTransportText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                     Foreground="{DynamicResource MaterialValidationErrorBrush}" />
+          <StackPanel Spacing="2"
+                      IsVisible="{Binding ConnectionStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding ConnectionStatusText}"
+                       TextWrapping="Wrap"
+                       Classes="Caption"
+                       Foreground="{DynamicResource MaterialBodyBrush}" />
+            <TextBlock Text="{Binding ConnectionDetailText}"
+                       TextWrapping="Wrap"
+                       Classes="Caption"
+                       IsVisible="{Binding ConnectionDetailText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
+          </StackPanel>
+
           <!-- TCP -->
           <StackPanel Spacing="12"
                       IsVisible="{Binding SelectedKissTransportType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=TcpKissTransportSettings}">

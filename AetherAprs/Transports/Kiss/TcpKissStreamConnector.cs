@@ -17,13 +17,23 @@ namespace AetherAprs.Transports.Kiss;
 public sealed class TcpKissStreamConnector : IKissStreamConnector
 {
     /// <inheritdoc />
+    public KissTransportKind Transport => KissTransportKind.Tcp;
+
+    /// <inheritdoc />
     public Type SettingsType => typeof(TcpKissTransportSettings);
 
     /// <inheritdoc />
     public bool IsSupported => true;
 
     /// <inheritdoc />
-    public async Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default)
+    public Task<Stream> ConnectAsync(IKissTransportSettings settings, CancellationToken cancellationToken = default) =>
+        ConnectAsync(settings, KissConnectionContext.None, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<Stream> ConnectAsync(
+        IKissTransportSettings settings,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default)
     {
         if (settings is not TcpKissTransportSettings tcpSettings)
         {
@@ -32,15 +42,29 @@ public sealed class TcpKissStreamConnector : IKissStreamConnector
                 nameof(settings));
         }
 
+        context.Report(Transport, KissConnectionStage.ConnectingTransport);
+
         TcpClient client = new();
         try
         {
             await client.ConnectAsync(tcpSettings.Host, tcpSettings.Port, cancellationToken).ConfigureAwait(false);
-            return new TcpClientNetworkStream(client);
+            TcpClientNetworkStream stream = new(client);
+            context.Report(KissConnectionProgress.Ready(Transport));
+            return stream;
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             client.Dispose();
+            context.Report(KissConnectionProgress.Cancelled(Transport, KissConnectionStage.ConnectingTransport));
+            throw;
+        }
+        catch (Exception ex)
+        {
+            client.Dispose();
+            context.Report(KissConnectionProgress.Failed(
+                Transport,
+                KissConnectionStage.ConnectingTransport,
+                ex.Message));
             throw;
         }
     }

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Transports.Kiss;
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Ports;
@@ -54,6 +55,9 @@ internal sealed class PortSessionManager : IPortSessionManager
     public event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
 
     /// <inheritdoc />
+    public event EventHandler<PortConnectionProgressEventArgs>? ConnectionProgress;
+
+    /// <inheritdoc />
     public IReadOnlyList<Guid> RunningPortIds
     {
         get
@@ -80,6 +84,15 @@ internal sealed class PortSessionManager : IPortSessionManager
         lock (_stateLock)
         {
             return _slots.TryGetValue(portId, out SessionSlot? slot) ? slot.Generation : 0;
+        }
+    }
+
+    /// <inheritdoc />
+    public KissConnectionProgress? GetConnectionProgress(Guid portId)
+    {
+        lock (_stateLock)
+        {
+            return _slots.TryGetValue(portId, out SessionSlot? slot) ? slot.LastConnectionProgress : null;
         }
     }
 
@@ -261,7 +274,7 @@ internal sealed class PortSessionManager : IPortSessionManager
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            IPortModem modem = await _modemFactory.CreateAsync(port, cancellationToken).ConfigureAwait(false);
+            IPortModem modem = await CreateModemAsync(port, cancellationToken).ConfigureAwait(false);
 
             void packetHandler(object? _, AprsPacket packet) => RaisePacketReceived(port.Id, packet);
             void errorHandler(object? _, Exception exception) => RaiseTransportFault(port.Id, exception);
@@ -324,6 +337,53 @@ internal sealed class PortSessionManager : IPortSessionManager
         {
             _logger.LogError(ex, "Failed to start modem for port {PortName} ({PortId}).", port.Name, port.Id);
             return PortSessionStartResult.Failed(port.Id, ex);
+        }
+    }
+
+    /// <summary>
+    /// Builds the modem, converting the connector's per-stage reports into one
+    /// terminal report for the port. Only a KISS port has a transport negotiation
+    /// to report, so other port types stay silent instead of claiming a stage.
+    /// </summary>
+    private async Task<IPortModem> CreateModemAsync(PortConfig port, CancellationToken cancellationToken)
+    {
+        if (port.TypeSettings is not KissSettings kiss)
+        {
+            return await _modemFactory.CreateAsync(port, cancellationToken).ConfigureAwait(false);
+        }
+
+        KissTransportKind kind = KissTransportKindResolver.FromSettings(kiss.Transport);
+        KissConnectionProgressRecorder recorder = new();
+
+        try
+        {
+            IPortModem modem = await _modemFactory
+                .CreateAsync(port, new KissConnectionContext(recorder, Attempt: 1), cancellationToken)
+                .ConfigureAwait(false);
+
+            ReportConnectionProgress(
+                port.Id,
+                recorder.Latest is { Outcome: KissConnectionOutcome.Succeeded } ready
+                    ? ready
+                    : KissConnectionProgress.Ready(kind));
+
+            return modem;
+        }
+        catch (Exception ex)
+        {
+            // A connector reports the stage it could not pass; the exception is only
+            // the fallback for a failure that never reached the connector (a missing
+            // settings object, a modem that refused to build).
+            ReportConnectionProgress(
+                port.Id,
+                recorder.Latest switch
+                {
+                    { IsTerminal: true } terminal => terminal,
+                    { } stage => KissConnectionProgress.Failed(stage.Transport, stage.Stage, ex.Message),
+                    null => KissConnectionProgress.Failed(kind, KissConnectionStage.PreparingTransport, ex.Message)
+                });
+
+            throw;
         }
     }
 
@@ -512,6 +572,55 @@ internal sealed class PortSessionManager : IPortSessionManager
     }
 
     /// <summary>
+    /// Records a connection report and publishes it, so a consumer sees the stage
+    /// whether it is watching events or asking after the fact.
+    /// </summary>
+    private void ReportConnectionProgress(Guid portId, KissConnectionProgress progress)
+    {
+        lock (_stateLock)
+        {
+            if (_slots.TryGetValue(portId, out SessionSlot? slot))
+            {
+                slot.LastConnectionProgress = progress;
+            }
+        }
+
+        RaiseConnectionProgress(portId, progress);
+    }
+
+    private void RaiseConnectionProgress(Guid portId, KissConnectionProgress progress)
+    {
+        if (progress.IsFailure)
+        {
+            _logger.LogWarning(
+                "Port {PortId} connection stopped at {Stage} for {Transport} on attempt {Attempt}: {Failure}",
+                portId,
+                progress.Stage,
+                progress.Transport,
+                progress.Attempt,
+                progress.Failure);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Port {PortId} connection reached {Stage} for {Transport} on attempt {Attempt}.",
+                portId,
+                progress.Stage,
+                progress.Transport,
+                progress.Attempt);
+        }
+
+        try
+        {
+            ConnectionProgress?.Invoke(this, new PortConnectionProgressEventArgs(portId, progress));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ConnectionProgress subscriber failed for port {PortId}.", portId);
+        }
+    }
+
+    /// <summary>
     /// Reserves the port's slot for one operation. The reservation keeps the slot
     /// alive until <see cref="ReleaseSlot"/> runs, so retirement can never dispose a
     /// gate another operation is holding.
@@ -594,6 +703,13 @@ internal sealed class PortSessionManager : IPortSessionManager
 
         /// <summary>Completes when the last outstanding send finishes; guarded by the manager's lock.</summary>
         public TaskCompletionSource? Drained { get; set; }
+
+        /// <summary>
+        /// Most recent connection report for the port; guarded by the manager's
+        /// lock. Kept after the session stops so a failed connect can still be
+        /// explained when the operator next opens the port.
+        /// </summary>
+        public KissConnectionProgress? LastConnectionProgress { get; set; }
     }
 
     private sealed class ActiveSession

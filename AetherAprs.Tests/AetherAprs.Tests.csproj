@@ -43,11 +43,19 @@ SPDX-License-Identifier: GPL-3.0-or-later
              Link="Android\Services\Platform\AudioWriteLoop.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\AudioRouteValidator.cs"
              Link="Android\Services\Platform\AudioRouteValidator.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Platform\AudioTransmitGate.cs"
+             Link="Android\Services\Platform\AudioTransmitGate.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\NotificationContentSpec.cs"
              Link="Android\Services\Platform\NotificationContentSpec.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\SecretStoreFailureClassifier.cs"
              Link="Android\Services\Platform\SecretStoreFailureClassifier.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\CompassSubscriptionGuard.cs"
              Link="Android\Services\Platform\CompassSubscriptionGuard.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattNegotiationProgress.cs"
+             Link="Android\Services\Transports\GattNegotiationProgress.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattWriteCallbackTracker.cs"
+             Link="Android\Services\Transports\GattWriteCallbackTracker.cs" />
+    <Compile Include="..\AetherAprs.Android\Services\Transports\GattPayloadSize.cs"
+             Link="Android\Services\Transports\GattPayloadSize.cs" />
   </ItemGroup>
 </Project>

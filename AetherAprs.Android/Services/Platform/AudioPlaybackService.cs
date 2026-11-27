@@ -18,7 +18,7 @@ namespace AetherAprs.Android.Services.Platform;
 public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger = null) : IAudioPlaybackService
 {
     private readonly ILogger<AudioPlaybackService>? _logger = logger;
-    private readonly AudioRouteValidator _routeValidator = new();
+    private readonly AudioTransmitGate _routeGate = new();
 
     /// <summary>
     /// Gets or sets the route/focus snapshot captured before transmission. When
@@ -42,13 +42,12 @@ public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger =
         // audio focus; the caller re-captures the snapshot before each TX.
         if (RouteSnapshot is { } routeSnapshot)
         {
-            AudioTransmitBlockReason blockReason = _routeValidator.IsAuthorized
-                ? _routeValidator.Revalidate(routeSnapshot)
-                : _routeValidator.Authorize(routeSnapshot);
+            AudioTransmitBlockReason blockReason = _routeGate.TryKey(routeSnapshot);
             if (blockReason != AudioTransmitBlockReason.None)
             {
-                throw new InvalidOperationException(
-                    $"Audio route does not permit playback ({blockReason}).");
+                throw new AudioRouteBlockedException(
+                    $"Audio route does not permit playback ({blockReason}).",
+                    blockReason);
             }
         }
 
@@ -77,11 +76,24 @@ public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger =
         AudioTransferResult writeResult = AudioWriteLoop.WriteAll(
             shorts.Length,
             (offset, count) => track.Write(shorts, offset, count),
+            // A frame can outlast the route it started on, so the sink is revalidated
+            // before every chunk; a null snapshot keeps the pre-route behaviour.
+            RouteSnapshot is null ? null : () => _routeGate.CheckBeforeTransmit(RouteSnapshot.Value),
             cancellationToken);
 
         if (writeResult.Status == AudioTransferStatus.Aborted)
         {
             cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        if (writeResult.IsBlocked)
+        {
+            // Unkey and drop the frame: playing the remainder would put modulated
+            // audio on a route the operator never authorized.
+            track.Stop();
+            throw new AudioRouteBlockedException(
+                $"Audio playback stopped after {writeResult.Transferred} of {shorts.Length} samples ({writeResult.BlockReason}).",
+                writeResult.BlockReason);
         }
 
         if (!writeResult.IsComplete)

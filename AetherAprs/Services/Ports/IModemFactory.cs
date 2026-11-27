@@ -4,6 +4,7 @@
 
 using AetherAprs.Configuration;
 using AetherAprs.Modems.Aprs;
+using AetherAprs.Transports.Kiss;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -49,4 +50,24 @@ public interface IModemFactory
     /// <exception cref="InvalidOperationException">Thrown when the port has no type settings.</exception>
     /// <exception cref="NotSupportedException">Thrown when the settings type has no modem.</exception>
     Task<IPortModem> CreateAsync(PortConfig port, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a modem for <paramref name="port"/>, reporting the stage the
+    /// transport negotiation reaches.
+    /// </summary>
+    /// <param name="port">Configured port whose type settings select the transport.</param>
+    /// <param name="context">
+    /// Per-attempt progress context; pass <see cref="KissConnectionContext.None"/>
+    /// when nobody is observing.
+    /// </param>
+    /// <param name="cancellationToken">Token forwarded to the transport connector.</param>
+    /// <returns>A modem that owns every resource created for it.</returns>
+    /// <remarks>
+    /// The default implementation ignores the context and delegates to the plain
+    /// overload, so a fake factory stays a one-method type.
+    /// </remarks>
+    Task<IPortModem> CreateAsync(
+        PortConfig port,
+        KissConnectionContext context,
+        CancellationToken cancellationToken = default) => CreateAsync(port, cancellationToken);
 }

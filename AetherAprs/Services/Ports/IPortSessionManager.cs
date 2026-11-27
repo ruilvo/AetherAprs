@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
+using AetherAprs.Transports.Kiss;
 
 namespace AetherAprs.Services.Ports;
 
@@ -169,6 +170,12 @@ public interface IPortSessionManager : IAsyncDisposable
     /// <summary>Raised when a running modem reports a receive-side fault.</summary>
     event EventHandler<PortTransportFaultEventArgs>? TransportFaulted;
 
+    /// <summary>
+    /// Raised when a start attempt reaches, or fails to reach, a connection stage.
+    /// Only a KISS port reports one, because only it negotiates a transport.
+    /// </summary>
+    event EventHandler<PortConnectionProgressEventArgs>? ConnectionProgress;
+
     /// <summary>Whether the port currently has a running session.</summary>
     bool IsRunning(Guid portId);
 
@@ -179,6 +186,13 @@ public interface IPortSessionManager : IAsyncDisposable
     /// gone and must not be replayed on the new one. Zero when the port never ran.
     /// </summary>
     long GetSessionGeneration(Guid portId);
+
+    /// <summary>
+    /// The most recent connection report for the port, or <see langword="null"/>
+    /// when it has never attempted a KISS connection. A reader that missed the event
+    /// can still name the stage a failed connect stopped at.
+    /// </summary>
+    KissConnectionProgress? GetConnectionProgress(Guid portId);
 
     /// <summary>
     /// Starts a session for the port, or reports why it could not be started.

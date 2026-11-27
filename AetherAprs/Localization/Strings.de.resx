@@ -580,4 +580,25 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="PacketDetailScalarFormat" xml:space="preserve"><value>{0:F2}</value></data>
   <data name="SendBeaconAction" xml:space="preserve"><value>Beacon jetzt senden</value></data>
   <data name="BeaconStatusLabel" xml:space="preserve"><value>Beacon-Status</value></data>
+  <data name="ConnectionStageIdle" xml:space="preserve"><value>Nicht verbunden</value></data>
+  <data name="ConnectionStagePreparingTransport" xml:space="preserve"><value>Transport wird geprüft</value></data>
+  <data name="ConnectionStageRequestingPermission" xml:space="preserve"><value>Berechtigung wird angefordert</value></data>
+  <data name="ConnectionStageResolvingDevice" xml:space="preserve"><value>Gerät wird aufgelöst</value></data>
+  <data name="ConnectionStageConnectingTransport" xml:space="preserve"><value>Verbinden</value></data>
+  <data name="ConnectionStageDiscoveringServices" xml:space="preserve"><value>Dienste werden ermittelt</value></data>
+  <data name="ConnectionStageWritingConfiguration" xml:space="preserve"><value>Benachrichtigungen werden aktiviert</value></data>
+  <data name="ConnectionStageNegotiatingPayload" xml:space="preserve"><value>Nutzlastgröße wird ausgehandelt</value></data>
+  <data name="ConnectionStageReady" xml:space="preserve"><value>Verbunden</value></data>
+  <data name="ConnectionStageCancelled" xml:space="preserve"><value>Abgebrochen</value></data>
+  <data name="ConnectionStageFailed" xml:space="preserve"><value>Fehlgeschlagen</value></data>
+  <data name="ConnectionFailedAtStage" xml:space="preserve"><value>Verbindung fehlgeschlagen bei: {0}</value></data>
+  <data name="ConnectionCancelledAtStage" xml:space="preserve"><value>Verbindung abgebrochen bei: {0}</value></data>
+  <data name="ConnectionDetailPayload" xml:space="preserve"><value>Nutzlast {0} von {1} Bytes</value></data>
+  <data name="ConnectionDetailPayloadNoMtu" xml:space="preserve"><value>Nutzlast {0} Bytes (MTU nicht gemeldet)</value></data>
+  <data name="ConnectionDetailWriteWithoutResponse" xml:space="preserve"><value>Schreiben ohne Antwort</value></data>
+  <data name="ConnectionDetailWriteWithResponse" xml:space="preserve"><value>Schreiben mit Antwort</value></data>
+  <data name="ConnectionDetailNotifications" xml:space="preserve"><value>Benachrichtigungen aktiviert</value></data>
+  <data name="ConnectionDetailSppConnected" xml:space="preserve"><value>SPP verbunden</value></data>
+  <data name="ConnectionDetailAttempt" xml:space="preserve"><value>Versuch {0}</value></data>
+  <data name="KissTransportUnavailable" xml:space="preserve"><value>{0} ist auf dieser Plattform nicht verfügbar</value></data>
 </root>
