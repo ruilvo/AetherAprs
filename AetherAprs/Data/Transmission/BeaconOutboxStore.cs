@@ -73,6 +73,30 @@ internal sealed class BeaconOutboxStore(
         {
             await ExpireStaleAsync(context, now, token).ConfigureAwait(false);
 
+            // One identity/profile keeps at most one waiting beacon: a newer fix for
+            // the same route replaces the older queued position instead of occupying a
+            // second slot, so a slow link never sends a stale fix before a fresh one.
+            Guid? normalizedPortId = portId == Guid.Empty ? null : portId;
+            BeaconOutboxRecord? coalesced = await context.BeaconOutbox
+                .Where(beacon => beacon.Status == BeaconQueueStatus.Queued
+                    && beacon.PortId == normalizedPortId)
+                .OrderByDescending(beacon => beacon.CreatedAt)
+                .FirstOrDefaultAsync(token).ConfigureAwait(false);
+
+            if (coalesced is not null)
+            {
+                coalesced.Latitude = location.Location.Latitude;
+                coalesced.Longitude = location.Location.Longitude;
+                coalesced.Altitude = location.Altitude;
+                coalesced.CreatedAt = now.UtcDateTime;
+                coalesced.ExpiresAt = now.Add(DefaultExpiry).UtcDateTime;
+                coalesced.UpdatedAt = now.UtcDateTime;
+                coalesced.Error = null;
+                await context.SaveChangesAsync(token).ConfigureAwait(false);
+
+                return (new BeaconEnqueueResult(ToItem(coalesced), null, BeaconQueueStatus.Queued), null);
+            }
+
             int activeCount = await context.BeaconOutbox
                 .CountAsync(HoldsSlot, token).ConfigureAwait(false);
 
@@ -161,6 +185,17 @@ internal sealed class BeaconOutboxStore(
                 .ToListAsync(token).ConfigureAwait(false);
             return [.. records.Select(ToItem)];
         }, cancellationToken);
+
+    public Task<int> GetStaleCountAsync(CancellationToken cancellationToken = default) =>
+        // Stale work is work the operator never got: it expired before it could be
+        // sent or was dropped to admit a newer beacon. Counting the durable rows makes
+        // the loss visible after a restart as well.
+        reader.QueryAsync<int>(async (context, token) => await context.BeaconOutbox
+            .CountAsync(
+                beacon => beacon.Status == BeaconQueueStatus.Expired
+                    || beacon.Status == BeaconQueueStatus.Dropped,
+                token)
+            .ConfigureAwait(false), cancellationToken);
 
     public Task MarkSendingAsync(Guid id, CancellationToken cancellationToken = default) =>
         TransitionAsync("beacon.mark-sending", id, (beacon, now) =>

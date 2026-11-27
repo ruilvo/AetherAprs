@@ -519,4 +519,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SupportReportPrivacyNote" xml:space="preserve"><value>El informe nunca incluye el texto de los mensajes ni coordenadas precisas.</value></data>
   <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Generar vista previa</value></data>
   <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Genera una vista previa para revisar el informe aquí.</value></data>
+  <data name="BeaconPacketPreview" xml:space="preserve"><value>Vista previa del paquete</value></data>
+  <data name="BeaconPreviewSampleNotice" xml:space="preserve"><value>La vista previa usa una posición de ejemplo y la configuración actual de la estación.</value></data>
+  <data name="BeaconPreviewPosition" xml:space="preserve"><value>Posición (campo de información)</value></data>
+  <data name="BeaconPreviewPath" xml:space="preserve"><value>Ruta</value></data>
+  <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Símbolo</value></data>
+  <data name="BeaconStaleCount" xml:space="preserve"><value>{0} baliza(s) en cola caducaron o se descartaron antes de la transmisión.</value></data>
 </root>

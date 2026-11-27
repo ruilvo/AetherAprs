@@ -519,4 +519,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="SupportReportPrivacyNote" xml:space="preserve"><value>Der Bericht enthält niemals Nachrichtentexte oder genaue Koordinaten.</value></data>
   <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Vorschau erzeugen</value></data>
   <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Erzeuge eine Vorschau, um den Bericht hier zu prüfen.</value></data>
+  <data name="BeaconPacketPreview" xml:space="preserve"><value>Paketvorschau</value></data>
+  <data name="BeaconPreviewSampleNotice" xml:space="preserve"><value>Die Vorschau verwendet eine Beispielposition und die aktuellen Stations-Einstellungen.</value></data>
+  <data name="BeaconPreviewPosition" xml:space="preserve"><value>Position (Info-Feld)</value></data>
+  <data name="BeaconPreviewPath" xml:space="preserve"><value>Pfad</value></data>
+  <data name="BeaconPreviewSymbol" xml:space="preserve"><value>Symbol</value></data>
+  <data name="BeaconStaleCount" xml:space="preserve"><value>{0} wartende Bake(n) sind vor der Übertragung abgelaufen oder verworfen worden.</value></data>
 </root>

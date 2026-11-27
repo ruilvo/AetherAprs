@@ -41,6 +41,40 @@ SPDX-License-Identifier: GPL-3.0-or-later
                      Text="{loc:Loc DynamicBeaconingDescriptionLong}" />
         </StackPanel>
 
+        <!-- Packet Preview -->
+        <controls:Card Classes="StandardCard">
+          <StackPanel Spacing="12">
+            <TextBlock Classes="SectionTitle"
+                       Text="{loc:Loc BeaconPacketPreview}" />
+            <TextBlock Classes="Caption"
+                       Text="{loc:Loc BeaconPreviewSampleNotice}"
+                       TextWrapping="Wrap"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+            <StackPanel Spacing="4">
+              <TextBlock Classes="Body2" Text="{loc:Loc BeaconPreviewPosition}" />
+              <TextBlock Text="{Binding PreviewInfoField}"
+                         TextWrapping="Wrap"
+                         FontFamily="monospace" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Classes="Body2" Text="{loc:Loc BeaconPreviewPath}" />
+              <TextBlock Grid.Column="1" Text="{Binding PreviewPath}" TextWrapping="Wrap" FontFamily="monospace" />
+            </Grid>
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <TextBlock Grid.Column="0" Classes="Body2" Text="{loc:Loc BeaconPreviewSymbol}" />
+              <TextBlock Grid.Column="1" Text="{Binding PreviewSymbol}" FontFamily="monospace" />
+            </Grid>
+
+            <TextBlock Text="{Binding StaleBeaconStatus}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding StaleBeaconStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource MaterialErrorBrush}" />
+          </StackPanel>
+        </controls:Card>
+
         <!-- Active Mode Selection -->
         <StackPanel Spacing="12">
           <TextBlock Classes="SectionTitle"

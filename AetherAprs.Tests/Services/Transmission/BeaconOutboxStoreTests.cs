@@ -229,6 +229,78 @@ public sealed class BeaconOutboxStoreTests
         Assert.Equal(BeaconQueueStatus.Queued, pending.Status);
     }
 
+    [Fact]
+    public async Task Enqueue_SameIdentity_CoalescesIntoOneQueuedItemCarryingTheLatestPosition()
+    {
+        using TempAppDatabase database = TempAppDatabase.Create();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        IBeaconTransmitQueue queue = StoreFactory.CreateBeaconOutbox(database);
+        Guid portId = Guid.NewGuid();
+        LocationData first = new()
+        {
+            Location = new Coordinate(38.5, -9.1),
+            Altitude = 12,
+            Timestamp = now
+        };
+        LocationData latest = new()
+        {
+            Location = new Coordinate(39.25, -8.75),
+            Altitude = 220,
+            Timestamp = now.AddSeconds(30)
+        };
+
+        BeaconQueueItem firstItem = (await queue.EnqueueAsync(
+            portId, first, now, TestContext.Current.CancellationToken)).Queued!;
+        BeaconQueueItem latestItem = (await queue.EnqueueAsync(
+            portId, latest, now.AddSeconds(30), TestContext.Current.CancellationToken)).Queued!;
+
+        // A newer fix for the same route replaces the waiting beacon instead of
+        // occupying a second slot and sending the stale position first.
+        Assert.Equal(firstItem.Id, latestItem.Id);
+
+        BeaconQueueItem only = Assert.Single(
+            await queue.GetSnapshotAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(BeaconQueueStatus.Queued, only.Status);
+        Assert.Equal(39.25, only.Latitude, precision: 6);
+        Assert.Equal(-8.75, only.Longitude, precision: 6);
+        Assert.Equal(220, only.Altitude);
+    }
+
+    [Fact]
+    public async Task Enqueue_DifferentIdentities_StillUseDistinctSlots()
+    {
+        using TempAppDatabase database = TempAppDatabase.Create();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        IBeaconTransmitQueue queue = StoreFactory.CreateBeaconOutbox(database);
+
+        _ = await queue.EnqueueAsync(
+            Guid.NewGuid(), Location(now), now, TestContext.Current.CancellationToken);
+        _ = await queue.EnqueueAsync(
+            Guid.NewGuid(), Location(now), now, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, (await queue.ReconcileAsync(
+            now, TestContext.Current.CancellationToken)).Count);
+    }
+
+    [Fact]
+    public async Task GetStaleCountAsync_CountsAnExpiredBeacon()
+    {
+        using TempAppDatabase database = TempAppDatabase.Create();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        IBeaconTransmitQueue queue = StoreFactory.CreateBeaconOutbox(database);
+        _ = await queue.EnqueueAsync(
+            Guid.NewGuid(), Location(now), now, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, await queue.GetStaleCountAsync(TestContext.Current.CancellationToken));
+
+        _ = await queue.ReconcileAsync(
+            now.Add(BeaconOutboxStore.DefaultExpiry).AddSeconds(1),
+            TestContext.Current.CancellationToken);
+
+        // Stale work is visible so the operator learns a beacon never reached the air.
+        Assert.Equal(1, await queue.GetStaleCountAsync(TestContext.Current.CancellationToken));
+    }
+
     private static LocationData Location(DateTimeOffset timestamp) =>
         new()
         {
