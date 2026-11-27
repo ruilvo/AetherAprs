@@ -1,0 +1,194 @@
+<!--
+This file is part of AetherAprs
+SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:AetherAprs.ViewModels.Pages"
+             xmlns:local="using:AetherAprs"
+             xmlns:loc="using:AetherAprs.Localization"
+             xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="1000"
+             x:Class="AetherAprs.Views.Pages.SupportPage"
+             x:DataType="vm:SupportViewModel"
+             d:DataContext="{x:Static local:DesignData.SupportViewModel}">
+  <UserControl.Styles>
+    <Style Selector="TextBox">
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="MinHeight" Value="40" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0" Classes="PageContent">
+      <StackPanel Classes="SettingsContainer">
+
+        <!-- Header -->
+        <StackPanel Classes="PageHeader">
+          <TextBlock Classes="PageTitle"
+                     Text="{loc:Loc SupportPageTitle}" />
+          <TextBlock Classes="PageSubtitle"
+                     Text="{loc:Loc SupportPageDescription}" />
+        </StackPanel>
+
+        <!-- Local data -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc SupportLocalDataSection}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc SupportLocalDataDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+          <controls:Card Classes="StandardCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="Subtitle1" Text="{loc:Loc SupportClearPacketHistory}" />
+                <TextBlock Classes="Caption"
+                           Text="{Binding PacketHistoryStatus}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialBodyLightBrush}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Content="{loc:Loc SupportClear}"
+                      Command="{Binding ClearPacketHistoryCommand}"
+                      MinWidth="80"
+                      MinHeight="48"
+                      Classes="Outline"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </controls:Card>
+
+          <controls:Card Classes="StandardCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="Subtitle1" Text="{loc:Loc SupportClearMessages}" />
+                <TextBlock Classes="Caption"
+                           Text="{Binding MessagesStatus}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialBodyLightBrush}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Content="{loc:Loc SupportClear}"
+                      Command="{Binding ClearMessagesCommand}"
+                      MinWidth="80"
+                      MinHeight="48"
+                      Classes="Outline"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </controls:Card>
+
+          <controls:Card Classes="StandardCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="Subtitle1" Text="{loc:Loc SupportClearPendingOutbound}" />
+                <TextBlock Classes="Caption"
+                           Text="{Binding PendingOutboundStatus}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialBodyLightBrush}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Content="{loc:Loc SupportClear}"
+                      Command="{Binding ClearPendingOutboundCommand}"
+                      MinWidth="80"
+                      MinHeight="48"
+                      Classes="Outline"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </controls:Card>
+
+          <controls:Card Classes="StandardCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="Subtitle1" Text="{loc:Loc SupportClearOfflineMapTiles}" />
+                <TextBlock Classes="Caption"
+                           Text="{Binding OfflineMapTilesStatus}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialBodyLightBrush}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Content="{loc:Loc SupportClear}"
+                      Command="{Binding ClearOfflineMapTilesCommand}"
+                      MinWidth="80"
+                      MinHeight="48"
+                      Classes="Outline"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </controls:Card>
+
+          <controls:Card Classes="StandardCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                <TextBlock Classes="Subtitle1" Text="{loc:Loc SupportClearDiagnostics}" />
+                <TextBlock Classes="Caption"
+                           Text="{Binding DiagnosticsStatus}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource MaterialBodyLightBrush}" />
+              </StackPanel>
+              <Button Grid.Column="1"
+                      Content="{loc:Loc SupportClear}"
+                      Command="{Binding ClearDiagnosticsCommand}"
+                      MinWidth="80"
+                      MinHeight="48"
+                      Classes="Outline"
+                      VerticalAlignment="Center" />
+            </Grid>
+          </controls:Card>
+        </StackPanel>
+
+        <!-- Support report -->
+        <StackPanel Spacing="12">
+          <TextBlock Classes="SectionTitle"
+                     Text="{loc:Loc SupportReportSection}" />
+
+          <TextBlock Classes="Body2"
+                     Text="{loc:Loc SupportReportDescription}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+          <TextBlock Classes="Caption"
+                     Text="{loc:Loc SupportReportPrivacyNote}"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+          <Button Content="{loc:Loc SupportGenerateReportPreview}"
+                  Command="{Binding GenerateReportPreviewCommand}"
+                  MinWidth="120"
+                  MinHeight="48"
+                  Classes="Outline"
+                  HorizontalAlignment="Left" />
+
+          <TextBox Text="{Binding ReportPreview}"
+                   IsReadOnly="True"
+                   AcceptsReturn="True"
+                   TextWrapping="Wrap"
+                   MinHeight="160"
+                   MaxHeight="360"
+                   PlaceholderText="{loc:Loc SupportReportPreviewPlaceholder}"
+                   FontFamily="Consolas,monospace" />
+        </StackPanel>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Close Button (sticky at bottom) -->
+    <Border Grid.Row="1"
+            Background="{DynamicResource MaterialBackgroundBrush}"
+            BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource MaterialDividerBrush}"
+            Padding="16">
+      <StackPanel Orientation="Horizontal"
+                  HorizontalAlignment="Right"
+                  Spacing="8">
+        <Button Content="{loc:Loc Close}"
+                Command="{Binding CloseCommand}"
+                MinWidth="80"
+                MinHeight="48" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

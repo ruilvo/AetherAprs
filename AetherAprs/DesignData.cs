@@ -17,7 +17,9 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Location;
+using AetherAprs.Services.Maintenance;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
@@ -79,6 +81,9 @@ public static class DesignData
         services.AddSingleton<IUiDispatcher>(AvaloniaUiDispatcher.Instance);
         services.AddSingleton<IThemeService>(AvaloniaThemeService.Instance);
         services.AddSingleton<IConfirmationDialogService, DialogHostConfirmationService>();
+        services.AddSingleton<ITransientFeedbackService, SnackbarTransientFeedbackService>();
+        services.AddSingleton<ILocalDataMaintenanceService, DesignTimeLocalDataMaintenanceService>();
+        services.AddSingleton<ISupportReportBuilder, DesignTimeSupportReportBuilder>();
         services.AddSingleton<ILocationService, DesignTimeLocationService>();
         services.AddSingleton<ICompassService, DesignTimeCompassService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
@@ -163,6 +168,7 @@ public static class DesignData
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<DynamicBeaconingViewModel>();
         services.AddTransient<DownloadOfflineMapViewModel>();
+        services.AddTransient<SupportViewModel>();
         services.AddTransient<ConversationViewModel>();
         services.AddTransient<MessageTemplateDialogViewModel>();
         services.AddSingleton<MessageTemplatesViewModel>();
@@ -300,6 +306,37 @@ public static class DesignData
         public IReadOnlyList<MessageTemplate> GetTemplatesForPeer(AprsAddress peer) => SeedTemplates;
     }
 
+    /// <summary>
+    /// Design-time stub implementation of ILocalDataMaintenanceService that reports
+    /// no rows removed and never touches the database.
+    /// </summary>
+    private sealed class DesignTimeLocalDataMaintenanceService : ILocalDataMaintenanceService
+    {
+        public Task<LocalDataClearResult> ClearPacketHistoryAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LocalDataClearResult(LocalDataCategory.PacketHistory, 0));
+
+        public Task<LocalDataClearResult> ClearMessagesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LocalDataClearResult(LocalDataCategory.Messages, 0));
+
+        public Task<LocalDataClearResult> ClearPendingOutboundAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LocalDataClearResult(LocalDataCategory.PendingOutbound, 0));
+
+        public Task<LocalDataClearResult> ClearOfflineMapTilesAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LocalDataClearResult(LocalDataCategory.OfflineMapTiles, 0));
+
+        public LocalDataClearResult ClearDiagnostics() =>
+            new(LocalDataCategory.Diagnostics, 0);
+    }
+
+    /// <summary>
+    /// Design-time stub implementation of ISupportReportBuilder returning a fixed
+    /// placeholder report so the preview area renders in the designer.
+    /// </summary>
+    private sealed class DesignTimeSupportReportBuilder : ISupportReportBuilder
+    {
+        public string GenerateJson() => "{\n  \"schemaVersion\": 1\n}";
+    }
+
     public static MainViewModel MainViewModel => _serviceProvider.GetRequiredService<MainViewModel>();
 
     public static HomeViewModel HomeViewModel => _serviceProvider.GetRequiredService<HomeViewModel>();
@@ -317,6 +354,9 @@ public static class DesignData
 
     public static DownloadOfflineMapViewModel DownloadOfflineMapViewModel =>
         _serviceProvider.GetRequiredService<DownloadOfflineMapViewModel>();
+
+    public static SupportViewModel SupportViewModel =>
+        _serviceProvider.GetRequiredService<SupportViewModel>();
 
     public static ConversationViewModel ConversationViewModel =>
         _serviceProvider.GetRequiredService<ConversationViewModel>();

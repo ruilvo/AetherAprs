@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Historial de informes</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Símbolo</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Buscar paquetes</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Soporte</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Borra datos locales y revisa el informe de diagnóstico que puedes compartir con soporte.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Soporte y datos locales</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Datos locales</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Cada categoría se borra por separado y no se puede recuperar después.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Borrar</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Historial de paquetes</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Historial de mensajes</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Mensajes salientes pendientes</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Teselas de mapa sin conexión</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnóstico</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>¿Borrar los datos locales?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>¿Borrar el historial de paquetes almacenado? Los mensajes se conservan.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>¿Borrar el historial de mensajes almacenado? Los mensajes salientes pendientes se conservan.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>¿Borrar los mensajes salientes pendientes? No se enviarán.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>¿Borrar las teselas de mapa sin conexión en caché?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>¿Borrar el registro de diagnóstico en memoria?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>Se eliminaron {0} filas del historial de paquetes.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>Se eliminaron {0} filas del historial de mensajes.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>Se eliminaron {0} filas de mensajes salientes pendientes.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>Se eliminaron {0} teselas de mapa sin conexión.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>Se eliminaron {0} eventos de diagnóstico.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Aún no se ha borrado nada.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Informe de soporte</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Genera una vista previa del informe de diagnóstico redactado para compartirlo con soporte si necesitas ayuda.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>El informe nunca incluye el texto de los mensajes ni coordenadas precisas.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Generar vista previa</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Genera una vista previa para revisar el informe aquí.</value></data>
 </root>

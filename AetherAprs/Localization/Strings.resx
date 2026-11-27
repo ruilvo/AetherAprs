@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Report History</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Symbol</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Search packets</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Support</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Clear local data and review the diagnostic report you can share with support.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Support and local data</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Local data</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Each category is cleared on its own and cannot be restored afterwards.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Clear</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Packet history</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Message history</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Pending outbound messages</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Offline map tiles</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnostics</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>Clear local data?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>Clear the stored packet history? Messages are kept.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>Clear the stored message history? Pending outbound messages are kept.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>Clear pending outbound messages? They will not be sent.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>Clear the cached offline map tiles?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>Clear the in-memory diagnostic log?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>Removed {0} packet history rows.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>Removed {0} message history rows.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>Removed {0} pending outbound rows.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>Removed {0} offline map tiles.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>Removed {0} diagnostic events.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Not cleared yet.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Support report</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Generate a preview of the redacted diagnostic report to share with support if you need help.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>The report never includes message text or precise coordinates.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Generate preview</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Generate a preview to review the report here.</value></data>
 </root>

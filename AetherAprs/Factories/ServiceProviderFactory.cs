@@ -147,6 +147,8 @@ public static class ServiceProviderFactory
         services.AddSingleton<IDiagnosticEventSink, BoundedDiagnosticEventStore>();
         services.AddSingleton<AndroidLifecycleState>();
         services.AddSingleton<RedactedSupportReportService>();
+        services.AddSingleton<ISupportReportBuilder>(provider =>
+            provider.GetRequiredService<RedactedSupportReportService>());
         services.AddSingleton<PortService>();
         services.AddSingleton<IPortService>(services => services.GetRequiredService<PortService>());
         services.AddSingleton<IPortServiceTelemetry>(services => services.GetRequiredService<PortService>());
@@ -268,6 +270,7 @@ public static class ServiceProviderFactory
         services.AddSingleton<SettingsViewModel>(); // Main page state
         services.AddTransient<DynamicBeaconingViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<DownloadOfflineMapViewModel>(); // Overlay sub-page, fresh each time
+        services.AddTransient<SupportViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<AddEditPortViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<ConversationViewModel>(); // Overlay sub-page, fresh each time
         services.AddTransient<MessageTemplateDialogViewModel>(); // Dialog content, fresh each time a template is picked

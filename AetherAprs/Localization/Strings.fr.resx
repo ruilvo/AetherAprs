@@ -491,4 +491,32 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ObjectReportHistory" xml:space="preserve"><value>Historique des rapports</value></data>
   <data name="ObjectSymbol" xml:space="preserve"><value>Symbole</value></data>
   <data name="PacketsSearchPlaceholder" xml:space="preserve"><value>Rechercher des paquets</value></data>
+  <data name="SupportPageTitle" xml:space="preserve"><value>Assistance</value></data>
+  <data name="SupportPageDescription" xml:space="preserve"><value>Effacez des données locales et consultez le rapport de diagnostic que vous pouvez partager avec l'assistance.</value></data>
+  <data name="SupportSectionEntry" xml:space="preserve"><value>Assistance et données locales</value></data>
+  <data name="SupportLocalDataSection" xml:space="preserve"><value>Données locales</value></data>
+  <data name="SupportLocalDataDescription" xml:space="preserve"><value>Chaque catégorie est effacée séparément et ne peut pas être restaurée ensuite.</value></data>
+  <data name="SupportClear" xml:space="preserve"><value>Effacer</value></data>
+  <data name="SupportClearPacketHistory" xml:space="preserve"><value>Historique des paquets</value></data>
+  <data name="SupportClearMessages" xml:space="preserve"><value>Historique des messages</value></data>
+  <data name="SupportClearPendingOutbound" xml:space="preserve"><value>Messages sortants en attente</value></data>
+  <data name="SupportClearOfflineMapTiles" xml:space="preserve"><value>Tuiles de carte hors ligne</value></data>
+  <data name="SupportClearDiagnostics" xml:space="preserve"><value>Diagnostic</value></data>
+  <data name="SupportClearConfirmationTitle" xml:space="preserve"><value>Effacer les données locales ?</value></data>
+  <data name="SupportClearConfirmationPacketHistory" xml:space="preserve"><value>Effacer l'historique des paquets enregistré ? Les messages sont conservés.</value></data>
+  <data name="SupportClearConfirmationMessages" xml:space="preserve"><value>Effacer l'historique des messages enregistré ? Les messages sortants en attente sont conservés.</value></data>
+  <data name="SupportClearConfirmationPendingOutbound" xml:space="preserve"><value>Effacer les messages sortants en attente ? Ils ne seront pas envoyés.</value></data>
+  <data name="SupportClearConfirmationOfflineMapTiles" xml:space="preserve"><value>Effacer les tuiles de carte hors ligne en cache ?</value></data>
+  <data name="SupportClearConfirmationDiagnostics" xml:space="preserve"><value>Effacer le journal de diagnostic en mémoire ?</value></data>
+  <data name="SupportClearedPacketHistoryFeedback" xml:space="preserve"><value>{0} lignes d'historique des paquets supprimées.</value></data>
+  <data name="SupportClearedMessagesFeedback" xml:space="preserve"><value>{0} lignes d'historique des messages supprimées.</value></data>
+  <data name="SupportClearedPendingOutboundFeedback" xml:space="preserve"><value>{0} lignes de messages sortants en attente supprimées.</value></data>
+  <data name="SupportClearedOfflineMapTilesFeedback" xml:space="preserve"><value>{0} tuiles de carte hors ligne supprimées.</value></data>
+  <data name="SupportClearedDiagnosticsFeedback" xml:space="preserve"><value>{0} événements de diagnostic supprimés.</value></data>
+  <data name="SupportStatusNeverCleared" xml:space="preserve"><value>Pas encore effacé.</value></data>
+  <data name="SupportReportSection" xml:space="preserve"><value>Rapport d'assistance</value></data>
+  <data name="SupportReportDescription" xml:space="preserve"><value>Générez un aperçu du rapport de diagnostic expurgé à partager avec l'assistance si vous avez besoin d'aide.</value></data>
+  <data name="SupportReportPrivacyNote" xml:space="preserve"><value>Le rapport ne contient jamais le texte des messages ni de coordonnées précises.</value></data>
+  <data name="SupportGenerateReportPreview" xml:space="preserve"><value>Générer un aperçu</value></data>
+  <data name="SupportReportPreviewPlaceholder" xml:space="preserve"><value>Générez un aperçu pour consulter le rapport ici.</value></data>
 </root>

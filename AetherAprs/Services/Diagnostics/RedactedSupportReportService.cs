@@ -29,7 +29,7 @@ public sealed class RedactedSupportReportService(
     SessionCoordinator coordinator,
     IPortServiceTelemetry? portTelemetry = null,
     AndroidLifecycleState? lifecycle = null,
-    IKeepAliveService? keepAlive = null)
+    IKeepAliveService? keepAlive = null) : ISupportReportBuilder
 {
     private const int ReportSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new()

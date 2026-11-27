@@ -426,6 +426,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private void OpenDownloadOfflineMap() => _navigationService.NavigateTo<DownloadOfflineMapViewModel>();
 
     [RelayCommand]
+    private void OpenSupport() => _navigationService.NavigateTo<SupportViewModel>();
+
+    [RelayCommand]
     private void OpenMessageTemplates() => _navigationService.NavigateTo(_messageTemplatesViewModel);
 
     public void Dispose()
