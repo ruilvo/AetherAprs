@@ -171,6 +171,13 @@ public sealed class ReceivedBeaconsMapLayerServiceTests : IDisposable
 
         // Act
         _storageService.PacketStored += Raise.Event();
+
+        // The burst has to land while the first query is still in flight. Raising it
+        // earlier races the rebuild loop: on a loaded run the loop can finish a whole
+        // replacement between two events, and each later event then legitimately
+        // starts its own rebuild instead of coalescing into the pending one.
+        await WaitUntilAsync(() => calls >= 1);
+
         for (int index = 0; index < 5; index++)
         {
             _storageService.PacketStored += Raise.Event();

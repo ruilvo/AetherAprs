@@ -312,7 +312,7 @@ public sealed class PortServiceReceivePipelineTests
 , .. Enumerable.Repeat(ordinaryFrame, ordinaryPacketCount).SelectMany(frame => frame)];
         using TempAppDatabase db = TempAppDatabase.Create();
         RecordingPacketStorageService storage = new();
-        BlockingDigipeaterService digipeater = new(expectedCalls: ordinaryPacketCount + 1);
+        using BlockingDigipeaterService digipeater = new(expectedCalls: ordinaryPacketCount + 1);
         KissSettings kissSettings = new()
         {
             Transport = new TcpKissTransportSettings { Host = "127.0.0.1", Port = 8001 }
@@ -651,12 +651,15 @@ public sealed class PortServiceReceivePipelineTests
     /// Blocks the digipeat consumer inside the first target query so tests can
     /// prove ingest continues while a relay is pending.
     /// </summary>
-    private sealed class BlockingDigipeaterService(int expectedCalls) : IDigipeaterService
+    private sealed class BlockingDigipeaterService(int expectedCalls) : IDigipeaterService, IDisposable
     {
         private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(10);
         private readonly Lock _gate = new();
-        private readonly TaskCompletionSource<bool> _release =
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        // A kernel event, not a TaskCompletionSource: Release has to wake this thread
+        // directly. Completing a task instead schedules the wake as a thread-pool
+        // continuation, and a full parallel run can starve the pool long enough for
+        // the drain wait below to expire even though the release already happened.
+        private readonly ManualResetEventSlim _release = new(false);
         private readonly List<DigipeatCall> _calls = [];
 
         public TaskCompletionSource<bool> Entered { get; } =
@@ -676,7 +679,9 @@ public sealed class PortServiceReceivePipelineTests
             }
         }
 
-        public void Release() => _release.TrySetResult(true);
+        public void Release() => _release.Set();
+
+        public void Dispose() => _release.Dispose();
 
         public IReadOnlyList<DigipeatTarget> GetDigipeatTargets(
             AprsPacket packet,
@@ -685,7 +690,7 @@ public sealed class PortServiceReceivePipelineTests
             IReadOnlyList<PortInfo> availablePorts)
         {
             Entered.TrySetResult(true);
-            _release.Task.Wait(WaitTimeout);
+            _release.Wait(WaitTimeout);
 
             lock (_gate)
             {
