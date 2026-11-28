@@ -24,6 +24,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
          property at run time: no reflection hazards for the trimmer and less work per
          binding update on the device. -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
