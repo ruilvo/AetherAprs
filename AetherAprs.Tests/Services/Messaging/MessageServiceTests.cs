@@ -1151,6 +1151,126 @@ public sealed class MessageServiceTests
     }
 
     [Fact]
+    public async Task Restart_PreservesOneThreadForAnSsidLessPeer_AndAcceptsItsAck()
+    {
+        using TempAppDatabase database = TempAppDatabase.CreateEmpty();
+        using (AppDbContext setup = database.CreateContext())
+        {
+            setup.Database.EnsureCreated();
+        }
+
+        PortConfig port = CreateTxPort();
+        IConfigurationService configuration = CreateConfiguration("N0CALL", defaultSsid: 1);
+        IAprsPortSettingsResolver resolver = Substitute.For<IAprsPortSettingsResolver>();
+        resolver.GetCallsign("N0CALL").Returns("N0CALL-1");
+        TestClock clock = new();
+        await using SqliteRuntimeWriter writer = new(database.Factory);
+        PacketStorageService storage = new(writer, configuration, NullLogger<PacketStorageService>.Instance);
+        SqliteRuntimeReader reader = new(database.Factory);
+        OutboxMessageStore outbox = new(writer, reader, clock, NullLogger<OutboxMessageStore>.Instance);
+        PacketQueryService queryService = new(reader, NullLogger<PacketQueryService>.Instance);
+
+        // An SSID-less peer sends us a message, and we reply to it. Both history
+        // rows store SSID zero because the column is a required byte. The inbound
+        // row is written first (the ingest pipeline owns persistence) so the
+        // restored thread is built from the source path.
+        Callsign ssidLessPeer = new("K0OTH");
+        MessagePacket inboundPacket = new()
+        {
+            Source = ssidLessPeer,
+            Destination = new Callsign("APRS"),
+            Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
+            Text = "Inbound"
+        };
+        using (AppDbContext setup = database.CreateContext())
+        {
+            setup.Packets.Add(PacketRecordMapper.ToRecord(
+                inboundPacket,
+                port.Id,
+                DateTimeOffset.UtcNow.AddMinutes(-2),
+                isOutbound: false));
+            await setup.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        FakePortService firstPorts = new(port) { FailSends = true };
+        MessageService firstProcess = new(
+            firstPorts,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
+            outbox,
+            outbox,
+            queryService,
+            timeProvider: clock);
+        await firstProcess.InitializeAsync(TestContext.Current.CancellationToken);
+        await firstProcess.SendAsync(
+            AprsAddress.FromCallsign(ssidLessPeer),
+            "Outbound",
+            TestContext.Current.CancellationToken);
+        firstProcess.Dispose();
+
+        FakePortService recoveredPorts = new(port);
+        MessageService recovered = new(
+            recoveredPorts,
+            storage,
+            configuration,
+            resolver,
+            new TestPacketFactory(),
+            NullLogger<MessageService>.Instance,
+            SynchronousUiDispatcher.Instance,
+            outbox,
+            outbox,
+            queryService,
+            timeProvider: clock);
+        await recovered.InitializeAsync(TestContext.Current.CancellationToken);
+
+        ConversationThread restored = Assert.Single(recovered.Conversations);
+        Assert.Null(restored.Peer.Ssid);
+        Assert.Equal(2, restored.Messages.Count);
+
+        // A new live message from the same peer must join the restored thread
+        // rather than open a second one that displays the same name.
+        recoveredPorts.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessagePacket
+            {
+                Source = ssidLessPeer,
+                Destination = new Callsign("APRS"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
+                Text = "After restart"
+            }
+        });
+        await recovered.FlushAsync(TestContext.Current.CancellationToken);
+
+        ConversationThread merged = Assert.Single(recovered.Conversations);
+        Assert.Equal(3, merged.Messages.Count);
+
+        StoredMessage pendingMessage = Assert.Single(merged.Messages, message => message.IsOutbound);
+        Assert.Equal(MessageDeliveryStatus.Pending, pendingMessage.DeliveryStatus);
+        Assert.NotNull(pendingMessage.MessageNumber);
+
+        recoveredPorts.RaisePacketReceived(new PortPacketReceivedEventArgs
+        {
+            PortId = port.Id,
+            Packet = new MessageAckPacket
+            {
+                Source = ssidLessPeer,
+                Destination = new Callsign("APRS"),
+                Addressee = AprsAddress.FromCallsign(new Callsign("N0CALL", 1)),
+                MessageNumber = pendingMessage.MessageNumber.Value
+            }
+        });
+        await recovered.FlushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(MessageDeliveryStatus.Acknowledged, pendingMessage.DeliveryStatus);
+        recovered.Dispose();
+    }
+
+    [Fact]
     public async Task RestartWithoutARoute_RestoresPendingWork_AndSendsAfterReArm()
     {
         using TempAppDatabase database = TempAppDatabase.CreateEmpty();

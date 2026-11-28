@@ -1138,7 +1138,7 @@ public sealed class MessageService : IMessageService, IDisposable
                 continue;
             }
 
-            AprsAddress source = AprsAddress.FromCallsign(new Callsign(record.SourceBase, (int)record.SourceSsid));
+            AprsAddress source = AprsAddress.FromStored(record.SourceBase, (int)record.SourceSsid);
             AprsAddress addressee = AprsAddress.FromStored(record.Message.AddresseeBase, (int)record.Message.AddresseeSsid);
 
             // Determine peer (who we're talking to)
