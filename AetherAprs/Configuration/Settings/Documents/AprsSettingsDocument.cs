@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Text.Json.Serialization;
+
 using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.Configuration.Settings.Documents;
@@ -13,58 +14,50 @@ namespace AetherAprs.Configuration.Settings.Documents;
 /// </summary>
 internal sealed class AprsSettingsDocument
 {
-    private AprsSsid _ssid = AprsSsid.PrimaryStation;
-    private SymbolTable _symbolTable = SymbolTable.Primary;
-    private SymbolCode _symbolCode = SymbolCode.LeftSquareBracket;
-    private SymbolCode? _symbolOverlay;
-    private string _callsign = "N0CALL";
-    private int _packetRetentionDays = AprsSettings.DefaultPacketRetentionDays;
-    private int _packetRetentionMaxRows = AprsSettings.DefaultPacketRetentionMaxRows;
-
     public string Callsign
     {
-        get => _callsign;
-        set => _callsign = SettingsValidation.Callsign(value);
-    }
+        get;
+        set => field = SettingsValidation.Callsign(value);
+    } = "N0CALL";
 
     public AprsSsid Ssid
     {
-        get => _ssid;
-        set => _ssid = SettingsValidation.Ssid(value);
-    }
+        get;
+        set => field = SettingsValidation.Ssid(value);
+    } = AprsSsid.PrimaryStation;
 
     [JsonPropertyName("SymbolTableCharacter")]
     public SymbolTable SymbolTable
     {
-        get => _symbolTable;
-        set => _symbolTable = SettingsValidation.SymbolTable(value);
-    }
+        get;
+        set => field = SettingsValidation.SymbolTable(value);
+    } = SymbolTable.Primary;
 
     [JsonPropertyName("SymbolCodeCharacter")]
     public SymbolCode SymbolCode
     {
-        get => _symbolCode;
-        set => _symbolCode = SettingsValidation.SymbolCode(value);
-    }
+        get;
+        set => field = SettingsValidation.SymbolCode(value);
+    } = SymbolCode.LeftSquareBracket;
 
     [JsonPropertyName("SymbolOverlayCharacter")]
     public SymbolCode? SymbolOverlay
     {
-        get => _symbolOverlay;
-        set => _symbolOverlay = SettingsValidation.SymbolOverlay(value);
+        get;
+        set => field = SettingsValidation.SymbolOverlay(value);
     }
 
     public int PacketRetentionDays
     {
-        get => _packetRetentionDays;
-        set => _packetRetentionDays = SettingsValidation.PacketRetentionDays(value);
-    }
+        get;
+        set => field = SettingsValidation.PacketRetentionDays(value);
+    } = AprsSettings.DefaultPacketRetentionDays;
 
     public int PacketRetentionMaxRows
     {
-        get => _packetRetentionMaxRows;
-        set => _packetRetentionMaxRows = SettingsValidation.PacketRetentionMaxRows(value);
-    }
+        get;
+        set => field = SettingsValidation.PacketRetentionMaxRows(value);
+    } = AprsSettings.DefaultPacketRetentionMaxRows;
 
     public PacketDisplayTimeRange DisplayTimeRange { get; set; } = PacketDisplayTimeRange.LastDay;
 

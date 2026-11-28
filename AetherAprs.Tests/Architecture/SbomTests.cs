@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Architecture;

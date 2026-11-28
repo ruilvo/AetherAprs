@@ -180,7 +180,6 @@ public sealed class TestClock : TimeProvider, IDisposable
     private sealed class VirtualTimer(TestClock owner, TimerCallback callback, object? state) : ITimer
     {
         private TimeSpan _period;
-        private bool _enabled;
 
         public DateTimeOffset DueAt { get; private set; }
 
@@ -194,9 +193,11 @@ public sealed class TestClock : TimeProvider, IDisposable
             {
                 lock (owner._sync)
                 {
-                    return _enabled;
+                    return field;
                 }
             }
+
+            private set;
         }
 
         public bool Change(TimeSpan dueTime, TimeSpan period)
@@ -215,12 +216,12 @@ public sealed class TestClock : TimeProvider, IDisposable
             _period = period;
             if (dueTime == Timeout.InfiniteTimeSpan)
             {
-                _enabled = false;
+                Enabled = false;
                 return;
             }
 
             DueAt = now + dueTime;
-            _enabled = true;
+            Enabled = true;
         }
 
         /// <summary>Advances a fired timer to its next occurrence. Callers hold the clock lock.</summary>
@@ -232,7 +233,7 @@ public sealed class TestClock : TimeProvider, IDisposable
                 return;
             }
 
-            _enabled = false;
+            Enabled = false;
         }
 
         public void Dispose() => owner.Remove(this);

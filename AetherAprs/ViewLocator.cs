@@ -9,6 +9,7 @@ using AetherAprs.ViewModels.Pages;
 using AetherAprs.Views;
 using AetherAprs.Views.Components;
 using AetherAprs.Views.Pages;
+
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 

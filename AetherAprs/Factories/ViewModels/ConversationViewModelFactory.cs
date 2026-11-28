@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+
 using AetherAprs.Models.Aprs;
 using AetherAprs.ViewModels.Pages;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs.Factories.ViewModels;

@@ -8,19 +8,27 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Imaging;using AetherAprs.Models.Aprs;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data.Entities;
-using Mapsui;
-using Geo;
+using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
+
+using Geo;
+
+using Mapsui;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.UI;

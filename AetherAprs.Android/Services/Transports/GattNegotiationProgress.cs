@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Transports.Kiss;
 using System;
 using System.Threading;
+
+using AetherAprs.Transports.Kiss;
 
 namespace AetherAprs.Android.Services.Transports;
 
@@ -28,9 +29,17 @@ internal sealed class GattNegotiationProgress
     private readonly Guid _txCharacteristicUuid;
 
     private bool? _notificationsEnabled;
+
+<<<<<<< TODO: Unmerged change from project 'AetherAprs.Tests', Before:
     private KissGattWriteMode _writeMode = KissGattWriteMode.Unknown;
     private int? _attMtu;
     private int? _payloadSize;
+    private int _failureReported;
+=======
+    private int? _attMtu;
+    private int _failureReported;
+>>>>>>> After
+    private int? _attMtu;
     private int _failureReported;
     private KissConnectionProgress? _latest;
 
@@ -68,15 +77,15 @@ internal sealed class GattNegotiationProgress
         _rxCharacteristicUuid,
         _txCharacteristicUuid,
         _notificationsEnabled,
-        _writeMode,
+        WriteMode,
         _attMtu,
-        _payloadSize);
+        PayloadSize);
 
     /// <summary>The channel write mode, once the RX properties were read.</summary>
-    public KissGattWriteMode WriteMode => _writeMode;
+    public KissGattWriteMode WriteMode { get; private set; } = KissGattWriteMode.Unknown;
 
     /// <summary>Usable bytes per write, once the ATT MTU is known.</summary>
-    public int? PayloadSize => _payloadSize;
+    public int? PayloadSize { get; private set; }
 
     /// <summary>Reports that the GATT client is connecting.</summary>
     public void Connecting() =>
@@ -94,7 +103,7 @@ internal sealed class GattNegotiationProgress
     /// <param name="supportsWriteWithoutResponse">Whether the RX property was set.</param>
     public void DiscoverCharacteristics(bool supportsWriteWithoutResponse)
     {
-        _writeMode = supportsWriteWithoutResponse
+        WriteMode = supportsWriteWithoutResponse
             ? KissGattWriteMode.WithoutResponse
             : KissGattWriteMode.WithResponse;
 
@@ -119,7 +128,7 @@ internal sealed class GattNegotiationProgress
     public void PayloadNegotiated(int? attMtu, int payloadSize)
     {
         _attMtu = attMtu;
-        _payloadSize = payloadSize;
+        PayloadSize = payloadSize;
     }
 
     /// <summary>Reports that the stream is open and usable.</summary>

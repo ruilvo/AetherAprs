@@ -4,11 +4,14 @@
 
 using System;
 using System.Globalization;
+
 using AetherAprs.Configuration;
 using AetherAprs.Converters.UI;
 using AetherAprs.Localization;
+
 using Avalonia.Data;
 using Avalonia.Data.Converters;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Converters.UI;

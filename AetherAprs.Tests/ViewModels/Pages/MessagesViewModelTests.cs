@@ -4,19 +4,21 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Messaging;
-using AetherAprs.Services.Objects;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
+
 using Microsoft.Extensions.DependencyInjection;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
@@ -68,7 +70,9 @@ public sealed class MessagesViewModelTests : TestFixtureBase
         vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MessagesViewModel.HasConversations))
+            {
                 changes++;
+            }
         };
 
         Assert.False(vm.HasConversations);

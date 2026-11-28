@@ -4,7 +4,9 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Platform;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Platform;

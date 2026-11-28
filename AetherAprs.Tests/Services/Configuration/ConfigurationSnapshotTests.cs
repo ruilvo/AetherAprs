@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Configuration.Settings.Documents;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Configuration;

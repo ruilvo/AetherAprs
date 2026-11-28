@@ -2,10 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.ComponentModel;
+
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
+
 using Avalonia.Controls;
 using Avalonia.Input;
+
 using Mapsui;
 using Mapsui.Animations;
 using Mapsui.Layers;
@@ -13,10 +18,8 @@ using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Tiling;
-using Mapsui.UI.Avalonia;
+
 using NetTopologySuite.Geometries;
-using System;
-using System.ComponentModel;
 
 namespace AetherAprs.Views.Pages;
 

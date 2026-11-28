@@ -3,15 +3,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Tests.Helpers;
+
 using Geo;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Data.Mappers;

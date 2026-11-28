@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
@@ -13,9 +14,12 @@ using AetherAprs.Data.Packets;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Packets;
 using AetherAprs.Tests.Helpers;
+
 using Geo;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Packets;

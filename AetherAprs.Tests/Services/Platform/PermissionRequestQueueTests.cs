@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Services.Platform;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+
+using AetherAprs.Services.Platform;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Platform;

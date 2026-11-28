@@ -4,7 +4,9 @@
 
 using System;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Bluetooth;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Bluetooth;

@@ -2,7 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Configuration;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data.Entities;
 using AetherAprs.Imaging;
@@ -10,18 +15,16 @@ using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Ports;
+
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
+
 using Microsoft.Extensions.Logging;
+
 using NetTopologySuite.Geometries;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AetherAprs.Services.UI;
 
@@ -91,12 +94,11 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     private bool _disposed;
     private List<BeaconMarker> _markers = [];
     private double _currentResolution = double.NaN;
-    private string? _selectedCallsign;
     private string? _ownCallsign;
 
     public ILayer BeaconsLayer => _beaconsLayer;
     public ILayer TrailsLayer => _trailsLayer;
-    public string? SelectedCallsign => _selectedCallsign;
+    public string? SelectedCallsign { get; private set; }
 
     public ReceivedBeaconsMapLayerService(
         IPortService portService,
@@ -613,7 +615,7 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
     /// A marker is pinned when it is the operator's selection or its own station.
     /// </summary>
     private bool IsPinned(BeaconMarker marker) =>
-        IsStationPinned(marker.Callsign, _selectedCallsign) ||
+        IsStationPinned(marker.Callsign, SelectedCallsign) ||
         IsStationPinned(marker.Callsign, _ownCallsign);
 
     private static bool IsStationPinned(string? callsign, string? pinned) =>
@@ -764,12 +766,12 @@ public sealed class ReceivedBeaconsMapLayerService : IReceivedBeaconsMapLayerSer
         }
 
         string? normalized = string.IsNullOrWhiteSpace(callsign) ? null : callsign.Trim();
-        if (string.Equals(_selectedCallsign, normalized, StringComparison.Ordinal))
+        if (string.Equals(SelectedCallsign, normalized, StringComparison.Ordinal))
         {
             return;
         }
 
-        _selectedCallsign = normalized;
+        SelectedCallsign = normalized;
         RunOnUi(RenderBeaconsLayer);
     }
 

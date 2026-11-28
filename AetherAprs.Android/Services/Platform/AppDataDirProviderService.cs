@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Linq;
+
 using Java.IO;
 
 namespace AetherAprs.Android.Services.Platform;

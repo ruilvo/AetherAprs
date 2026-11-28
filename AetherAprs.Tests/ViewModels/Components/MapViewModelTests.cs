@@ -4,8 +4,9 @@
 
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
+
 using NSubstitute;
-using System;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Components;

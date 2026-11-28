@@ -1,18 +1,22 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using Android.App;
-using Android.Runtime;
-using Avalonia.Android;
+using System.IO;
+
 using AetherAprs.Android.Services.Bluetooth;
 using AetherAprs.Android.Services.Platform;
 using AetherAprs.Android.Services.Transports;
 using AetherAprs.Factories;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Transports.Kiss;
+
+using Android.App;
+using Android.Runtime;
+
+using Avalonia.Android;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.IO;
 
 namespace AetherAprs.Android;
 

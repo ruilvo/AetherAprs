@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Microsoft.Data.Sqlite;
 using System;
 using System.Globalization;
 using System.IO;
@@ -11,6 +10,8 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
+using Microsoft.Data.Sqlite;
 
 namespace AetherAprs.Services.UI;
 

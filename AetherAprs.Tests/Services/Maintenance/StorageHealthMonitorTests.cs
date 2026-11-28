@@ -6,18 +6,22 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Maintenance;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
+using Xunit;
+
 using AprsAddress = AetherAprs.Models.Aprs.AprsAddress;
 using AprsPacket = AetherAprs.Models.Aprs.Packets.AprsPacket;
 using MessageDeliveryStatus = AetherAprs.Models.Messaging.MessageDeliveryStatus;
 using MessagePacket = AetherAprs.Models.Aprs.Packets.MessagePacket;
-using Xunit;
 
 namespace AetherAprs.Tests.Services.Maintenance;
 

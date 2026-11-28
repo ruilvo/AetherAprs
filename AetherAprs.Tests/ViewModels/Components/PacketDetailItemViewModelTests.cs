@@ -4,11 +4,14 @@
 
 using System;
 using System.Linq;
+
 using AetherAprs.Data.Entities;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.ViewModels.Components;
+
 using Geo;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Components;

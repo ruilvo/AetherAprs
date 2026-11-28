@@ -2,16 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using BruTile;
-using BruTile.Predefined;
-using Mapsui.Projections;
-using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+
+using BruTile;
+using BruTile.Predefined;
+
+using Mapsui.Projections;
+
+using Microsoft.Data.Sqlite;
 
 namespace AetherAprs.Services.UI;
 

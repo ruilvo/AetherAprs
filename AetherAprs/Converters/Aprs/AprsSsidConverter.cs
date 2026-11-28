@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Localization;
-using AetherAprs.Models.Aprs;
-using Avalonia.Data.Converters;
 using System;
 using System.Globalization;
+
+using AetherAprs.Localization;
+using AetherAprs.Models.Aprs;
+
+using Avalonia.Data.Converters;
 
 namespace AetherAprs.Converters.Aprs;
 
@@ -54,22 +56,85 @@ public class AprsSsidConverter : IValueConverter
         }
 
         // Try to match against localized strings
-        if (str == Strings.Get("SsidPrimaryStation")) return AprsSsid.PrimaryStation;
-        if (str == Strings.Get("SsidAdditionalStation1")) return AprsSsid.AdditionalStation1;
-        if (str == Strings.Get("SsidAdditionalStation2")) return AprsSsid.AdditionalStation2;
-        if (str == Strings.Get("SsidAdditionalStation3")) return AprsSsid.AdditionalStation3;
-        if (str == Strings.Get("SsidAdditionalStation4")) return AprsSsid.AdditionalStation4;
-        if (str == Strings.Get("SsidOtherNetworks")) return AprsSsid.OtherNetworks;
-        if (str == Strings.Get("SsidSpecialActivity")) return AprsSsid.SpecialActivity;
-        if (str == Strings.Get("SsidHumanPortable")) return AprsSsid.HumanPortable;
-        if (str == Strings.Get("SsidSecondaryMobile")) return AprsSsid.SecondaryMobile;
-        if (str == Strings.Get("SsidPrimaryMobile")) return AprsSsid.PrimaryMobile;
-        if (str == Strings.Get("SsidInternetGateway")) return AprsSsid.InternetGateway;
-        if (str == Strings.Get("SsidAircraft")) return AprsSsid.Aircraft;
-        if (str == Strings.Get("SsidDevices")) return AprsSsid.Devices;
-        if (str == Strings.Get("SsidWeatherStation")) return AprsSsid.WeatherStation;
-        if (str == Strings.Get("SsidTrucker")) return AprsSsid.Trucker;
-        if (str == Strings.Get("SsidAdditionalStation15")) return AprsSsid.AdditionalStation15;
+        if (str == Strings.Get("SsidPrimaryStation"))
+        {
+            return AprsSsid.PrimaryStation;
+        }
+
+        if (str == Strings.Get("SsidAdditionalStation1"))
+        {
+            return AprsSsid.AdditionalStation1;
+        }
+
+        if (str == Strings.Get("SsidAdditionalStation2"))
+        {
+            return AprsSsid.AdditionalStation2;
+        }
+
+        if (str == Strings.Get("SsidAdditionalStation3"))
+        {
+            return AprsSsid.AdditionalStation3;
+        }
+
+        if (str == Strings.Get("SsidAdditionalStation4"))
+        {
+            return AprsSsid.AdditionalStation4;
+        }
+
+        if (str == Strings.Get("SsidOtherNetworks"))
+        {
+            return AprsSsid.OtherNetworks;
+        }
+
+        if (str == Strings.Get("SsidSpecialActivity"))
+        {
+            return AprsSsid.SpecialActivity;
+        }
+
+        if (str == Strings.Get("SsidHumanPortable"))
+        {
+            return AprsSsid.HumanPortable;
+        }
+
+        if (str == Strings.Get("SsidSecondaryMobile"))
+        {
+            return AprsSsid.SecondaryMobile;
+        }
+
+        if (str == Strings.Get("SsidPrimaryMobile"))
+        {
+            return AprsSsid.PrimaryMobile;
+        }
+
+        if (str == Strings.Get("SsidInternetGateway"))
+        {
+            return AprsSsid.InternetGateway;
+        }
+
+        if (str == Strings.Get("SsidAircraft"))
+        {
+            return AprsSsid.Aircraft;
+        }
+
+        if (str == Strings.Get("SsidDevices"))
+        {
+            return AprsSsid.Devices;
+        }
+
+        if (str == Strings.Get("SsidWeatherStation"))
+        {
+            return AprsSsid.WeatherStation;
+        }
+
+        if (str == Strings.Get("SsidTrucker"))
+        {
+            return AprsSsid.Trucker;
+        }
+
+        if (str == Strings.Get("SsidAdditionalStation15"))
+        {
+            return AprsSsid.AdditionalStation15;
+        }
 
         return null;
     }

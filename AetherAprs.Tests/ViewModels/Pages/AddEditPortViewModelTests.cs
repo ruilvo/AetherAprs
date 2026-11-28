@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Localization;
 using AetherAprs.Services.Bluetooth;
@@ -16,7 +17,9 @@ using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

@@ -2,10 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Configuration;
-using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Services.Diagnostics;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -13,6 +9,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+
+using AetherAprs.Configuration;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Services.Diagnostics;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Ports;
 

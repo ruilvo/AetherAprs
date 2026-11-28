@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Android.Services.Platform;
 
@@ -29,8 +29,6 @@ public static class ApplicationLog
             builder.AddProvider(new AndroidLogcatLoggerProvider());
         });
 
-    private static ILoggerFactory? _containerFactory;
-
     /// <summary>Creates a logger named after the requesting type.</summary>
     /// <typeparam name="T">The type whose category name is used.</typeparam>
     public static ILogger<T> For<T>() => Factory.CreateLogger<T>();
@@ -43,7 +41,7 @@ public static class ApplicationLog
     {
         get
         {
-            ILoggerFactory? factory = Volatile.Read(ref _containerFactory);
+            ILoggerFactory? factory = Volatile.Read(ref field);
             if (factory != null)
             {
                 return factory;
@@ -54,7 +52,7 @@ public static class ApplicationLog
             IServiceProvider? provider = (Avalonia.Application.Current as AetherAprs.App)?.ServiceProvider;
             if (provider?.GetService(typeof(ILoggerFactory)) is ILoggerFactory resolved)
             {
-                Volatile.Write(ref _containerFactory, resolved);
+                Volatile.Write(ref field, resolved);
                 return resolved;
             }
 

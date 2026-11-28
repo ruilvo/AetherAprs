@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Linq;
+
 using AetherAprs.Services.Platform;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Platform;

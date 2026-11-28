@@ -8,20 +8,19 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.Transports.Kiss;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;
@@ -159,14 +158,13 @@ public sealed class PortServiceSessionControllerTests
     private sealed class TrackingKissStreamFactory : IKissStreamFactory
     {
         private int _openCount;
-        private int _disposeCount;
 
         public IReadOnlyCollection<Type> SupportedTransports { get; } =
             [typeof(TcpKissTransportSettings)];
 
         public int OpenCount => Volatile.Read(ref _openCount);
 
-        public int StreamDisposeCount => Volatile.Read(ref _disposeCount);
+        public int StreamDisposeCount { get => Volatile.Read(ref field); private set; }
 
         public Task<Stream> OpenAsync(
             KissSettings settings,
@@ -231,7 +229,7 @@ public sealed class PortServiceSessionControllerTests
             {
                 if (Interlocked.Exchange(ref _disposed, 1) == 0)
                 {
-                    Interlocked.Increment(ref owner._disposeCount);
+                    Interlocked.Increment(ref owner.StreamDisposeCount);
                 }
             }
         }

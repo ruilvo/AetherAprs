@@ -3,18 +3,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
+
 using AetherAprs.Services.UI;
-using AetherAprs.ViewModels;
-using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using Avalonia.Controls;
+
 using Mapsui;
 using Mapsui.Animations;
-using Mapsui.Layers;
 using Mapsui.Manipulations;
-using Mapsui.UI;
 using Mapsui.UI.Avalonia;
 
 namespace AetherAprs.Views.Pages;

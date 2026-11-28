@@ -2,15 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Imaging;
-using AetherAprs.Models.Aprs;
-using Avalonia.Media.Imaging;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Logging;
-using SkiaSharp;
 using System;
 using System.IO;
+
+using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
+
+using Avalonia.Media.Imaging;
+
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+using Microsoft.Extensions.Logging;
+
+using SkiaSharp;
 
 namespace AetherAprs.ViewModels.Components;
 

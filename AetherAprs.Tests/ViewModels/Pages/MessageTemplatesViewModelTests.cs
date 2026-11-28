@@ -6,12 +6,15 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

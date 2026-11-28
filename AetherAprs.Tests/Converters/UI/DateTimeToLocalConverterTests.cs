@@ -4,7 +4,9 @@
 
 using System;
 using System.Globalization;
+
 using AetherAprs.Converters.UI;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Converters.UI;

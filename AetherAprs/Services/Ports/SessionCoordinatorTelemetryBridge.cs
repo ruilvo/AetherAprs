@@ -5,7 +5,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Contracts;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Ports;

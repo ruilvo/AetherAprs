@@ -7,7 +7,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Bluetooth;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Bluetooth;

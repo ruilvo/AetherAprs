@@ -7,7 +7,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Diagnostics;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Startup;

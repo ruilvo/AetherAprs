@@ -33,12 +33,9 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
     /// </summary>
     public const int MaxHostLength = 255;
 
-    private string _host = DefaultHost;
-    private int _port = DefaultPort;
-
     public string Host
     {
-        get => _host;
+        get;
         set
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -48,13 +45,13 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
                 );
             }
 
-            _host = value;
+            field = value;
         }
-    }
+    } = DefaultHost;
 
     public int Port
     {
-        get => _port;
+        get;
         set
         {
             if (value < 1 || value > 65535)
@@ -64,9 +61,9 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
                 );
             }
 
-            _port = value;
+            field = value;
         }
-    }
+    } = DefaultPort;
 
     /// <inheritdoc />
     public IKissTransportSettings Clone() => new TcpKissTransportSettings { Host = Host, Port = Port };

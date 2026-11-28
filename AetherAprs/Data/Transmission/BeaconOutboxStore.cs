@@ -2,17 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data.Entities;
-using AetherAprs.Models;
-using AetherAprs.Services.Transmission;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Data.Entities;
+using AetherAprs.Models;
+using AetherAprs.Services.Transmission;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Data.Transmission;
 

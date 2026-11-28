@@ -5,11 +5,15 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Models;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Platform;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Location;

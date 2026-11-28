@@ -7,11 +7,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Modems.Kiss;
+
 using Geo;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Aprs;

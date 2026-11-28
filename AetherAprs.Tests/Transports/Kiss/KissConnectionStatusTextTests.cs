@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+
 using AetherAprs.Transports.Kiss;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Transports.Kiss;

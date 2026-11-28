@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Data.Maintenance;
@@ -11,12 +16,10 @@ using AetherAprs.Models.Messaging;
 using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Maintenance;
 using AetherAprs.Tests.Helpers;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Data.Maintenance;

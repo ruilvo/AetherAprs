@@ -4,22 +4,24 @@
 
 using System;
 using System.IO;
-using System.Threading.Tasks;
+
 using AetherAprs.Factories.ViewModels;
+using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
-using AetherAprs.Services.Objects;
-using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
-using AetherAprs.Imaging;
-using AetherAprs.Models.Aprs;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

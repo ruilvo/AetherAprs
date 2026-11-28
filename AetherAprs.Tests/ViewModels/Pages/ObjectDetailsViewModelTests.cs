@@ -7,10 +7,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Data.Entities;
 using AetherAprs.Services.Packets;
 using AetherAprs.ViewModels.Pages;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

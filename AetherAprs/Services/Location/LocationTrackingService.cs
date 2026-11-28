@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Models;
-using AetherAprs.Services.Platform;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Models;
+using AetherAprs.Services.Platform;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Location;
 
@@ -75,12 +77,10 @@ public sealed class LocationTrackingService(
     private readonly Lock _stateLock = new();
     private CancellationTokenSource? _locationUpdateCancellation;
     private Task? _updateLoopTask;
-    private LocationData? _currentLocation;
-    private bool _isTracking;
     private bool _disposed;
 
-    public LocationData? CurrentLocation => _currentLocation;
-    public bool IsTracking => _isTracking;
+    public LocationData? CurrentLocation { get; private set; }
+    public bool IsTracking { get; private set; }
     public bool IsLocationAvailable => _locationService.IsLocationAvailable();
 
     public event EventHandler<LocationData>? LocationUpdated;
@@ -97,7 +97,7 @@ public sealed class LocationTrackingService(
                 return;
             }
 
-            if (_isTracking)
+            if (IsTracking)
             {
                 _logger.LogWarning("Location tracking already started");
                 return;
@@ -116,7 +116,7 @@ public sealed class LocationTrackingService(
 
             _locationUpdateCancellation = new CancellationTokenSource();
             _updateLoopTask = RunLocationUpdateLoopAsync(_locationUpdateCancellation.Token);
-            _isTracking = true;
+            IsTracking = true;
         }
 
         // Keep the app alive (foreground service + wake lock on Android) while
@@ -153,7 +153,7 @@ public sealed class LocationTrackingService(
     {
         lock (_stateLock)
         {
-            if (_isTracking || _disposed)
+            if (IsTracking || _disposed)
             {
                 _logger.LogWarning("Location tracking already started");
                 return;
@@ -240,7 +240,7 @@ public sealed class LocationTrackingService(
             loopTask = _updateLoopTask;
             _locationUpdateCancellation = null;
             _updateLoopTask = null;
-            _isTracking = false;
+            IsTracking = false;
         }
 
         // Cancel outside the lock; the loop disposes its own CTS on exit so we
@@ -262,7 +262,7 @@ public sealed class LocationTrackingService(
                 {
                     LocationData location = await _locationService.GetCurrentLocationAsync(cancellationToken);
 
-                    _currentLocation = location;
+                    CurrentLocation = location;
                     LocationUpdated?.Invoke(this, location);
 
                     _logger.LogDebug("Location update applied.");
@@ -346,7 +346,7 @@ public sealed class LocationTrackingService(
             loopTask = _updateLoopTask;
             _locationUpdateCancellation = null;
             _updateLoopTask = null;
-            _isTracking = false;
+            IsTracking = false;
         }
 
         cancellation?.Cancel();

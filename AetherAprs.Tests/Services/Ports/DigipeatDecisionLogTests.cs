@@ -6,8 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;

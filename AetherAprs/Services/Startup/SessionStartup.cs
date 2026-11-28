@@ -6,7 +6,9 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Ports;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Startup;

@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Data.Entities;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
@@ -18,9 +19,13 @@ using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Pages;
+
 using Geo;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

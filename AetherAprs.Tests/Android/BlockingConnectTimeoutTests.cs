@@ -5,7 +5,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Android.Services.Transports;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Android;

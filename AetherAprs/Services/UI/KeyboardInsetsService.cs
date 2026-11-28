@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Platform;
+
 using Microsoft.Extensions.Logging;
-using System;
 
 namespace AetherAprs.Services.UI;
 
@@ -15,22 +17,21 @@ namespace AetherAprs.Services.UI;
 /// </summary>
 public sealed class KeyboardInsetsService(ILogger<KeyboardInsetsService>? logger = null) : IKeyboardInsetsService
 {
-    private Thickness _currentInsets = new(0);
     private IInputPane? _inputPane;
     private bool _disposed;
 
     public Thickness CurrentInsets
     {
-        get => _currentInsets;
+        get;
         private set
         {
-            if (_currentInsets != value)
+            if (field != value)
             {
-                _currentInsets = value;
+                field = value;
                 InsetsChanged?.Invoke(this, value);
             }
         }
-    }
+    } = new(0);
 
     public event EventHandler<Thickness>? InsetsChanged;
 

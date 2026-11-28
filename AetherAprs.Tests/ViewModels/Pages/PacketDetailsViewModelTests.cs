@@ -8,21 +8,25 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Data.Entities;
+
 using AetherAprs.Configuration;
+using AetherAprs.Data.Entities;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Services.Location;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels.Pages;
+
 using Geo;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

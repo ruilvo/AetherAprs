@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using AetherAprs.Configuration.Settings;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Configuration.Settings;
 
 namespace AetherAprs.Services.Configuration;
 

@@ -5,12 +5,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Data;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;

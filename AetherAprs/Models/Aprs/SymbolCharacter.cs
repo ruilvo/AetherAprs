@@ -12,14 +12,12 @@ namespace AetherAprs.Models.Aprs;
 /// </summary>
 public readonly struct SymbolCharacter : IEquatable<SymbolCharacter>
 {
-    private readonly char _value;
-
-    private SymbolCharacter(char value) => _value = value;
+    private SymbolCharacter(char value) => Value = value;
 
     /// <summary>
     /// Gets the character value.
     /// </summary>
-    public char Value => _value;
+    public char Value { get; }
 
     /// <summary>
     /// Tries to create a SymbolCharacter from a string.
@@ -73,24 +71,24 @@ public readonly struct SymbolCharacter : IEquatable<SymbolCharacter>
     /// <summary>
     /// Implicitly converts a SymbolCharacter to a string.
     /// </summary>
-    public static implicit operator string(SymbolCharacter symbol) => symbol._value.ToString();
+    public static implicit operator string(SymbolCharacter symbol) => symbol.Value.ToString();
 
     /// <summary>
     /// Implicitly converts a SymbolCharacter to a char.
     /// </summary>
-    public static implicit operator char(SymbolCharacter symbol) => symbol._value;
+    public static implicit operator char(SymbolCharacter symbol) => symbol.Value;
 
     /// <inheritdoc/>
-    public override string ToString() => _value.ToString();
+    public override string ToString() => Value.ToString();
 
     /// <inheritdoc/>
-    public bool Equals(SymbolCharacter other) => _value == other._value;
+    public bool Equals(SymbolCharacter other) => Value == other.Value;
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is SymbolCharacter other && Equals(other);
 
     /// <inheritdoc/>
-    public override int GetHashCode() => _value.GetHashCode();
+    public override int GetHashCode() => Value.GetHashCode();
 
     /// <summary>
     /// Equality operator.

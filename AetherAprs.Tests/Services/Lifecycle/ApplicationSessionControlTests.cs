@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs.Packets;
@@ -14,7 +15,9 @@ using AetherAprs.Services.Lifecycle;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Lifecycle;

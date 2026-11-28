@@ -148,34 +148,28 @@ public class AprsIsSettings : IPortTypeSettings
     /// </summary>
     public const int MaxFilterLength = 256;
 
-    private string _server = DefaultServer;
-    private int _serverPort = DefaultServerPort;
-    private string _passcode = DefaultPasscode;
-    private string _filter = DefaultFilter;
-    private AprsIsSecurityMode _security = DefaultSecurity;
-
     /// <summary>
     /// Gets or sets the APRS-IS server hostname.
     /// </summary>
     public string Server
     {
-        get => _server;
+        get;
         set
         {
             if (string.IsNullOrWhiteSpace(value))
             {
                 throw new ArgumentException("Server cannot be empty.", nameof(value));
             }
-            _server = value;
+            field = value;
         }
-    }
+    } = DefaultServer;
 
     /// <summary>
     /// Gets or sets the APRS-IS server port (1-65535).
     /// </summary>
     public int ServerPort
     {
-        get => _serverPort;
+        get;
         set
         {
             if (value < 1 || value > 65535)
@@ -184,16 +178,16 @@ public class AprsIsSettings : IPortTypeSettings
                     "Server port must be between 1 and 65535."
                 );
             }
-            _serverPort = value;
+            field = value;
         }
-    }
+    } = DefaultServerPort;
 
     /// <summary>
     /// Gets or sets the APRS-IS passcode. Use "-1" for read-only access.
     /// </summary>
     public string Passcode
     {
-        get => _passcode;
+        get;
         set
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -203,9 +197,9 @@ public class AprsIsSettings : IPortTypeSettings
                     nameof(value)
                 );
             }
-            _passcode = value;
+            field = value;
         }
-    }
+    } = DefaultPasscode;
 
     /// <summary>
     /// Gets or sets the APRS-IS filter string (e.g., "m/50" for 50km radius).
@@ -213,9 +207,9 @@ public class AprsIsSettings : IPortTypeSettings
     /// </summary>
     public string Filter
     {
-        get => _filter;
-        set => _filter = string.IsNullOrWhiteSpace(value) ? string.Empty : value;
-    }
+        get;
+        set => field = string.IsNullOrWhiteSpace(value) ? string.Empty : value;
+    } = DefaultFilter;
 
     /// <summary>
     /// Gets or sets whether the connection uses TLS. Default is
@@ -223,16 +217,16 @@ public class AprsIsSettings : IPortTypeSettings
     /// </summary>
     public AprsIsSecurityMode Security
     {
-        get => _security;
+        get;
         set
         {
             if (!Enum.IsDefined(value))
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown APRS-IS security mode.");
             }
-            _security = value;
+            field = value;
         }
-    }
+    } = DefaultSecurity;
 
     /// <inheritdoc />
     public IPortTypeSettings Clone() => new AprsIsSettings
@@ -287,19 +281,13 @@ public class AfskSettings : IPortTypeSettings
     public const int DefaultSlotTimeMs = 100;
     public const int DefaultPersist = 63;
 
-    private PttMode _pttMode = DefaultPttMode;
-    private int _txDelayMs = DefaultTxDelayMs;
-    private int _txTailMs = DefaultTxTailMs;
-    private int _slotTimeMs = DefaultSlotTimeMs;
-    private int _persist = DefaultPersist;
-
     /// <summary>
     /// Gets or sets how the transmitter is keyed. Default is <see cref="PttMode.Vox"/>,
     /// where the radio keys itself.
     /// </summary>
     public PttMode PttMode
     {
-        get => _pttMode;
+        get;
         set
         {
             if (!Enum.IsDefined(value))
@@ -307,9 +295,9 @@ public class AfskSettings : IPortTypeSettings
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown PTT mode.");
             }
 
-            _pttMode = value;
+            field = value;
         }
-    }
+    } = DefaultPttMode;
 
     /// <summary>
     /// Gets or sets the transmit delay in milliseconds: the time between keying
@@ -317,7 +305,7 @@ public class AfskSettings : IPortTypeSettings
     /// </summary>
     public int TxDelayMs
     {
-        get => _txDelayMs;
+        get;
         set
         {
             if (value < 0)
@@ -325,9 +313,9 @@ public class AfskSettings : IPortTypeSettings
                 throw new ArgumentOutOfRangeException(nameof(value), value, "TX delay cannot be negative.");
             }
 
-            _txDelayMs = value;
+            field = value;
         }
-    }
+    } = DefaultTxDelayMs;
 
     /// <summary>
     /// Gets or sets the transmit tail in milliseconds: the time audio keeps
@@ -335,7 +323,7 @@ public class AfskSettings : IPortTypeSettings
     /// </summary>
     public int TxTailMs
     {
-        get => _txTailMs;
+        get;
         set
         {
             if (value < 0)
@@ -343,9 +331,9 @@ public class AfskSettings : IPortTypeSettings
                 throw new ArgumentOutOfRangeException(nameof(value), value, "TX tail cannot be negative.");
             }
 
-            _txTailMs = value;
+            field = value;
         }
-    }
+    } = DefaultTxTailMs;
 
     /// <summary>
     /// Gets or sets the channel-access slottime in milliseconds: the base interval
@@ -354,7 +342,7 @@ public class AfskSettings : IPortTypeSettings
     /// </summary>
     public int SlotTimeMs
     {
-        get => _slotTimeMs;
+        get;
         set
         {
             if (value < 0)
@@ -362,9 +350,9 @@ public class AfskSettings : IPortTypeSettings
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Slottime cannot be negative.");
             }
 
-            _slotTimeMs = value;
+            field = value;
         }
-    }
+    } = DefaultSlotTimeMs;
 
     /// <summary>
     /// Gets or sets the p-persistence value (0-255) controlling how eagerly the modem
@@ -372,7 +360,7 @@ public class AfskSettings : IPortTypeSettings
     /// </summary>
     public int Persist
     {
-        get => _persist;
+        get;
         set
         {
             if (value is < 0 or > 255)
@@ -380,9 +368,9 @@ public class AfskSettings : IPortTypeSettings
                 throw new ArgumentOutOfRangeException(nameof(value), value, "Persist must be in [0, 255].");
             }
 
-            _persist = value;
+            field = value;
         }
-    }
+    } = DefaultPersist;
 
     /// <inheritdoc />
     public IPortTypeSettings Clone() => new AfskSettings

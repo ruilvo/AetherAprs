@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Messaging;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Messaging;

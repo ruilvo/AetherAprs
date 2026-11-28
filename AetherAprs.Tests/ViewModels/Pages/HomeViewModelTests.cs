@@ -6,9 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
-using AetherAprs.Data;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
@@ -19,21 +19,24 @@ using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Location;
-using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
-using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using Geo;
+
 using Mapsui.Layers;
-using Microsoft.EntityFrameworkCore;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
@@ -489,9 +492,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
     private sealed class TestLocationTrackingService : ILocationTrackingService
     {
-        private LocationData? _currentLocation;
-
-        public LocationData? CurrentLocation => _currentLocation;
+        public LocationData? CurrentLocation { get; private set; }
         public bool IsTracking => false;
         public bool IsLocationAvailable => true;
         public int StartCount { get; private set; }
@@ -504,7 +505,7 @@ public sealed class HomeViewModelTests : TestFixtureBase
 
         public void SetCurrentLocation(LocationData location)
         {
-            _currentLocation = location;
+            CurrentLocation = location;
             LocationUpdated?.Invoke(this, location);
         }
 

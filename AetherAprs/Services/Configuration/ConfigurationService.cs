@@ -2,21 +2,22 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Configuration.Settings;
-using AetherAprs.Configuration.Settings.Documents;
-using AetherAprs.Configuration.Settings.Migrations;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Services.Platform;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Configuration.Settings;
+using AetherAprs.Configuration.Settings.Documents;
+using AetherAprs.Configuration.Settings.Migrations;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Platform;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Configuration;
 

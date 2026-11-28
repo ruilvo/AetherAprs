@@ -2,12 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Services.Platform;
-using Android.Media;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Services.Platform;
+
+using Android.Media;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Android.Services.Platform;
 

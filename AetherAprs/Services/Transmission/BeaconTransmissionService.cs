@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Helpers;
@@ -12,11 +17,8 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
+
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace AetherAprs.Services.Transmission;
 
@@ -70,7 +72,6 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     private readonly ILogger<BeaconTransmissionService> _logger;
     private readonly IBeaconTransmitQueue? _queue;
     private readonly TimeProvider _timeProvider;
-    private string _beaconStatus = Strings.Get("BeaconSystemReady");
     private bool _disposed;
 
     /// <summary>Oldest sample still worth putting on the air.</summary>
@@ -83,16 +84,16 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
     public string BeaconStatus
     {
-        get => _beaconStatus;
+        get;
         private set
         {
-            if (_beaconStatus != value)
+            if (field != value)
             {
-                _beaconStatus = value;
+                field = value;
                 BeaconStatusChanged?.Invoke(this, value);
             }
         }
-    }
+    } = Strings.Get("BeaconSystemReady");
 
     public event EventHandler<string>? BeaconStatusChanged;
 
@@ -363,7 +364,9 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     public async Task SendInitialBeaconOnPortActivationAsync(LocationData? userLocation, System.Collections.Generic.IEnumerable<AetherAprs.Configuration.PortConfig> portsJustEnabled)
     {
         if (userLocation == null || !portsJustEnabled.Any())
+        {
             return;
+        }
 
         if (!IsUsableFix(userLocation, _timeProvider.GetUtcNow(), out string fixReason))
         {
@@ -373,7 +376,9 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
 
         string callsign = _configurationService.Current.Aprs.Callsign;
         if (string.IsNullOrEmpty(callsign))
+        {
             return;
+        }
 
         PositionPacket packet = CreateBeaconPacket(userLocation, callsign);
 
@@ -512,7 +517,9 @@ public sealed class BeaconTransmissionService : IBeaconTransmissionService
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _disposed = true;
         _beaconService.BeaconRequested -= OnBeaconRequested;

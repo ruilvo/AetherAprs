@@ -5,8 +5,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+
 using AetherAprs.Android.Services.Transports;
 using AetherAprs.Transports.Kiss;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Android;

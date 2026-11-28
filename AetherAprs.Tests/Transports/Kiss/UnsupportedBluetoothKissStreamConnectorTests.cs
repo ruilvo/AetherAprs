@@ -4,8 +4,10 @@
 
 using System;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Transports.Kiss;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Transports.Kiss;

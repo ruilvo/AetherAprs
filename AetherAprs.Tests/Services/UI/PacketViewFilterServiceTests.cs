@@ -4,12 +4,15 @@
 
 using System;
 using System.Collections.Generic;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.UI;

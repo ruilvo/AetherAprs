@@ -4,8 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;

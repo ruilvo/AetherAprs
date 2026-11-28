@@ -6,9 +6,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Lifecycle;

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Android.Services.Platform;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Android;

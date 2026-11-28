@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Reflection;
+
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Imaging;

@@ -2,16 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Configuration;
-using AetherAprs.Modems.Aprs;
-using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Services.Platform;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+
+using AetherAprs.Configuration;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Modems.Aprs;
+using AetherAprs.Services.Platform;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Modems.Afsk;
 

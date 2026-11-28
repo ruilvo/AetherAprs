@@ -7,10 +7,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Transports.Kiss;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Ports;

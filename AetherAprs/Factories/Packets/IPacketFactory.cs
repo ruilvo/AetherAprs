@@ -5,6 +5,7 @@
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
+
 using Geo;
 
 namespace AetherAprs.Factories.Packets;

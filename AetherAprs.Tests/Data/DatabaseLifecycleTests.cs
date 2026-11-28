@@ -5,13 +5,15 @@
 using System;
 using System.IO;
 using System.Linq;
+
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Models;
 using AetherAprs.Tests.Helpers;
+
 using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Data;

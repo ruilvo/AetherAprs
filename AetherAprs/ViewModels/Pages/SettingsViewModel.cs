@@ -2,22 +2,24 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Localization;
-using AetherAprs.Services.Configuration;
-using AetherAprs.Services.UI;
-using AetherAprs.ViewModels.Components;
-using AetherAprs.ViewModels.Pages;
-using AetherAprs.ViewModels.Validation;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using AetherAprs.Models.Aprs;
+
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Localization;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.UI;
+using AetherAprs.ViewModels.Components;
+using AetherAprs.ViewModels.Validation;
+
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -34,7 +36,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly ILogger<SettingsViewModel>? _logger;
     private bool _disposed;
     private readonly bool _isInitializing = true;
-    private Task _currentSaveTask = Task.CompletedTask;
 
     [ObservableProperty]
     public partial string Callsign { get; set; } = "N0CALL";
@@ -225,7 +226,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     // Expose the current save task for tests to await completion
-    internal Task CurrentSaveTask => _currentSaveTask;
+    internal Task CurrentSaveTask { get; private set; } = Task.CompletedTask;
 
     private void OnSymbolPickerPropertyChanged(object? s, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -510,7 +511,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _currentSaveTask = SaveAfterAsync(_currentSaveTask, update);
+        CurrentSaveTask = SaveAfterAsync(CurrentSaveTask, update);
     }
 
     private async Task SaveAfterAsync(

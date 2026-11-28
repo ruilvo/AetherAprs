@@ -1,4 +1,4 @@
-﻿// This file is part of AetherAprs
+// This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
@@ -14,14 +15,15 @@ using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Messaging;
-using AetherAprs.Services.Objects;
-using AetherAprs.Services.Packets;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

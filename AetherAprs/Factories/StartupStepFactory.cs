@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Data;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Maintenance;
@@ -14,6 +15,7 @@ using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Startup;
 using AetherAprs.ViewModels.Pages;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

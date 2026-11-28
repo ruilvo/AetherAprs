@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Text.Json.Serialization;
+
 using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.Configuration.Settings;
@@ -15,13 +16,6 @@ namespace AetherAprs.Configuration.Settings;
 /// </summary>
 public sealed record AprsSettings
 {
-    private AprsSsid _ssid = AprsSsid.PrimaryStation;
-    private SymbolTable _symbolTable = SymbolTable.Primary;
-    private SymbolCode _symbolCode = SymbolCode.LeftSquareBracket;
-    private SymbolCode? _symbolOverlay;
-    private string _callsign = "N0CALL";
-    private int _packetRetentionDays = DefaultPacketRetentionDays;
-    private int _packetRetentionMaxRows = DefaultPacketRetentionMaxRows;
 
     /// <summary>
     /// The default number of days of packet history to keep: the 30-day target
@@ -40,18 +34,18 @@ public sealed record AprsSettings
     /// </summary>
     public string Callsign
     {
-        get => _callsign;
-        init => _callsign = SettingsValidation.Callsign(value);
-    }
+        get;
+        init => field = SettingsValidation.Callsign(value);
+    } = "N0CALL";
 
     /// <summary>
     /// Gets the station SSID.
     /// </summary>
     public AprsSsid Ssid
     {
-        get => _ssid;
-        init => _ssid = SettingsValidation.Ssid(value);
-    }
+        get;
+        init => field = SettingsValidation.Ssid(value);
+    } = AprsSsid.PrimaryStation;
 
     /// <summary>
     /// Gets the station APRS symbol table.
@@ -59,9 +53,9 @@ public sealed record AprsSettings
     [JsonPropertyName("SymbolTableCharacter")]
     public SymbolTable SymbolTable
     {
-        get => _symbolTable;
-        init => _symbolTable = SettingsValidation.SymbolTable(value);
-    }
+        get;
+        init => field = SettingsValidation.SymbolTable(value);
+    } = SymbolTable.Primary;
 
     /// <summary>
     /// Gets the station APRS symbol code.
@@ -69,9 +63,9 @@ public sealed record AprsSettings
     [JsonPropertyName("SymbolCodeCharacter")]
     public SymbolCode SymbolCode
     {
-        get => _symbolCode;
-        init => _symbolCode = SettingsValidation.SymbolCode(value);
-    }
+        get;
+        init => field = SettingsValidation.SymbolCode(value);
+    } = SymbolCode.LeftSquareBracket;
 
     /// <summary>
     /// Gets the station APRS symbol overlay.
@@ -80,8 +74,8 @@ public sealed record AprsSettings
     [JsonPropertyName("SymbolOverlayCharacter")]
     public SymbolCode? SymbolOverlay
     {
-        get => _symbolOverlay;
-        init => _symbolOverlay = SettingsValidation.SymbolOverlay(value);
+        get;
+        init => field = SettingsValidation.SymbolOverlay(value);
     }
 
     /// <summary>
@@ -91,9 +85,9 @@ public sealed record AprsSettings
     /// </summary>
     public int PacketRetentionDays
     {
-        get => _packetRetentionDays;
-        init => _packetRetentionDays = SettingsValidation.PacketRetentionDays(value);
-    }
+        get;
+        init => field = SettingsValidation.PacketRetentionDays(value);
+    } = DefaultPacketRetentionDays;
 
     /// <summary>
     /// Gets the maximum number of packet records retained after cleanup.
@@ -101,9 +95,9 @@ public sealed record AprsSettings
     /// </summary>
     public int PacketRetentionMaxRows
     {
-        get => _packetRetentionMaxRows;
-        init => _packetRetentionMaxRows = SettingsValidation.PacketRetentionMaxRows(value);
-    }
+        get;
+        init => field = SettingsValidation.PacketRetentionMaxRows(value);
+    } = DefaultPacketRetentionMaxRows;
 
     /// <summary>
     /// Gets the time range for displaying packets in the list and on the map.

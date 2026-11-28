@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+
 using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Tests.Helpers;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Data;

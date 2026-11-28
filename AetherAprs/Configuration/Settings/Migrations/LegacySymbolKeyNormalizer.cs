@@ -4,7 +4,9 @@
 
 using System;
 using System.Collections.Generic;
+
 using AetherAprs.Models.Aprs;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Configuration.Settings.Migrations;

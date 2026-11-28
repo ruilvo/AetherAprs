@@ -5,8 +5,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Ports;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;

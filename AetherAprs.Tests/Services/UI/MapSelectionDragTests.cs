@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Services.UI;
+
 using Mapsui;
 using Mapsui.Projections;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.UI;

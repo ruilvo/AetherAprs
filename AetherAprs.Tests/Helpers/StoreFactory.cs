@@ -11,8 +11,8 @@ using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
+
 using Microsoft.Extensions.Logging.Abstractions;
-using System;
 
 namespace AetherAprs.Tests.Helpers;
 

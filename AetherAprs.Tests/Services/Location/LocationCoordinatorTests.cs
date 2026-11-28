@@ -3,14 +3,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Models;
 using AetherAprs.Services.Location;
 using AetherAprs.Tests.Helpers;
+
 using Geo;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Location;
@@ -203,9 +205,7 @@ public sealed class LocationCoordinatorTests : TestFixtureBase
 
     private sealed class FakeTrackingService : ILocationTrackingService
     {
-        private LocationData? _currentLocation;
-
-        public LocationData? CurrentLocation => _currentLocation;
+        public LocationData? CurrentLocation { get; private set; }
         public bool IsTracking => StartCount > 0;
         public bool IsLocationAvailable => true;
         public int StartCount { get; private set; }
@@ -217,7 +217,7 @@ public sealed class LocationCoordinatorTests : TestFixtureBase
 
         public void Raise(LocationData location)
         {
-            _currentLocation = location;
+            CurrentLocation = location;
             LocationUpdated?.Invoke(this, location);
         }
 

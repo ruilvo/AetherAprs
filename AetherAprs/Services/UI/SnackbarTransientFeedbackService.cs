@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using Avalonia.Threading;
+
 using Material.Styles.Controls;
 
 namespace AetherAprs.Services.UI;

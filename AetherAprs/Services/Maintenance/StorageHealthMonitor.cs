@@ -6,10 +6,12 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.UI;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Maintenance;

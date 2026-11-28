@@ -3,12 +3,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+
 using AetherAprs.Models;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using Geo;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Components;

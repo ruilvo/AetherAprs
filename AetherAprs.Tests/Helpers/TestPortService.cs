@@ -6,6 +6,7 @@ using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Tests.Helpers;

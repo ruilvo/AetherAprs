@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Localization;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Messaging;
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Collections.Generic;
 
 namespace AetherAprs.ViewModels.Components;
 

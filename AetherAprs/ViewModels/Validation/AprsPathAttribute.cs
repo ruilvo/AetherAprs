@@ -4,6 +4,7 @@
 
 using System;
 using System.ComponentModel.DataAnnotations;
+
 using AetherAprs.Models.Aprs;
 
 namespace AetherAprs.ViewModels.Validation;

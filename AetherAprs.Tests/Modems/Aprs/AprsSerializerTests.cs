@@ -3,11 +3,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
-using System.Text;
+
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
+
 using Geo;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Aprs;

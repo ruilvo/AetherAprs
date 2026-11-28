@@ -2,12 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Models.Aprs;
-using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
+
+using AetherAprs.Models.Aprs;
+
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AetherAprs.ViewModels.Components;
 
@@ -131,16 +132,56 @@ public partial class AprsIsFilterBuilderViewModel : ViewModelBase
     private AprsIsPacketType BuildPacketTypes()
     {
         AprsIsPacketType types = AprsIsPacketType.None;
-        if (IncludePosition) types |= AprsIsPacketType.Position;
-        if (IncludeObject) types |= AprsIsPacketType.ObjectPacket;
-        if (IncludeItem) types |= AprsIsPacketType.Item;
-        if (IncludeMessage) types |= AprsIsPacketType.Message;
-        if (IncludeQuery) types |= AprsIsPacketType.Query;
-        if (IncludeStatus) types |= AprsIsPacketType.Status;
-        if (IncludeTelemetry) types |= AprsIsPacketType.Telemetry;
-        if (IncludeUserDefined) types |= AprsIsPacketType.UserDefined;
-        if (IncludeNws) types |= AprsIsPacketType.Nws;
-        if (IncludeWeather) types |= AprsIsPacketType.Weather;
+        if (IncludePosition)
+        {
+            types |= AprsIsPacketType.Position;
+        }
+
+        if (IncludeObject)
+        {
+            types |= AprsIsPacketType.ObjectPacket;
+        }
+
+        if (IncludeItem)
+        {
+            types |= AprsIsPacketType.Item;
+        }
+
+        if (IncludeMessage)
+        {
+            types |= AprsIsPacketType.Message;
+        }
+
+        if (IncludeQuery)
+        {
+            types |= AprsIsPacketType.Query;
+        }
+
+        if (IncludeStatus)
+        {
+            types |= AprsIsPacketType.Status;
+        }
+
+        if (IncludeTelemetry)
+        {
+            types |= AprsIsPacketType.Telemetry;
+        }
+
+        if (IncludeUserDefined)
+        {
+            types |= AprsIsPacketType.UserDefined;
+        }
+
+        if (IncludeNws)
+        {
+            types |= AprsIsPacketType.Nws;
+        }
+
+        if (IncludeWeather)
+        {
+            types |= AprsIsPacketType.Weather;
+        }
+
         return types;
     }
 

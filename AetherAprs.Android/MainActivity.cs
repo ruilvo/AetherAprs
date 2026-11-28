@@ -1,30 +1,36 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
-using AetherAprs.Services.Lifecycle;
-using AetherAprs.Services.Messaging;
-using AetherAprs.Services.Platform;
-using AetherAprs.Services.UI;
-using AetherAprs.Factories.ViewModels;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Android.Services.Platform;
-using Android.App;
-using Android.Content;
-using Android.Content.PM;
-using Android.OS;
-using Android.Views;
-using DialogHostAvalonia;
-using Android.Window;
-using AndroidX.Core.View;
-using Avalonia.Android;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Android.Services.Platform;
+using AetherAprs.Factories.ViewModels;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Lifecycle;
+using AetherAprs.Services.Messaging;
+using AetherAprs.Services.Platform;
+using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
+
+using Android.App;
+using Android.Content;
+using Android.Content.PM;
+using Android.OS;
+using Android.Views;
+using Android.Window;
+
+using AndroidX.Core.View;
+
+using Avalonia.Android;
+
+using DialogHostAvalonia;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Android;
 

@@ -5,8 +5,10 @@
 using System;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Services.Bluetooth;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Bluetooth;

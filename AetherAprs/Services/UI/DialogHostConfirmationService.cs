@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System.Threading.Tasks;
+
 using AetherAprs.Localization;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+
 using DialogHostAvalonia;
-using System;
-using System.Threading.Tasks;
 
 namespace AetherAprs.Services.UI;
 

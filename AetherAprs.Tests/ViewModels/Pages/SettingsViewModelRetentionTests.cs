@@ -5,7 +5,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Configuration;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
@@ -16,8 +16,11 @@ using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

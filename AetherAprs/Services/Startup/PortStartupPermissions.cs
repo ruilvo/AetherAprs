@@ -7,8 +7,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Services.Platform;
+
 using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Startup;

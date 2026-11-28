@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Imaging;
 using AetherAprs.Localization;
@@ -15,8 +16,11 @@ using AetherAprs.Services.Objects;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

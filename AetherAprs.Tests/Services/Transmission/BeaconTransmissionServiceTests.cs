@@ -4,6 +4,7 @@
 
 using System;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
@@ -15,9 +16,13 @@ using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
+
 using Geo;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Transmission;

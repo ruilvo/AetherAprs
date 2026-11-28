@@ -7,14 +7,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Services.Platform;
+using AetherAprs.Services.Ports;
+
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
 using Android.Util;
-using AetherAprs.Services.Platform;
-using AetherAprs.Services.Ports;
+
 using Xamarin.Android.NUnitLite;
 
 namespace AetherAprs.Android.Tests;

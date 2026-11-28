@@ -3,20 +3,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
+using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Platform;
 using AetherAprs.Tests.Helpers;
-using AetherAprs.Models.Aprs;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
-using System.Threading;
-using System.Collections.Generic;
 
 namespace AetherAprs.Tests.Services.Configuration;
 

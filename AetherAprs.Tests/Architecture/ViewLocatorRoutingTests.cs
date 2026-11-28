@@ -6,10 +6,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+
 using AetherAprs.Localization;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
+
 using Avalonia.Controls;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Architecture;

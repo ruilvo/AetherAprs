@@ -2,17 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Transports.Kiss;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AetherAprs.Tests.Helpers;
 

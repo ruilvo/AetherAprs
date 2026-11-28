@@ -6,13 +6,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Afsk;
 using AetherAprs.Services.Platform;
+
 using Geo;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Afsk;

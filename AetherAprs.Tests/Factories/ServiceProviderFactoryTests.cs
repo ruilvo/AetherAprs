@@ -2,14 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Factories;
-using AetherAprs.Services.Platform;
-using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Xunit;
+
+using AetherAprs.Factories;
 using AetherAprs.Models;
+using AetherAprs.Services.Platform;
+
+using Microsoft.Extensions.DependencyInjection;
+
+using Xunit;
 
 namespace AetherAprs.Tests.Factories;
 

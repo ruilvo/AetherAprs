@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System.Collections.Generic;
+
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
-using System.Collections.Generic;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Aprs;

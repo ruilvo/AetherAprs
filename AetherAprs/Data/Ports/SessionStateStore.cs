@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data.Entities;
-using AetherAprs.Services.Ports;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Data.Entities;
+using AetherAprs.Services.Ports;
+
+using Microsoft.EntityFrameworkCore;
 
 namespace AetherAprs.Data.Ports;
 

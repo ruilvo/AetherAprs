@@ -2,20 +2,22 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data.Entities;
-using AetherAprs.Data.Mappers;
-using AetherAprs.Models.Aprs.Packets;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Messaging;
-using AetherAprs.Services.Configuration;
-using AetherAprs.Services.Packets;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+
+using AetherAprs.Data.Entities;
+using AetherAprs.Data.Mappers;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Aprs.Packets;
+using AetherAprs.Models.Messaging;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Packets;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Data.Packets;
 

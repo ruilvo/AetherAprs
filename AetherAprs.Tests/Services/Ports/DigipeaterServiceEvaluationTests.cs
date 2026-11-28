@@ -7,15 +7,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration.Settings;
-using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;
@@ -588,12 +590,12 @@ public sealed class DigipeaterServiceEvaluationTests
         string source = "N5SRC",
         int? ssid = null,
         string raw = "!4903.50N/07202.75W-Test comment") => new()
-    {
-        Source = new Callsign(source, ssid),
-        Destination = new Callsign("APRS"),
-        Path = [],
-        Raw = raw
-    };
+        {
+            Source = new Callsign(source, ssid),
+            Destination = new Callsign("APRS"),
+            Path = [],
+            Raw = raw
+        };
 
     private static IReadOnlyList<PortInfo> CreatePorts() =>
     [

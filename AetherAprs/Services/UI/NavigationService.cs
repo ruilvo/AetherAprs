@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.ViewModels;
-using AetherAprs.ViewModels.Pages;
-using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+
+using AetherAprs.ViewModels;
+using AetherAprs.ViewModels.Pages;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs.Services.UI;
 
@@ -20,19 +22,17 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
         typeof(PacketsViewModel),
         typeof(SettingsViewModel)
     ];
-
-    private ViewModelBase? _currentViewModel;
     private readonly Stack<ViewModelBase> _navigationStack = new();
 
     public ViewModelBase? CurrentViewModel
     {
-        get => _currentViewModel;
+        get;
         private set
         {
-            if (_currentViewModel != value)
+            if (field != value)
             {
-                _currentViewModel = value;
-                CurrentViewModelChanged?.Invoke(this, _currentViewModel);
+                field = value;
+                CurrentViewModelChanged?.Invoke(this, field);
             }
         }
     }
@@ -53,9 +53,9 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
             return;
         }
 
-        if (_currentViewModel != null && !ReferenceEquals(_currentViewModel, viewModel))
+        if (CurrentViewModel != null && !ReferenceEquals(CurrentViewModel, viewModel))
         {
-            _navigationStack.Push(_currentViewModel);
+            _navigationStack.Push(CurrentViewModel);
         }
 
         CurrentViewModel = viewModel;
@@ -63,8 +63,8 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
 
     public bool CanGoBack =>
         _navigationStack.Count > 0
-        || (_currentViewModel != null && !IsRootTab(_currentViewModel))
-        || (_currentViewModel != null && _currentViewModel.GetType() != typeof(HomeViewModel));
+        || (CurrentViewModel != null && !IsRootTab(CurrentViewModel))
+        || (CurrentViewModel != null && CurrentViewModel.GetType() != typeof(HomeViewModel));
 
     public void GoBack()
     {
@@ -74,13 +74,13 @@ public class NavigationService(IServiceProvider serviceProvider) : INavigationSe
             return;
         }
 
-        if (_currentViewModel != null && !IsRootTab(_currentViewModel))
+        if (CurrentViewModel != null && !IsRootTab(CurrentViewModel))
         {
             CurrentViewModel = serviceProvider.GetRequiredService<HomeViewModel>();
             return;
         }
 
-        if (_currentViewModel?.GetType() != typeof(HomeViewModel))
+        if (CurrentViewModel?.GetType() != typeof(HomeViewModel))
         {
             CurrentViewModel = serviceProvider.GetRequiredService<HomeViewModel>();
             return;

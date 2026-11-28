@@ -4,9 +4,11 @@
 
 using System.Collections.Generic;
 using System.Linq;
+
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Ports;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;

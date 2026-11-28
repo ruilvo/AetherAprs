@@ -2,6 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Localization;
@@ -11,15 +18,11 @@ using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels.Components;
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -34,7 +37,6 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     private readonly ILogger<AddEditPortViewModel>? _logger;
     private readonly ITransientFeedbackService? _transientFeedbackService;
     private readonly IUiDispatcher? _uiDispatcher;
-    private readonly bool _supportsPhysicalPtt;
     private CancellationTokenSource? _bleScanCts;
     private PortConfig? _existingConfig;
     private bool _isNameManuallyEdited;
@@ -190,13 +192,13 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// Whether the platform can key a physical PTT control at all.
     /// </summary>
-    public bool SupportsPhysicalPtt => _supportsPhysicalPtt;
+    public bool SupportsPhysicalPtt { get; }
 
     /// <summary>
     /// Stated warning shown when this platform cannot key a physical PTT, so the
     /// single VOX choice is explained instead of looking like a missing option.
     /// </summary>
-    public string PttModeUnavailableText => _supportsPhysicalPtt
+    public string PttModeUnavailableText => SupportsPhysicalPtt
         ? string.Empty
         : Strings.Get("PttModeUnavailable");
 
@@ -236,9 +238,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         _logger = logger;
         _transientFeedbackService = transientFeedbackService;
         _uiDispatcher = uiDispatcher;
-        _supportsPhysicalPtt = pttService?.SupportsPhysicalPtt ?? false;
+        SupportsPhysicalPtt = pttService?.SupportsPhysicalPtt ?? false;
         AvailablePttModes.Add(PttMode.Vox);
-        if (_supportsPhysicalPtt)
+        if (SupportsPhysicalPtt)
         {
             AvailablePttModes.Add(PttMode.SpeakerMic);
         }

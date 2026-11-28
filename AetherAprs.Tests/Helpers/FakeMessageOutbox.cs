@@ -2,14 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Messaging;
-using AetherAprs.Services.Messaging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Models.Aprs;
+using AetherAprs.Models.Messaging;
+using AetherAprs.Services.Messaging;
 
 namespace AetherAprs.Tests.Helpers;
 

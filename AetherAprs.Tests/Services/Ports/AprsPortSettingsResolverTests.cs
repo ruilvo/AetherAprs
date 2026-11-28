@@ -5,13 +5,12 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using AetherAprs.Configuration;
+
 using AetherAprs.Configuration.Settings;
-using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
-using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Ports;

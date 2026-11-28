@@ -2,17 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Factories.ViewModels;
-using AetherAprs.Models.Messaging;
-using AetherAprs.Services.Messaging;
-using AetherAprs.Services.UI;
-using AetherAprs.ViewModels.Pages;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+
+using AetherAprs.Factories.ViewModels;
+using AetherAprs.Models.Messaging;
+using AetherAprs.Services.Messaging;
+using AetherAprs.Services.UI;
+
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AetherAprs.ViewModels.Pages;
 

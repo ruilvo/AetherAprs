@@ -2,8 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Avalonia.Controls;
 using AetherAprs.ViewModels.Pages;
+
+using Avalonia.Controls;
 
 namespace AetherAprs.Views.Pages;
 

@@ -4,9 +4,11 @@
 
 using System;
 using System.IO;
+
 using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Models.Objects;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Helpers;

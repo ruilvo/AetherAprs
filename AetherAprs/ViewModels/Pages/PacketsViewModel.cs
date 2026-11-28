@@ -2,25 +2,26 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Data;
-using AetherAprs.Data.Entities;
-using AetherAprs.Factories.ViewModels;
-using AetherAprs.Models.Aprs;
-using AetherAprs.Services.Configuration;
-using AetherAprs.Services.Packets;
-using AetherAprs.Services.UI;
-using AetherAprs.Configuration;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using AetherAprs.Localization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Data.Entities;
+using AetherAprs.Factories.ViewModels;
+using AetherAprs.Localization;
+using AetherAprs.Models.Aprs;
+using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Packets;
+using AetherAprs.Services.UI;
+
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.ViewModels.Pages;
 
@@ -48,7 +49,6 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     private readonly List<PacketSummary> _filteredSummaries = [];
     private Task? _throttleTask;
     private bool _disposed;
-    private readonly Task? _initializationTask;
     private int _visibleCount;
 
     [ObservableProperty]
@@ -60,18 +60,17 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     /// </summary>
     public string SearchQuery
     {
-        get => _searchQuery;
+        get;
         set
         {
-            if (_searchQuery != value)
+            if (field != value)
             {
-                _searchQuery = value ?? string.Empty;
+                field = value ?? string.Empty;
                 OnPropertyChanged(nameof(SearchQuery));
                 ApplyFilterAndReset();
             }
         }
-    }
-    private string _searchQuery = string.Empty;
+    } = string.Empty;
 
     [ObservableProperty]
     public partial ObservableCollection<PacketSummary> Packets { get; set; } = [];
@@ -95,7 +94,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// Task that completes when initial load finishes. Useful for testing.
     /// </summary>
-    public Task InitializationTask => _initializationTask ?? Task.CompletedTask;
+    public Task InitializationTask => field ?? Task.CompletedTask;
 
     public PacketsViewModel(
         IPacketQueryService packetQueryService,
@@ -127,7 +126,7 @@ public partial class PacketsViewModel : ViewModelBase, IDisposable
         _packetStorageService.PacketStored += OnPacketStored;
 
         // Load initial data from database
-        _initializationTask = LoadPacketsAsync();
+        InitializationTask = LoadPacketsAsync();
     }
 
     private void OnFiltersChanged(object? sender, EventArgs e) =>

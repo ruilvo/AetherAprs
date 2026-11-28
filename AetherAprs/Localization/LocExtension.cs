@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Avalonia.Metadata;
-using Avalonia.Markup.Xaml;
 using System;
+
+using Avalonia.Markup.Xaml;
+using Avalonia.Metadata;
 
 namespace AetherAprs.Localization;
 

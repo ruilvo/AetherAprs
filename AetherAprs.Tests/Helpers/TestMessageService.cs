@@ -2,16 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+
 using AetherAprs.Factories.Packets;
 using AetherAprs.Services.Configuration;
-using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
+
 using Microsoft.Extensions.Logging;
-using System;
 
 namespace AetherAprs.Tests.Helpers;
 

@@ -5,7 +5,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+
 using AetherAprs.Modems.Afsk;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Afsk;

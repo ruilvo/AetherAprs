@@ -2,9 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
 using AetherAprs.Factories.Packets;
 using AetherAprs.Models;
-using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
 using AetherAprs.Services.Beaconing;
@@ -12,14 +18,9 @@ using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AetherAprs.ViewModels.Pages;
 

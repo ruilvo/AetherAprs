@@ -2,32 +2,35 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
-using AetherAprs.Data;
 using AetherAprs.Data.Entities;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Location;
-using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Objects;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Tests.Helpers;
-using AetherAprs.Configuration;
 using AetherAprs.ViewModels.Pages;
+
 using Geo;
+
 using Microsoft.Extensions.Logging;
+
 using NSubstitute;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+
 using Xunit;
-using System.Diagnostics;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
 

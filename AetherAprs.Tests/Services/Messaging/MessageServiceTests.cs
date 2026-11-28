@@ -8,14 +8,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Data;
+using AetherAprs.Data.Entities;
 using AetherAprs.Data.Mappers;
 using AetherAprs.Data.Messaging;
 using AetherAprs.Data.Packets;
 using AetherAprs.Factories.Packets;
-using AetherAprs.Tests.Helpers;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
@@ -26,14 +27,18 @@ using AetherAprs.Services.Messaging;
 using AetherAprs.Services.Packets;
 using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
+using AetherAprs.Tests.Helpers;
 using AetherAprs.ViewModels;
+
 using Geo;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
-using AetherAprs.Data.Entities;
 
 namespace AetherAprs.Tests.Services.Messaging;
 

@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Services.UI;
-using Mapsui;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+
+using AetherAprs.Services.UI;
+
+using Mapsui;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.UI;

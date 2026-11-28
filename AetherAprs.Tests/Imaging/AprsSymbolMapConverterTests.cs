@@ -3,11 +3,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System;
+
 using AetherAprs.Imaging;
 using AetherAprs.Models.Aprs;
+
 using Mapsui.Styles;
+
 using NSubstitute;
+
 using SkiaSharp;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Imaging;

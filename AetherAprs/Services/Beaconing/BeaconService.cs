@@ -2,17 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Models;
-using AetherAprs.Models.Aprs;
-using Geo.Abstractions.Interfaces;
-using Geo.Geodesy;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Models;
+using AetherAprs.Models.Aprs;
+
+using Geo.Abstractions.Interfaces;
+using Geo.Geodesy;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AetherAprs.Services.Beaconing;
 
@@ -45,7 +47,6 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private double? _lastCourseDegrees;
     private LocationData? _currentLocation;
     private LocationData? _previousLocation;
-    private BeaconTransmitDecision? _currentDecision;
 
     /// <summary>Whether a request was raised and its send result has not arrived yet.</summary>
     private bool _awaitingTransmissionResult;
@@ -143,9 +144,11 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         {
             lock (_lock)
             {
-                return _currentDecision;
+                return field;
             }
         }
+
+        private set;
     }
 
     public async Task SetActiveModeAsync(DynamicBeaconMode mode, CancellationToken cancellationToken = default)
@@ -261,7 +264,9 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
         // DisposeAsync, and a queued callback racing disposal must not touch it (M9).
         CancellationToken token = _disposalCts.Token;
         if (token.IsCancellationRequested || _disposed)
+        {
             return;
+        }
 
         EvaluateBeaconConditions();
     }
@@ -276,7 +281,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             // one: the outcome decides whether the schedule advanced or a retry is due.
             if (_awaitingTransmissionResult)
             {
-                _currentDecision = new BeaconTransmitDecision
+                CurrentDecision = new BeaconTransmitDecision
                 {
                     ShouldTransmit = false,
                     Reason = new BeaconTransmitReason.AwaitingTimeInterval(),
@@ -293,7 +298,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
                 int secondsUntilRetry = Math.Max(
                     0,
                     (int)Math.Ceiling((retryAt - UtcNow).TotalSeconds));
-                _currentDecision = new BeaconTransmitDecision
+                CurrentDecision = new BeaconTransmitDecision
                 {
                     ShouldTransmit = false,
                     Reason = new BeaconTransmitReason.AwaitingTimeInterval(),
@@ -306,7 +311,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             if (_currentLocation == null)
             {
                 // No location available yet
-                _currentDecision = new BeaconTransmitDecision
+                CurrentDecision = new BeaconTransmitDecision
                 {
                     ShouldTransmit = false,
                     Reason = new BeaconTransmitReason.NoLocationAvailable(),
@@ -317,7 +322,7 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
             }
 
             BeaconTransmitDecision decision = EvaluateLocationUpdateInternal(_currentLocation, _previousLocation);
-            _currentDecision = decision;
+            CurrentDecision = decision;
 
             _logger.LogDebug(
                 "Beacon evaluate: ShouldTransmit={ShouldTransmit}, Reason={Reason}, Interval={Interval}s",
@@ -504,10 +509,14 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private static int GetActiveInterval(BeaconConfig config, double speedKmh)
     {
         if (speedKmh <= config.SlowSpeedThresholdKmh)
+        {
             return config.SlowIntervalSeconds;
+        }
 
         if (speedKmh <= config.FastSpeedThresholdKmh)
+        {
             return config.NormalIntervalSeconds;
+        }
 
         return config.FastIntervalSeconds;
     }
@@ -515,16 +524,24 @@ public sealed class BeaconService : IBeaconService, IAsyncDisposable
     private static double NormalizeAngleDifference(double angleDegrees)
     {
         while (angleDegrees > 180)
+        {
             angleDegrees -= 360;
+        }
+
         while (angleDegrees < -180)
+        {
             angleDegrees += 360;
+        }
+
         return angleDegrees;
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _disposed = true;
         _disposalCts.Cancel();

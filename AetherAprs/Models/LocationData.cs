@@ -2,8 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Geo;
 using System;
+
+using Geo;
 
 namespace AetherAprs.Models;
 

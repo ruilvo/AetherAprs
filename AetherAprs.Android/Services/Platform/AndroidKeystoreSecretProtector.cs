@@ -2,15 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using Android.Security;
-using Android.Security.Keystore;
-using Android.Util;
-using Java.Security;
-using Javax.Crypto;
-using Javax.Crypto.Spec;
 using System;
 using System.Text;
+
 using AetherAprs.Services.Platform;
+
+using Android.Security.Keystore;
+using Android.Util;
+
+using Java.Security;
+
+using Javax.Crypto;
+using Javax.Crypto.Spec;
 
 namespace AetherAprs.Android.Services.Platform;
 

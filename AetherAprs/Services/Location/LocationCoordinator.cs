@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Models;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
+using AetherAprs.Models;
+
+using Microsoft.Extensions.Logging;
 
 namespace AetherAprs.Services.Location;
 
@@ -94,7 +96,6 @@ public sealed class LocationCoordinator : ILocationCoordinator
     private readonly ILogger<LocationCoordinator> _logger;
     private readonly Lock _gate = new();
     private readonly HashSet<LocationPurpose> _purposes = [];
-    private LocationSnapshot? _current;
     private bool _disposed;
 
     public LocationCoordinator(
@@ -124,7 +125,7 @@ public sealed class LocationCoordinator : ILocationCoordinator
             LocationSnapshot? current;
             lock (_gate)
             {
-                current = _current;
+                current = field;
             }
 
             // The worker is the source of truth for the fix: a caller that only reads
@@ -132,6 +133,8 @@ public sealed class LocationCoordinator : ILocationCoordinator
             // delivered it to its own subscribers.
             return current ?? ToSnapshot(_trackingService.CurrentLocation);
         }
+
+        private set;
     }
 
     private LocationSnapshot? ToSnapshot(LocationData? location) => location is null
@@ -284,7 +287,7 @@ public sealed class LocationCoordinator : ILocationCoordinator
                 return;
             }
 
-            _current = snapshot;
+            Current = snapshot;
         }
 
         try

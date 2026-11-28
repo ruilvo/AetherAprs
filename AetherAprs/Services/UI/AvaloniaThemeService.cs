@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+
 using Avalonia;
 using Avalonia.Styling;
 

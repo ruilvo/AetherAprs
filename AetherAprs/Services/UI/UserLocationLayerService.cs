@@ -2,16 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+
 using AetherAprs.Models;
+
 using Mapsui;
 using Mapsui.Layers;
 using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
+
 using Microsoft.Extensions.Logging;
+
 using NetTopologySuite.Geometries;
 using NetTopologySuite.Geometries.Utilities;
-using System;
 
 namespace AetherAprs.Services.UI;
 
@@ -43,11 +47,10 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
 {
     private readonly ILogger<UserLocationLayerService> _logger;
     private readonly WritableLayer _layer;
-    private MPoint? _currentMapPoint;
     private bool _disposed;
 
     public ILayer Layer => _layer;
-    public MPoint? CurrentMapPoint => _currentMapPoint;
+    public MPoint? CurrentMapPoint { get; private set; }
 
     public UserLocationLayerService(ILogger<UserLocationLayerService> logger)
     {
@@ -70,7 +73,7 @@ public sealed class UserLocationLayerService : IUserLocationLayerService
 
         (double x, double y) = SphericalMercator.FromLonLat(location.Location.Longitude, location.Location.Latitude);
         MPoint mapPoint = new(x, y);
-        _currentMapPoint = mapPoint;
+        CurrentMapPoint = mapPoint;
 
         _layer.Clear();
 

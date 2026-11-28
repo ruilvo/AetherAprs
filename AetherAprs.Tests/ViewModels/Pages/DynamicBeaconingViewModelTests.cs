@@ -6,21 +6,25 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.Packets;
 using AetherAprs.Localization;
 using AetherAprs.Models;
 using AetherAprs.Models.Aprs;
-using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.Transmission;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels.Pages;
+
 using CommunityToolkit.Mvvm.Input;
+
 using Geo;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;

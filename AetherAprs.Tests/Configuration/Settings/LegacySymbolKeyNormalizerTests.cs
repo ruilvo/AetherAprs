@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using System.Collections.Generic;
+
 using AetherAprs.Configuration.Settings.Migrations;
 using AetherAprs.Models.Aprs;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Configuration.Settings;

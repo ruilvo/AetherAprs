@@ -4,6 +4,7 @@
 
 using AetherAprs.Models.Aprs;
 using AetherAprs.ViewModels;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels;

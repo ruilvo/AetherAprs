@@ -2,17 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Services.Bluetooth;
-using Android.Bluetooth.LE;
-using Android.OS;
-using Android.Runtime;
-using Java.Util;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
+
+using AetherAprs.Services.Bluetooth;
+
+using Android.Bluetooth.LE;
+using Android.OS;
+using Android.Runtime;
+
+using Java.Util;
 
 namespace AetherAprs.Android.Services.Bluetooth;
 

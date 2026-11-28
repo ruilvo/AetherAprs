@@ -4,7 +4,9 @@
 
 using System.Collections.Generic;
 using System.Linq;
+
 using AetherAprs.Services.Platform;
+
 using Xunit;
 
 namespace AetherAprs.Tests.Services.Platform;

@@ -4,11 +4,12 @@
 
 using System;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Services.Ports;
 using AetherAprs.ViewModels.Components;
+
 using Xunit;
-using Xunit.Sdk;
 
 namespace AetherAprs.Tests.ViewModels.Components;
 

@@ -4,8 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.ViewModels.Components;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AetherAprs.Factories.ViewModels;

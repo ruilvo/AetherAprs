@@ -1,6 +1,11 @@
 // This file is part of AetherAprs
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Data;
 using AetherAprs.Data.MapTiles;
@@ -11,16 +16,15 @@ using AetherAprs.Services.Startup;
 using AetherAprs.Services.UI;
 using AetherAprs.ViewModels;
 using AetherAprs.Views;
+
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+
 using Mapsui.Tiling;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AetherAprs;
 

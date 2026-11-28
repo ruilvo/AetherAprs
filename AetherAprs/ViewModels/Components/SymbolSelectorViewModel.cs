@@ -2,17 +2,21 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Imaging;
-using AetherAprs.Models.Aprs;
-using Avalonia.Media.Imaging;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+
+using AetherAprs.Imaging;
+using AetherAprs.Models.Aprs;
+
+using Avalonia.Media.Imaging;
+
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+using SkiaSharp;
 
 namespace AetherAprs.ViewModels.Components;
 
@@ -20,7 +24,6 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 {
     private readonly IAprsSymbolBitmapProvider? _symbolBitmapProvider;
     private readonly Func<SKBitmap, Bitmap?> _previewFactory;
-    private readonly bool _isOverlayMode;
     private bool _previewsLoading;
 
     [ObservableProperty]
@@ -36,7 +39,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
 
     public event EventHandler? SymbolSelected;
 
-    public bool IsOverlayMode => _isOverlayMode;
+    public bool IsOverlayMode { get; }
 
     public IReadOnlyList<SymbolGridItem> PrimarySymbols { get; }
     public IReadOnlyList<SymbolGridItem> AlternateSymbols { get; }
@@ -49,7 +52,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
     {
         _symbolBitmapProvider = symbolBitmapProvider;
         _previewFactory = CreatePreviewBitmap;
-        _isOverlayMode = isOverlayMode;
+        IsOverlayMode = isOverlayMode;
 
         SelectedTable = currentTable;
         SelectedSymbolCode = currentCode;
@@ -58,7 +61,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
         // Generate all symbol codes (printable ASCII from ! to ~)
         List<SymbolCode> allCodes = [.. Enumerable.Range(0x21, 0x7E - 0x21 + 1).Select(i => (SymbolCode)(byte)i)];
 
-        if (_isOverlayMode)
+        if (IsOverlayMode)
         {
             // In overlay mode, show only overlay glyphs (no base symbols)
             PrimarySymbols = GenerateOverlayGridItems(allCodes);
@@ -88,7 +91,7 @@ public partial class SymbolSelectorViewModel : ViewModelBase
             {
                 try
                 {
-                    Bitmap? preview = _isOverlayMode
+                    Bitmap? preview = IsOverlayMode
                         ? _previewFactory(_symbolBitmapProvider.GetOverlayBitmap(item.Code))
                         : _previewFactory(_symbolBitmapProvider.GetSymbolBitmap(new Symbol(item.Table, item.Code)));
                     item.Preview = preview;

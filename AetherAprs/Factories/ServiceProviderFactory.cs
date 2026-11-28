@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+using System;
+using System.IO;
+
 using AetherAprs.Data;
 using AetherAprs.Data.Beaconing;
 using AetherAprs.Data.Maintenance;
@@ -16,6 +19,7 @@ using AetherAprs.Imaging;
 using AetherAprs.Services.Beaconing;
 using AetherAprs.Services.Bluetooth;
 using AetherAprs.Services.Configuration;
+using AetherAprs.Services.Diagnostics;
 using AetherAprs.Services.Lifecycle;
 using AetherAprs.Services.Location;
 using AetherAprs.Services.Maintenance;
@@ -31,13 +35,11 @@ using AetherAprs.Transports.Kiss;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using AetherAprs.Services.Diagnostics;
-using System;
-using System.IO;
 
 namespace AetherAprs.Factories;
 

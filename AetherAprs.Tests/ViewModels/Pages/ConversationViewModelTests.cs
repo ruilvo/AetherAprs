@@ -4,9 +4,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Models.Aprs;
@@ -15,8 +15,11 @@ using AetherAprs.Services.Messaging;
 using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
@@ -223,7 +226,9 @@ public sealed class ConversationViewModelTests : TestFixtureBase
             foreach (ConversationThread existing in _conversations)
             {
                 if (existing.Peer.Equals(peer))
+                {
                     return existing;
+                }
             }
 
             ConversationThread thread = new(peer);

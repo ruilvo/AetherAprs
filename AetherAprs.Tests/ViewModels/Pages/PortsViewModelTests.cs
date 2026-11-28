@@ -6,21 +6,23 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+
 using AetherAprs.Configuration;
 using AetherAprs.Configuration.Settings;
 using AetherAprs.Factories.ViewModels;
 using AetherAprs.Localization;
-using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Configuration;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
-using AetherAprs.ViewModels;
 using AetherAprs.ViewModels.Components;
 using AetherAprs.ViewModels.Pages;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace AetherAprs.Tests.ViewModels.Pages;
@@ -121,7 +123,9 @@ public sealed class PortsViewModelTests
         viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(PortsViewModel.HasPorts))
+            {
                 changes++;
+            }
         };
 
         Assert.False(viewModel.HasPorts);
@@ -219,7 +223,8 @@ public sealed class PortsViewModelTests
 
     [Fact]
     public async Task DeletingPortWhenCancelledDoesNotRemovePort()
-    {        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
+    {
+        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
         TestPortService portService = new(port);
         INavigationService navService = Substitute.For<INavigationService>();
         IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
