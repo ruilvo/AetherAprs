@@ -134,7 +134,7 @@ public class BeaconServiceTests : TestFixtureBase
         Assert.NotNull(decision.CurrentCourseDegrees);
         Assert.NotNull(decision.CurrentSpeedKmh);
         // Course should be roughly north (0 or 360 degrees)
-        Assert.True(decision.CurrentCourseDegrees < 45 || decision.CurrentCourseDegrees > 315);
+        Assert.True(decision.CurrentCourseDegrees is < 45 or > 315);
     }
 
     [Fact]

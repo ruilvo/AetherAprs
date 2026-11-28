@@ -16,14 +16,14 @@ namespace AetherAprs.Services.Ports;
 /// <remarks>
 /// Supervision (reconnect after a transport fault) must never rewrite the port
 /// configuration. <see cref="IPortService.SetPortEnabledAsync"/> persists
-/// <see cref="Configuration.PortConfig.IsEnabled"/>; these members only start and
+/// <see cref="AetherAprs.Configuration.PortConfig.IsEnabled"/>; these members only start and
 /// stop the modem.
 /// </remarks>
 public interface IPortSessionRuntime
 {
     /// <summary>
     /// Starts the modem for a port without changing its persisted
-    /// <see cref="Configuration.PortConfig.IsEnabled"/> value.
+    /// <see cref="AetherAprs.Configuration.PortConfig.IsEnabled"/> value.
     /// </summary>
     /// <returns>
     /// The structured outcome, carrying the original failure so supervision can
@@ -33,7 +33,7 @@ public interface IPortSessionRuntime
 
     /// <summary>
     /// Stops the modem for a port without changing its persisted
-    /// <see cref="Configuration.PortConfig.IsEnabled"/> value.
+    /// <see cref="AetherAprs.Configuration.PortConfig.IsEnabled"/> value.
     /// </summary>
     Task<PortSessionStopResult> StopSessionAsync(Guid portId, CancellationToken cancellationToken);
 }

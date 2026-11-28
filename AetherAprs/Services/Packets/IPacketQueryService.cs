@@ -21,6 +21,7 @@ public interface IPacketQueryService
     /// Gets the most recent packet per source callsign.
     /// </summary>
     /// <param name="limit">Maximum number of distinct sources to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Dictionary of source callsign to most recent packet record.</returns>
     Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPacketsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
@@ -28,6 +29,7 @@ public interface IPacketQueryService
     /// Gets the most recent position packet per source callsign.
     /// </summary>
     /// <param name="limit">Maximum number of distinct sources to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Dictionary of source callsign to most recent position packet record.</returns>
     Task<IReadOnlyDictionary<string, PacketRecord>> GetMostRecentPositionPacketsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
@@ -36,6 +38,7 @@ public interface IPacketQueryService
     /// </summary>
     /// <param name="portId">The port ID to filter by.</param>
     /// <param name="limit">Maximum number of packets to retrieve. Defaults to a bounded map history.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of packet records from the specified port.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPacketsByPortAsync(Guid portId, int limit = 500, CancellationToken cancellationToken = default);
 
@@ -44,6 +47,7 @@ public interface IPacketQueryService
     /// </summary>
     /// <param name="callsign">The source callsign to query.</param>
     /// <param name="limit">Maximum number of packets to retrieve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A list of packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignAsync(string callsign, int limit = 500, CancellationToken cancellationToken = default);
 
@@ -59,6 +63,7 @@ public interface IPacketQueryService
     /// for the first page.
     /// </param>
     /// <param name="pageSize">Maximum number of packets in the page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A page of packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPacketsByCallsignPageAsync(string callsign, PacketPageCursor? cursor = null, int pageSize = 50, CancellationToken cancellationToken = default);
 
@@ -68,6 +73,7 @@ public interface IPacketQueryService
     /// </summary>
     /// <param name="cutoffTime">Optional cutoff; only packets received at or after this time are returned.</param>
     /// <param name="limit">Maximum number of packets to retrieve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A list of position packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPositionTrailPacketsAsync(DateTimeOffset? cutoffTime = null, int limit = 5000, CancellationToken cancellationToken = default);
 
@@ -75,6 +81,7 @@ public interface IPacketQueryService
     /// Gets the most recent object packet per object name.
     /// </summary>
     /// <param name="limit">Maximum number of distinct object names to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of object packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetMostRecentObjectsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
@@ -82,6 +89,7 @@ public interface IPacketQueryService
     /// Gets the most recent item packet per item name.
     /// </summary>
     /// <param name="limit">Maximum number of distinct item names to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of item packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetMostRecentItemsAsync(int limit = 1000, CancellationToken cancellationToken = default);
 
@@ -91,6 +99,7 @@ public interface IPacketQueryService
     /// </summary>
     /// <param name="name">The object or item name to query.</param>
     /// <param name="limit">Maximum number of packets to retrieve.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A list of packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNameAsync(string name, int limit = 500, CancellationToken cancellationToken = default);
 
@@ -106,6 +115,7 @@ public interface IPacketQueryService
     /// for the first page.
     /// </param>
     /// <param name="pageSize">Maximum number of packets in the page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A page of packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetPacketsByObjectNamePageAsync(string name, PacketPageCursor? cursor = null, int pageSize = 50, CancellationToken cancellationToken = default);
 
@@ -113,6 +123,7 @@ public interface IPacketQueryService
     /// Gets the most recent bulletin packets, ordered newest first.
     /// </summary>
     /// <param name="limit">Maximum number of bulletins to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of bulletin packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> GetBulletinsAsync(int limit = 500, CancellationToken cancellationToken = default);
 
@@ -133,6 +144,7 @@ public interface IPacketQueryService
     /// </summary>
     /// <param name="query">The search text. Empty or whitespace returns no results.</param>
     /// <param name="limit">Maximum number of distinct matches to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of matching packet records ordered by most recent first.</returns>
     Task<IReadOnlyList<PacketRecord>> SearchStationsAsync(string query, int limit = 100, CancellationToken cancellationToken = default);
 }

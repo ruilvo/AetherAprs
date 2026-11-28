@@ -8,7 +8,7 @@ namespace AetherAprs.Services.UI;
 
 /// <summary>
 /// Creates the base map layer (the tile layer drawn underneath all overlays) based
-/// on the configured <see cref="Configuration.Settings.MapSettings.TileSource"/>.
+/// on the configured <see cref="AetherAprs.Configuration.Settings.MapSettings.TileSource"/>.
 /// </summary>
 public interface IMapTileSourceService
 {

@@ -30,15 +30,6 @@ internal sealed class GattNegotiationProgress
 
     private bool? _notificationsEnabled;
 
-<<<<<<< TODO: Unmerged change from project 'AetherAprs.Tests', Before:
-    private KissGattWriteMode _writeMode = KissGattWriteMode.Unknown;
-    private int? _attMtu;
-    private int? _payloadSize;
-    private int _failureReported;
-=======
-    private int? _attMtu;
-    private int _failureReported;
->>>>>>> After
     private int? _attMtu;
     private int _failureReported;
     private KissConnectionProgress? _latest;

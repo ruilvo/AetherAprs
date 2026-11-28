@@ -40,7 +40,7 @@ public readonly struct SymbolCharacter : IEquatable<SymbolCharacter>
         if (isTableCharacter)
         {
             // Table character must be '/' or '\'
-            if (ch != '/' && ch != '\\')
+            if (ch is not '/' and not '\\')
             {
                 return false;
             }
@@ -48,7 +48,7 @@ public readonly struct SymbolCharacter : IEquatable<SymbolCharacter>
         else
         {
             // Code character must be printable ASCII (33-126)
-            if (ch < 33 || ch > 126)
+            if (ch is < (char)33 or > (char)126)
             {
                 return false;
             }

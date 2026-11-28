@@ -56,16 +56,6 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     private bool _disposed;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="AprsIsModem"/>.
-    /// </summary>
-    /// <param name="host">The APRS-IS server hostname or IP address.</param>
-    /// <param name="port">The APRS-IS server TCP port (typically 14580 for receive+send, 14501 for send-only).</param>
-    /// <param name="callsign">The callsign to authenticate with.</param>
-    /// <param name="passcode">The APRS-IS passcode for the callsign.</param>
-    /// <param name="filter">Optional APRS-IS filter string (e.g. <c>m/50</c> for messages only). Leave empty for all.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="host"/> or <paramref name="callsign"/> is null.</exception>
-    /// <exception cref="ArgumentException">Thrown if <paramref name="host"/> is empty or whitespace, or <paramref name="passcode"/> is null.</exception>
-    /// <summary>
     /// Maximum length of an APRS-IS line we accept before discarding it as hostile
     /// or malformed input.
     /// </summary>
@@ -76,6 +66,16 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
     /// </summary>
     private const string ApplicationVersion = "AetherAprs 1.0";
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="AprsIsModem"/>.
+    /// </summary>
+    /// <param name="host">The APRS-IS server hostname or IP address.</param>
+    /// <param name="port">The APRS-IS server TCP port (typically 14580 for receive+send, 14501 for send-only).</param>
+    /// <param name="callsign">The callsign to authenticate with.</param>
+    /// <param name="passcode">The APRS-IS passcode for the callsign.</param>
+    /// <param name="filter">Optional APRS-IS filter string (e.g. <c>m/50</c> for messages only). Leave empty for all.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="host"/> or <paramref name="callsign"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="host"/> is empty or whitespace, or <paramref name="passcode"/> is null.</exception>
     public AprsIsModem(string host, int port, Callsign callsign, string passcode, string filter = "")
         : this(host, port, callsign, passcode, filter, AprsIsSecurityMode.Plaintext, NullLogger<AprsIsModem>.Instance, null)
     {
@@ -861,7 +861,7 @@ public sealed class AprsIsModem : IAprsModem, IAsyncDisposable
                 while (true)
                 {
                     int next = reader.Read();
-                    if (next == -1 || next == '\n')
+                    if (next is -1 or '\n')
                     {
                         break;
                     }

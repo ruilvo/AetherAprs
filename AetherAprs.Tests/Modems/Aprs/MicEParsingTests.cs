@@ -25,7 +25,7 @@ public class MicEParsingTests
             new Callsign("APU25N"));
 
         // Should parse as position (or could be unknown if destination doesn't encode valid lat)
-        Assert.True(result is PositionPacket || result is UnknownPacket);
+        Assert.True(result is PositionPacket or UnknownPacket);
     }
 
     [Fact]

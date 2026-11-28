@@ -244,6 +244,7 @@ public static class AprsInfoFieldParser
     /// <param name="pos">The starting position in the info string.</param>
     /// <param name="source">The source callsign.</param>
     /// <param name="dest">The destination callsign.</param>
+    /// <param name="path">The digipeater path.</param>
     /// <param name="packet">The parsed APRS position packet, if successful.</param>
     /// <returns>True if the packet was successfully parsed, false otherwise.</returns>
     private static bool TryParseCompressedPosition(
@@ -483,7 +484,7 @@ public static class AprsInfoFieldParser
         int flagIndex = -1;
         for (int i = 1; i < info.Length; i++)
         {
-            if (info[i] == '!' || info[i] == '_')
+            if (info[i] is '!' or '_')
             {
                 flagIndex = i;
                 break;
@@ -621,7 +622,7 @@ public static class AprsInfoFieldParser
 
         // Direction: last char
         char dir = segment[^1];
-        if (dir != 'N' && dir != 'S') { return false; }
+        if (dir is not 'N' and not 'S') { return false; }
 
         double minuteDec = min + decValue / Math.Pow(10, precision);
         latitude = deg + minuteDec / 60.0;
@@ -685,7 +686,7 @@ public static class AprsInfoFieldParser
 
         // Direction: last char
         char dir = segment[^1];
-        if (dir != 'E' && dir != 'W') { return false; }
+        if (dir is not 'E' and not 'W') { return false; }
 
         double minuteDec = min + decValue / Math.Pow(10, precision);
         longitude = deg + minuteDec / 60.0;
@@ -999,17 +1000,17 @@ public static class AprsInfoFieldParser
         }
 
         int lonDeg = info[pos] - 28 + offset;
-        if (lonDeg >= 180 && lonDeg <= 189)
+        if (lonDeg is >= 180 and <= 189)
         {
             lonDeg -= 80;
         }
-        else if (lonDeg >= 190 && lonDeg <= 199)
+        else if (lonDeg is >= 190 and <= 199)
         {
             lonDeg -= 190;
         }
 
         // Validate longitude degree is in valid range
-        if (lonDeg < 0 || lonDeg >= 180)
+        if (lonDeg is < 0 or >= 180)
         {
             return AsUnknown(info, source, dest, [.. path]);
         }
@@ -1053,7 +1054,7 @@ public static class AprsInfoFieldParser
             speedVal -= 800; // the wire wraps speed at 800 knots
         }
 
-        if (speedVal >= 0 && speedVal <= 799)
+        if (speedVal is >= 0 and <= 799)
         {
             speed = speedVal; // knots on the wire; Speed is stored in knots (matches compressed path)
         }
@@ -1064,7 +1065,7 @@ public static class AprsInfoFieldParser
             courseVal -= 400; // the wire wraps course every 400 degrees
         }
 
-        if (courseVal >= 0 && courseVal <= 360)
+        if (courseVal is >= 0 and <= 360)
         {
             course = courseVal == 0 ? 360 : courseVal;
         }
@@ -1148,19 +1149,19 @@ public static class AprsInfoFieldParser
         {
             char c = destAddress[i];
 
-            if (c >= '0' && c <= '9')
+            if (c is >= '0' and <= '9')
             {
                 digits[i] = c - '0';
             }
-            else if (c >= 'A' && c <= 'J')
+            else if (c is >= 'A' and <= 'J')
             {
                 digits[i] = c - 'A';
             }
-            else if (c >= 'P' && c <= 'Y')
+            else if (c is >= 'P' and <= 'Y')
             {
                 digits[i] = c - 'P';
             }
-            else if (c == 'K' || c == 'L' || c == 'Z')
+            else if (c is 'K' or 'L' or 'Z')
             {
                 digits[i] = 0; // Space
             }

@@ -54,7 +54,7 @@ public sealed class TcpKissTransportSettings : IKissTransportSettings
         get;
         set
         {
-            if (value < 1 || value > 65535)
+            if (value is < 1 or > 65535)
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value,
                     "Port must be between 1 and 65535."

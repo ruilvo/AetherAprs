@@ -122,7 +122,7 @@ public static class Ax25Parser
             // malformed wire data cannot embed control characters in the callsign
             // base, mirroring how most TNCs display padded addresses.
             char c = (char)(data[offset + i] >> 1);
-            chars[i] = c >= ' ' && c < 0x7F ? c : ' ';
+            chars[i] = c is >= ' ' and < (char)0x7F ? c : ' ';
         }
 
         string callsignBase = new string(chars).TrimEnd();

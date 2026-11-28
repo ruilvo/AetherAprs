@@ -11,7 +11,7 @@ namespace AetherAprs.Models.Objects;
 /// </summary>
 /// <remarks>
 /// These are operator-visible states, not exception messages. A caller renders
-/// <see cref="Describe"/> directly, so the reason is localized and stays stable even
+/// <see cref="BroadcastFailureText.Describe"/> directly, so the reason is localized and stays stable even
 /// when the transport or storage layer changes underneath.
 /// </remarks>
 public enum BroadcastFailure

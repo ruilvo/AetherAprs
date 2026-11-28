@@ -164,7 +164,11 @@ public sealed class PortServiceSessionControllerTests
 
         public int OpenCount => Volatile.Read(ref _openCount);
 
-        public int StreamDisposeCount { get => Volatile.Read(ref field); private set; }
+        private int _streamDisposeCount;
+
+        public int StreamDisposeCount => Volatile.Read(ref _streamDisposeCount);
+
+        public void IncrementStreamDisposeCount() => Interlocked.Increment(ref _streamDisposeCount);
 
         public Task<Stream> OpenAsync(
             KissSettings settings,
@@ -229,7 +233,7 @@ public sealed class PortServiceSessionControllerTests
             {
                 if (Interlocked.Exchange(ref _disposed, 1) == 0)
                 {
-                    Interlocked.Increment(ref owner.StreamDisposeCount);
+                    owner.IncrementStreamDisposeCount();
                 }
             }
         }

@@ -51,6 +51,7 @@ public interface IBeaconService
     /// before it takes effect, so a failed write leaves the previous mode active.
     /// </summary>
     /// <param name="mode">The beacon mode to activate.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task SetActiveModeAsync(DynamicBeaconMode mode, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -59,6 +60,7 @@ public interface IBeaconService
     /// leaves the previous configuration active.
     /// </summary>
     /// <param name="configuration">The configuration to store for its mode.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task UpdateConfigurationAsync(BeaconConfig configuration, CancellationToken cancellationToken = default);
 
     /// <summary>

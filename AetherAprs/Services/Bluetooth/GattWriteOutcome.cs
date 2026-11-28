@@ -12,7 +12,7 @@ namespace AetherAprs.Services.Bluetooth;
 /// outcomes and the retry policy lives in one place. Only <see cref="Busy"/> and
 /// <see cref="ConnectionError"/> are transient; everything else means the stack
 /// rejected the write and retrying would repeat the same rejection.
-/// </remarks>/// </remarks>
+/// </remarks>
 public enum GattWriteOutcome
 {
     /// <summary>The stack accepted the chunk.</summary>

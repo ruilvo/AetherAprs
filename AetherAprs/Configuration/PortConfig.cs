@@ -172,7 +172,7 @@ public class AprsIsSettings : IPortTypeSettings
         get;
         set
         {
-            if (value < 1 || value > 65535)
+            if (value is < 1 or > 65535)
             {
                 throw new ArgumentOutOfRangeException(nameof(value), value,
                     "Server port must be between 1 and 65535."

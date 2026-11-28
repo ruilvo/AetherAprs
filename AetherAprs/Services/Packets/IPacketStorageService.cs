@@ -16,8 +16,8 @@ namespace AetherAprs.Services.Packets;
 /// Describes a write that failed because the SQLite volume ran out of room or
 /// hit an I/O limit.
 /// </summary>
-/// <param name="Operation">The storage operation that failed.</param>
-/// <param name="Exception">The provider exception that reported the pressure.</param>
+/// <param name="operation">The storage operation that failed.</param>
+/// <param name="exception">The provider exception that reported the pressure.</param>
 public sealed class StoragePressureEventArgs(string operation, Exception exception) : EventArgs
 {
     /// <summary>Gets the storage operation that failed.</summary>
