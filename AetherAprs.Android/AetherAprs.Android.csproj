@@ -30,12 +30,28 @@ SPDX-License-Identifier: GPL-3.0-or-later
          justified suppression where the reflective targets are statically rooted
          (EF Core's closed model, the MVVM validator's property attributes). -->
     <PublishTrimmed Condition="'$(Configuration)' == 'Release'">true</PublishTrimmed>
-    <!-- Material.Avalonia's style toolkit carries a DynamicDependency to its optional
-         TreeDataGrid style package, which this application does not reference. ILLink
-         reports the dangling annotation as IL2035 even though those styles are never
-         loaded, so the code is suppressed here instead of adding an unused TreeDataGrid
-         package only to satisfy an annotation. -->
-    <NoWarn>$(NoWarn);IL2035</NoWarn>
+    <!-- Full trimming removes unused IL from the application and its dependencies as
+         well as from the shared framework, which shrinks the APK further. It still
+         needs a device check before it becomes the release default, so it stays opt-in:
+         build the APK that check validates with -p:EnableFullTrimming=true. Without the
+         flag a release keeps trimming only the shared framework. -->
+    <TrimMode Condition="'$(Configuration)' == 'Release' and '$(EnableFullTrimming)' == 'true'">full</TrimMode>
+    <!-- ILLink warnings accepted for statically rooted third-party code:
+           - IL2035: Material.Avalonia's style toolkit carries a DynamicDependency to its
+             optional TreeDataGrid style package, which this application does not
+             reference. ILLink reports the dangling annotation even though those styles
+             are never loaded, so it is suppressed here instead of adding an unused
+             TreeDataGrid package only to satisfy an annotation.
+           - IL2104 (an assembly produced trim warnings), which appears only once full
+             trimming is enabled: Microsoft.EntityFrameworkCore, .Relational, .Sqlite and
+             .Sqlite.Core build their model by reflection because no compiled model is
+             generated, and Material.Styles loads its resources reflectively. Both sets of
+             reflective targets are statically rooted here - every entity, mapping and
+             style the application uses is referenced from AppDbContext and the
+             application's XAML - so a fully trimmed build keeps them. The application's
+             own assemblies are trim-clean: the core project runs the trim analyzer
+             (IsTrimmable) and its hazards are cleared or narrowly suppressed. -->
+    <NoWarn>$(NoWarn);IL2035;IL2104</NoWarn>
     <!-- .NET 11 Android runs on CoreCLR, so the release optimisation is ReadyToRun, not
          Mono AOT. Release builds therefore publish a composite ReadyToRun image. No MIBC
          profile is supplied, so crossgen2 precompiles every assembly rather than a profiled

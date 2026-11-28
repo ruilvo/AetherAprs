@@ -84,8 +84,10 @@ environment variables of the release workflow are present.
 
 ReadyToRun precompiles the assemblies into the APK so startup does less JIT work. It
 costs package size (roughly 24 MB → 43 MB for the current arm64 APK). Release builds
-trim the shared framework; trimming the application and its dependencies is tracked in
-the [architecture roadmap](DOCS/ARCHITECTURE-ROADMAP-2026-11-24.md).
+trim the shared framework by default; add `-p:EnableFullTrimming=true` to also trim
+the application and its dependencies, a smaller APK that stays opt-in until it is
+validated on a device (see the
+[architecture roadmap](DOCS/ARCHITECTURE-ROADMAP-2026-11-24.md)).
 
 ## Architecture
 

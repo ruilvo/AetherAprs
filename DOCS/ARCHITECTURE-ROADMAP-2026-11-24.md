@@ -217,12 +217,13 @@ existing functionality unless a documented safety decision changes it.
 
 ### R7 Build and distribution maintenance
 
-- Full trimming (`TrimMode=full`) is not enabled yet. Release APKs trim the shared
-   framework only; trimming the application and its dependencies adds IL2104 for EF
-   Core, which has no compiled model, and for `Material.Styles`. The application's own
-   IL2026 hazards are cleared. Clear the remaining third-party warnings or record why
-   they are accepted, then validate a fully trimmed APK on a device before making it
-   the release default.
+- Full trimming is clean but is not yet the release default. Building with
+  `-p:EnableFullTrimming=true` trims the application and its dependencies as well as
+  the shared framework. The third-party IL2104 warnings (EF Core's reflective model,
+  which has no compiled model, and `Material.Styles`) are recorded and suppressed in
+  `AetherAprs.Android.csproj`, and the application's own assemblies are trim-clean.
+  What remains is to validate a fully trimmed APK on a device, then make
+  `EnableFullTrimming` the release default.
 
 ## Definition of architectural done
 
