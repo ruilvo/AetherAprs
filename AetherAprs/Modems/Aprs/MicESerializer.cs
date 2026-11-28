@@ -25,6 +25,10 @@ public static class MicESerializer
     // Data type identifier: '`' (0x60) = current GPS position.
     private const char CurrentPosition = '`';
 
+    // Legacy one-character radio identifier used by the Kenwood TM-D700. The
+    // altitude field follows it when present.
+    private const char AltitudePrefix = ']';
+
     /// <summary>
     /// Encodes the latitude and its N/S, longitude-offset, and W/E flags into a
     /// 6-character destination address, as required by the Mic-E format.
@@ -44,13 +48,14 @@ public static class MicESerializer
 
         // Position 1-3 use the '0'-'9' range (message bits clear = standard message).
         // Position 4 (N/S), 5 (longitude offset) and 6 (W/E) use '0'-'9' for the
-        // default state and 'P'-'Y' for the flagged state, mirroring the parser.
+        // default state and 'P'-'Y' for the flagged state. For N/S the flagged
+        // state is north, matching the parser and the APRS specification.
         char[] chars =
         [
             (char)('0' + degrees / 10),
             (char)('0' + degrees % 10),
             (char)('0' + minutes / 10),
-            (char)((isNorth ? '0' : 'P') + minutes % 10),
+            (char)((isNorth ? 'P' : '0') + minutes % 10),
             (char)((offset ? 'P' : '0') + hundredths / 10),
             (char)((isWest ? 'P' : '0') + hundredths % 10),
         ];
@@ -103,16 +108,20 @@ public static class MicESerializer
         info.Append((char)((speed % 10) * 10 + course / 100 + 28));
         info.Append((char)(course % 100 + 28));
 
-        // Symbol table + code.
-        info.Append(packet.Symbol.TableChar);
+        // Mic-E reverses the usual order: symbol code first, then symbol table.
         info.Append(packet.Symbol.CodeChar);
+        info.Append(packet.Symbol.TableChar);
 
-        // Optional altitude, encoded as '}' + 3 base-91 chars of (feet + 10000).
+        // Optional altitude: a one-character radio identifier, three base-91
+        // digits of meters plus 10000, then '}' (the order a Kenwood TM-D700 and
+        // the reference decoders use).
         if (packet.Altitude.HasValue)
         {
-            int altitudeFeet = (int)Math.Round(packet.Altitude.Value, MidpointRounding.AwayFromZero);
+            int meters = (int)Math.Round(
+                AprsUnits.FeetToMeters(packet.Altitude.Value), MidpointRounding.AwayFromZero);
+            info.Append(AltitudePrefix);
+            info.Append(EncodeBase91(meters + 10000, 3));
             info.Append('}');
-            info.Append(EncodeBase91(altitudeFeet + 10000, 3));
         }
 
         // Optional comment.

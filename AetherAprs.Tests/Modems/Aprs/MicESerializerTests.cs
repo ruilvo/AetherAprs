@@ -33,7 +33,8 @@ public class MicESerializerTests
 
         Callsign destination = MicESerializer.EncodeDestination(packet);
 
-        Assert.Equal("423000", destination.Base);
+        // North is the flagged state in the fourth destination character.
+        Assert.Equal("423P00", destination.Base);
     }
 
     [Fact]
@@ -51,7 +52,9 @@ public class MicESerializerTests
 
         Callsign destination = MicESerializer.EncodeDestination(packet);
 
-        Assert.Equal("423PPP", destination.Base);
+        // South is the unflagged state in the fourth character; the fifth and
+        // sixth carry the longitude offset and west flags.
+        Assert.Equal("4230PP", destination.Base);
     }
 
     // ---------------------------------------------------------------
@@ -107,7 +110,9 @@ public class MicESerializerTests
 
         PositionPacket pos = Assert.IsType<PositionPacket>(parsed);
         Assert.NotNull(pos.Altitude);
-        Assert.Equal(500, pos.Altitude.Value, 1);
+        // The wire carries whole meters, so a feet value round-trips within
+        // the rounding of one metre.
+        Assert.InRange(pos.Altitude.Value, 497, 500);
     }
 
     // ---------------------------------------------------------------

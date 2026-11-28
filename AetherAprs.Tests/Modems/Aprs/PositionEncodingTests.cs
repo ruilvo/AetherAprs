@@ -186,7 +186,7 @@ public class PositionEncodingTests
         AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             info,
             new Callsign("TEST"),
-            new Callsign("403030"));
+            new Callsign("403P30"));
 
         PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.505, pos.Location.Latitude, 3);
@@ -201,7 +201,7 @@ public class PositionEncodingTests
         AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             info,
             new Callsign("TEST"),
-            new Callsign("40300P"));
+            new Callsign("403P0P"));
 
         PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(40.5, pos.Location.Latitude, 3);
@@ -216,7 +216,7 @@ public class PositionEncodingTests
         AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             info,
             new Callsign("TEST"),
-            new Callsign("SSSPP0"));
+            new Callsign("SSS0P0"));
 
         PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(-33.5, pos.Location.Latitude, 3);
@@ -231,7 +231,7 @@ public class PositionEncodingTests
         AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             info,
             new Callsign("TEST"),
-            new Callsign("RSSP0P"));
+            new Callsign("RSS00P"));
 
         PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(-23.5, pos.Location.Latitude, 3);
@@ -261,7 +261,7 @@ public class PositionEncodingTests
         AprsPacket result = AprsInfoFieldParser.ParseInfoField(
             info,
             new Callsign("TEST"),
-            new Callsign("895999"));
+            new Callsign("895Y99"));
 
         PositionPacket pos = Assert.IsType<PositionPacket>(result);
         Assert.Equal(89.9998, pos.Location.Latitude, 3);
@@ -272,7 +272,7 @@ public class PositionEncodingTests
     public void MicE_MaximumLatitude_South_DecodesCorrectly()
     {
         // 89°59.99'S — build the destination with the encoder so the flag bits
-        // are placed per the Mic-E spec (index 3 >= 'P' marks south).
+        // are placed per the Mic-E spec (index 3 in '0'-'9' marks south).
         PositionPacket packet = CreatePositionPacket(-89.9998, 0.0, PositionFormat.MicE);
         Callsign destination = MicESerializer.EncodeDestination(packet);
 

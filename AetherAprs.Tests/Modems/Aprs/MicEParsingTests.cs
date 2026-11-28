@@ -5,6 +5,7 @@
 using AetherAprs.Models.Aprs;
 using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Modems.Aprs;
+using System.Collections.Generic;
 using Xunit;
 
 namespace AetherAprs.Tests.Modems.Aprs;
@@ -52,5 +53,41 @@ public class MicEParsingTests
 
         UnknownPacket unknown = Assert.IsType<UnknownPacket>(result);
         Assert.Equal("[ binary data ]", unknown.Raw);
+    }
+
+    // Real packets captured from two Portuguese digipeaters. The payload is the
+    // same; only the digipeater path differs. A Kenwood TM-D700 sends the ']'
+    // device identifier followed by the altitude field.
+    private const string Ct2gpzInfoField = "'}9D gIv/]\"3r}Jaime Pinheiro Ptg (Movel 2)\r";
+
+    [Theory]
+    [InlineData("CQ0PE-3,ED1ZAB-3,ED1ZBH-3,WIDE2")]
+    [InlineData("CQ0PE-3,ED1ZAB-3,ED1ZBH-3,CQ0PTD")]
+    public void ParseInfoField_Ct2gpzMicERecord_DecodesPosition(string digipeaterPath)
+    {
+        List<Callsign> path = [];
+        foreach (string entry in digipeaterPath.Split(','))
+        {
+            Assert.True(Callsign.TryParse(entry, out Callsign digipeater), $"invalid path entry '{entry}'");
+            path.Add(digipeater);
+        }
+
+        AprsPacket result = AprsInfoFieldParser.ParseInfoField(
+            Ct2gpzInfoField,
+            new Callsign("CT2GPZ", 10),
+            new Callsign("SY2TPU"),
+            path);
+
+        PositionPacket pos = Assert.IsType<PositionPacket>(result);
+        Assert.Equal(39.4008, pos.Location.Latitude, 4);
+        Assert.Equal(-7.49, pos.Location.Longitude, 4);
+        Assert.Equal(47, pos.Speed);
+        Assert.Equal(145, pos.Course);
+        Assert.NotNull(pos.Altitude);
+        Assert.Equal(0, pos.Altitude.Value, 1);
+        Assert.Equal(SymbolTable.Primary, pos.Symbol.Table);
+        Assert.Equal(SymbolCode.LatinSmallLetterV, pos.Symbol.Code);
+        Assert.Equal("Jaime Pinheiro Ptg (Movel 2)", pos.Comment);
+        Assert.Equal(path.Count, pos.Path.Count);
     }
 }

@@ -1047,12 +1047,22 @@ public static class AprsInfoFieldParser
         double? course = null;
 
         int speedVal = (sp * 10) + (dc / 10);
+        if (speedVal >= 800)
+        {
+            speedVal -= 800; // the wire wraps speed at 800 knots
+        }
+
         if (speedVal >= 0 && speedVal <= 799)
         {
             speed = speedVal; // knots on the wire; Speed is stored in knots (matches compressed path)
         }
 
         int courseVal = ((dc % 10) * 100) + se;
+        if (courseVal >= 400)
+        {
+            courseVal -= 400; // the wire wraps course every 400 degrees
+        }
+
         if (courseVal >= 0 && courseVal <= 360)
         {
             course = courseVal == 0 ? 360 : courseVal;
@@ -1064,8 +1074,10 @@ public static class AprsInfoFieldParser
             return AsUnknown(info, source, dest, [.. path]);
         }
 
-        char symbolTableChar = info[pos];
-        char symbolCodeChar = info[pos + 1];
+        // Mic-E reverses the usual order: the symbol code comes first, then the
+        // symbol table identifier.
+        char symbolCodeChar = info[pos];
+        char symbolTableChar = info[pos + 1];
         pos += 2;
 
         SymbolTable symbolTable = symbolTableChar == '/' ? SymbolTable.Primary : SymbolTable.Alternate;
@@ -1077,16 +1089,17 @@ public static class AprsInfoFieldParser
 
         if (pos < info.Length)
         {
-            comment = info[pos..];
+            comment = info[pos..].TrimEnd('\r', '\n');
 
-            // Try to extract altitude from comment (format: '}' + 3 base-91 chars).
-            if (comment.Length >= 4 && comment[0] == '}')
+            if (TryParseMicEAltitude(comment, out double altitudeFeet, out int consumed))
             {
-                ReadOnlySpan<char> altSpan = comment.AsSpan(1, 3);
-                if (TryDecodeBase91(altSpan, out int altFeet))
-                {
-                    altitude = altFeet - 10000; // MIC-E altitude offset
-                }
+                altitude = altitudeFeet;
+                comment = comment[consumed..];
+            }
+
+            if (comment.Length == 0)
+            {
+                comment = null;
             }
         }
 
@@ -1157,8 +1170,9 @@ public static class AprsInfoFieldParser
         }
 
         // Extract metadata from character ranges
-        // Character 4 (index 3) determines N/S
-        isNorth = destAddress[3] <= 'L';
+        // Character 4 (index 3) determines N/S: 'P'-'Z' is north, '0'-'9' and
+        // 'L' are south.
+        isNorth = destAddress[3] >= 'P';
 
         // Character 5 (index 4) determines longitude offset
         offset = (destAddress[4] >= 'P') ? 100 : 0;
@@ -1180,6 +1194,37 @@ public static class AprsInfoFieldParser
             latitude = -latitude;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Tries to read the optional Mic-E altitude field at the start of a comment:
+    /// three base-91 digits (meters above an offset of 10000) terminated by '}',
+    /// optionally preceded by a one-character radio identifier such as the ']' a
+    /// Kenwood TM-D700 sends.
+    /// </summary>
+    /// <param name="text">The text that follows the symbol.</param>
+    /// <param name="feet">The decoded altitude in feet.</param>
+    /// <param name="consumed">The number of characters the field occupies.</param>
+    /// <returns>True if an altitude field was present and decoded.</returns>
+    private static bool TryParseMicEAltitude(string text, out double feet, out int consumed)
+    {
+        feet = 0;
+        consumed = 0;
+
+        int start = text.Length > 0 && text[0] == ']' ? 1 : 0;
+        if (text.Length < start + 4 || text[start + 3] != '}')
+        {
+            return false;
+        }
+
+        if (!TryDecodeBase91(text.AsSpan(start, 3), out int metersPlusOffset))
+        {
+            return false;
+        }
+
+        feet = AprsUnits.MetersToFeet(metersPlusOffset - 10000);
+        consumed = start + 4;
         return true;
     }
 
