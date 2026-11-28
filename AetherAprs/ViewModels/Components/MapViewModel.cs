@@ -24,11 +24,6 @@ public partial class MapViewModel(IUserLocationLayerService userLocationLayerSer
     public event EventHandler<MPoint>? CenterOnPointRequested;
 
     /// <summary>
-    /// Raised when the user asks to reset map rotation to North (0 degrees).
-    /// </summary>
-    public event EventHandler? RotateToNorthRequested;
-
-    /// <summary>
     /// Raised when the user asks to zoom the map in one level.
     /// </summary>
     public event EventHandler? ZoomInRequested;
@@ -58,10 +53,12 @@ public partial class MapViewModel(IUserLocationLayerService userLocationLayerSer
         MPoint? mapPoint = _userLocationLayerService.CurrentMapPoint;
         if (mapPoint != null)
         {
-            // Enable follow mode and center on user
+            // Enable follow mode and center on user. Centering, zooming and
+            // resetting the rotation north are applied as one viewport change by
+            // the view, so a separate rotation request is unnecessary and would
+            // replace the centering animation.
             IsFollowModeEnabled = true;
             CenterOnPointRequested?.Invoke(this, mapPoint);
-            RotateToNorthRequested?.Invoke(this, EventArgs.Empty);
         }
     }
 

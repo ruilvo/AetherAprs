@@ -10,7 +10,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              xmlns:vm="using:AetherAprs.ViewModels.Pages"
              xmlns:local="using:AetherAprs"
              xmlns:loc="using:AetherAprs.Localization"
-             xmlns:converters="using:AetherAprs.Converters.UI"
              xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
               xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
               xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
@@ -78,7 +77,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </controls:FloatingButton>
             <controls:FloatingButton MinHeight="56"
                                       MinWidth="56"
-                                      Opacity="{Binding Map.HasUserMovedMap, Converter={x:Static converters:BoolToOpacityConverter.Instance}}"
                                       automation:AutomationProperties.Name="{loc:Loc CenterOnMyLocationTooltip}"
                                      ToolTip.Tip="{loc:Loc CenterOnMyLocationTooltip}"
                                      Command="{Binding Map.CenterOnUserCommand}">

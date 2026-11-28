@@ -135,7 +135,6 @@ public partial class HomePage : UserControl
         if (viewModel.Map is { } mapModel)
         {
             mapModel.CenterOnPointRequested += OnCenterOnPointRequested;
-            mapModel.RotateToNorthRequested += OnRotateToNorthRequested;
             mapModel.ZoomInRequested += OnZoomInRequested;
             mapModel.ZoomOutRequested += OnZoomOutRequested;
 
@@ -165,7 +164,6 @@ public partial class HomePage : UserControl
         if (_currentViewModel.Map is { } mapModel)
         {
             mapModel.CenterOnPointRequested -= OnCenterOnPointRequested;
-            mapModel.RotateToNorthRequested -= OnRotateToNorthRequested;
             mapModel.ZoomInRequested -= OnZoomInRequested;
             mapModel.ZoomOutRequested -= OnZoomOutRequested;
         }
@@ -196,18 +194,6 @@ public partial class HomePage : UserControl
         ApplyCenterPoint(navigator, mapPoint);
     }
 
-    private void OnRotateToNorthRequested(object? sender, EventArgs e)
-    {
-        Navigator? navigator = MapControl.Map?.Navigator;
-        if (navigator is null || !HasMapViewport(navigator))
-        {
-            return;
-        }
-
-        // Reset map rotation to 0 (North up)
-        navigator.RotateTo(0, 350, Easing.CubicOut);
-    }
-
     private void TryApplyPendingCenter()
     {
         if (_pendingCenterPoint is not { } mapPoint)
@@ -233,16 +219,16 @@ public partial class HomePage : UserControl
 
     private static void ApplyCenterPoint(Navigator navigator, MPoint mapPoint)
     {
-        // Prefer an animated CenterOnAndZoomTo when resolutions are available.
-        if (navigator.Resolutions.Count > 9)
-        {
-            navigator.CenterOnAndZoomTo(mapPoint, navigator.Resolutions[9], 350, Easing.CubicOut);
-        }
-        else
-        {
-            navigator.CenterOn(mapPoint, 350, Easing.CubicOut);
-            navigator.ZoomTo(2000, 350, Easing.CubicOut);
-        }
+        // Center, zoom and reset north in a single animated viewport. Mapsui keeps
+        // one animation per navigator, so firing CenterOnAndZoomTo and RotateTo as
+        // two separate calls made the rotation animation replace the centering
+        // one, which left the map north-up but never centered or zoomed. One
+        // SetViewport animates every field (center, resolution, rotation) together.
+        Viewport target = MapCentering.CreateCenteredViewport(
+            navigator.Viewport,
+            mapPoint,
+            navigator.Resolutions);
+        navigator.SetViewport(target, 350, Easing.CubicOut);
     }
 
     private void OnZoomInRequested(object? sender, EventArgs e) => MapControl.Map?.Navigator.ZoomIn(300, Easing.CubicOut);
