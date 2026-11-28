@@ -458,10 +458,16 @@ $RECYCLE.BIN/
 ##
 .vscode/*
 !.vscode/settings.json
+!.vscode/settings.json.license
 !.vscode/tasks.json
+!.vscode/tasks.json.license
 !.vscode/launch.json
+!.vscode/tasks.json.license
 !.vscode/extensions.json
+!.vscode/tasks.json.license
 !.vscode/mcp.json
 !.vscode/mcp.json.license
+!.vscode/launch.json
+!.vscode/launch.json.license
 
 .claude/settings.local.json

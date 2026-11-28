@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Android: Deploy AetherAprs",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "--no-restore",
+        "-t:Run",
+        "${workspaceFolder}/AetherAprs.Android/AetherAprs.Android.csproj",
+        "-p:TargetFramework=net11.0-android",
+        "-p:Configuration=Debug"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": "build"
+    }
+  ]
+}

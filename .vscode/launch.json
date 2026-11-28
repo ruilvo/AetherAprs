@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Native: AetherAprs.Tests",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/AetherAprs.Tests/AetherAprs.Tests.csproj",
+      "launchConfigurationId": "AetherAprs.Tests"
+    },
+    {
+      "name": "Android: AetherAprs (Phone)",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/AetherAprs.Android/AetherAprs.Android.csproj"
+    }
+  ]
+}
