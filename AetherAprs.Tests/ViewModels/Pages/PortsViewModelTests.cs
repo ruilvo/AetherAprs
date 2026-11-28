@@ -167,9 +167,59 @@ public sealed class PortsViewModelTests
     }
 
     [Fact]
-    public async Task DeletingPortWhenCancelledDoesNotRemovePort()
+    public void SessionStateChangeUpdatesThePortStatusText()
     {
         PortConfig port = CreatePort(new AprsIsSettings(), "Port");
+        port.IsEnabled = true;
+        TestPortService portService = new(port);
+        TestSessionStatusSource statusSource = new();
+        using PortsViewModel viewModel = new(
+            portService,
+            new TestConfigurationService(),
+            Substitute.For<INavigationService>(),
+            Substitute.For<IAddEditPortViewModelFactory>(),
+            new TestConfirmationDialogService(),
+            NullLogger<PortsViewModel>.Instance,
+            NullLoggerFactory.Instance,
+            sessionStatusSource: statusSource);
+        PortItemViewModel item = Assert.Single(viewModel.PortItems);
+
+        statusSource.Publish(new PortSessionStatus(port.Id, PortSessionState.Connected));
+        Assert.Equal(Strings.Get("PortStatusConnected"), item.StatusText);
+
+        statusSource.Publish(new PortSessionStatus(
+            port.Id,
+            PortSessionState.Stopped,
+            RetryCount: 4,
+            NextRetryUtc: DateTimeOffset.UtcNow.AddMinutes(5)));
+        Assert.Equal(Strings.Format("PortStatusWaitingToRetry", 4), item.StatusText);
+    }
+
+    [Fact]
+    public void LoadingPortsAppliesTheCurrentSessionState()
+    {
+        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
+        port.IsEnabled = true;
+        TestPortService portService = new(port);
+        TestSessionStatusSource statusSource = new();
+        statusSource.PortList.Add(new PortSessionStatus(port.Id, PortSessionState.Connecting));
+
+        using PortsViewModel viewModel = new(
+            portService,
+            new TestConfigurationService(),
+            Substitute.For<INavigationService>(),
+            Substitute.For<IAddEditPortViewModelFactory>(),
+            new TestConfirmationDialogService(),
+            NullLogger<PortsViewModel>.Instance,
+            NullLoggerFactory.Instance,
+            sessionStatusSource: statusSource);
+
+        Assert.Equal(Strings.Get("PortStatusConnecting"), Assert.Single(viewModel.PortItems).StatusText);
+    }
+
+    [Fact]
+    public async Task DeletingPortWhenCancelledDoesNotRemovePort()
+    {        PortConfig port = CreatePort(new AprsIsSettings(), "Port");
         TestPortService portService = new(port);
         INavigationService navService = Substitute.For<INavigationService>();
         IAddEditPortViewModelFactory factory = Substitute.For<IAddEditPortViewModelFactory>();
@@ -235,6 +285,29 @@ public sealed class PortsViewModelTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         private static TaskCompletionSource<bool> NewOperation() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    /// <summary>
+    /// Stands in for the session coordinator: publishes a port status the way a real
+    /// transition does, so the view model is driven by the same shape of event.
+    /// </summary>
+    private sealed class TestSessionStatusSource : ISessionStatusSource
+    {
+        public List<PortSessionStatus> PortList { get; } = [];
+
+        public IReadOnlyList<PortSessionStatus> Ports => PortList;
+
+        public event EventHandler<SessionStateChangedEventArgs>? StateChanged;
+
+        public void Publish(params PortSessionStatus[] ports)
+        {
+            PortList.Clear();
+            PortList.AddRange(ports);
+            StateChanged?.Invoke(
+                this,
+                new SessionStateChangedEventArgs(
+                    new SessionSnapshot(SessionLifecycleState.Running, ports)));
+        }
     }
 
     private sealed class TestConfigurationService : IConfigurationService

@@ -11,6 +11,9 @@ namespace AetherAprs.Services.Platform;
 public sealed class NoOpPttService : IPttService
 {
     /// <inheritdoc/>
+    public bool SupportsPhysicalPtt => false;
+
+    /// <inheritdoc/>
     public void Engage()
     {
     }
@@ -19,4 +22,7 @@ public sealed class NoOpPttService : IPttService
     public void Release()
     {
     }
+
+    /// <inheritdoc/>
+    public AudioTransmitBlockReason TryEngage() => AudioTransmitBlockReason.None;
 }

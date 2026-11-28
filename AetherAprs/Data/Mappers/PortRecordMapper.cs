@@ -82,9 +82,7 @@ internal static class PortRecordMapper
                     TxDelayMs = afsk.TxDelayMs,
                     TxTailMs = afsk.TxTailMs,
                     SlotTimeMs = afsk.SlotTimeMs,
-                    Persist = afsk.Persist,
-                    AudioLevel = afsk.AudioLevel,
-                    SquelchThreshold = afsk.SquelchThreshold
+                    Persist = afsk.Persist
                 };
                 break;
             case KissSettings kiss:
@@ -158,9 +156,7 @@ internal static class PortRecordMapper
                 TxDelayMs = record.Afsk?.TxDelayMs ?? AfskSettings.DefaultTxDelayMs,
                 TxTailMs = record.Afsk?.TxTailMs ?? AfskSettings.DefaultTxTailMs,
                 SlotTimeMs = record.Afsk?.SlotTimeMs ?? AfskSettings.DefaultSlotTimeMs,
-                Persist = record.Afsk?.Persist ?? AfskSettings.DefaultPersist,
-                AudioLevel = record.Afsk?.AudioLevel ?? AfskSettings.DefaultAudioLevel,
-                SquelchThreshold = record.Afsk?.SquelchThreshold ?? AfskSettings.DefaultSquelchThreshold
+                Persist = record.Afsk?.Persist ?? AfskSettings.DefaultPersist
             };
         }
 

@@ -134,8 +134,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 afsk.Property(settings => settings.TxTailMs).IsRequired();
                 afsk.Property(settings => settings.SlotTimeMs).IsRequired();
                 afsk.Property(settings => settings.Persist).IsRequired();
-                afsk.Property(settings => settings.AudioLevel).IsRequired();
-                afsk.Property(settings => settings.SquelchThreshold).IsRequired();
             });
         });
 

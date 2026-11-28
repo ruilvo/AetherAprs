@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AetherAprs.Configuration;
 using AetherAprs.Localization;
 using AetherAprs.Services.Bluetooth;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
@@ -466,6 +467,168 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         Assert.NotEqual(Strings.Get("ValidationBluetoothDeviceRequired"), harness.ViewModel.SaveErrorText);
     }
 
+    [Fact]
+    public void PopulateFromAfskConfig_RoundTripsEverySetting()
+    {
+        AddEditPortViewModel viewModel = CreateViewModel(pttService: PhysicalPttService(true));
+        PortConfig config = new()
+        {
+            Name = "Radio",
+            TypeSettings = new AfskSettings
+            {
+                PttMode = PttMode.SpeakerMic,
+                TxDelayMs = 250,
+                TxTailMs = 40,
+                SlotTimeMs = 120,
+                Persist = 200
+            }
+        };
+
+        viewModel.PopulateFrom(config);
+
+        Assert.Equal(typeof(AfskSettings), viewModel.SelectedPortSettingsType);
+        Assert.Equal(PttMode.SpeakerMic, viewModel.SelectedPttMode);
+        Assert.Equal(250, viewModel.AfskTxDelayMs);
+        Assert.Equal(40, viewModel.AfskTxTailMs);
+        Assert.Equal(120, viewModel.AfskSlotTimeMs);
+        Assert.Equal(200, viewModel.AfskPersist);
+
+        AfskSettings rebuilt = Assert.IsType<AfskSettings>(viewModel.BuildConfig().TypeSettings);
+        Assert.Equal(PttMode.SpeakerMic, rebuilt.PttMode);
+        Assert.Equal(250, rebuilt.TxDelayMs);
+        Assert.Equal(40, rebuilt.TxTailMs);
+        Assert.Equal(120, rebuilt.SlotTimeMs);
+        Assert.Equal(200, rebuilt.Persist);
+    }
+
+    [Fact]
+    public void AfskPort_OffersEveryModeWhenThePlatformCanKeyTheTransmitter()
+    {
+        AddEditPortViewModel viewModel = CreateViewModel(pttService: PhysicalPttService(true));
+
+        Assert.True(viewModel.SupportsPhysicalPtt);
+        Assert.Contains(PttMode.Vox, viewModel.AvailablePttModes);
+        Assert.Contains(PttMode.SpeakerMic, viewModel.AvailablePttModes);
+        Assert.Equal(string.Empty, viewModel.PttModeUnavailableText);
+    }
+
+    [Fact]
+    public void AfskPort_OffersOnlyVoxWhenThePlatformHasNoPhysicalPtt()
+    {
+        AddEditPortViewModel viewModel = CreateViewModel(pttService: PhysicalPttService(false));
+
+        Assert.False(viewModel.SupportsPhysicalPtt);
+        Assert.Equal([PttMode.Vox], viewModel.AvailablePttModes);
+        Assert.Equal(Strings.Get("PttModeUnavailable"), viewModel.PttModeUnavailableText);
+    }
+
+    [Fact]
+    public void AfskPort_WithoutPttServiceOffersOnlyVox()
+    {
+        AddEditPortViewModel viewModel = CreateViewModel();
+
+        Assert.False(viewModel.SupportsPhysicalPtt);
+        Assert.Equal([PttMode.Vox], viewModel.AvailablePttModes);
+    }
+
+    [Fact]
+    public void AfskPort_KeepsAnUnsupportedStoredModeSelectableSoItRoundTrips()
+    {
+        // Stored on a phone with a speaker-mic, opened where only VOX can be keyed:
+        // the saved mode must still be shown and saved verbatim.
+        AddEditPortViewModel viewModel = CreateViewModel(pttService: PhysicalPttService(false));
+        PortConfig config = new()
+        {
+            Name = "Radio",
+            TypeSettings = new AfskSettings { PttMode = PttMode.SpeakerMic }
+        };
+
+        viewModel.PopulateFrom(config);
+
+        Assert.Equal(PttMode.SpeakerMic, viewModel.SelectedPttMode);
+        Assert.Contains(PttMode.SpeakerMic, viewModel.AvailablePttModes);
+        Assert.Equal(PttMode.SpeakerMic, Assert.IsType<AfskSettings>(viewModel.BuildConfig().TypeSettings).PttMode);
+    }
+
+    [Fact]
+    public async Task Save_WithAfskPortPersistsTheEditedSettings()
+    {
+        PortEditingHarness harness = CreateHarness(pttService: PhysicalPttService(true));
+        harness.ViewModel.SelectedPortSettingsType = typeof(AfskSettings);
+        harness.ViewModel.SelectedPttMode = PttMode.SpeakerMic;
+        harness.ViewModel.AfskTxDelayMs = 150;
+        harness.ViewModel.AfskTxTailMs = 30;
+        harness.ViewModel.AfskSlotTimeMs = 90;
+        harness.ViewModel.AfskPersist = 128;
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, harness.ViewModel.SaveErrorText);
+        await harness.PortService.Received(1).AddPortAsync(Arg.Is<PortConfig>(config =>
+            config.TypeSettings!.GetType() == typeof(AfskSettings) &&
+            ((AfskSettings)config.TypeSettings).PttMode == PttMode.SpeakerMic &&
+            ((AfskSettings)config.TypeSettings).TxDelayMs == 150 &&
+            ((AfskSettings)config.TypeSettings).TxTailMs == 30 &&
+            ((AfskSettings)config.TypeSettings).SlotTimeMs == 90 &&
+            ((AfskSettings)config.TypeSettings).Persist == 128));
+        harness.Navigation.Received(1).GoBack();
+    }
+
+    [Theory]
+    [InlineData("delay", -1)]
+    [InlineData("tail", -1)]
+    [InlineData("slot", -1)]
+    public async Task Save_WithNegativeAfskTiming_ReportsTheField(string field, int value)
+    {
+        PortEditingHarness harness = CreateHarness(pttService: PhysicalPttService(true));
+        harness.ViewModel.SelectedPortSettingsType = typeof(AfskSettings);
+        switch (field)
+        {
+            case "delay":
+                harness.ViewModel.AfskTxDelayMs = value;
+                break;
+            case "tail":
+                harness.ViewModel.AfskTxTailMs = value;
+                break;
+            default:
+                harness.ViewModel.AfskSlotTimeMs = value;
+                break;
+        }
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        string expected = field switch
+        {
+            "delay" => Strings.Get("ValidationTxDelayRange"),
+            "tail" => Strings.Get("ValidationTxTailRange"),
+            _ => Strings.Get("ValidationSlotTimeRange")
+        };
+        Assert.Equal(expected, harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().AddPortAsync(Arg.Any<PortConfig>());
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(256)]
+    public async Task Save_WithOutOfRangeAfskPersist_ReportsTheField(int persist)
+    {
+        PortEditingHarness harness = CreateHarness(pttService: PhysicalPttService(true));
+        harness.ViewModel.SelectedPortSettingsType = typeof(AfskSettings);
+        harness.ViewModel.AfskPersist = persist;
+
+        await harness.ViewModel.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(Strings.Get("ValidationPersistRange"), harness.ViewModel.SaveErrorText);
+        await harness.PortService.DidNotReceive().AddPortAsync(Arg.Any<PortConfig>());
+    }
+
+    private static IPttService PhysicalPttService(bool supportsPhysicalPtt)
+    {
+        IPttService service = Substitute.For<IPttService>();
+        service.SupportsPhysicalPtt.Returns(supportsPhysicalPtt);
+        return service;
+    }
+
     private static KissStreamFactory CreateFactory(params Type[] supportedSettingsTypes) =>
         new(supportedSettingsTypes.Select(settingsType => (IKissStreamConnector)new SupportedStubConnector(settingsType)));
 
@@ -514,11 +677,15 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
     };
 
     private static PortEditingHarness CreateHarness(PortConfig? existingConfig = null)
-        => CreateHarness(new KissStreamFactory([]), existingConfig);
+        => CreateHarness(new KissStreamFactory([]), existingConfig, null);
+
+    private static PortEditingHarness CreateHarness(IPttService pttService, PortConfig? existingConfig = null)
+        => CreateHarness(new KissStreamFactory([]), existingConfig, pttService);
 
     private static PortEditingHarness CreateHarness(
         IKissStreamFactory kissStreamFactory,
-        PortConfig? existingConfig = null)
+        PortConfig? existingConfig = null,
+        IPttService? pttService = null)
     {
         INavigationService navigation = Substitute.For<INavigationService>();
         IPortService portService = Substitute.For<IPortService>();
@@ -528,7 +695,8 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
             kissStreamFactory,
             Substitute.For<IBluetoothLeScanner>(),
             Substitute.For<IBluetoothClassicDeviceProvider>(),
-            new AprsIsFilterBuilderViewModel());
+            new AprsIsFilterBuilderViewModel(),
+            pttService: pttService);
         viewModel.Initialize("N0CALL", 1, existingConfig);
         return new PortEditingHarness(viewModel, portService, navigation);
     }
@@ -580,7 +748,8 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
 
     private static AddEditPortViewModel CreateViewModel(
         IBluetoothLeScanner? bleScanner = null,
-        bool initialize = true)
+        bool initialize = true,
+        IPttService? pttService = null)
     {
         INavigationService nav = Substitute.For<INavigationService>();
         IPortService portService = Substitute.For<IPortService>();
@@ -588,7 +757,7 @@ public sealed class AddEditPortViewModelTests : TestFixtureBase
         bleScanner ??= Substitute.For<IBluetoothLeScanner>();
         IBluetoothClassicDeviceProvider btClassic = Substitute.For<IBluetoothClassicDeviceProvider>();
 
-        AddEditPortViewModel vm = new(nav, portService, kissFactory, bleScanner, btClassic, new AprsIsFilterBuilderViewModel());
+        AddEditPortViewModel vm = new(nav, portService, kissFactory, bleScanner, btClassic, new AprsIsFilterBuilderViewModel(), pttService: pttService);
         if (initialize)
         {
             vm.Initialize("N0CALL", 1);

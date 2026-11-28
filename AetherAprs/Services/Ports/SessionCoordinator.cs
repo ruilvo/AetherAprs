@@ -63,6 +63,26 @@ public interface ISessionStateStore
 }
 
 /// <summary>
+/// Read-only projection of runtime session state, so presentation code can show what
+/// a port is doing without driving supervision.
+/// </summary>
+/// <remarks>
+/// The coordinator is the owner of session state; this interface exists only to keep
+/// a view model from depending on the supervision operations as well.
+/// </remarks>
+public interface ISessionStatusSource
+{
+    /// <summary>Current runtime status of every port the coordinator has seen.</summary>
+    IReadOnlyList<PortSessionStatus> Ports { get; }
+
+    /// <summary>
+    /// Raised after a session transition. Subscribers must not block: the event runs
+    /// on the thread that completed the transition.
+    /// </summary>
+    event EventHandler<SessionStateChangedEventArgs>? StateChanged;
+}
+
+/// <summary>
 /// Coordinates application lifecycle and reconnect work independently of the UI.
 /// </summary>
 /// <remarks>
@@ -73,7 +93,7 @@ public interface ISessionStateStore
 /// instead of once per packet. Stopping always uses an internal deadline: a
 /// cancelled caller cannot leave sessions half torn down.
 /// </remarks>
-public sealed class SessionCoordinator : IAsyncDisposable
+public sealed class SessionCoordinator : IAsyncDisposable, ISessionStatusSource
 {
     private static readonly TimeSpan DefaultInitialBackoff = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan DefaultMaximumBackoff = TimeSpan.FromMinutes(5);

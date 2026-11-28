@@ -600,5 +600,27 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ConnectionDetailNotifications" xml:space="preserve"><value>notificaciones activadas</value></data>
   <data name="ConnectionDetailSppConnected" xml:space="preserve"><value>SPP conectado</value></data>
   <data name="ConnectionDetailAttempt" xml:space="preserve"><value>intento {0}</value></data>
+  <data name="ConnectionDetailGattService" xml:space="preserve"><value>servicio {0} (RX {1}, TX {2})</value></data>
+  <data name="PortStatusStarting" xml:space="preserve"><value>Iniciando</value></data>
+  <data name="PortStatusConnecting" xml:space="preserve"><value>Conectando</value></data>
+  <data name="PortStatusConnected" xml:space="preserve"><value>Conectado</value></data>
+  <data name="PortStatusDegraded" xml:space="preserve"><value>Degradado</value></data>
+  <data name="PortStatusWaitingToRetry" xml:space="preserve"><value>Esperando para reintentar (intento {0})</value></data>
   <data name="KissTransportUnavailable" xml:space="preserve"><value>{0} no está disponible en esta plataforma</value></data>
+  <data name="PortTypeAfsk" xml:space="preserve"><value>AFSK</value></data>
+  <data name="AfskSettings" xml:space="preserve"><value>Configuración AFSK</value></data>
+  <data name="PttMode" xml:space="preserve"><value>Modo PTT</value></data>
+  <data name="PttModeVox" xml:space="preserve"><value>VOX (la radio se activa sola)</value></data>
+  <data name="PttModeSpeakerMic" xml:space="preserve"><value>PTT del altavoz-micrófono</value></data>
+  <data name="PttModeUnavailable" xml:space="preserve"><value>Esta plataforma no tiene control PTT físico; la radio se activa sola (VOX).</value></data>
+  <data name="TxDelayMs" xml:space="preserve"><value>Retardo de TX (ms)</value></data>
+  <data name="TxTailMs" xml:space="preserve"><value>Cola de TX (ms)</value></data>
+  <data name="SlotTimeMs" xml:space="preserve"><value>Tiempo de ranura (ms)</value></data>
+  <data name="Persist" xml:space="preserve"><value>Persistencia (0-255)</value></data>
+  <data name="DefaultAfskPortName" xml:space="preserve"><value>Puerto AFSK {0}</value></data>
+  <data name="ValidationPttModeRequired" xml:space="preserve"><value>Seleccione cómo se activa el transmisor</value></data>
+  <data name="ValidationTxDelayRange" xml:space="preserve"><value>El retardo de TX debe ser 0 o más milisegundos</value></data>
+  <data name="ValidationTxTailRange" xml:space="preserve"><value>La cola de TX debe ser 0 o más milisegundos</value></data>
+  <data name="ValidationSlotTimeRange" xml:space="preserve"><value>El tiempo de ranura debe ser 0 o más milisegundos</value></data>
+  <data name="ValidationPersistRange" xml:space="preserve"><value>La persistencia debe estar entre 0 y 255</value></data>
 </root>

@@ -31,6 +31,10 @@ public class AndroidApp : App
         // belongs in OverrideCoreServices so the replacement is explicit.
         services.AddSingleton(AndroidLifecycleTelemetry.State);
 
+        // Observes AudioManager route/focus changes and feeds the shared monitor
+        // that the PTT and playback paths authorize against.
+        services.AddSingleton<AudioRoutePlatformSource>();
+
         // Bluetooth Classic SPP + BLE KISS transports and device discovery.
         // Connectors accumulate, so every transport stays available.
         services.AddSingleton<IKissStreamConnector, BluetoothClassicKissStreamConnector>();

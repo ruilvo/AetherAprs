@@ -158,12 +158,24 @@ public sealed class AfskModem : IAprsModem, IAsyncDisposable
         // APRS → AX.25 → HDLC → AFSK PCM.
         byte[] ax25Data = Ax25Serializer.Serialize(packet);
         byte[] bits = HdlcFramer.Encode(ax25Data);
-        float[] samples = AfskModulator.Modulate(bits, _audioPlayback.SampleRate, _settings.AudioLevel);
+        float[] samples = AfskModulator.Modulate(bits, _audioPlayback.SampleRate);
 
-        bool pttKeyed = _settings.PttMode != PttMode.None;
+        bool pttKeyed = _settings.PttMode != PttMode.Vox;
         if (pttKeyed)
         {
-            _ptt.Engage();
+            // Keying goes through the route-checked path, so a transmission started
+            // while audio focus is gone or the route is being unplugged is refused
+            // instead of modulating audio into the wrong sink.
+            AudioTransmitBlockReason blockReason = _ptt.TryEngage();
+            if (blockReason != AudioTransmitBlockReason.None)
+            {
+                _logger.LogWarning(
+                    "AFSK transmission refused because the audio route does not permit it ({BlockReason}).",
+                    blockReason);
+                throw new AudioRouteBlockedException(
+                    $"AFSK transmission refused because the audio route does not permit it ({blockReason}).",
+                    blockReason);
+            }
         }
 
         try

@@ -259,10 +259,18 @@ public class KissSettings : IPortTypeSettings
 /// <summary>
 /// How the AFSK modem keys the transmitter.
 /// </summary>
+/// <remarks>
+/// The mode states what the operator chose; whether the platform can key a
+/// transmitter at all is a separate capability, reported by
+/// <see cref="Services.Platform.IPttService.SupportsPhysicalPtt"/>. An operator on a
+/// platform without that capability can only select <see cref="Vox"/>.
+/// </remarks>
 public enum PttMode
 {
-    /// <summary>No PTT control; the radio keys itself (VOX).</summary>
-    None = 0,
+    /// <summary>
+    /// The radio keys itself (VOX); the application does not control PTT.
+    /// </summary>
+    Vox = 0,
 
     /// <summary>Toggle the device speaker-mic (voice transmit) routing.</summary>
     SpeakerMic = 1
@@ -273,24 +281,21 @@ public enum PttMode
 /// </summary>
 public class AfskSettings : IPortTypeSettings
 {
-    public const PttMode DefaultPttMode = PttMode.None;
+    public const PttMode DefaultPttMode = PttMode.Vox;
     public const int DefaultTxDelayMs = 300;
     public const int DefaultTxTailMs = 50;
     public const int DefaultSlotTimeMs = 100;
     public const int DefaultPersist = 63;
-    public const double DefaultAudioLevel = 0.9;
-    public const double DefaultSquelchThreshold = 0.1;
 
     private PttMode _pttMode = DefaultPttMode;
     private int _txDelayMs = DefaultTxDelayMs;
     private int _txTailMs = DefaultTxTailMs;
     private int _slotTimeMs = DefaultSlotTimeMs;
     private int _persist = DefaultPersist;
-    private double _audioLevel = DefaultAudioLevel;
-    private double _squelchThreshold = DefaultSquelchThreshold;
 
     /// <summary>
-    /// Gets or sets how the transmitter is keyed. Default is <see cref="PttMode.None"/> (VOX).
+    /// Gets or sets how the transmitter is keyed. Default is <see cref="PttMode.Vox"/>,
+    /// where the radio keys itself.
     /// </summary>
     public PttMode PttMode
     {
@@ -379,42 +384,6 @@ public class AfskSettings : IPortTypeSettings
         }
     }
 
-    /// <summary>
-    /// Gets or sets the transmit audio level in the range (0, 1].
-    /// </summary>
-    public double AudioLevel
-    {
-        get => _audioLevel;
-        set
-        {
-            if (value is <= 0 or > 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Audio level must be in (0, 1].");
-            }
-
-            _audioLevel = value;
-        }
-    }
-
-    /// <summary>
-    /// Gets or sets the receive squelch threshold as a signal amplitude in the
-    /// range [0, 1]. Input below this level is treated as noise. A value of 0
-    /// disables squelch.
-    /// </summary>
-    public double SquelchThreshold
-    {
-        get => _squelchThreshold;
-        set
-        {
-            if (value is < 0 or > 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value), value, "Squelch threshold must be in [0, 1].");
-            }
-
-            _squelchThreshold = value;
-        }
-    }
-
     /// <inheritdoc />
     public IPortTypeSettings Clone() => new AfskSettings
     {
@@ -422,8 +391,6 @@ public class AfskSettings : IPortTypeSettings
         TxDelayMs = TxDelayMs,
         TxTailMs = TxTailMs,
         SlotTimeMs = SlotTimeMs,
-        Persist = Persist,
-        AudioLevel = AudioLevel,
-        SquelchThreshold = SquelchThreshold
+        Persist = Persist
     };
 }

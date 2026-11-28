@@ -270,11 +270,20 @@ internal sealed class PortSessionManager : IPortSessionManager
         PortConfig port,
         CancellationToken cancellationToken)
     {
+        int attempt;
+        lock (_stateLock)
+        {
+            // One-based attempt number within the running session: the supervisor
+            // retries a failed connect, and the connector must report which attempt
+            // it is on so the operator can see the reconnect progress.
+            attempt = slot.FailedAttempts + 1;
+        }
+
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            IPortModem modem = await CreateModemAsync(port, cancellationToken).ConfigureAwait(false);
+            IPortModem modem = await CreateModemAsync(port, attempt, cancellationToken).ConfigureAwait(false);
 
             void packetHandler(object? _, AprsPacket packet) => RaisePacketReceived(port.Id, packet);
             void errorHandler(object? _, Exception exception) => RaiseTransportFault(port.Id, exception);
@@ -304,6 +313,10 @@ internal sealed class PortSessionManager : IPortSessionManager
                     PacketHandler = packetHandler,
                     ReceiveErrorHandler = errorHandler
                 };
+
+                // A successful connect ends the retry sequence; the next fault starts
+                // a fresh attempt count.
+                slot.FailedAttempts = 0;
 
                 // A new session invalidates anything captured against the previous
                 // one: frames heard on the old connection must not be replayed here.
@@ -335,6 +348,11 @@ internal sealed class PortSessionManager : IPortSessionManager
         }
         catch (Exception ex)
         {
+            lock (_stateLock)
+            {
+                slot.FailedAttempts++;
+            }
+
             _logger.LogError(ex, "Failed to start modem for port {PortName} ({PortId}).", port.Name, port.Id);
             return PortSessionStartResult.Failed(port.Id, ex);
         }
@@ -345,7 +363,10 @@ internal sealed class PortSessionManager : IPortSessionManager
     /// terminal report for the port. Only a KISS port has a transport negotiation
     /// to report, so other port types stay silent instead of claiming a stage.
     /// </summary>
-    private async Task<IPortModem> CreateModemAsync(PortConfig port, CancellationToken cancellationToken)
+    private async Task<IPortModem> CreateModemAsync(
+        PortConfig port,
+        int attempt,
+        CancellationToken cancellationToken)
     {
         if (port.TypeSettings is not KissSettings kiss)
         {
@@ -358,14 +379,14 @@ internal sealed class PortSessionManager : IPortSessionManager
         try
         {
             IPortModem modem = await _modemFactory
-                .CreateAsync(port, new KissConnectionContext(recorder, Attempt: 1), cancellationToken)
+                .CreateAsync(port, new KissConnectionContext(recorder, attempt), cancellationToken)
                 .ConfigureAwait(false);
 
             ReportConnectionProgress(
                 port.Id,
                 recorder.Latest is { Outcome: KissConnectionOutcome.Succeeded } ready
                     ? ready
-                    : KissConnectionProgress.Ready(kind));
+                    : KissConnectionProgress.Ready(kind, attempt: attempt));
 
             return modem;
         }
@@ -379,8 +400,16 @@ internal sealed class PortSessionManager : IPortSessionManager
                 recorder.Latest switch
                 {
                     { IsTerminal: true } terminal => terminal,
-                    { } stage => KissConnectionProgress.Failed(stage.Transport, stage.Stage, ex.Message),
-                    null => KissConnectionProgress.Failed(kind, KissConnectionStage.PreparingTransport, ex.Message)
+                    { } stage => KissConnectionProgress.Failed(
+                        stage.Transport,
+                        stage.Stage,
+                        ex.Message,
+                        attempt),
+                    null => KissConnectionProgress.Failed(
+                        kind,
+                        KissConnectionStage.PreparingTransport,
+                        ex.Message,
+                        attempt)
                 });
 
             throw;
@@ -423,6 +452,12 @@ internal sealed class PortSessionManager : IPortSessionManager
 
             if (session is null)
             {
+                // The port never connected, but a stop still ends the retry sequence.
+                lock (_stateLock)
+                {
+                    slot.FailedAttempts = 0;
+                }
+
                 return PortSessionStopResult.NotRunning(portId);
             }
 
@@ -435,6 +470,10 @@ internal sealed class PortSessionManager : IPortSessionManager
             {
                 slot.Closing = false;
                 slot.Drained = null;
+
+                // An operator stop ends the retry sequence, so a later manual start
+                // reports the first attempt again.
+                slot.FailedAttempts = 0;
             }
 
             return error is null
@@ -688,6 +727,13 @@ internal sealed class PortSessionManager : IPortSessionManager
         public bool Retired { get; set; }
 
         public ActiveSession? Session { get; set; }
+
+        /// <summary>
+        /// Number of consecutive failed starts since the last successful session.
+        /// Guarded by the manager's lock; it feeds the attempt number a connector
+        /// reports, so a reconnect is distinguishable from the first attempt.
+        /// </summary>
+        public int FailedAttempts { get; set; }
 
         /// <summary>
         /// Number of sessions installed for this port. It only grows, so a caller can

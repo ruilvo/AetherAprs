@@ -5,6 +5,7 @@
 using System;
 using System.Threading.Tasks;
 using AetherAprs.Configuration;
+using AetherAprs.Services.Ports;
 using AetherAprs.ViewModels.Components;
 using Xunit;
 using Xunit.Sdk;
@@ -32,6 +33,13 @@ public sealed class PortItemViewModelTests : TestFixtureBase
     }
 
     [Fact]
+    public void TypeName_MapsAfsk()
+    {
+        PortItemViewModel vm = Create(new PortConfig { Name = "Port", TypeSettings = new AfskSettings() });
+        Assert.Equal("AFSK", vm.TypeName);
+    }
+
+    [Fact]
     public void TypeName_UnknownWhenNull()
     {
         PortItemViewModel vm = Create(new PortConfig { Name = "Port", TypeSettings = null });
@@ -48,6 +56,40 @@ public sealed class PortItemViewModelTests : TestFixtureBase
         vm.IsEnabled = true;
 
         Assert.Equal(Localization.Strings.Get("Running"), vm.StatusText);
+    }
+
+    [Fact]
+    public void StatusText_DistinguishesAConnectedPortFromOneWaitingToRetry()
+    {
+        PortConfig config = new() { Name = "Port", IsEnabled = true };
+        PortItemViewModel vm = Create(config);
+
+        vm.ApplySessionStatus(new PortSessionStatus(config.Id, PortSessionState.Connected));
+        Assert.Equal(Localization.Strings.Get("PortStatusConnected"), vm.StatusText);
+        Assert.Equal(0, vm.RetryCount);
+        Assert.Null(vm.NextRetryUtc);
+
+        DateTimeOffset nextRetry = DateTimeOffset.UtcNow.AddSeconds(30);
+        vm.ApplySessionStatus(new PortSessionStatus(
+            config.Id,
+            PortSessionState.Stopped,
+            RetryCount: 2,
+            NextRetryUtc: nextRetry));
+
+        // A port sitting in backoff must not read as connected.
+        Assert.Equal(Localization.Strings.Format("PortStatusWaitingToRetry", 2), vm.StatusText);
+        Assert.Equal(2, vm.RetryCount);
+        Assert.Equal(nextRetry, vm.NextRetryUtc);
+    }
+
+    [Fact]
+    public void StatusText_PrefersIntentWhenThePortIsDisabled()
+    {
+        PortConfig config = new() { Name = "Port", IsEnabled = false };
+        PortItemViewModel vm = Create(config);
+        vm.ApplySessionStatus(new PortSessionStatus(config.Id, PortSessionState.Connected));
+
+        Assert.Equal(Localization.Strings.Get("Stopped"), vm.StatusText);
     }
 
     [Fact]

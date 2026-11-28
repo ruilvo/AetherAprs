@@ -106,6 +106,34 @@ public sealed class PortRecordMapperTests
     }
 
     [Fact]
+    public void RoundTripPersistsAfskSettings()
+    {
+        PortConfig port = new()
+        {
+            Id = Guid.NewGuid(),
+            Name = "AFSK Radio",
+            TypeSettings = new AfskSettings
+            {
+                PttMode = PttMode.SpeakerMic,
+                TxDelayMs = 250,
+                TxTailMs = 40,
+                SlotTimeMs = 120,
+                Persist = 200
+            }
+        };
+
+        using TempAppDatabase db = TempAppDatabase.Create(port);
+        using AppDbContext context = db.CreateContext();
+        PortConfig loaded = PortRecordMapper.ToConfig(Assert.Single(context.Ports.AsNoTracking()));
+        AfskSettings afsk = Assert.IsType<AfskSettings>(loaded.TypeSettings);
+        Assert.Equal(PttMode.SpeakerMic, afsk.PttMode);
+        Assert.Equal(250, afsk.TxDelayMs);
+        Assert.Equal(40, afsk.TxTailMs);
+        Assert.Equal(120, afsk.SlotTimeMs);
+        Assert.Equal(200, afsk.Persist);
+    }
+
+    [Fact]
     public void RoundTripPersistsBluetoothClassicAndLeTransports()
     {
         PortConfig classicPort = new()

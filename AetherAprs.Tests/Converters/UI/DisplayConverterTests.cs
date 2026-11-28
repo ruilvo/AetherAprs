@@ -77,6 +77,26 @@ public sealed class DisplayConverterTests
         Assert.Equal(false, result);
     }
 
+    [Fact]
+    public void EnumDisplayConverter_ForwardsAfskPortType()
+    {
+        EnumDisplayConverter converter = new();
+
+        Assert.Equal(Strings.Get("PortTypeAfsk"), converter.Convert(typeof(AfskSettings), typeof(string), null, Culture));
+        Assert.Equal(typeof(AfskSettings), converter.ConvertBack(Strings.Get("PortTypeAfsk"), typeof(Type), null, Culture));
+        Assert.Equal(typeof(AfskSettings), converter.ConvertBack("AFSK", typeof(Type), null, Culture));
+    }
+
+    [Theory]
+    [InlineData(PttMode.Vox, "PttModeVox")]
+    [InlineData(PttMode.SpeakerMic, "PttModeSpeakerMic")]
+    public void EnumDisplayConverter_ForwardsPttMode(PttMode mode, string key)
+    {
+        EnumDisplayConverter converter = new();
+
+        Assert.Equal(Strings.Get(key), converter.Convert(mode, typeof(string), null, Culture));
+    }
+
     [Theory]
     [InlineData(typeof(RssiFormatConverter))]
     [InlineData(typeof(PacketDisplayTimeRangeConverter))]

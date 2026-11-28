@@ -18,7 +18,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261127110348_AddAprsIsTlsSecurity";
+    public override string LastMigrationId => "20261128110008_DropAfskAudioLevelAndSquelch";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -691,9 +691,6 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                         b1.Property<Guid>("PortRecordId")
                             .HasColumnType("TEXT");
 
-                        b1.Property<double>("AudioLevel")
-                            .HasColumnType("REAL");
-
                         b1.Property<int>("Persist")
                             .HasColumnType("INTEGER");
 
@@ -702,9 +699,6 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
 
                         b1.Property<int>("SlotTimeMs")
                             .HasColumnType("INTEGER");
-
-                        b1.Property<double>("SquelchThreshold")
-                            .HasColumnType("REAL");
 
                         b1.Property<int>("TxDelayMs")
                             .HasColumnType("INTEGER");

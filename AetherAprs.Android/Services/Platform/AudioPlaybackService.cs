@@ -15,17 +15,14 @@ namespace AetherAprs.Android.Services.Platform;
 /// Android implementation of <see cref="IAudioPlaybackService"/> that plays
 /// mono PCM float samples through <see cref="AudioTrack"/> as 16-bit PCM.
 /// </summary>
-public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger = null) : IAudioPlaybackService
+public sealed class AudioPlaybackService(
+    AudioRoutePlatformSource audioRoute,
+    AudioTransmitGate routeGate,
+    ILogger<AudioPlaybackService>? logger = null) : IAudioPlaybackService
 {
     private readonly ILogger<AudioPlaybackService>? _logger = logger;
-    private readonly AudioTransmitGate _routeGate = new();
-
-    /// <summary>
-    /// Gets or sets the route/focus snapshot captured before transmission. When
-    /// set, playback is refused for a blocked route; when null, playback behaves
-    /// exactly as before the snapshot existed.
-    /// </summary>
-    internal AudioRouteSnapshot? RouteSnapshot { get; set; }
+    private readonly AudioRoutePlatformSource _audioRoute = audioRoute;
+    private readonly AudioTransmitGate _routeGate = routeGate;
 
     /// <inheritdoc/>
     public int SampleRate => 44100;
@@ -38,19 +35,52 @@ public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger =
             return;
         }
 
-        // Refuse to open the sink for a route that is being torn down or has no
-        // audio focus; the caller re-captures the snapshot before each TX.
-        if (RouteSnapshot is { } routeSnapshot)
+        // The PTT path already holds audio focus and authorized this generation
+        // when the operator keyed; a VOX transmission owns focus for its burst.
+        bool ownsFocus = false;
+
+        try
         {
-            AudioTransmitBlockReason blockReason = _routeGate.TryKey(routeSnapshot);
+            if (!_routeGate.IsKeyed)
+            {
+                if (!_audioRoute.TryAcquireAudioFocus())
+                {
+                    throw new AudioRouteBlockedException(
+                        "Audio route does not permit playback (FocusLost).",
+                        AudioTransmitBlockReason.FocusLost);
+                }
+
+                ownsFocus = true;
+            }
+
+            // Refuse to open the sink for a route that is being torn down or has no
+            // audio focus; the snapshot is read from the platform observation rather
+            // than a value the caller could have fabricated.
+            AudioTransmitBlockReason blockReason = _routeGate.TryKey(_audioRoute.CurrentSnapshot);
             if (blockReason != AudioTransmitBlockReason.None)
             {
                 throw new AudioRouteBlockedException(
                     $"Audio route does not permit playback ({blockReason}).",
                     blockReason);
             }
-        }
 
+            await PlaySamplesAsync(samples, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Release the authorization before the PTT release, so the next
+            // transmission authorizes a fresh generation.
+            _routeGate.Release();
+
+            if (ownsFocus)
+            {
+                _audioRoute.ReleaseAudioFocus();
+            }
+        }
+    }
+
+    private async Task PlaySamplesAsync(ReadOnlyMemory<float> samples, CancellationToken cancellationToken)
+    {
         short[] shorts = ToPcm16(samples.Span);
         int bufferSize = Math.Max(
             AudioTrack.GetMinBufferSize(SampleRate, ChannelOut.Mono, Encoding.Pcm16bit),
@@ -77,8 +107,8 @@ public sealed class AudioPlaybackService(ILogger<AudioPlaybackService>? logger =
             shorts.Length,
             (offset, count) => track.Write(shorts, offset, count),
             // A frame can outlast the route it started on, so the sink is revalidated
-            // before every chunk; a null snapshot keeps the pre-route behaviour.
-            RouteSnapshot is null ? null : () => _routeGate.CheckBeforeTransmit(RouteSnapshot.Value),
+            // before every chunk against the live platform observation.
+            () => _routeGate.CheckBeforeTransmit(_audioRoute.CurrentSnapshot),
             cancellationToken);
 
         if (writeResult.Status == AudioTransferStatus.Aborted)

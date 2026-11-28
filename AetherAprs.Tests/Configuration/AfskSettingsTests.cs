@@ -15,17 +15,15 @@ public sealed class AfskSettingsTests
     {
         AfskSettings settings = new();
 
-        Assert.Equal(PttMode.None, settings.PttMode);
+        Assert.Equal(PttMode.Vox, settings.PttMode);
         Assert.Equal(AfskSettings.DefaultTxDelayMs, settings.TxDelayMs);
         Assert.Equal(AfskSettings.DefaultTxTailMs, settings.TxTailMs);
         Assert.Equal(AfskSettings.DefaultSlotTimeMs, settings.SlotTimeMs);
         Assert.Equal(AfskSettings.DefaultPersist, settings.Persist);
-        Assert.Equal(AfskSettings.DefaultAudioLevel, settings.AudioLevel);
-        Assert.Equal(AfskSettings.DefaultSquelchThreshold, settings.SquelchThreshold);
     }
 
     [Theory]
-    [InlineData(PttMode.None)]
+    [InlineData(PttMode.Vox)]
     [InlineData(PttMode.SpeakerMic)]
     public void PttMode_ValidValues_AreAccepted(PttMode mode)
     {
@@ -111,44 +109,5 @@ public sealed class AfskSettingsTests
     {
         AfskSettings settings = new() { Persist = value };
         Assert.Equal(value, settings.Persist);
-    }
-
-    [Theory]
-    [InlineData(0.0)]
-    [InlineData(-0.5)]
-    [InlineData(1.5)]
-    public void AudioLevel_OutsideOpenUnitInterval_Throws(double value)
-    {
-        AfskSettings settings = new();
-        Assert.Throws<ArgumentOutOfRangeException>(() => settings.AudioLevel = value);
-    }
-
-    [Theory]
-    [InlineData(0.1)]
-    [InlineData(0.9)]
-    [InlineData(1.0)]
-    public void AudioLevel_WithinOpenUnitInterval_IsAccepted(double value)
-    {
-        AfskSettings settings = new() { AudioLevel = value };
-        Assert.Equal(value, settings.AudioLevel);
-    }
-
-    [Theory]
-    [InlineData(-0.1)]
-    [InlineData(1.1)]
-    public void SquelchThreshold_OutsideClosedUnitInterval_Throws(double value)
-    {
-        AfskSettings settings = new();
-        Assert.Throws<ArgumentOutOfRangeException>(() => settings.SquelchThreshold = value);
-    }
-
-    [Theory]
-    [InlineData(0.0)]
-    [InlineData(0.1)]
-    [InlineData(1.0)]
-    public void SquelchThreshold_WithinClosedUnitInterval_IsAccepted(double value)
-    {
-        AfskSettings settings = new() { SquelchThreshold = value };
-        Assert.Equal(value, settings.SquelchThreshold);
     }
 }

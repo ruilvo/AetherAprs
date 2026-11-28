@@ -72,7 +72,7 @@ public sealed class KissSettingsRecord
 public sealed class AfskSettingsRecord
 {
     /// <summary>
-    /// PTT mode discriminator: 0 = none/VOX, 1 = speaker-mic.
+    /// PTT mode discriminator: 0 = VOX (radio keys itself), 1 = speaker-mic.
     /// </summary>
     public int PttMode { get; set; }
 
@@ -83,10 +83,6 @@ public sealed class AfskSettingsRecord
     public int SlotTimeMs { get; set; }
 
     public int Persist { get; set; }
-
-    public double AudioLevel { get; set; }
-
-    public double SquelchThreshold { get; set; }
 }
 
 public sealed class TcpKissTransportRecord

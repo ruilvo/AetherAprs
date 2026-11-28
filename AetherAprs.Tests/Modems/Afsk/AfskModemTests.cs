@@ -79,23 +79,23 @@ public sealed class AfskModemTests
     }
 
     [Fact]
-    public async Task SendAsync_PttModeNone_DoesNotKeyPtt()
+    public async Task SendAsync_PttModeVox_DoesNotKeyPtt()
     {
         IPttService ptt = Substitute.For<IPttService>();
-        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, ptt: ptt);
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.Vox }, ptt: ptt);
 
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
 
-        ptt.DidNotReceive().Engage();
+        ptt.DidNotReceive().TryEngage();
         ptt.DidNotReceive().Release();
     }
 
     [Fact]
-    public async Task SendAsync_PttModeSpeakerMic_EngagesThenReleasesPtt()
+    public async Task SendAsync_PttModeSpeakerMic_KeysAndReleasesTheTransmitter()
     {
         List<string> order = [];
         IPttService ptt = Substitute.For<IPttService>();
-        ptt.When(p => p.Engage()).Do(_ => order.Add("engage"));
+        ptt.When(p => p.TryEngage()).Do(_ => order.Add("engage"));
         ptt.When(p => p.Release()).Do(_ => order.Add("release"));
 
         AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.SpeakerMic }, ptt: ptt);
@@ -106,12 +106,34 @@ public sealed class AfskModemTests
     }
 
     [Fact]
+    public async Task SendAsync_AudioRouteBlocksKeying_ThrowsWithoutPlayingAndWithoutReleasing()
+    {
+        List<string> order = [];
+        IPttService ptt = Substitute.For<IPttService>();
+        ptt.TryEngage().Returns(AudioTransmitBlockReason.FocusLost);
+        ptt.When(p => p.Release()).Do(_ => order.Add("release"));
+
+        IAudioPlaybackService playback = CreatePlayback(onPlay: _ => order.Add("play"));
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.SpeakerMic }, playback: playback, ptt: ptt);
+
+        AudioRouteBlockedException exception = await Assert.ThrowsAsync<AudioRouteBlockedException>(
+            () => modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken));
+
+        // The refusal is terminal for this transmission: no audio is played into a
+        // route that lost focus, and nothing was keyed that would need releasing.
+        Assert.Equal(AudioTransmitBlockReason.FocusLost, exception.BlockReason);
+        Assert.Empty(order);
+        ptt.Received(1).TryEngage();
+        ptt.DidNotReceive().Release();
+    }
+
+    [Fact]
     public async Task SendAsync_PlaysModulatedSamples_AtConfiguredLevel()
     {
         ReadOnlyMemory<float>? played = null;
         IAudioPlaybackService playback = CreatePlayback(onPlay: samples => played = samples);
         AfskModem modem = CreateModem(
-            new AfskSettings { PttMode = PttMode.None, AudioLevel = 0.9 },
+            new AfskSettings { PttMode = PttMode.Vox },
             playback: playback);
 
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
@@ -131,7 +153,7 @@ public sealed class AfskModemTests
     {
         List<string> order = [];
         IPttService ptt = Substitute.For<IPttService>();
-        ptt.When(p => p.Engage()).Do(_ => order.Add("engage"));
+        ptt.When(p => p.TryEngage()).Do(_ => order.Add("engage"));
         ptt.When(p => p.Release()).Do(_ => order.Add("release"));
 
         IAudioPlaybackService playback = CreatePlayback(onPlay: _ => order.Add("play"));
@@ -159,7 +181,7 @@ public sealed class AfskModemTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken));
 
-        ptt.Received(1).Engage();
+        ptt.Received(1).TryEngage();
         ptt.Received(1).Release();
     }
 
@@ -189,7 +211,7 @@ public sealed class AfskModemTests
         playback.PlayAsync(Arg.Any<ReadOnlyMemory<float>>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
 
-        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.None }, playback: playback);
+        AfskModem modem = CreateModem(new AfskSettings { PttMode = PttMode.Vox }, playback: playback);
 
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);
         await modem.SendAsync(CreatePositionPacket(), TestContext.Current.CancellationToken);

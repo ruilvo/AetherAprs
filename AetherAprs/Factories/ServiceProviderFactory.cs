@@ -91,6 +91,11 @@ public static class ServiceProviderFactory
         services.AddSingleton<IAudioStreamService, NoOpAudioStreamService>();
         services.AddSingleton<IAudioPlaybackService, NoOpAudioPlaybackService>();
         services.AddSingleton<IPttService, NoOpPttService>();
+        // One route monitor and one transmit gate per process: the platform
+        // observation feeds the monitor and every transmit path authorizes the same
+        // generation, so a route change is seen by the keying and playback paths alike.
+        services.AddSingleton<AudioRouteMonitor>();
+        services.AddSingleton<AudioTransmitGate>();
         services.AddSingleton<IBluetoothLeScanner, UnsupportedBluetoothLeScanner>();
         services.AddSingleton<IBluetoothClassicDeviceProvider, UnsupportedBluetoothClassicDeviceProvider>();
         services.AddSingleton<IUiCultureProvider, OsUiCultureProvider>();
@@ -155,6 +160,8 @@ public static class ServiceProviderFactory
         services.AddSingleton<IPortSessionRuntime>(services => services.GetRequiredService<PortService>());
         services.AddSingleton<ISessionPortController, PortServiceSessionController>();
         services.AddSingleton<SessionCoordinator>();
+        services.AddSingleton<ISessionStatusSource>(
+            services => services.GetRequiredService<SessionCoordinator>());
         services.AddSingleton<SessionCoordinatorTelemetryBridge>();
 
         // One stop path for the in-app exit and the notification action: disarm

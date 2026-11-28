@@ -14,12 +14,27 @@ namespace AetherAprs.Android.Services.Platform;
 /// transmitter by toggling the speaker-mic (voice transmit) audio routing via
 /// <see cref="AudioManager"/>.
 /// </summary>
-public sealed class PttService(ILogger<PttService>? logger = null) : IPttService
+/// <remarks>
+/// Keying goes through the shared <see cref="AudioTransmitGate"/> and the route
+/// observed by <see cref="AudioRoutePlatformSource"/>, so a transmission is
+/// refused while audio focus is gone, the route is unknown, or a headset is being
+/// unplugged. The unconditional <see cref="Engage"/> remains for callers that key
+/// a radio without playing modulated audio through this application.
+/// </remarks>
+public sealed class PttService(
+    AudioRoutePlatformSource audioRoute,
+    AudioTransmitGate routeGate,
+    ILogger<PttService>? logger = null) : IPttService
 {
     private readonly AudioManager _audioManager = (AudioManager)global::Android.App.Application.Context
             .GetSystemService(global::Android.Content.Context.AudioService)!;
     private readonly ILogger<PttService>? _logger = logger;
-    private readonly AudioTransmitGate _routeGate = new();
+    private readonly AudioRoutePlatformSource _audioRoute = audioRoute;
+    private readonly AudioTransmitGate _routeGate = routeGate;
+    private bool _isFocusHeld;
+
+    /// <inheritdoc/>
+    public bool SupportsPhysicalPtt => true;
 
     /// <inheritdoc/>
     public void Engage()
@@ -37,54 +52,35 @@ public sealed class PttService(ILogger<PttService>? logger = null) : IPttService
         }
     }
 
-    /// <summary>
-    /// Keys the transmitter only when the route/focus snapshot still permits it.
-    /// Pass null to keep the unconditional behaviour of <see cref="Engage"/>.
-    /// </summary>
-    /// <param name="routeSnapshot">
-    /// Snapshot captured when the operator requested transmission, or null when
-    /// the caller has no route concept.
-    /// </param>
-    /// <returns>True when the transmitter was keyed.</returns>
-    internal bool TryEngage(AudioRouteSnapshot? routeSnapshot)
+    /// <inheritdoc/>
+    public AudioTransmitBlockReason TryEngage()
     {
-        if (routeSnapshot is { } snapshot)
+        if (_routeGate.IsKeyed)
         {
-            AudioTransmitBlockReason blockReason = _routeGate.TryKey(snapshot);
-
-            if (blockReason != AudioTransmitBlockReason.None)
-            {
-                _logger?.LogWarning(
-                    "PTT refused because the audio route does not permit transmission ({BlockReason}).",
-                    blockReason);
-                return false;
-            }
+            // Already keyed: revalidate instead of re-authorizing, so a route that
+            // changed under the operator cannot be laundered by keying twice.
+            return _routeGate.CheckBeforeTransmit(_audioRoute.CurrentSnapshot);
         }
 
+        if (!_audioRoute.TryAcquireAudioFocus())
+        {
+            return AudioTransmitBlockReason.FocusLost;
+        }
+
+        AudioTransmitBlockReason blockReason = _routeGate.TryKey(_audioRoute.CurrentSnapshot);
+        if (blockReason != AudioTransmitBlockReason.None)
+        {
+            _logger?.LogWarning(
+                "PTT refused because the audio route does not permit transmission ({BlockReason}).",
+                blockReason);
+            _audioRoute.ReleaseAudioFocus();
+            return blockReason;
+        }
+
+        _isFocusHeld = true;
         Engage();
-        return true;
-    }
 
-    /// <summary>
-    /// Revalidates the route immediately before a chunk of modulated audio is handed
-    /// to the sink, so a route switch or a headset unplugged mid-frame stops the
-    /// transmission instead of keying the wrong route.
-    /// </summary>
-    /// <param name="routeSnapshot">Route and focus state at this instant.</param>
-    /// <returns><see langword="true"/> when transmission may continue.</returns>
-    internal bool CheckRouteBeforeTransmit(AudioRouteSnapshot routeSnapshot)
-    {
-        AudioTransmitBlockReason blockReason = _routeGate.CheckBeforeTransmit(routeSnapshot);
-        if (blockReason == AudioTransmitBlockReason.None)
-        {
-            return true;
-        }
-
-        _logger?.LogWarning(
-            "PTT stopped because the audio route no longer permits transmission ({BlockReason}).",
-            blockReason);
-
-        return false;
+        return AudioTransmitBlockReason.None;
     }
 
     /// <inheritdoc/>
@@ -92,6 +88,12 @@ public sealed class PttService(ILogger<PttService>? logger = null) : IPttService
     {
         // Unkeying clears the abort so the next transmission starts from a clean gate.
         _routeGate.Release();
+
+        if (_isFocusHeld)
+        {
+            _isFocusHeld = false;
+            _audioRoute.ReleaseAudioFocus();
+        }
 
         try
         {

@@ -43,8 +43,9 @@ public static class KissConnectionStatusText
     }
 
     /// <summary>
-    /// Describes what the attempt negotiated: the ATT payload, the write mode, the
-    /// notification state, the SPP link and the attempt number.
+    /// Describes what the attempt negotiated: the GATT service and characteristics,
+    /// the ATT payload, the write mode, the notification state, the SPP link and the
+    /// attempt number.
     /// </summary>
     /// <param name="progress">The report to describe.</param>
     /// <returns>
@@ -58,6 +59,15 @@ public static class KissConnectionStatusText
 
         if (progress.BluetoothLe is { } detail)
         {
+            if (detail.ServiceUuid != Guid.Empty)
+            {
+                parts.Add(Strings.Format(
+                    "ConnectionDetailGattService",
+                    detail.ServiceUuid,
+                    detail.RxCharacteristicUuid,
+                    detail.TxCharacteristicUuid));
+            }
+
             if (detail.PayloadSize is { } payloadSize && detail.AttMtu is { } attMtu)
             {
                 parts.Add(Strings.Format("ConnectionDetailPayload", payloadSize, attMtu));

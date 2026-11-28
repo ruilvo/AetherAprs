@@ -265,6 +265,47 @@ SPDX-License-Identifier: GPL-3.0-or-later
             </controls:Card>
           </StackPanel>
         </StackPanel>
+
+        <!-- AFSK Settings Section -->
+        <StackPanel Spacing="12"
+                    IsVisible="{Binding SelectedPortSettingsType, Converter={StaticResource TypeNameToIsVisibleConverter}, ConverterParameter=AfskSettings}">
+          <TextBlock Classes="Subtitle2"
+                     Text="{loc:Loc AfskSettings}"
+                     Foreground="{DynamicResource MaterialPrimaryMidBrush}" />
+
+          <StackPanel Spacing="12">
+            <ComboBox ItemsSource="{Binding AvailablePttModes}"
+                      SelectedItem="{Binding SelectedPttMode}"
+                      wpf:ComboBoxAssist.Label="{loc:Loc PttMode}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="sys:Enum">
+                  <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBlock Text="{Binding PttModeUnavailableText}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding PttModeUnavailableText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Foreground="{DynamicResource MaterialBodyLightBrush}" />
+
+            <TextBox Text="{Binding AfskTxDelayMs}"
+                     wpf:TextFieldAssist.Label="{loc:Loc TxDelayMs}"
+                     UseFloatingPlaceholder="True" />
+
+            <TextBox Text="{Binding AfskTxTailMs}"
+                     wpf:TextFieldAssist.Label="{loc:Loc TxTailMs}"
+                     UseFloatingPlaceholder="True" />
+
+            <TextBox Text="{Binding AfskSlotTimeMs}"
+                     wpf:TextFieldAssist.Label="{loc:Loc SlotTimeMs}"
+                     UseFloatingPlaceholder="True" />
+
+            <TextBox Text="{Binding AfskPersist}"
+                     wpf:TextFieldAssist.Label="{loc:Loc Persist}"
+                     UseFloatingPlaceholder="True" />
+          </StackPanel>
+        </StackPanel>
       </StackPanel>
     </ScrollViewer>
 

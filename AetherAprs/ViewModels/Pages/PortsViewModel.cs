@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     private readonly IConfirmationDialogService _confirmationDialogService;
     private readonly ITransientFeedbackService? _transientFeedbackService;
     private readonly IUiDispatcher? _uiDispatcher;
+    private readonly ISessionStatusSource? _sessionStatusSource;
     private readonly ILogger<PortsViewModel> _logger;
     private readonly ILoggerFactory _loggerFactory;
 
@@ -45,7 +47,8 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
         ILogger<PortsViewModel> logger,
         ILoggerFactory loggerFactory,
         ITransientFeedbackService? transientFeedbackService = null,
-        IUiDispatcher? uiDispatcher = null)
+        IUiDispatcher? uiDispatcher = null,
+        ISessionStatusSource? sessionStatusSource = null)
     {
         _portService = portService;
         _configurationService = configurationService;
@@ -54,9 +57,16 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
         _confirmationDialogService = confirmationDialogService;
         _transientFeedbackService = transientFeedbackService;
         _uiDispatcher = uiDispatcher;
+        _sessionStatusSource = sessionStatusSource;
         _logger = logger;
         _loggerFactory = loggerFactory;
         _portService.PortsChanged += OnPortsChanged;
+
+        if (_sessionStatusSource is not null)
+        {
+            _sessionStatusSource.StateChanged += OnSessionStateChanged;
+        }
+
         LoadPorts();
     }
 
@@ -72,9 +82,58 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
                 OnDeletePortAsync,
                 OnEditPort,
                 _loggerFactory.CreateLogger<PortItemViewModel>());
+            item.ApplySessionStatus(FindSessionStatus(port.Id));
             PortItems.Add(item);
         }
         OnPropertyChanged(nameof(HasPorts));
+    }
+
+    private PortSessionStatus? FindSessionStatus(Guid portId)
+    {
+        if (_sessionStatusSource is null)
+        {
+            return null;
+        }
+
+        foreach (PortSessionStatus status in _sessionStatusSource.Ports)
+        {
+            if (status.PortId == portId)
+            {
+                return status;
+            }
+        }
+
+        return null;
+    }
+
+    private void OnSessionStateChanged(object? sender, SessionStateChangedEventArgs args)
+    {
+        if (_uiDispatcher is null)
+        {
+            ApplySessionStatuses(args.Snapshot.Ports);
+        }
+        else
+        {
+            _uiDispatcher.Post(() => ApplySessionStatuses(args.Snapshot.Ports));
+        }
+    }
+
+    private void ApplySessionStatuses(IReadOnlyList<PortSessionStatus> statuses)
+    {
+        foreach (PortItemViewModel item in PortItems)
+        {
+            PortSessionStatus? status = null;
+            foreach (PortSessionStatus candidate in statuses)
+            {
+                if (candidate.PortId == item.Id)
+                {
+                    status = candidate;
+                    break;
+                }
+            }
+
+            item.ApplySessionStatus(status);
+        }
     }
 
     private void OnPortsChanged(object? sender, EventArgs e)
@@ -93,6 +152,11 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     {
         GC.SuppressFinalize(this);
         _portService.PortsChanged -= OnPortsChanged;
+
+        if (_sessionStatusSource is not null)
+        {
+            _sessionStatusSource.StateChanged -= OnSessionStateChanged;
+        }
     }
 
     private async Task OnTogglePortAsync(PortItemViewModel item)
@@ -170,7 +234,9 @@ public partial class PortsViewModel : ViewModelBase, IDisposable
     {
         string template = port.TypeSettings is AprsIsSettings
             ? "DefaultAprsIsPortName"
-            : "DefaultKissPortName";
+            : port.TypeSettings is AfskSettings
+                ? "DefaultAfskPortName"
+                : "DefaultKissPortName";
 
         // Formatting with an empty argument yields the localized prefix
         // ("APRS-IS Port ", "KISS Port ") that the editor prepends to a number.

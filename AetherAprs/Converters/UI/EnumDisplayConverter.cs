@@ -32,6 +32,11 @@ public class EnumDisplayConverter : IValueConverter
                 return Strings.Get("PortTypeKiss");
             }
 
+            if (type == typeof(AfskSettings))
+            {
+                return Strings.Get("PortTypeAfsk");
+            }
+
             if (type == typeof(TcpKissTransportSettings))
             {
                 return Strings.Get("TransportTcp");
@@ -59,6 +64,16 @@ public class EnumDisplayConverter : IValueConverter
             };
         }
 
+        if (value is PttMode pttMode)
+        {
+            return pttMode switch
+            {
+                PttMode.Vox => Strings.Get("PttModeVox"),
+                PttMode.SpeakerMic => Strings.Get("PttModeSpeakerMic"),
+                _ => pttMode.ToString()
+            };
+        }
+
         return value;
     }
 
@@ -70,6 +85,7 @@ public class EnumDisplayConverter : IValueConverter
             {
                 _ when str == Strings.Get("PortTypeAprsIs") || str == "APRS-IS" => typeof(AprsIsSettings),
                 _ when str == Strings.Get("PortTypeKiss") || str == "KISS" => typeof(KissSettings),
+                _ when str == Strings.Get("PortTypeAfsk") || str == "AFSK" => typeof(AfskSettings),
                 _ when str == Strings.Get("TransportTcp") || str == "TCP" => typeof(TcpKissTransportSettings),
                 _ when str == Strings.Get("TransportBluetoothClassicSpp") || str == "Bluetooth Classic (SPP)" => typeof(BluetoothClassicKissTransportSettings),
                 _ when str == Strings.Get("TransportBluetoothLe") || str == "Bluetooth LE" => typeof(BluetoothLeKissTransportSettings),

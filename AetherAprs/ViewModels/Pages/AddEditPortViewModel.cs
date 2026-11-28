@@ -6,6 +6,7 @@ using AetherAprs.Configuration;
 using AetherAprs.Helpers;
 using AetherAprs.Localization;
 using AetherAprs.Services.Bluetooth;
+using AetherAprs.Services.Platform;
 using AetherAprs.Services.Ports;
 using AetherAprs.Services.UI;
 using AetherAprs.Transports.Kiss;
@@ -33,6 +34,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     private readonly ILogger<AddEditPortViewModel>? _logger;
     private readonly ITransientFeedbackService? _transientFeedbackService;
     private readonly IUiDispatcher? _uiDispatcher;
+    private readonly bool _supportsPhysicalPtt;
     private CancellationTokenSource? _bleScanCts;
     private PortConfig? _existingConfig;
     private bool _isNameManuallyEdited;
@@ -80,6 +82,25 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     public partial int TcpPort { get; set; } = TcpKissTransportSettings.DefaultPort;
+
+    /// <summary>
+    /// How the AFSK modem keys the transmitter. Only the modes the platform can
+    /// actually perform are offered; see <see cref="SupportsPhysicalPtt"/>.
+    /// </summary>
+    [ObservableProperty]
+    public partial PttMode SelectedPttMode { get; set; } = AfskSettings.DefaultPttMode;
+
+    [ObservableProperty]
+    public partial int AfskTxDelayMs { get; set; } = AfskSettings.DefaultTxDelayMs;
+
+    [ObservableProperty]
+    public partial int AfskTxTailMs { get; set; } = AfskSettings.DefaultTxTailMs;
+
+    [ObservableProperty]
+    public partial int AfskSlotTimeMs { get; set; } = AfskSettings.DefaultSlotTimeMs;
+
+    [ObservableProperty]
+    public partial int AfskPersist { get; set; } = AfskSettings.DefaultPersist;
 
     [ObservableProperty]
     public partial BluetoothLeAdvertisement? SelectedBleDevice { get; set; }
@@ -157,7 +178,27 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         ? (string.IsNullOrEmpty(Name) ? Strings.Get("EditPort") : Strings.Format("EditPortNamed", Name))
         : Strings.Get("AddPort");
 
-    public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings)];
+    public Type[] PortTypes { get; } = [typeof(AprsIsSettings), typeof(KissSettings), typeof(AfskSettings)];
+
+    /// <summary>
+    /// Transmitter keying modes the operator can choose. A platform without a
+    /// physical PTT control only offers <see cref="PttMode.Vox"/>, because promising
+    /// speaker-mic keying there would be a setting that cannot work.
+    /// </summary>
+    public ObservableCollection<PttMode> AvailablePttModes { get; } = [];
+
+    /// <summary>
+    /// Whether the platform can key a physical PTT control at all.
+    /// </summary>
+    public bool SupportsPhysicalPtt => _supportsPhysicalPtt;
+
+    /// <summary>
+    /// Stated warning shown when this platform cannot key a physical PTT, so the
+    /// single VOX choice is explained instead of looking like a missing option.
+    /// </summary>
+    public string PttModeUnavailableText => _supportsPhysicalPtt
+        ? string.Empty
+        : Strings.Get("PttModeUnavailable");
 
     /// <summary>
     /// Transports the editor offers. The supported transports come first; a stored
@@ -183,7 +224,8 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         AprsIsFilterBuilderViewModel filterBuilder,
         ILogger<AddEditPortViewModel>? logger = null,
         ITransientFeedbackService? transientFeedbackService = null,
-        IUiDispatcher? uiDispatcher = null)
+        IUiDispatcher? uiDispatcher = null,
+        IPttService? pttService = null)
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _portService = portService ?? throw new ArgumentNullException(nameof(portService));
@@ -194,6 +236,12 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         _logger = logger;
         _transientFeedbackService = transientFeedbackService;
         _uiDispatcher = uiDispatcher;
+        _supportsPhysicalPtt = pttService?.SupportsPhysicalPtt ?? false;
+        AvailablePttModes.Add(PttMode.Vox);
+        if (_supportsPhysicalPtt)
+        {
+            AvailablePttModes.Add(PttMode.SpeakerMic);
+        }
         // Connection stages are telemetry, an optional capability of the port service:
         // a page that only reads configuration keeps working without it.
         _portTelemetry = portService as IPortServiceTelemetry ?? NullPortServiceTelemetry.Instance;
@@ -251,7 +299,9 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
     {
         string key = SelectedPortSettingsType == typeof(AprsIsSettings)
             ? "DefaultAprsIsPortName"
-            : "DefaultKissPortName";
+            : SelectedPortSettingsType == typeof(AfskSettings)
+                ? "DefaultAfskPortName"
+                : "DefaultKissPortName";
         return Strings.Format(key, _portNumber);
     }
 
@@ -546,6 +596,7 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
         SelectedPortSettingsType = config.TypeSettings switch
         {
             KissSettings => typeof(KissSettings),
+            AfskSettings => typeof(AfskSettings),
             _ => typeof(AprsIsSettings)
         };
         IsRx = config.IsRx;
@@ -618,6 +669,23 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
                     break;
             }
         }
+
+        if (config.TypeSettings is AfskSettings afsk)
+        {
+            SelectedPttMode = afsk.PttMode;
+            if (!AvailablePttModes.Contains(afsk.PttMode))
+            {
+                // The stored mode cannot be performed here (no physical PTT on this
+                // platform). Keep it selectable so the saved configuration is shown as
+                // it is and round-trips on save, instead of being silently rewritten.
+                AvailablePttModes.Add(afsk.PttMode);
+            }
+
+            AfskTxDelayMs = afsk.TxDelayMs;
+            AfskTxTailMs = afsk.TxTailMs;
+            AfskSlotTimeMs = afsk.SlotTimeMs;
+            AfskPersist = afsk.Persist;
+        }
     }
 
     /// <summary>
@@ -649,7 +717,53 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             return TryValidateKiss(out error);
         }
 
+        if (SelectedPortSettingsType == typeof(AfskSettings))
+        {
+            return TryValidateAfsk(out error);
+        }
+
         error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Rejects an AFSK edit the settings type would refuse, so the operator sees the
+    /// offending field instead of a raw argument exception after pressing save.
+    /// </summary>
+    private bool TryValidateAfsk(out string error)
+    {
+        error = string.Empty;
+
+        if (!Enum.IsDefined(SelectedPttMode))
+        {
+            error = Strings.Get("ValidationPttModeRequired");
+            return false;
+        }
+
+        if (AfskTxDelayMs < 0)
+        {
+            error = Strings.Get("ValidationTxDelayRange");
+            return false;
+        }
+
+        if (AfskTxTailMs < 0)
+        {
+            error = Strings.Get("ValidationTxTailRange");
+            return false;
+        }
+
+        if (AfskSlotTimeMs < 0)
+        {
+            error = Strings.Get("ValidationSlotTimeRange");
+            return false;
+        }
+
+        if (AfskPersist is < 0 or > 255)
+        {
+            error = Strings.Get("ValidationPersistRange");
+            return false;
+        }
+
         return true;
     }
 
@@ -772,6 +886,17 @@ public partial class AddEditPortViewModel : ViewModelBase, IDisposable
             config.TypeSettings = new KissSettings
             {
                 Transport = BuildKissTransportSettings()
+            };
+        }
+        else if (SelectedPortSettingsType == typeof(AfskSettings))
+        {
+            config.TypeSettings = new AfskSettings
+            {
+                PttMode = SelectedPttMode,
+                TxDelayMs = AfskTxDelayMs,
+                TxTailMs = AfskTxTailMs,
+                SlotTimeMs = AfskSlotTimeMs,
+                Persist = AfskPersist
             };
         }
 

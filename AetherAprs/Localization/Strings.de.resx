@@ -600,5 +600,27 @@ SPDX-License-Identifier: GPL-3.0-or-later
   <data name="ConnectionDetailNotifications" xml:space="preserve"><value>Benachrichtigungen aktiviert</value></data>
   <data name="ConnectionDetailSppConnected" xml:space="preserve"><value>SPP verbunden</value></data>
   <data name="ConnectionDetailAttempt" xml:space="preserve"><value>Versuch {0}</value></data>
+  <data name="ConnectionDetailGattService" xml:space="preserve"><value>Dienst {0} (RX {1}, TX {2})</value></data>
+  <data name="PortStatusStarting" xml:space="preserve"><value>Wird gestartet</value></data>
+  <data name="PortStatusConnecting" xml:space="preserve"><value>Verbinden</value></data>
+  <data name="PortStatusConnected" xml:space="preserve"><value>Verbunden</value></data>
+  <data name="PortStatusDegraded" xml:space="preserve"><value>Beeinträchtigt</value></data>
+  <data name="PortStatusWaitingToRetry" xml:space="preserve"><value>Warte auf neuen Versuch (Versuch {0})</value></data>
   <data name="KissTransportUnavailable" xml:space="preserve"><value>{0} ist auf dieser Plattform nicht verfügbar</value></data>
+  <data name="PortTypeAfsk" xml:space="preserve"><value>AFSK</value></data>
+  <data name="AfskSettings" xml:space="preserve"><value>AFSK-Einstellungen</value></data>
+  <data name="PttMode" xml:space="preserve"><value>PTT-Modus</value></data>
+  <data name="PttModeVox" xml:space="preserve"><value>VOX (das Funkgerät tastet selbst)</value></data>
+  <data name="PttModeSpeakerMic" xml:space="preserve"><value>Lautsprecher-Mikrofon-PTT</value></data>
+  <data name="PttModeUnavailable" xml:space="preserve"><value>Diese Plattform hat keine physische PTT-Steuerung; das Funkgerät tastet selbst (VOX).</value></data>
+  <data name="TxDelayMs" xml:space="preserve"><value>TX-Verzögerung (ms)</value></data>
+  <data name="TxTailMs" xml:space="preserve"><value>TX-Nachlauf (ms)</value></data>
+  <data name="SlotTimeMs" xml:space="preserve"><value>Slotzeit (ms)</value></data>
+  <data name="Persist" xml:space="preserve"><value>Persistenz (0-255)</value></data>
+  <data name="DefaultAfskPortName" xml:space="preserve"><value>AFSK-Port {0}</value></data>
+  <data name="ValidationPttModeRequired" xml:space="preserve"><value>Wählen Sie, wie der Sender getastet wird</value></data>
+  <data name="ValidationTxDelayRange" xml:space="preserve"><value>Die TX-Verzögerung muss 0 Millisekunden oder mehr betragen</value></data>
+  <data name="ValidationTxTailRange" xml:space="preserve"><value>Der TX-Nachlauf muss 0 Millisekunden oder mehr betragen</value></data>
+  <data name="ValidationSlotTimeRange" xml:space="preserve"><value>Die Slotzeit muss 0 Millisekunden oder mehr betragen</value></data>
+  <data name="ValidationPersistRange" xml:space="preserve"><value>Die Persistenz muss zwischen 0 und 255 liegen</value></data>
 </root>

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 using AetherAprs.Configuration;
+using AetherAprs.Services.Ports;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ public partial class PortItemViewModel : ViewModelBase
     private readonly Action<PortItemViewModel> _onEdit;
     private readonly ILogger<PortItemViewModel>? _logger;
     private bool _isInitializing;
+    private PortSessionStatus? _sessionStatus;
 
     public Guid Id => _config.Id;
 
@@ -29,18 +31,67 @@ public partial class PortItemViewModel : ViewModelBase
     {
         AprsIsSettings => Localization.Strings.Get("PortTypeAprsIs"),
         KissSettings => Localization.Strings.Get("PortTypeKiss"),
+        AfskSettings => Localization.Strings.Get("PortTypeAfsk"),
         _ => Localization.Strings.Get("PortTypeUnknown")
     };
 
-    public string StatusText => IsEnabled
-        ? Localization.Strings.Get("Running")
-        : Localization.Strings.Get("Stopped");
+    /// <summary>
+    /// What the port is doing right now. It combines the operator's intent with the
+    /// runtime session state, so a port that is enabled but still reconnecting reads
+    /// as connecting rather than as running.
+    /// </summary>
+    public string StatusText
+    {
+        get
+        {
+            if (!IsEnabled)
+            {
+                return Localization.Strings.Get("Stopped");
+            }
+
+            if (_sessionStatus is not { } status)
+            {
+                // No session has been reported yet (the coordinator may not have run);
+                // the intent is all that is known.
+                return Localization.Strings.Get("Running");
+            }
+
+            return status.State switch
+            {
+                PortSessionState.Connected => Localization.Strings.Get("PortStatusConnected"),
+                PortSessionState.Connecting => Localization.Strings.Get("PortStatusConnecting"),
+                PortSessionState.Degraded => Localization.Strings.Get("PortStatusDegraded"),
+                _ when status.NextRetryUtc is not null => Localization.Strings.Format(
+                    "PortStatusWaitingToRetry",
+                    Math.Max(status.RetryCount, 1)),
+                _ => Localization.Strings.Get("PortStatusStarting")
+            };
+        }
+    }
+
+    /// <summary>Consecutive failed connect attempts reported by the session.</summary>
+    public int RetryCount => _sessionStatus?.RetryCount ?? 0;
+
+    /// <summary>When the session will next try to connect, if it is waiting.</summary>
+    public DateTimeOffset? NextRetryUtc => _sessionStatus?.NextRetryUtc;
 
     [ObservableProperty]
     public partial bool IsEnabled { get; set; }
 
     [ObservableProperty]
     public partial bool ShowOnMap { get; set; }
+
+    /// <summary>
+    /// Applies the runtime session status for this port and refreshes the rendered
+    /// text. Passing <see langword="null"/> means the session has no status yet.
+    /// </summary>
+    public void ApplySessionStatus(PortSessionStatus? status)
+    {
+        _sessionStatus = status;
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(RetryCount));
+        OnPropertyChanged(nameof(NextRetryUtc));
+    }
 
     public PortItemViewModel(
         PortConfig config,

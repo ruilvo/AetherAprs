@@ -4,30 +4,90 @@
 
 using System;
 
-namespace AetherAprs.Android.Services.Platform;
+namespace AetherAprs.Services.Platform;
 
 /// <summary>
-/// Holds the state of one push-to-talk transmission: whether it was keyed, and
-/// whether it must be unkeyed because the route or the audio focus went away.
+/// Decides whether push-to-talk may key the transmitter for a route/focus
+/// snapshot. Kept free of platform types so the invalidation rules can be
+/// unit-tested.
 /// </summary>
-internal enum AudioTransmitState
+/// <remarks>
+/// Authorization is bound to the route generation it was granted for. Re-checking
+/// a snapshot from a later generation (a headset was plugged in, Bluetooth took
+/// over, the speaker-mic route changed) fails with
+/// <see cref="AudioTransmitBlockReason.RouteChanged"/> so the caller re-decides
+/// before transmitting on a route it never validated.
+/// </remarks>
+public sealed class AudioRouteValidator
 {
-    /// <summary>Nothing is keyed.</summary>
-    Idle,
+    private int? _authorizedGeneration;
 
-    /// <summary>The transmitter is keyed and the route is still valid.</summary>
-    Keyed,
+    /// <summary>Gets whether a snapshot has been authorized and not invalidated.</summary>
+    public bool IsAuthorized => _authorizedGeneration.HasValue;
+
+    /// <summary>Decides whether a snapshot permits transmission on its own.</summary>
+    /// <param name="snapshot">The current route and focus state.</param>
+    public static AudioTransmitBlockReason Evaluate(AudioRouteSnapshot snapshot)
+    {
+        if (snapshot.IsBecomingNoisy)
+        {
+            return AudioTransmitBlockReason.RouteBecomingNoisy;
+        }
+
+        if (!snapshot.IsFocusGranted)
+        {
+            return AudioTransmitBlockReason.FocusLost;
+        }
+
+        if (snapshot.Route == AudioRouteKind.Unknown)
+        {
+            return AudioTransmitBlockReason.RouteUnknown;
+        }
+
+        return AudioTransmitBlockReason.None;
+    }
 
     /// <summary>
-    /// The transmitter was keyed and the route, focus or device changed, so the
-    /// transmission has to stop and the operator has to key again.
+    /// Authorizes transmission for a snapshot, recording its route generation.
+    /// Clears any previous authorization when the snapshot is blocked.
     /// </summary>
-    Aborted
+    /// <param name="snapshot">The route and focus state to authorize.</param>
+    public AudioTransmitBlockReason Authorize(AudioRouteSnapshot snapshot)
+    {
+        AudioTransmitBlockReason reason = Evaluate(snapshot);
+        _authorizedGeneration = reason == AudioTransmitBlockReason.None
+            ? snapshot.Generation
+            : null;
+
+        return reason;
+    }
+
+    /// <summary>
+    /// Re-checks a snapshot against the generation that was authorized.
+    /// </summary>
+    /// <param name="snapshot">The route and focus state at transmission time.</param>
+    public AudioTransmitBlockReason Revalidate(AudioRouteSnapshot snapshot)
+    {
+        AudioTransmitBlockReason reason = Evaluate(snapshot);
+        if (reason != AudioTransmitBlockReason.None)
+        {
+            _authorizedGeneration = null;
+            return reason;
+        }
+
+        if (_authorizedGeneration != snapshot.Generation)
+        {
+            _authorizedGeneration = null;
+            return AudioTransmitBlockReason.RouteChanged;
+        }
+
+        return AudioTransmitBlockReason.None;
+    }
 }
 
 /// <summary>
 /// Decides whether push-to-talk may key, and whether it has to unkey mid-frame.
-/// Kept free of Android types so the revalidation rules can be unit-tested.
+/// Kept free of platform types so the revalidation rules can be unit-tested.
 /// </summary>
 /// <remarks>
 /// A snapshot is authorized once, when the operator keys. Every transmission after
@@ -36,7 +96,7 @@ internal enum AudioTransmitState
 /// the frame is going out, aborts the transmission instead of playing modulated
 /// audio into the wrong sink.
 /// </remarks>
-internal sealed class AudioTransmitGate
+public sealed class AudioTransmitGate
 {
     private readonly AudioRouteValidator _validator;
 
@@ -128,4 +188,39 @@ internal sealed class AudioTransmitGate
         State = AudioTransmitState.Idle;
         LastBlockReason = AudioTransmitBlockReason.None;
     }
+}
+
+/// <summary>State of one push-to-talk transmission.</summary>
+public enum AudioTransmitState
+{
+    /// <summary>Nothing is keyed.</summary>
+    Idle,
+
+    /// <summary>The transmitter is keyed and the route is still valid.</summary>
+    Keyed,
+
+    /// <summary>
+    /// The transmitter was keyed and the route, focus or device changed, so the
+    /// transmission has to stop and the operator has to key again.
+    /// </summary>
+    Aborted
+}
+
+/// <summary>
+/// Thrown when playback is refused, or stopped part-way, because the audio route no
+/// longer permits transmission.
+/// </summary>
+public sealed class AudioRouteBlockedException : InvalidOperationException
+{
+    /// <summary>Creates the exception for a block reason.</summary>
+    /// <param name="message">Diagnostic message.</param>
+    /// <param name="blockReason">Why the route does not permit transmission.</param>
+    public AudioRouteBlockedException(string message, AudioTransmitBlockReason blockReason)
+        : base(message)
+    {
+        BlockReason = blockReason;
+    }
+
+    /// <summary>Why the route does not permit transmission.</summary>
+    public AudioTransmitBlockReason BlockReason { get; }
 }

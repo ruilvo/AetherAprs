@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Rui Oliveira <ruimail24@gmail.com>
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-using AetherAprs.Android.Services.Platform;
+using AetherAprs.Services.Platform;
 using Xunit;
 
-namespace AetherAprs.Tests.Android;
+namespace AetherAprs.Tests.Services.Platform;
 
 /// <summary>
 /// Regression tests: a route switch, a focus loss or a headset being unplugged

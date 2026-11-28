@@ -41,10 +41,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
              Link="Android\Services\Transports\GattConnectionPolicy.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\AudioWriteLoop.cs"
              Link="Android\Services\Platform\AudioWriteLoop.cs" />
-    <Compile Include="..\AetherAprs.Android\Services\Platform\AudioRouteValidator.cs"
-             Link="Android\Services\Platform\AudioRouteValidator.cs" />
-    <Compile Include="..\AetherAprs.Android\Services\Platform\AudioTransmitGate.cs"
-             Link="Android\Services\Platform\AudioTransmitGate.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\NotificationContentSpec.cs"
              Link="Android\Services\Platform\NotificationContentSpec.cs" />
     <Compile Include="..\AetherAprs.Android\Services\Platform\SecretStoreFailureClassifier.cs"

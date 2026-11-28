@@ -8,10 +8,12 @@ using AetherAprs.Models.Aprs.Packets;
 using AetherAprs.Services.Contracts;
 using AetherAprs.Services.Ports;
 using AetherAprs.Tests.Helpers;
+using AetherAprs.Transports.Kiss;
 using Geo;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -260,6 +262,39 @@ public sealed class PortSessionManagerTests
         Assert.Same(fault, reported.Exception);
     }
 
+    [Fact]
+    public async Task RetriedStart_ReportsTheAttemptNumberToTheConnector()
+    {
+        AttemptRecordingFactory factory = new(failuresBeforeSuccess: 1);
+        await using PortSessionManager manager = TestSessionManager.Create(factory);
+        PortConfig port = CreateKissPort();
+
+        PortSessionStartResult first = await manager.StartAsync(port, TestContext.Current.CancellationToken);
+        PortSessionStartResult second = await manager.StartAsync(port, TestContext.Current.CancellationToken);
+
+        Assert.Equal(PortSessionStartStatus.Failed, first.Status);
+        Assert.Equal(PortSessionStartStatus.Started, second.Status);
+
+        // The connector sees one-based attempts, so a reconnecting session is
+        // distinguishable from the first attempt instead of always reporting 1.
+        Assert.Equal([1, 2], factory.Attempts);
+        Assert.Equal(2, manager.GetConnectionProgress(port.Id)?.Attempt);
+    }
+
+    [Fact]
+    public async Task Stop_ResetsTheAttemptNumber()
+    {
+        AttemptRecordingFactory factory = new(failuresBeforeSuccess: 1);
+        await using PortSessionManager manager = TestSessionManager.Create(factory);
+        PortConfig port = CreateKissPort();
+
+        await manager.StartAsync(port, TestContext.Current.CancellationToken);
+        await manager.StopAsync(port.Id, null, TestContext.Current.CancellationToken);
+        await manager.StartAsync(port, TestContext.Current.CancellationToken);
+
+        Assert.Equal([1, 1], factory.Attempts);
+    }
+
     private static PortConfig CreateKissPort(string name = "KISS") => new()
     {
         Id = Guid.NewGuid(),
@@ -291,6 +326,52 @@ public sealed class PortSessionManagerTests
             cancellationToken.ThrowIfCancellationRequested();
             Interlocked.Increment(ref _createCount);
             return Task.FromResult(create(port));
+        }
+    }
+
+    /// <summary>
+    /// Records the attempt number the session manager hands to the connector and
+    /// fails the first <paramref name="failuresBeforeSuccess"/> attempts, the way a
+    /// transport that is not yet reachable behaves.
+    /// </summary>
+    private sealed class AttemptRecordingFactory(int failuresBeforeSuccess) : IModemFactory
+    {
+        private readonly List<int> _attempts = [];
+
+        public IReadOnlyList<int> Attempts
+        {
+            get
+            {
+                lock (_attempts)
+                {
+                    return [.. _attempts];
+                }
+            }
+        }
+
+        public Task<IPortModem> CreateAsync(PortConfig port, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The session manager must pass the connection context.");
+
+        public Task<IPortModem> CreateAsync(
+            PortConfig port,
+            KissConnectionContext context,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int attempt;
+            lock (_attempts)
+            {
+                _attempts.Add(context.EffectiveAttempt);
+                attempt = _attempts.Count;
+            }
+
+            if (attempt <= failuresBeforeSuccess)
+            {
+                throw new IOException("The transport is not reachable yet.");
+            }
+
+            return Task.FromResult<IPortModem>(new ScriptedModem());
         }
     }
 

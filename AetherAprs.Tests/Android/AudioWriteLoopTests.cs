@@ -5,6 +5,7 @@
 using System;
 using System.Threading;
 using AetherAprs.Android.Services.Platform;
+using AetherAprs.Services.Platform;
 using Xunit;
 
 namespace AetherAprs.Tests.Android;
